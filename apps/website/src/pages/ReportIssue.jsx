@@ -44,7 +44,7 @@ const ReportIssue = () => {
   return (
     <div
       className={`min-h-screen flex flex-col transition-colors duration-300 ${
-        theme === "dark" ? "bg-[#041801] text-white" : "bg-white text-[#083002]"
+        theme === "dark" ? "bg-[#041801] text-white" : "bg-white text-black"
       }`}
     >
       <Navbar />

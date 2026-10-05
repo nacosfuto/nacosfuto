@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from '../components/Nav/Navbar';
 import Footer from '../components/Footer';
 import { useTheme } from '../context/ThemeContext';
 import execGroupImg from '../assets/nacos_exec_group.jpg';
 import TechTeamSection from '../components/TechTeamSection';
+import { FiClock, FiChevronDown, FiChevronUp, FiCalendar } from 'react-icons/fi';
 import { 
   getExecutives, 
   getExecutivesSettings, 
@@ -17,6 +18,34 @@ const NacosExecutives = () => {
   const [currentExecutives, setCurrentExecutives] = useState([]);
   const [pastExecutives, setPastExecutives] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Past Executives Archive State (View Only When Clicked / Selected By Tenure)
+  const [showPastExecutives, setShowPastExecutives] = useState(false);
+  const [selectedTenure, setSelectedTenure] = useState('');
+
+  const tenureList = useMemo(() => {
+    const leaderMap = {
+      '2024/2025': 'AKINNUBI PETER',
+      '2023/2024': 'IHEKWOBA SUCCESS',
+      '2022/2023': 'CHIKEZIE GREAT EME'
+    };
+    const set = new Set(['2024/2025', '2023/2024', '2022/2023']);
+    pastExecutives.forEach(e => {
+      if (e.session) set.add(e.session);
+    });
+    return Array.from(set).sort().reverse().map(session => {
+      const pres = pastExecutives.find(e => (e.session === session) && (e.role?.toLowerCase().includes('president') && !e.role?.toLowerCase().includes('vice')));
+      const leader = pres?.name ? pres.name.replace(/^comr\.?\s+/i, '').replace(/^high comrade\s+/i, '') : (leaderMap[session] || 'NACOS President');
+      return { session, leader };
+    });
+  }, [pastExecutives]);
+
+  const availableTenures = useMemo(() => tenureList.map(t => t.session), [tenureList]);
+  const activeTenure = selectedTenure || availableTenures[0] || '2024/2025';
+
+  const displayedPastExecutives = useMemo(() => {
+    return pastExecutives.filter(e => (e.session || '2024/2025') === activeTenure);
+  }, [pastExecutives, activeTenure]);
 
   const loadData = () => {
     try {
@@ -85,51 +114,23 @@ const NacosExecutives = () => {
           
           {/* About NACOS Overview Section */}
           <div className="mb-14">
-            <div className={`p-6 sm:p-8 md:p-10 rounded-[5px] border transition-all ${
+            <div className={`p-6 sm:p-8 md:p-10 rounded-[5px] border transition-all text-center ${
               theme === 'dark'
                 ? 'bg-[#083002] border-[#138601]/40 text-white'
                 : 'bg-white border-gray-200 text-gray-900 shadow-sm'
             }`}>
-              <div className="max-w-4xl">
-                <div className="flex items-center gap-2 mb-3">
+              <div className="max-w-3xl mx-auto flex flex-col items-center">
+                <div className="flex items-center justify-center gap-2 mb-3">
                   <span className="px-3 py-1 rounded-[5px] text-xs font-bold uppercase tracking-wider bg-green-100 dark:bg-green-900/40 text-[#138601] dark:text-green-300">
                     Official Student Association
                   </span>
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-black tracking-tight mb-3 text-[#083002] dark:text-white">
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight mb-3 text-black dark:text-white">
                   About <span className="text-[#138601] dark:text-[#4bd043]">NACOS FUTO</span>
                 </h2>
-                <p className="text-sm md:text-base leading-relaxed opacity-90 mb-6 text-gray-700 dark:text-gray-300">
+                <p className="text-sm md:text-base leading-relaxed opacity-90 text-gray-700 dark:text-gray-300">
                   The Nigeria Association of Computing Students (NACOS), Federal University of Technology, Owerri (FUTO) Chapter, is the premier umbrella body uniting all undergraduate and postgraduate computing scholars in the Department of Computer Science. As the foremost student technology organization in the region, NACOS serves as the vital bridge between academic coursework, practical software craftsmanship, and the global technology ecosystem.
                 </p>
-
-                {/* 3 Core Pillars */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-gray-200 dark:border-[#138601]/20">
-                  <div>
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-[#138601] dark:text-[#4bd043] mb-1.5">
-                      Technical Innovation
-                    </h3>
-                    <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-300">
-                      Organizing annual hackathons, code jams, algorithm contests, and hands-on bootcamps to equip students with industry-grade software engineering skills.
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-[#138601] dark:text-[#4bd043] mb-1.5">
-                      Academic Mentorship
-                    </h3>
-                    <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-300">
-                      Providing comprehensive course materials, peer-to-peer tutoring, freshman orientations, and supportive welfare systems for every student.
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-[#138601] dark:text-[#4bd043] mb-1.5">
-                      Industry & Alumni Network
-                    </h3>
-                    <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-300">
-                      Connecting students with tech internships, developer fellowships, and alumni mentors leading technology teams globally.
-                    </p>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -198,67 +199,157 @@ const NacosExecutives = () => {
             )}
           </div>
 
-          {/* Section 2: Past Executives (Three per row on desktop) */}
-          <div>
-            <div className="flex items-center gap-4 mb-10">
-              <h2 className="text-2xl md:text-3xl font-black tracking-tight">
-                {pageSettings.pastSessionTitle || 'Past Executives (2024/2025)'}
+          {/* Section 2: Past Executive Teams */}
+          <div className="mt-16 pt-12 border-t border-gray-200 dark:border-gray-800">
+            <div className="text-center max-w-2xl mx-auto mb-10">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-[#138601] dark:text-[#4bd043] mb-3">
+                Past Executive Teams
               </h2>
-              <div className="h-1 flex-grow bg-gradient-to-r from-gray-500 to-transparent rounded opacity-35"></div>
+              <p className="text-sm md:text-base text-gray-600 dark:text-gray-300 leading-relaxed">
+                We honor the contributions of our previous executive teams who have shaped NACOS into what it is today.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
-              {pastExecutives.map((exec, index) => (
-                <div 
-                  key={exec.id || index} 
-                  className={`w-full max-w-[340px] md:max-w-[360px] mx-auto flex flex-col border p-4 shadow-sm transition-all duration-300 rounded-xl hover:shadow-lg ${
-                    theme === 'dark' 
-                      ? 'bg-[#083002] border-[#138601]/40 text-white' 
-                      : 'bg-white border-gray-200 text-gray-900'
-                  }`}
+            {/* Tenure Dropdown Selector: Allows choosing from a single place by tenure */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-xl mx-auto mb-8 px-4">
+              <label htmlFor="tenure-dropdown-select" className="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                Choose By Tenure:
+              </label>
+              <div className="relative w-full max-w-sm">
+                <select
+                  id="tenure-dropdown-select"
+                  value={activeTenure}
+                  onChange={(e) => {
+                    setSelectedTenure(e.target.value);
+                    setShowPastExecutives(true);
+                  }}
+                  className="w-full appearance-none px-4 py-3 pr-10 rounded-xl border font-bold text-sm bg-white dark:bg-[#083002] border-gray-300 dark:border-[#138601]/50 text-gray-900 dark:text-white shadow-sm hover:border-[#138601] focus:outline-none focus:ring-2 focus:ring-[#138601] cursor-pointer transition-all"
                 >
-                  {/* Bounding box for image */}
-                  <div className={`border overflow-hidden rounded-lg aspect-[4/4.5] flex items-center justify-center ${theme === 'dark' ? 'border-[#138601]/20 bg-gray-900/60' : 'border-gray-200 bg-gray-100'}`}>
-                    {exec.image ? (
-                      <img 
-                        src={exec.image} 
-                        alt={exec.name} 
-                        className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" 
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center text-gray-400 p-3">
-                        <svg className="w-12 h-12 opacity-40 mb-1" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                        </svg>
-                        <span className="text-[10px] font-semibold opacity-60 uppercase tracking-wider">No Photo</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Divider line */}
-                  <div className={`border-t my-3.5 ${theme === 'dark' ? 'border-[#138601]/20' : 'border-gray-200'}`}></div>
-
-                  {/* Details section without level */}
-                  <div className="flex flex-col items-center text-center flex-grow">
-                    <h3 className={`font-bold text-base leading-tight tracking-wide uppercase mb-3 ${theme === 'dark' ? 'text-white' : 'text-gray-950'}`}>
-                      {exec.name}
-                    </h3>
-                    
-                    {/* Position */}
-                    <h4 className={`font-extrabold text-xs uppercase tracking-wider pt-2.5 border-t w-full mt-auto ${
-                      theme === 'dark' 
-                        ? 'text-[#4bd043] border-[#138601]/20' 
-                        : 'text-[#138601] border-gray-150'
-                    }`}>
-                      {exec.role}
-                    </h4>
-                  </div>
-                </div>
-              ))}
+                  {tenureList.map(({ session, leader }) => (
+                    <option key={session} value={session} className="text-gray-900 dark:text-white dark:bg-gray-900">
+                      {session} — Led by {leader}
+                    </option>
+                  ))}
+                </select>
+                <FiChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-green-600 dark:text-green-400 text-lg" />
+              </div>
             </div>
 
-            {pastExecutives.length === 0 && !isLoading && (
-              <p className="text-center text-gray-500 py-8 text-sm">No past executives archived yet.</p>
+            {/* 2-Column Tenure Cards matching user design */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-10">
+              {tenureList.map(({ session, leader }) => {
+                const isSelected = activeTenure === session && showPastExecutives;
+                return (
+                  <button
+                    key={session}
+                    type="button"
+                    onClick={() => {
+                      if (activeTenure === session && showPastExecutives) {
+                        setShowPastExecutives(false);
+                      } else {
+                        setSelectedTenure(session);
+                        setShowPastExecutives(true);
+                      }
+                    }}
+                    className={`relative p-6 sm:p-7 rounded-2xl border text-left transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md flex flex-col justify-center ${
+                      isSelected
+                        ? 'bg-green-50/90 dark:bg-[#083002] border-[#138601] dark:border-[#4bd043] ring-2 ring-[#138601]/25'
+                        : theme === 'dark'
+                          ? 'bg-[#083002]/50 border-[#138601]/30 hover:border-[#138601] text-white'
+                          : 'bg-white border-gray-200 hover:border-gray-300 text-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-4 mb-2 w-full">
+                      <h3 className="text-2xl font-black text-[#138601] dark:text-[#4bd043] tracking-tight">
+                        {session}
+                      </h3>
+                      <FiChevronDown className={`text-green-600 dark:text-green-400 text-xl transition-transform duration-300 ${isSelected ? 'rotate-180' : ''}`} />
+                    </div>
+                    <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+                      Led by <span className="font-bold text-gray-900 dark:text-white">{leader}</span>
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Display Executives for Selected Tenure */}
+            {showPastExecutives && (
+              <div className="animate-in fade-in duration-300 mt-6">
+                <div className="flex items-center justify-between gap-4 mb-8 pb-3 border-b border-gray-200 dark:border-[#138601]/20">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                    Executives for Tenure <span className="text-[#138601] dark:text-[#4bd043]">{activeTenure}</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowPastExecutives(false)}
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-xs font-bold hover:bg-gray-100 dark:hover:bg-[#083002] transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <FiChevronUp className="text-sm" />
+                    <span>Close</span>
+                  </button>
+                </div>
+
+                {/* Grid of Executives for Selected Tenure */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
+                  {displayedPastExecutives.map((exec, index) => (
+                    <div 
+                      key={exec.id || index} 
+                      className={`w-full max-w-[340px] md:max-w-[360px] mx-auto flex flex-col border p-4 shadow-sm transition-all duration-300 rounded-xl hover:shadow-lg ${
+                        theme === 'dark' 
+                          ? 'bg-[#083002] border-[#138601]/40 text-white' 
+                          : 'bg-white border-gray-200 text-gray-900'
+                      }`}
+                    >
+                      {/* Bounding box for image */}
+                      <div className={`border overflow-hidden rounded-lg aspect-[4/4.5] flex items-center justify-center relative ${theme === 'dark' ? 'border-[#138601]/20 bg-gray-900/60' : 'border-gray-200 bg-gray-100'}`}>
+                        {exec.image ? (
+                          <img 
+                            src={exec.image} 
+                            alt={exec.name} 
+                            className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" 
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-gray-400 p-3">
+                            <svg className="w-12 h-12 opacity-40 mb-1" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                            </svg>
+                            <span className="text-[10px] font-semibold opacity-60 uppercase tracking-wider">No Photo</span>
+                          </div>
+                        )}
+                        <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-[5px] bg-black/60 backdrop-blur-xs text-white text-[10px] font-mono font-bold">
+                          {exec.session || activeTenure}
+                        </div>
+                      </div>
+
+                      {/* Divider line */}
+                      <div className={`border-t my-3.5 ${theme === 'dark' ? 'border-[#138601]/20' : 'border-gray-200'}`}></div>
+
+                      {/* Details section */}
+                      <div className="flex flex-col items-center text-center flex-grow">
+                        <h3 className={`font-bold text-base leading-tight tracking-wide uppercase mb-3 ${theme === 'dark' ? 'text-white' : 'text-gray-950'}`}>
+                          {exec.name}
+                        </h3>
+                        
+                        {/* Position */}
+                        <h4 className={`font-extrabold text-xs uppercase tracking-wider pt-2.5 border-t w-full mt-auto ${
+                          theme === 'dark' 
+                            ? 'text-[#4bd043] border-[#138601]/20' 
+                            : 'text-[#138601] border-gray-150'
+                        }`}>
+                          {exec.role}
+                        </h4>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {displayedPastExecutives.length === 0 && (
+                  <p className="text-center text-gray-500 py-12 text-sm">
+                    No executives found for tenure {activeTenure}.
+                  </p>
+                )}
+              </div>
             )}
           </div>
 

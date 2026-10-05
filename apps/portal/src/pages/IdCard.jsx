@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import PortalLayout from '../components/PortalLayout';
 import {
   CreditCard,
@@ -18,7 +18,9 @@ import {
   Sparkles,
   ExternalLink,
   ChevronRight,
-  RotateCcw
+  RotateCcw,
+  Lock,
+  Check
 } from 'lucide-react';
 import {
   getIdCardSettings,
@@ -41,11 +43,13 @@ import frameAsset from '../assets/nacos_id_template_frame.png';
 
 const IdCard = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const canvasRef = useRef(null);
+  const pollIntervalRef = useRef(null);
 
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState({ id_card_fee: 2500, academic_session: '2026/2027' });
+  const [settings, setSettings] = useState({ id_card_fee: 5000, academic_session: '2026/2027' });
   const [application, setApplication] = useState(null);
   const [currentSide, setCurrentSide] = useState('front'); // 'front' | 'back'
 
@@ -56,6 +60,12 @@ const IdCard = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [notification, setNotification] = useState({ message: '', type: '' });
+
+  // Bachs Payment Verification & Polling States
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+  const [verifyingReference, setVerifyingReference] = useState('');
+  const [simulatedModal, setSimulatedModal] = useState(null);
+  const [isSimulatingSuccess, setIsSimulatingSuccess] = useState(false);
 
   useEffect(() => {
     loadStudentAndApplication();
@@ -124,6 +134,131 @@ const IdCard = () => {
     setTimeout(() => setNotification({ message: '', type: '' }), 4500);
   };
 
+  // Bachs Verification Polling & URL Parameter Listener
+  useEffect(() => {
+    const paymentAction = searchParams.get('payment');
+    const ref = searchParams.get('reference');
+
+    if (paymentAction === 'verifying' && ref) {
+      setIsVerifyingPayment(true);
+      setVerifyingReference(ref);
+      startPaymentVerificationPolling(ref);
+    } else if (paymentAction === 'simulated_checkout' && ref) {
+      setSimulatedModal({
+        reference: ref,
+        amount: searchParams.get('amount') || settings.id_card_fee || 5000
+      });
+    } else if (paymentAction === 'cancelled') {
+      showNotification('Payment was cancelled. You can retry checkout when you are ready.', 'error');
+      searchParams.delete('payment');
+      searchParams.delete('reference');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, []);
+
+  const startPaymentVerificationPolling = (reference) => {
+    let attempts = 0;
+    const maxAttempts = 24; // 24 * 2.5s = 60s max polling
+
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+
+    const checkStatus = async () => {
+      attempts++;
+      try {
+        const res = await fetch(`/api/payments/id-card/status?reference=${encodeURIComponent(reference)}`);
+        const data = await res.json();
+
+        if (data.isPaid || data.status === 'successful') {
+          clearInterval(pollIntervalRef.current);
+          setIsVerifyingPayment(false);
+          showNotification('Payment confirmed! Your NACOS ID Card application has been unlocked.');
+          
+          searchParams.delete('payment');
+          searchParams.delete('reference');
+          setSearchParams(searchParams, { replace: true });
+          
+          await loadStudentAndApplication();
+          return;
+        }
+      } catch (err) {
+        console.warn('Polling payment status error:', err);
+      }
+
+      if (attempts >= maxAttempts) {
+        clearInterval(pollIntervalRef.current);
+        setIsVerifyingPayment(false);
+        showNotification('Payment verification timed out. If you were debited, click "Check Payment Status" below.', 'error');
+      }
+    };
+
+    checkStatus();
+    pollIntervalRef.current = setInterval(checkStatus, 2500);
+  };
+
+  const handleManualCheckStatus = async () => {
+    const targetRef = verifyingReference || searchParams.get('reference');
+    if (!targetRef) return;
+    setIsPaying(true);
+    try {
+      const res = await fetch(`/api/payments/id-card/status?reference=${encodeURIComponent(targetRef)}`);
+      const data = await res.json();
+      setIsPaying(false);
+
+      if (data.isPaid || data.status === 'successful') {
+        setIsVerifyingPayment(false);
+        showNotification('Payment confirmed! Your NACOS ID Card application has been unlocked.');
+        searchParams.delete('payment');
+        searchParams.delete('reference');
+        setSearchParams(searchParams, { replace: true });
+        await loadStudentAndApplication();
+      } else {
+        showNotification(`Payment status: ${data.status || 'pending'}. We are waiting for gateway confirmation.`, 'error');
+      }
+    } catch (e) {
+      setIsPaying(false);
+      showNotification('Could not check status. Please check your network connection.', 'error');
+    }
+  };
+
+  const handleSimulatePaymentSuccess = async (ref) => {
+    const targetRef = ref || verifyingReference || simulatedModal?.reference;
+    if (!targetRef) return;
+    setIsSimulatingSuccess(true);
+    try {
+      const res = await fetch('/api/payments/id-card/simulate-success', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reference: targetRef,
+          amount: settings.id_card_fee || 5000
+        })
+      });
+      const data = await res.json();
+      setIsSimulatingSuccess(false);
+      setSimulatedModal(null);
+      if (data.success) {
+        showNotification('Sandbox payment confirmed via webhook simulation!');
+        setIsVerifyingPayment(false);
+        searchParams.delete('payment');
+        searchParams.delete('reference');
+        searchParams.delete('amount');
+        setSearchParams(searchParams, { replace: true });
+        await loadStudentAndApplication();
+      } else {
+        showNotification(data.error || 'Simulation failed', 'error');
+      }
+    } catch (e) {
+      setIsSimulatingSuccess(false);
+      showNotification('Simulation endpoint error', 'error');
+    }
+  };
+
   // ---------------------------------------------------------------------------
   // Action Handlers
   // ---------------------------------------------------------------------------
@@ -142,29 +277,45 @@ const IdCard = () => {
     }
   };
 
-  // State 2 -> State 3: Payment
+  // State 2 -> State 3: Bachs Payment Checkout Session
   const handlePayment = async () => {
     setIsPaying(true);
-    const matric = student.matric || student.registration_number;
-    const fee = settings.id_card_fee || 2500;
 
-    // Simulate payment transaction record
-    const payRes = await recordStudentPayment(matric, fee);
-    if (!payRes.success) {
+    try {
+      const resp = await fetch('/api/payments/id-card/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student,
+          returnBaseUrl: window.location.origin
+        })
+      });
+
+      const data = await resp.json();
+
+      if (data.alreadyPaid) {
+        setIsPaying(false);
+        showNotification('Payment already completed and confirmed!');
+        await loadStudentAndApplication();
+        return;
+      }
+
+      if (data.error) {
+        setIsPaying(false);
+        showNotification(data.error, 'error');
+        return;
+      }
+
+      if (data.checkoutUrl) {
+        // Authoritative redirect to Bachs Checkout
+        window.location.href = data.checkoutUrl;
+      } else {
+        setIsPaying(false);
+        showNotification('Could not obtain checkout session from Bachs gateway.', 'error');
+      }
+    } catch (e) {
       setIsPaying(false);
-      showNotification('Payment processing failed. Please try again.', 'error');
-      return;
-    }
-
-    // Verify & link with application
-    const linkRes = await verifyAndLinkPayment(application?.id, matric);
-    setIsPaying(false);
-
-    if (linkRes.error) {
-      showNotification(linkRes.error, 'error');
-    } else {
-      setApplication(linkRes.application);
-      showNotification('Payment verified & recorded successfully!');
+      showNotification('Payment service unreachable. Please try again.', 'error');
     }
   };
 
@@ -392,49 +543,181 @@ const IdCard = () => {
             ==================================================================== */}
         {isState2 && (
           <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 text-center space-y-6 shadow-xs">
-            <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800/40">
-              <CreditCard className="w-8 h-8" />
-            </div>
+            {isVerifyingPayment ? (
+              /* Polling / Verifying State */
+              <div className="space-y-6 max-w-md mx-auto">
+                <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800 animate-pulse">
+                  <RefreshCw className="w-8 h-8 animate-spin" />
+                </div>
 
-            <div className="max-w-md mx-auto space-y-2">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                Payment Required to Continue
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
-                Your ID card application (<span className="font-mono font-bold text-gray-800 dark:text-white">{application.application_number}</span>) has been initiated. Complete the departmental dues & ID card fee to unlock passport upload.
+                <div className="space-y-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                    <Clock className="w-3.5 h-3.5" /> Awaiting Webhook Confirmation
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                    Verifying Payment with Bachs
+                  </h2>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
+                    We've detected your return from the Bachs payment gateway. We are waiting for authoritative server-to-server confirmation.
+                  </p>
+                </div>
+
+                {verifyingReference && (
+                  <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/20 text-xs font-mono text-gray-700 dark:text-green-200">
+                    Ref: <span className="font-bold text-[#138601] dark:text-[#4bd043]">{verifyingReference}</span>
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleManualCheckStatus}
+                    disabled={isPaying}
+                    className="w-full sm:w-auto px-6 py-3 min-h-[44px] text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
+                  >
+                    {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                    <span>Check Payment Status</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSimulatePaymentSuccess(verifyingReference)}
+                    disabled={isSimulatingSuccess}
+                    className="w-full sm:w-auto px-5 py-3 min-h-[44px] text-xs font-semibold text-gray-700 dark:text-green-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 rounded-xl border border-gray-200 dark:border-[#138601]/30 transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
+                  >
+                    {isSimulatingSuccess ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-amber-500" />}
+                    <span>Simulate Webhook (Sandbox)</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Standard Payment Required Prompt */
+              <>
+                <div className="w-16 h-16 rounded-2xl bg-green-50 dark:bg-[#041801] text-[#138601] dark:text-[#4bd043] flex items-center justify-center mx-auto border border-[#138601]/30">
+                  <CreditCard className="w-8 h-8" />
+                </div>
+
+                <div className="max-w-md mx-auto space-y-2">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                    Payment Required to Continue
+                  </h2>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
+                    Your ID card application (<span className="font-mono font-bold text-gray-800 dark:text-white">{application.application_number}</span>) has been initiated. Complete payment securely via <strong>Bachs</strong> to unlock passport upload.
+                  </p>
+                </div>
+
+                {/* Invoice Summary Box */}
+                <div className="p-5 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2.5">
+                  <div className="flex justify-between pb-2 border-b border-gray-200/60 dark:border-[#138601]/20">
+                    <span className="text-gray-500 dark:text-green-200/60">Student Reg No:</span>
+                    <span className="font-mono font-bold text-gray-900 dark:text-white">{student.matric || student.registration_number}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-green-200/60">Purpose:</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">NACOS Student ID Card</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-green-200/60">Gateway Provider:</span>
+                    <span className="font-semibold text-[#138601] dark:text-[#4bd043] flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Bachs (bachs.io)
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-green-200/60">Academic Session:</span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">{settings.academic_session}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-gray-200/60 dark:border-[#138601]/20 text-sm">
+                    <span className="font-bold text-gray-700 dark:text-gray-300">Amount Payable:</span>
+                    <span className="font-bold text-[#138601] dark:text-[#4bd043]">₦{(settings.id_card_fee || 5000).toLocaleString()}.00</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={handlePayment}
+                    disabled={isPaying}
+                    className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
+                  >
+                    {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                    <span>{isPaying ? 'Connecting to Bachs...' : `Pay ₦${(settings.id_card_fee || 5000).toLocaleString()} with Bachs`}</span>
+                  </button>
+
+                  <div className="flex items-center justify-center gap-2 text-[11px] text-gray-400 dark:text-green-200/50">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
+                    <span>256-bit encrypted • Authoritative server verification</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* -------------------------------------------------------------------
+            MODAL: BACHS SANDBOX CHECKOUT SIMULATOR
+            ------------------------------------------------------------------- */}
+        {simulatedModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/40 p-6 space-y-5 shadow-2xl text-left">
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#138601]/20">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                    Bachs Sandbox Checkout
+                  </h3>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                  SANDBOX
+                </span>
+              </div>
+
+              <p className="text-xs text-gray-600 dark:text-green-100/80">
+                You are testing the NACOS Student ID Card payment flow in sandbox mode. Simulating completion will trigger an authoritative webhook to unlock passport upload.
               </p>
-            </div>
 
-            {/* Invoice Summary Box */}
-            <div className="p-5 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2.5">
-              <div className="flex justify-between pb-2 border-b border-gray-200/60 dark:border-[#138601]/20">
-                <span className="text-gray-500 dark:text-green-200/60">Student Reg No:</span>
-                <span className="font-mono font-bold text-gray-900 dark:text-white">{student.matric || student.registration_number}</span>
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/20 text-xs space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Student:</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{student.name || student.full_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Reg No:</span>
+                  <span className="font-mono font-bold text-[#138601] dark:text-[#4bd043]">{student.matric || student.registration_number}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Reference:</span>
+                  <span className="font-mono text-[11px] text-gray-700 dark:text-green-200">{simulatedModal.reference}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-[#138601]/20 text-sm font-bold">
+                  <span className="text-gray-900 dark:text-white">Total:</span>
+                  <span className="text-[#138601] dark:text-[#4bd043]">₦{Number(simulatedModal.amount || 5000).toLocaleString()}.00</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-green-200/60">Purpose:</span>
-                <span className="font-semibold text-gray-800 dark:text-gray-200">Departmental Dues & ID Card</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-green-200/60">Academic Session:</span>
-                <span className="font-medium text-gray-700 dark:text-gray-300">{settings.academic_session}</span>
-              </div>
-              <div className="flex justify-between pt-2 border-t border-gray-200/60 dark:border-[#138601]/20 text-sm">
-                <span className="font-bold text-gray-700 dark:text-gray-300">Amount Payable:</span>
-                <span className="font-bold text-[#138601] dark:text-[#4bd043]">₦{settings.id_card_fee?.toLocaleString() || '2,500'}.00</span>
-              </div>
-            </div>
 
-            <div>
-              <button
-                type="button"
-                onClick={handlePayment}
-                disabled={isPaying}
-                className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
-              >
-                {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-                <span>{isPaying ? 'Verifying Transaction with Gateway...' : `Pay Fee (₦${settings.id_card_fee?.toLocaleString() || '2,500'})`}</span>
-              </button>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSimulatedModal(null);
+                    searchParams.delete('payment');
+                    searchParams.delete('reference');
+                    searchParams.delete('amount');
+                    setSearchParams(searchParams, { replace: true });
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSimulatePaymentSuccess(simulatedModal.reference)}
+                  disabled={isSimulatingSuccess}
+                  className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  {isSimulatingSuccess ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  <span>Complete Test Payment</span>
+                </button>
+              </div>
             </div>
           </div>
         )}

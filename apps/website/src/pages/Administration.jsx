@@ -1,60 +1,45 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Nav/Navbar';
 import Footer from '../components/Footer';
 import { useTheme } from '../context/ThemeContext';
 import { FiUser, FiMail } from 'react-icons/fi';
+import { fetchDepartmentStaff, INITIAL_STAFF } from '@nacos/supabase';
+import { getCloudinaryAssetUrl } from '@nacos/media';
 import hodStanleyImg from '../assets/executives/hod_stanley.jpg';
 import staffAdviserImg from '../assets/executives/staff_adviser_nwokorie.jpg';
 
-const deriveEmail = (name) => {
-    const clean = name.replace(/^(Dr\.?|Mr\.?|Mrs\.?|DR\.?|MR\.?)\s*/i, '').trim();
-    const parts = clean.toLowerCase().split(/\s+/);
-    if (parts.length >= 2) {
-        return `${parts[0]}.${parts[parts.length - 1]}@futo.edu.ng`;
-    }
-    return `${parts[0] || 'staff'}@futo.edu.ng`;
-};
-
 const Administration = () => {
     const { theme } = useTheme();
+    const [staff, setStaff] = useState(INITIAL_STAFF);
 
-    const staff = [
-        {
-            role: "Head of Department (CSC)",
-            name: "Dr. Stanley Adiele Okolie",
-            email: "hod.csc@futo.edu.ng",
-            image: hodStanleyImg
-        },
-        {
-            role: "Staff Adviser / Course Adviser",
-            name: "Dr. (Mrs) E.C. Nwokorie",
-            email: "staff.adviser@futo.edu.ng",
-            image: staffAdviserImg
-        },
-        { sn: 1, name: "Dr. Juliet Nnenna Odii", rank: "Reader", email: deriveEmail("Dr. Juliet Nnenna Odii") },
-        { sn: 2, name: "Dr. Jacinta Chioma Odirichukwu", rank: "Senior Lecturer", email: deriveEmail("Dr. Jacinta Chioma Odirichukwu") },
-        { sn: 3, name: "Dr. Uchenna Chinyere Onyemauche", rank: "Senior Lecturer", email: deriveEmail("Dr. Uchenna Chinyere Onyemauche") },
-        { sn: 4, name: "Dr Chidimma Lilan Okpalla", rank: "Senior Lecturer", email: deriveEmail("Dr Chidimma Lilan Okpalla") },
-        { sn: 5, name: "DR. CHINWE GILEAN ONUKWUGHA", rank: "Senior Lecturer", email: deriveEmail("DR. CHINWE GILEAN ONUKWUGHA") },
-        { sn: 6, name: "Dr Euphemia Chioma Nwokorie", rank: "Senior Lecturer", email: deriveEmail("Dr Euphemia Chioma Nwokorie") },
-        { sn: 8, name: "Mr Douglas Allswell Kelechi", rank: "Lecturer II", email: deriveEmail("Mr Douglas Allswell Kelechi") },
-        { sn: 9, name: "Dr Chidi Ukamaka Betrand", rank: "Lecturer II", email: deriveEmail("Dr Chidi Ukamaka Betrand") },
-        { sn: 10, name: "Mr. Peter Kelechukwu Joseph", rank: "Assistant Lecturer", email: deriveEmail("Mr. Peter Kelechukwu Joseph") },
-        { sn: 11, name: "Mr. Vitalis Chibuike Iwuchukwu", rank: "Assistant Lecturer", email: deriveEmail("Mr. Vitalis Chibuike Iwuchukwu") },
-        { sn: 12, name: "Mr Christopher Ifeanyi Ofoegbu", rank: "Graduate Assistant", email: deriveEmail("Mr Christopher Ifeanyi Ofoegbu") },
-        { sn: 13, name: "Mrs Juliet Nwanneka Amoke", rank: "Technologist II", email: deriveEmail("Mrs Juliet Nwanneka Amoke") },
-        { sn: 14, name: "Dr Chukwuma Dandy Anyiam", rank: "Lecturer I", email: deriveEmail("Dr Chukwuma Dandy Anyiam") },
-        { sn: 15, name: "DR. MERCY EBERECHI BENSON-EMENIKE", rank: "Senior Lecturer", email: deriveEmail("DR. MERCY EBERECHI BENSON-EMENIKE") },
-        { sn: 16, name: "Mr Chigozie C Dimoji", rank: "Assistant Lecturer", email: deriveEmail("Mr Chigozie C Dimoji") },
-        { sn: 17, name: "Mr Ikechukwu Kingsley Onyeanu", rank: "Senior Computer Technologist", email: deriveEmail("Mr Ikechukwu Kingsley Onyeanu") },
-        { sn: 18, name: "Mrs Ngozi Amarachi Duru", rank: "Assistant Lecturer", email: deriveEmail("Mrs Ngozi Amarachi Duru") },
-        { sn: 19, name: "Mr Idris Ahmed Idris", rank: "Graduate Assistant (GA)", email: deriveEmail("Mr Idris Ahmed Idris") },
-        { sn: 20, name: "MR ANTHONY CHUKWUNONSO UGHAELUMBA", rank: "System Programmer/Analyst II", email: deriveEmail("MR ANTHONY CHUKWUNONSO UGHAELUMBA") },
-        { sn: 21, name: "Mr. Harry Chidozie Ogbonna", rank: "Technologist II", email: deriveEmail("Mr. Harry Chidozie Ogbonna") },
-        { sn: 22, name: "Mrs. Edith Chidimma Otuonye", rank: "Secretary I", email: deriveEmail("Mrs. Edith Chidimma Otuonye") },
-        { sn: 23, name: "Dr. Francisca Onyinyechi Nwokoma", rank: "Lecturer I", email: deriveEmail("Dr. Francisca Onyinyechi Nwokoma") },
-        { sn: 24, name: "Dr. Donatus Onyedikachi Njoku", rank: "Lecturer II", email: deriveEmail("Dr. Donatus Onyedikachi Njoku") },
-    ];
+    useEffect(() => {
+        let isMounted = true;
+        const loadStaff = async () => {
+            const data = await fetchDepartmentStaff({ activeOnly: true });
+            if (isMounted && data && data.length > 0) {
+                // Ensure HOD & Staff adviser images are resolved with Cloudinary / local fallback
+                const enhanced = data.map(p => {
+                    let img = p.image;
+                    if (!img) {
+                        if (p.id === 'staff-hod' || p.role?.includes('Head of Department')) {
+                            img = getCloudinaryAssetUrl('hod_stanley') || hodStanleyImg;
+                        } else if (p.id === 'staff-adviser' || p.role?.includes('Staff Adviser')) {
+                            img = getCloudinaryAssetUrl('staff_adviser_nwokorie') || staffAdviserImg;
+                        }
+                    }
+                    return { ...p, image: img };
+                });
+                setStaff(enhanced);
+            }
+        };
+
+        loadStaff();
+        window.addEventListener('nacos_department_staff_updated', loadStaff);
+        return () => {
+            isMounted = false;
+            window.removeEventListener('nacos_department_staff_updated', loadStaff);
+        };
+    }, []);
 
     return (
         <div className={`min-h-screen flex flex-col ${theme === 'dark' ? 'bg-[#041801] text-white' : 'bg-white text-black'} transition-colors duration-300`}>

@@ -37,6 +37,7 @@ export async function fetchResourceCategories(options = { includeInactive: false
 
 /**
  * Fetch resources with multi-factor filtering, debounced search, sorting, and pagination.
+ * Directly queried from Supabase PostgreSQL database.
  */
 export async function fetchResources({
   categorySlug = null,
@@ -51,7 +52,16 @@ export async function fetchResources({
   limit = 20,
   includeInactive = false
 } = {}) {
-  if (!supabase) return { data: [], total: 0, error: 'Supabase client not initialized' };
+  if (!supabase) {
+    return {
+      data: [],
+      total: 0,
+      page,
+      limit,
+      totalPages: 0,
+      error: 'Supabase client not initialized'
+    };
+  }
 
   try {
     let query = supabase
@@ -83,12 +93,8 @@ export async function fetchResources({
 
     // Level filter (100, 200, 300, 400, 500)
     if (level && level !== 'all') {
-      const parsedLevel = parseInt(level, 10);
-      if (!isNaN(parsedLevel)) {
-        query = query.eq('level', parsedLevel);
-      } else {
-        query = query.eq('level', level);
-      }
+      const cleanLevel = String(level).replace(/ Level/i, '').trim();
+      query = query.or(`level.eq.${cleanLevel},level.eq."${cleanLevel}",level.eq."${cleanLevel} Level"`);
     }
 
     // Course Code filter
@@ -98,7 +104,7 @@ export async function fetchResources({
 
     // Semester filter
     if (semester && semester !== 'all') {
-      query = query.eq('semester', semester.trim());
+      query = query.ilike('semester', `%${semester.trim()}%`);
     }
 
     // Resource Type filter (document, past_question, video, archive, image, etc.)
@@ -137,19 +143,38 @@ export async function fetchResources({
     query = query.range(from, to);
 
     const { data, count, error } = await query;
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase query error in fetchResources:', error.message);
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        error: error.message
+      };
+    }
+
+    const total = count ?? (data?.length || 0);
 
     return {
       data: data || [],
-      total: count || 0,
+      total,
       page,
       limit,
-      totalPages: Math.ceil((count || 0) / limit),
+      totalPages: Math.ceil(total / limit),
       error: null
     };
   } catch (err) {
-    console.error('Error fetching resources:', err);
-    return { data: [], total: 0, page, limit, totalPages: 0, error: err.message || 'Failed to fetch resources' };
+    console.error('Error fetching resources from database:', err);
+    return { 
+      data: [], 
+      total: 0, 
+      page, 
+      limit, 
+      totalPages: 0, 
+      error: err.message || 'Failed to fetch resources from database' 
+    };
   }
 }
 

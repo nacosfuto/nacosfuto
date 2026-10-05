@@ -62,7 +62,7 @@ const StudentLife = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#041801] text-[#083002] dark:text-white transition-colors duration-300">
+    <div className="min-h-screen bg-white dark:bg-[#041801] text-black dark:text-white transition-colors duration-300">
       <Navbar />
 
       {/* Hero Section */}
@@ -70,10 +70,10 @@ const StudentLife = () => {
         <div className="site-container">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h1 className="text-4xl md:text-5xl font-extrabold mb-6 text-[#083002] dark:text-white tracking-tight leading-tight">
+              <h1 className="text-4xl md:text-5xl font-extrabold mb-6 text-black dark:text-white tracking-tight leading-tight">
                 Student <span className="text-[#138601] dark:text-[#4bd043]">Life & Community</span>
               </h1>
-              <p className="text-base sm:text-lg text-[#083002]/75 dark:text-green-100/75 mb-8 leading-relaxed">
+              <p className="text-base sm:text-lg text-black/75 dark:text-green-100/75 mb-8 leading-relaxed">
                 Beyond rigorous academics, we offer a vibrant, supportive campus life filled with opportunities for leadership development, collaborative hackathons, and lifelong friendships.
               </p>
               <ScrollToTopLink
@@ -98,10 +98,10 @@ const StudentLife = () => {
       <section className="py-20 bg-[#f8f9fa] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
         <div className="site-container">
           <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#083002] dark:text-white tracking-tight mb-3">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight mb-3">
               Campus <span className="text-[#138601] dark:text-[#4bd043]">Clubs & Societies</span>
             </h2>
-            <p className="text-base text-[#083002]/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
+            <p className="text-base text-black/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
               Find your tribe, build collaborative software projects, and sharpen your technical skills.
             </p>
           </div>
@@ -114,10 +114,10 @@ const StudentLife = () => {
               >
                 <div>
                   <div className="mb-4">{club.icon}</div>
-                  <h3 className="text-lg font-bold text-[#083002] dark:text-white mb-2 leading-snug">
+                  <h3 className="text-lg font-bold text-black dark:text-white mb-2 leading-snug">
                     {club.title}
                   </h3>
-                  <p className="text-xs text-[#083002]/75 dark:text-green-100/75 leading-relaxed">
+                  <p className="text-xs text-black/75 dark:text-green-100/75 leading-relaxed">
                     {club.description}
                   </p>
                 </div>
@@ -131,10 +131,10 @@ const StudentLife = () => {
       <section className="py-20 bg-white dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
         <div className="site-container">
           <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#083002] dark:text-white tracking-tight mb-3">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight mb-3">
               Annual <span className="text-[#138601] dark:text-[#4bd043]">Events</span>
             </h2>
-            <p className="text-base text-[#083002]/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
+            <p className="text-base text-black/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
               Mark your calendar for our premier hackathons, conferences, and student celebrations.
             </p>
           </div>
@@ -148,10 +148,10 @@ const StudentLife = () => {
                 <div className="text-[#138601] dark:text-[#4bd043] font-bold text-xl mb-2">
                   {event.month}
                 </div>
-                <h3 className="text-base font-bold text-[#083002] dark:text-white mb-2">
+                <h3 className="text-base font-bold text-black dark:text-white mb-2">
                   {event.title}
                 </h3>
-                <p className="text-xs text-[#083002]/75 dark:text-green-100/75 leading-relaxed">
+                <p className="text-xs text-black/75 dark:text-green-100/75 leading-relaxed">
                   {event.description}
                 </p>
               </div>
@@ -165,34 +165,34 @@ const StudentLife = () => {
         <div className="site-container">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#083002] dark:text-white mb-4 tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-black dark:text-white mb-4 tracking-tight">
                 Student <span className="text-[#138601] dark:text-[#4bd043]">Support Services</span>
               </h2>
-              <p className="text-sm text-[#083002]/75 dark:text-green-100/75 mb-6 leading-relaxed">
+              <p className="text-sm text-black/75 dark:text-green-100/75 mb-6 leading-relaxed">
                 We provide comprehensive academic mentoring, career placement guidance, and wellness resources to help students thrive throughout their university journey.
               </p>
               <div className="space-y-4">
                 <div className="bg-white dark:bg-[#083002] p-4 rounded border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
-                  <h4 className="font-bold text-sm text-[#083002] dark:text-white">
+                  <h4 className="font-bold text-sm text-black dark:text-white">
                     Academic Advising
                   </h4>
-                  <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">
+                  <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">
                     Dedicated faculty advisors to guide course registration and academic standing.
                   </p>
                 </div>
                 <div className="bg-white dark:bg-[#083002] p-4 rounded border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
-                  <h4 className="font-bold text-sm text-[#083002] dark:text-white">
+                  <h4 className="font-bold text-sm text-black dark:text-white">
                     Career & Internship Guidance
                   </h4>
-                  <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">
+                  <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">
                     Resume reviews, mock interviews, and SIWES industrial training placements.
                   </p>
                 </div>
                 <div className="bg-white dark:bg-[#083002] p-4 rounded border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
-                  <h4 className="font-bold text-sm text-[#083002] dark:text-white">
+                  <h4 className="font-bold text-sm text-black dark:text-white">
                     Mentorship & Welfare
                   </h4>
-                  <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">
+                  <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">
                     Senior student peer mentorship and department welfare committee support.
                   </p>
                 </div>
@@ -200,48 +200,48 @@ const StudentLife = () => {
             </div>
 
             <div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#083002] dark:text-white mb-4 tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-black dark:text-white mb-4 tracking-tight">
                 Department <span className="text-[#138601] dark:text-[#4bd043]">Facilities</span>
               </h2>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white dark:bg-[#083002] p-4 rounded border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
-                  <h4 className="font-bold text-sm text-[#083002] dark:text-white">
+                  <h4 className="font-bold text-sm text-black dark:text-white">
                     24/7 Software Labs
                   </h4>
-                  <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">
+                  <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">
                     High-speed internet and workstation workstations.
                   </p>
                 </div>
                 <div className="bg-white dark:bg-[#083002] p-4 rounded border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
-                  <h4 className="font-bold text-sm text-[#083002] dark:text-white">
+                  <h4 className="font-bold text-sm text-black dark:text-white">
                     Innovation Sandbox
                   </h4>
-                  <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">
+                  <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">
                     Collaborative space for hackathons and projects.
                   </p>
                 </div>
                 <div className="bg-white dark:bg-[#083002] p-4 rounded border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
-                  <h4 className="font-bold text-sm text-[#083002] dark:text-white">
+                  <h4 className="font-bold text-sm text-black dark:text-white">
                     Seminar Hall
                   </h4>
-                  <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">
+                  <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">
                     Equipped with projectors for technical seminars.
                   </p>
                 </div>
                 <div className="bg-white dark:bg-[#083002] p-4 rounded border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
-                  <h4 className="font-bold text-sm text-[#083002] dark:text-white">
+                  <h4 className="font-bold text-sm text-black dark:text-white">
                     Department Library
                   </h4>
-                  <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">
+                  <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">
                     Physical textbooks and digital research vault.
                   </p>
                 </div>
               </div>
               <div className="mt-4 bg-white dark:bg-[#083002] p-4 rounded border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
-                <h4 className="font-bold text-sm text-[#083002] dark:text-white">
+                <h4 className="font-bold text-sm text-black dark:text-white">
                   University Student Housing
                 </h4>
-                <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">
+                <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">
                   Comfortable on-campus hostels with 24/7 security and water supply.
                 </p>
               </div>

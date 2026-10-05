@@ -382,12 +382,22 @@ const AdminIdCards = () => {
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${app.payment_status === 'verified'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
-                            : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                        <div className="space-y-1">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                            app.payment_status === 'verified' || app.payment_status === 'paid'
+                              ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                           }`}>
-                          {app.payment_status === 'verified' ? '₦' + (app.amount || 2500) + ' Paid' : 'Pending'}
-                        </span>
+                            {app.payment_status === 'verified' || app.payment_status === 'paid'
+                              ? `₦${(app.amount || 5000).toLocaleString()} Paid`
+                              : 'Pending'}
+                          </span>
+                          {app.payment_reference && (
+                            <div className="font-mono text-[9px] text-gray-500 truncate max-w-[120px]" title={app.payment_reference}>
+                              {app.payment_reference}
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-3.5 px-4">
@@ -466,8 +476,12 @@ const AdminIdCards = () => {
                   <div className="font-bold text-sm text-gray-900 dark:text-white">{selectedApp.student_name}</div>
                   <div className="font-mono text-[#138601] dark:text-[#4bd043] font-bold">{selectedApp.matric_number}</div>
                   <div className="text-gray-500 dark:text-green-200/70">{selectedApp.department} • {selectedApp.level}</div>
-                  <div className="text-[11px] text-gray-500 pt-1">
-                    Payment: <strong className="text-green-600 dark:text-green-400">{selectedApp.payment_status?.toUpperCase()}</strong>
+                  <div className="text-[11px] text-gray-500 pt-1 space-y-0.5">
+                    <div>Payment: <strong className="text-green-600 dark:text-green-400">{selectedApp.payment_status?.toUpperCase()}</strong></div>
+                    <div>Gateway: <span className="font-semibold text-gray-800 dark:text-gray-200">{selectedApp.payment_provider || 'BACHS'}</span> • ₦{(selectedApp.amount || 5000).toLocaleString()}</div>
+                    {selectedApp.payment_reference && (
+                      <div className="font-mono text-[10px] text-gray-400">Ref: {selectedApp.payment_reference}</div>
+                    )}
                   </div>
                 </div>
               </div>

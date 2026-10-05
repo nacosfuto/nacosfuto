@@ -9,14 +9,14 @@ const HowToApply = () => {
     const { theme } = useTheme();
 
     return (
-        <div className={`min-h-screen flex flex-col ${theme === 'dark' ? 'bg-[#041801] text-white' : 'bg-white text-[#083002]'} transition-colors duration-300`}>
+        <div className={`min-h-screen flex flex-col ${theme === 'dark' ? 'bg-[#041801] text-white' : 'bg-white text-black'} transition-colors duration-300`}>
             <Navbar />
             <div className="flex-grow max-w-4xl mx-auto px-6 py-16 w-full">
                 <header className="text-center mb-16">
-                    <h1 className="text-4xl md:text-5xl font-extrabold mb-4 text-[#083002] dark:text-white tracking-tight">
+                    <h1 className="text-4xl md:text-5xl font-extrabold mb-4 text-black dark:text-white tracking-tight">
                         How To <span className="text-[#138601] dark:text-[#4bd043]">Apply</span>
                     </h1>
-                     <p className="text-base sm:text-lg text-[#083002]/75 dark:text-green-100/75 max-w-xl mx-auto leading-relaxed">
+                     <p className="text-base sm:text-lg text-black/75 dark:text-green-100/75 max-w-xl mx-auto leading-relaxed">
                         Step-by-step guideline to securing your undergraduate or postgraduate admission into FUTO Computer Science.
                     </p>
                 </header>
@@ -29,9 +29,9 @@ const HowToApply = () => {
                         </div>
                         <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-6 rounded-2xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm bg-white dark:bg-[#083002]">
                            <div className="flex items-center justify-between space-x-2 mb-1.5">
-                               <div className="font-bold text-base text-[#083002] dark:text-white">JAMB UTME Registration</div>
+                               <div className="font-bold text-base text-black dark:text-white">JAMB UTME Registration</div>
                            </div>
-                           <div className="text-xs text-[#083002]/75 dark:text-green-100/75 leading-relaxed">Register for the Unified Tertiary Matriculation Examination (UTME) and select Federal University of Technology Owerri (FUTO) as your first-choice institution.</div>
+                           <div className="text-xs text-black/75 dark:text-green-100/75 leading-relaxed">Register for the Unified Tertiary Matriculation Examination (UTME) and select Federal University of Technology Owerri (FUTO) as your first-choice institution.</div>
                        </div>
                     </div>
 
@@ -42,9 +42,9 @@ const HowToApply = () => {
                         </div>
                         <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-6 rounded-2xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm bg-white dark:bg-[#083002]">
                            <div className="flex items-center justify-between space-x-2 mb-1.5">
-                               <div className="font-bold text-base text-[#083002] dark:text-white">FUTO Post-UTME Screening</div>
+                               <div className="font-bold text-base text-black dark:text-white">FUTO Post-UTME Screening</div>
                            </div>
-                           <div className="text-xs text-[#083002]/75 dark:text-green-100/75 leading-relaxed">Purchase the Post-UTME screening application form online via the official university portal within the announced window.</div>
+                           <div className="text-xs text-black/75 dark:text-green-100/75 leading-relaxed">Purchase the Post-UTME screening application form online via the official university portal within the announced window.</div>
                        </div>
                     </div>
 
@@ -55,9 +55,9 @@ const HowToApply = () => {
                         </div>
                         <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-6 rounded-2xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm bg-white dark:bg-[#083002]">
                            <div className="flex items-center justify-between space-x-2 mb-1.5">
-                               <div className="font-bold text-base text-[#083002] dark:text-white">Accept Offer on JAMB CAPS</div>
+                               <div className="font-bold text-base text-black dark:text-white">Accept Offer on JAMB CAPS</div>
                            </div>
-                           <div className="text-xs text-[#083002]/75 dark:text-green-100/75 leading-relaxed">Regularly monitor your JAMB CAPS portal and FUTO admission portal. Once offered admission, accept the offer and print your original admission letter.</div>
+                           <div className="text-xs text-black/75 dark:text-green-100/75 leading-relaxed">Regularly monitor your JAMB CAPS portal and FUTO admission portal. Once offered admission, accept the offer and print your original admission letter.</div>
                        </div>
                     </div>
                 </div>
@@ -65,8 +65,8 @@ const HowToApply = () => {
                 <div className="mt-14 bg-[#138601]/10 dark:bg-[#083002] border border-[#138601]/30 rounded-2xl p-6 flex items-start">
                     <FiAlertCircle className="text-[#138601] dark:text-[#4bd043] text-2xl mr-4 flex-shrink-0 mt-0.5" />
                     <div>
-                        <h4 className="font-bold text-sm text-[#083002] dark:text-white">Important Anti-Fraud Notice</h4>
-                        <p className="text-xs text-[#083002]/75 dark:text-green-100/75 mt-1.5 leading-relaxed">
+                        <h4 className="font-bold text-sm text-black dark:text-white">Important Anti-Fraud Notice</h4>
+                        <p className="text-xs text-black/75 dark:text-green-100/75 mt-1.5 leading-relaxed">
                              Beware of impostors posing as admission agents. FUTO CSC does NOT charge admission fees outside official university invoice payments. Always use official university portal channels.
                         </p>
                     </div>

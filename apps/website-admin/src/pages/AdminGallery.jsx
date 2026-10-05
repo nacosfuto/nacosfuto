@@ -22,8 +22,8 @@ const INITIAL_GALLERY = [
     id: 'gal-1',
     title: 'Department Front Entrance',
     caption: 'NACOS Student Leaders at the Department of Computer Science (TETFUND Complex)',
-    image_url: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&q=80&w=1200',
-    cloudinary_public_id: 'nacos/gallery/dept_front',
+    image_url: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569317/nacos/gallery/gallery_dept_front.jpg',
+    cloudinary_public_id: 'nacos/gallery/gallery_dept_front',
     category: 'Academics',
     is_featured: true,
     created_at: '2026-08-10T12:00:00Z'
@@ -32,8 +32,8 @@ const INITIAL_GALLERY = [
     id: 'gal-2',
     title: 'Student Group Mixer',
     caption: 'FUTO Computing Students Outdoor Hangout & Mixer',
-    image_url: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=1200',
-    cloudinary_public_id: 'nacos/gallery/student_group',
+    image_url: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569318/nacos/gallery/gallery_student_group.jpg',
+    cloudinary_public_id: 'nacos/gallery/gallery_student_group',
     category: 'Socials',
     is_featured: true,
     created_at: '2026-08-12T14:30:00Z'
@@ -42,11 +42,101 @@ const INITIAL_GALLERY = [
     id: 'gal-3',
     title: 'Cultural Day Celebrations',
     caption: 'Traditional Attire Cultural Day Celebrations',
-    image_url: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&q=80&w=1200',
-    cloudinary_public_id: 'nacos/gallery/traditional_day',
+    image_url: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569319/nacos/gallery/gallery_traditional_day.jpg',
+    cloudinary_public_id: 'nacos/gallery/gallery_traditional_day',
+    category: 'Culture',
+    is_featured: true,
+    created_at: '2026-08-15T16:00:00Z'
+  },
+  {
+    id: 'gal-4',
+    title: 'Community Nature Outing',
+    caption: 'Student Community Outing & Nature Meetup',
+    image_url: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569318/nacos/gallery/gallery_nature_hangout.jpg',
+    cloudinary_public_id: 'nacos/gallery/gallery_nature_hangout',
+    category: 'Socials',
+    is_featured: false,
+    created_at: '2026-08-18T10:00:00Z'
+  },
+  {
+    id: 'gal-5',
+    title: 'Tech Symposium Panel',
+    caption: 'Tech Symposium Panel Discussion with Industry Guest Speakers',
+    image_url: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569327/nacos/gallery/nacos1.jpg',
+    cloudinary_public_id: 'nacos/gallery/nacos1',
+    category: 'Tech Events',
+    is_featured: false,
+    created_at: '2026-08-20T11:00:00Z'
+  },
+  {
+    id: 'gal-6',
+    title: 'Hackathon Sprint',
+    caption: 'Hackathon Sprint & Collaborative Coding Arena',
+    image_url: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569330/nacos/gallery/nacos2.jpg',
+    cloudinary_public_id: 'nacos/gallery/nacos2',
+    category: 'Tech Events',
+    is_featured: false,
+    created_at: '2026-08-22T09:00:00Z'
+  },
+  {
+    id: 'gal-7',
+    title: 'Software Project Demo Day',
+    caption: 'Departmental Software Project Demonstration Day',
+    image_url: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569331/nacos/gallery/nacos3.jpg',
+    cloudinary_public_id: 'nacos/gallery/nacos3',
+    category: 'Academics',
+    is_featured: false,
+    created_at: '2026-08-25T13:00:00Z'
+  },
+  {
+    id: 'gal-8',
+    title: 'Freshmen Induction Ceremony',
+    caption: 'Freshmen Orientation & Computing Induction Ceremony',
+    image_url: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569332/nacos/gallery/nacos4.jpg',
+    cloudinary_public_id: 'nacos/gallery/nacos4',
+    category: 'Campus Life',
+    is_featured: false,
+    created_at: '2026-08-28T10:00:00Z'
+  },
+  {
+    id: 'gal-9',
+    title: 'NACOS Dinner & Awards Gala',
+    caption: 'Annual NACOS Dinner & Outstanding Scholar Awards Gala',
+    image_url: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569332/nacos/gallery/nacos5.jpg',
+    cloudinary_public_id: 'nacos/gallery/nacos5',
     category: 'Culture',
     is_featured: false,
-    created_at: '2026-08-15T16:00:00Z'
+    created_at: '2026-09-01T18:00:00Z'
+  },
+  {
+    id: 'gal-10',
+    title: 'Cloud & Security Workshop',
+    caption: 'Hands-on Cloud & Cyber Security Workshop Session',
+    image_url: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569333/nacos/gallery/nacos6.jpg',
+    cloudinary_public_id: 'nacos/gallery/nacos6',
+    category: 'Tech Events',
+    is_featured: false,
+    created_at: '2026-09-03T15:00:00Z'
+  },
+  {
+    id: 'gal-11',
+    title: 'Sports Championship & Relay',
+    caption: 'Departmental Sports Championship & Track Relay',
+    image_url: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569334/nacos/gallery/nacos7.jpg',
+    cloudinary_public_id: 'nacos/gallery/nacos7',
+    category: 'Sports',
+    is_featured: false,
+    created_at: '2026-09-05T16:00:00Z'
+  },
+  {
+    id: 'gal-12',
+    title: 'Alumni Career Talk',
+    caption: 'Alumni Tech Talk & Career Advisory Fireside Chat',
+    image_url: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569335/nacos/gallery/nacos8.jpg',
+    cloudinary_public_id: 'nacos/gallery/nacos8',
+    category: 'Academics',
+    is_featured: false,
+    created_at: '2026-09-08T12:00:00Z'
   }
 ];
 

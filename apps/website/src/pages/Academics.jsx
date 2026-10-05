@@ -141,7 +141,7 @@ const Academics = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#041801] text-[#083002] dark:text-white transition-colors duration-300">
+    <div className="min-h-screen bg-white dark:bg-[#041801] text-black dark:text-white transition-colors duration-300">
       <Navbar />
 
       {/* Hero Section */}
@@ -151,11 +151,11 @@ const Academics = () => {
             <div>
               <h1
                 ref={addToRefs}
-                className="text-4xl md:text-5xl font-extrabold mb-6 text-[#083002] dark:text-white tracking-tight leading-tight"
+                className="text-4xl md:text-5xl font-extrabold mb-6 text-black dark:text-white tracking-tight leading-tight"
               >
                 Academic <span className="text-[#138601] dark:text-[#4bd043]">Programs</span>
               </h1>
-              <p className="text-base sm:text-lg text-[#083002]/75 dark:text-green-100/75 mb-8 leading-relaxed">
+              <p className="text-base sm:text-lg text-black/75 dark:text-green-100/75 mb-8 leading-relaxed">
                 Our curriculum combines theoretical mathematical foundations with hands-on software engineering to prepare students for impactful careers across global tech industries.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
@@ -190,11 +190,11 @@ const Academics = () => {
           <div className="text-center mb-14">
             <h2
               ref={addToRefs}
-              className="text-3xl sm:text-4xl font-extrabold text-[#083002] dark:text-white tracking-tight mb-3"
+              className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight mb-3"
             >
               Our <span className="text-[#138601] dark:text-[#4bd043]">Degree Pathways</span>
             </h2>
-            <p className="text-base text-[#083002]/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
+            <p className="text-base text-black/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
               Tailored undergraduate and postgraduate degrees recognized internationally.
             </p>
           </div>
@@ -207,13 +207,13 @@ const Academics = () => {
               >
                 <div>
                   <div className="mb-4">{program.icon}</div>
-                  <h3 className="text-lg font-bold text-[#083002] dark:text-white mb-2 leading-snug">
+                  <h3 className="text-lg font-bold text-black dark:text-white mb-2 leading-snug">
                     {program.title}
                   </h3>
                   <div className="text-xs font-semibold text-[#138601] dark:text-[#4bd043] uppercase tracking-wider mb-3">
                     {program.duration} • {program.level}
                   </div>
-                  <p className="text-xs text-[#083002]/75 dark:text-green-100/75 leading-relaxed mb-6">{program.description}</p>
+                  <p className="text-xs text-black/75 dark:text-green-100/75 leading-relaxed mb-6">{program.description}</p>
                 </div>
                 <ScrollToTopLink
                   to={program.link}
@@ -234,11 +234,11 @@ const Academics = () => {
           <div className="text-center mb-14">
             <h2
               ref={addToRefs}
-              className="text-3xl sm:text-4xl font-extrabold text-[#083002] dark:text-white tracking-tight mb-3"
+              className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight mb-3"
             >
               Curriculum <span className="text-[#138601] dark:text-[#4bd043]">Structure</span>
             </h2>
-            <p className="text-base text-[#083002]/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
+            <p className="text-base text-black/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
               Step-by-step progression from core sciences to high-level system architecture.
             </p>
           </div>
@@ -250,10 +250,10 @@ const Academics = () => {
                 className="bg-white dark:bg-[#083002] p-6 rounded shadow-sm hover:shadow-xl hover:border-[#138601] dark:hover:border-[#4bd043] border border-[#138601]/20 dark:border-[#138601]/30 transform hover:-translate-y-1.5 transition-all duration-300"
               >
                 <div className="text-[#138601] dark:text-[#4bd043] font-black text-xl mb-1">{year.year}</div>
-                <h3 className="text-xs font-bold text-[#083002] dark:text-white mb-3">
+                <h3 className="text-xs font-bold text-black dark:text-white mb-3">
                   {year.focus}
                 </h3>
-                <ul className="space-y-1.5 text-xs text-[#083002]/75 dark:text-green-100/75">
+                <ul className="space-y-1.5 text-xs text-black/75 dark:text-green-100/75">
                   {year.courses.map((course, i) => (
                     <li key={i} className="flex items-start gap-1">
                       <span className="text-[#138601] dark:text-[#4bd043] font-bold">•</span>
@@ -274,17 +274,17 @@ const Academics = () => {
             <div>
               <h2
                 ref={addToRefs}
-                className="text-2xl sm:text-3xl font-extrabold text-[#083002] dark:text-white mb-6 tracking-tight"
+                className="text-2xl sm:text-3xl font-extrabold text-black dark:text-white mb-6 tracking-tight"
               >
                 Admission <span className="text-[#138601] dark:text-[#4bd043]">Criteria</span>
               </h2>
               
               {admissionRequirements.map((program, index) => (
                 <div key={index} className="mb-6 p-5 rounded bg-white dark:bg-[#083002] border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
-                  <h3 className="text-base font-bold text-[#083002] dark:text-white mb-3">
+                  <h3 className="text-base font-bold text-black dark:text-white mb-3">
                     {program.program}
                   </h3>
-                  <ul className="space-y-2 text-xs text-[#083002]/75 dark:text-green-100/75">
+                  <ul className="space-y-2 text-xs text-black/75 dark:text-green-100/75">
                     {program.requirements.map((req, i) => (
                       <li key={i} className="flex items-start gap-2">
                         <span className="text-[#138601] dark:text-[#4bd043] font-bold">✓</span>
@@ -299,32 +299,32 @@ const Academics = () => {
             <div>
               <h2
                 ref={addToRefs}
-                className="text-2xl sm:text-3xl font-extrabold text-[#083002] dark:text-white mb-6 tracking-tight"
+                className="text-2xl sm:text-3xl font-extrabold text-black dark:text-white mb-6 tracking-tight"
               >
                 Academic <span className="text-[#138601] dark:text-[#4bd043]">Calendar</span>
               </h2>
               <div className="bg-white dark:bg-[#083002] p-8 rounded shadow-sm border border-[#138601]/20 dark:border-[#138601]/30">
                 <div className="flex items-center mb-6">
                   <FaCalendarAlt className="text-[#138601] dark:text-[#4bd043] text-xl mr-3" />
-                  <h3 className="text-lg font-bold text-[#083002] dark:text-white">
+                  <h3 className="text-lg font-bold text-black dark:text-white">
                     2025/2026 Academic Session
                   </h3>
                 </div>
-                <div className="space-y-4 text-xs text-[#083002]/75 dark:text-green-100/75">
+                <div className="space-y-4 text-xs text-black/75 dark:text-green-100/75">
                   <div className="border-b border-gray-200 dark:border-[#138601]/20 pb-3">
-                    <p className="font-bold text-sm text-[#083002] dark:text-white">Harmattan Semester</p>
+                    <p className="font-bold text-sm text-black dark:text-white">Harmattan Semester</p>
                     <p className="mt-0.5">Resumption: November 4, 2025</p>
                     <p>Lectures: Nov 4, 2025 - Feb 2026</p>
                     <p>Exams: March 2026</p>
                   </div>
                   <div className="border-b border-gray-200 dark:border-[#138601]/20 pb-3">
-                    <p className="font-bold text-sm text-[#083002] dark:text-white">Rain Semester</p>
+                    <p className="font-bold text-sm text-black dark:text-white">Rain Semester</p>
                     <p className="mt-0.5">Resumption: April 13, 2026</p>
                     <p>Lectures: April - July 2026</p>
                     <p>Exams: July - August 2026</p>
                   </div>
                   <div>
-                    <p className="font-bold text-sm text-[#083002] dark:text-white">Long Vacation</p>
+                    <p className="font-bold text-sm text-black dark:text-white">Long Vacation</p>
                     <p className="mt-0.5">August - October 2026</p>
                   </div>
                 </div>

@@ -115,9 +115,6 @@ const HomeNewsSection = () => {
                   alt={item.title}
                   className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
                 />
-                <span className="absolute top-3 left-3 px-3 py-1 rounded bg-[#083002]/90 text-white text-[11px] font-bold tracking-wider uppercase border border-green-500/30">
-                  {item.category}
-                </span>
               </div>
 
               {/* Body */}

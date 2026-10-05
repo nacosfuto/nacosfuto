@@ -24,7 +24,7 @@ import flyerCypher from '../assets/flyer_cypher.jpg';
 import flyerNinasBraid from '../assets/flyer_ninas_braid.jpg';
 import laptopImg from '../assets/laptop.jpg';
 import { getCloudinaryAssetUrl, MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
-import { getYellowPagesBusinesses, submitYellowPageBusiness } from '@nacos/supabase';
+import { getYellowPagesBusinesses, submitYellowPageBusiness, fetchYellowPagesFromSupabase } from '@nacos/supabase';
 
 const YellowPages = () => {
   const { theme } = useTheme();
@@ -83,11 +83,15 @@ const YellowPages = () => {
   // Businesses state loaded from directoryService / database
   const [businesses, setBusinesses] = useState([]);
 
-  const loadBusinesses = () => {
+  const loadBusinesses = async () => {
     try {
-      const data = getYellowPagesBusinesses('approved');
-      if (data && data.length > 0) {
-        setBusinesses(data);
+      const local = getYellowPagesBusinesses('approved');
+      if (local && local.length > 0) {
+        setBusinesses(local);
+      }
+      const remote = await fetchYellowPagesFromSupabase('approved');
+      if (remote && remote.length > 0) {
+        setBusinesses(remote);
       }
     } catch (e) {
       console.warn('Error loading yellow pages businesses:', e);

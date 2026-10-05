@@ -15,4 +15,6 @@ export * from './results.js';
 export * from './directoryService.js';
 export * from './notificationService.js';
 export * from './executivesService.js';
+export * from './newsService.js';
+export * from './administrationService.js';
 export { default } from './client.js';

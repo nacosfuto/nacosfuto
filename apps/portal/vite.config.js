@@ -3,12 +3,125 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import crypto from 'crypto';
 import { dispatchEmail } from '../../packages/supabase/src/server/emailDispatcher.js';
+import {
+  createIdCardCheckout,
+  getPaymentStatus,
+  verifyBachsWebhookSignature,
+  processBachsWebhook,
+  getBachsConfig
+} from '../../packages/supabase/src/server/bachs.js';
 
 function cloudinaryDevPlugin() {
   return {
     name: 'cloudinary-dev-server',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
+        // --- BACHS PAYMENT GATEWAY DEV ENDPOINTS ---
+        if (req.url?.startsWith('/api/payments/id-card/create-checkout') && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const data = JSON.parse(body || '{}');
+              const origin = req.headers.origin || `http://${req.headers.host || 'localhost:5174'}`;
+              const result = await createIdCardCheckout({ student: data.student, returnBaseUrl: origin });
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = result.statusCode || (result.error ? 400 : 200);
+              res.end(JSON.stringify(result));
+            } catch (e) {
+              console.error('[Dev Bachs Create Checkout Error]:', e);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: e.message }));
+            }
+          });
+          return;
+        }
+
+        if (req.url?.startsWith('/api/payments/id-card/status') && req.method === 'GET') {
+          const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost:5174'}`);
+          const reference = urlObj.searchParams.get('reference');
+          const registrationNumber = urlObj.searchParams.get('registrationNumber') || urlObj.searchParams.get('regNo');
+          const studentId = urlObj.searchParams.get('studentId');
+
+          (async () => {
+            try {
+              const result = await getPaymentStatus({ reference, registrationNumber, studentId });
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = result.statusCode || (result.error ? 400 : 200);
+              res.end(JSON.stringify(result));
+            } catch (e) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: e.message }));
+            }
+          })();
+          return;
+        }
+
+        if (req.url?.startsWith('/api/payments/id-card/simulate-success') && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const data = JSON.parse(body || '{}');
+              const reference = data.reference;
+              if (!reference) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'Missing reference' }));
+                return;
+              }
+              const simEvent = {
+                event_type: 'payment.successful',
+                id: `sim_evt_${Date.now()}`,
+                data: {
+                  reference,
+                  amount: data.amount || 5000,
+                  currency: 'NGN',
+                  status: 'successful',
+                  payment_id: `bachs_tx_${Date.now()}`
+                }
+              };
+              const result = await processBachsWebhook(simEvent);
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = result.statusCode || (result.error ? 400 : 200);
+              res.end(JSON.stringify(result));
+            } catch (e) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: e.message }));
+            }
+          });
+          return;
+        }
+
+        if (req.url?.startsWith('/api/webhooks/bachs') && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const signature = req.headers['x-bachs-signature'] || req.headers['bachs-signature'] || '';
+              const isValid = verifyBachsWebhookSignature(body, signature);
+              if (!isValid) {
+                res.statusCode = 401;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'Invalid Bachs signature' }));
+                return;
+              }
+              const event = JSON.parse(body || '{}');
+              const result = await processBachsWebhook(event);
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = result.statusCode || (result.error ? 400 : 200);
+              res.end(JSON.stringify(result));
+            } catch (e) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: e.message }));
+            }
+          });
+          return;
+        }
         if (req.url === '/api/email/send' && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });

@@ -87,7 +87,7 @@ const Admissions = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#041801] text-[#083002] dark:text-white transition-colors duration-300">
+    <div className="min-h-screen bg-white dark:bg-[#041801] text-black dark:text-white transition-colors duration-300">
       <Navbar />
 
       {/* Hero Section */}
@@ -97,11 +97,11 @@ const Admissions = () => {
             <div>
               <h1
                 ref={addToRefs}
-                className="text-4xl md:text-5xl font-extrabold mb-6 text-[#083002] dark:text-white tracking-tight leading-tight"
+                className="text-4xl md:text-5xl font-extrabold mb-6 text-black dark:text-white tracking-tight leading-tight"
               >
                 Admissions <span className="text-[#138601] dark:text-[#4bd043]">Information</span>
               </h1>
-              <p className="text-base sm:text-lg text-[#083002]/75 dark:text-green-100/75 mb-8 leading-relaxed">
+              <p className="text-base sm:text-lg text-black/75 dark:text-green-100/75 mb-8 leading-relaxed">
                 Join one of Nigeria's premier computing science programs. Learn about requirements, dates, and how to apply for admission into FUTO's Department of Computer Science.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
@@ -136,11 +136,11 @@ const Admissions = () => {
           <div className="text-center mb-14">
             <h2
               ref={addToRefs}
-              className="text-3xl sm:text-4xl font-extrabold text-[#083002] dark:text-white tracking-tight mb-3"
+              className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight mb-3"
             >
               Admission <span className="text-[#138601] dark:text-[#4bd043]">Pathways</span>
             </h2>
-            <p className="text-base text-[#083002]/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
+            <p className="text-base text-black/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
               Transparent entry requirements across undergraduate, direct entry, and postgraduate tracks.
             </p>
           </div>
@@ -153,12 +153,12 @@ const Admissions = () => {
               >
                 <div>
                   <div className="mb-4">{type.icon}</div>
-                  <h3 className="text-lg font-bold text-[#083002] dark:text-white mb-2 leading-snug">
+                  <h3 className="text-lg font-bold text-black dark:text-white mb-2 leading-snug">
                     {type.title}
                   </h3>
-                  <p className="text-xs text-[#083002]/75 dark:text-green-100/75 leading-relaxed mb-4">{type.description}</p>
+                  <p className="text-xs text-black/75 dark:text-green-100/75 leading-relaxed mb-4">{type.description}</p>
                   <h4 className="text-xs font-bold uppercase tracking-wider text-[#138601] dark:text-[#4bd043] mb-2">Key Criteria:</h4>
-                  <ul className="space-y-1.5 text-xs text-[#083002]/75 dark:text-green-100/75 mb-6">
+                  <ul className="space-y-1.5 text-xs text-black/75 dark:text-green-100/75 mb-6">
                     {type.requirements.map((req, i) => (
                       <li key={i} className="flex items-start gap-1.5">
                         <span className="text-[#138601] dark:text-[#4bd043] font-bold">•</span>
@@ -186,11 +186,11 @@ const Admissions = () => {
           <div className="text-center mb-14">
             <h2
               ref={addToRefs}
-              className="text-3xl sm:text-4xl font-extrabold text-[#083002] dark:text-white tracking-tight mb-3"
+              className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight mb-3"
             >
               Admissions <span className="text-[#138601] dark:text-[#4bd043]">Roadmap</span>
             </h2>
-            <p className="text-base text-[#083002]/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
+            <p className="text-base text-black/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
               Step-by-step milestones to secure your enrollment into FUTO Computer Science.
             </p>
           </div>
@@ -204,10 +204,10 @@ const Admissions = () => {
                 <div className="w-8 h-8 rounded bg-[#138601] text-white font-black text-sm flex items-center justify-center mb-4">
                   {item.step}
                 </div>
-                <h3 className="text-base font-bold text-[#083002] dark:text-white mb-2">
+                <h3 className="text-base font-bold text-black dark:text-white mb-2">
                   {item.title}
                 </h3>
-                <p className="text-xs text-[#083002]/75 dark:text-green-100/75 leading-relaxed mb-4">
+                <p className="text-xs text-black/75 dark:text-green-100/75 leading-relaxed mb-4">
                   {item.description}
                 </p>
                 <div className="flex items-center text-xs font-semibold text-[#138601] dark:text-[#4bd043]">
@@ -225,43 +225,43 @@ const Admissions = () => {
         <div className="site-container">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div className="bg-white dark:bg-[#083002] p-8 rounded-2xl shadow-sm border border-[#138601]/20 dark:border-[#138601]/30">
-              <h2 className="text-2xl font-bold text-[#083002] dark:text-white mb-6">
+              <h2 className="text-2xl font-bold text-black dark:text-white mb-6">
                 Tuition & Fee Structure
               </h2>
               <div className="space-y-4 text-xs">
                 <div className="flex justify-between border-b border-gray-200 dark:border-[#138601]/20 pb-3">
-                  <span className="text-[#083002]/75 dark:text-green-100/75">Undergraduate Tuition</span>
-                  <span className="font-bold text-[#083002] dark:text-white">₦180,000 / session</span>
+                  <span className="text-black/75 dark:text-green-100/75">Undergraduate Tuition</span>
+                  <span className="font-bold text-black dark:text-white">₦180,000 / session</span>
                 </div>
                 <div className="flex justify-between border-b border-gray-200 dark:border-[#138601]/20 pb-3">
-                  <span className="text-[#083002]/75 dark:text-green-100/75">Postgraduate Tuition</span>
-                  <span className="font-bold text-[#083002] dark:text-white">₦200,000 / session</span>
+                  <span className="text-black/75 dark:text-green-100/75">Postgraduate Tuition</span>
+                  <span className="font-bold text-black dark:text-white">₦200,000 / session</span>
                 </div>
                 <div className="flex justify-between border-b border-gray-200 dark:border-[#138601]/20 pb-3">
-                  <span className="text-[#083002]/75 dark:text-green-100/75">Freshers Acceptance Fee</span>
-                  <span className="font-bold text-[#083002] dark:text-white">₦50,000 (one-time)</span>
+                  <span className="text-black/75 dark:text-green-100/75">Freshers Acceptance Fee</span>
+                  <span className="font-bold text-black dark:text-white">₦50,000 (one-time)</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#083002]/75 dark:text-green-100/75">Departmental Dues & Levies</span>
-                  <span className="font-bold text-[#083002] dark:text-white">₦20,000 / session</span>
+                  <span className="text-black/75 dark:text-green-100/75">Departmental Dues & Levies</span>
+                  <span className="font-bold text-black dark:text-white">₦20,000 / session</span>
                 </div>
               </div>
               <div className="mt-6 bg-[#138601]/10 dark:bg-[#041801] p-4 rounded-xl border border-[#138601]/30">
-                <h4 className="font-bold text-xs text-[#083002] dark:text-white mb-1">Scholarship Opportunities</h4>
-                <p className="text-xs text-[#083002]/75 dark:text-green-100/75">
+                <h4 className="font-bold text-xs text-black dark:text-white mb-1">Scholarship Opportunities</h4>
+                <p className="text-xs text-black/75 dark:text-green-100/75">
                   Merit-based scholarships from industry partners and alumni endowments cover tuition for high-performing students.
                 </p>
               </div>
             </div>
 
             <div className="bg-white dark:bg-[#083002] p-8 rounded-2xl shadow-sm border border-[#138601]/20 dark:border-[#138601]/30">
-              <h2 className="text-2xl font-bold text-[#083002] dark:text-white mb-6">
+              <h2 className="text-2xl font-bold text-black dark:text-white mb-6">
                 International Applicants
               </h2>
-              <p className="text-xs text-[#083002]/75 dark:text-green-100/75 mb-6 leading-relaxed">
+              <p className="text-xs text-black/75 dark:text-green-100/75 mb-6 leading-relaxed">
                 We welcome computing scholars across West Africa and internationally. Please ensure you satisfy these criteria:
               </p>
-              <ul className="space-y-3 text-xs text-[#083002]/85 dark:text-green-100/85 mb-8">
+              <ul className="space-y-3 text-xs text-black/85 dark:text-green-100/85 mb-8">
                 <li className="flex items-start gap-2">
                   <span className="text-[#138601] dark:text-[#4bd043] font-bold">•</span>
                   <span>Certified secondary certificate equivalent validated by the NUC.</span>

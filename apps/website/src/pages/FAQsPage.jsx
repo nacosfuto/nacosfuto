@@ -49,7 +49,7 @@ const FAQsPage = () => {
   ];
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-[#041801] text-white' : 'bg-white text-[#083002]'}`}>
+    <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-[#041801] text-white' : 'bg-white text-black'}`}>
       <Navbar />
 
       <section className={`relative py-20 ${theme === 'dark' ? 'bg-[#041801]' : 'bg-white'} border-b border-[#138601]/20 dark:border-[#138601]/30`}>
@@ -79,7 +79,7 @@ const FAQsPage = () => {
                 >
                   <div className="flex items-center">
                     <FaQuestionCircle className="text-[#138601] dark:text-[#4bd043] mr-4 text-xl flex-shrink-0" />
-                    <h3 className="text-base sm:text-lg font-bold text-[#083002] dark:text-white">
+                    <h3 className="text-base sm:text-lg font-bold text-black dark:text-white">
                       {faq.question}
                     </h3>
                   </div>
@@ -99,7 +99,7 @@ const FAQsPage = () => {
           </div>
 
           <div className={`mt-12 p-8 rounded-2xl text-center shadow-sm border ${theme === 'dark' ? 'bg-[#083002] border-[#138601]/30' : 'bg-white border-gray-200'}`}>
-            <h3 className="text-xl font-bold text-[#083002] dark:text-white mb-2">
+            <h3 className="text-xl font-bold text-black dark:text-white mb-2">
               Still have questions?
             </h3>
             <p className="text-xs sm:text-sm opacity-80 mb-6">

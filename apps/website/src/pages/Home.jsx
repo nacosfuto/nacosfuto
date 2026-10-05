@@ -1,7 +1,6 @@
 import React, { useEffect } from "react";
 import Navbar from "../components/Nav/Navbar";
 import { getCloudinaryAssetUrl } from "@nacos/media";
-import headerImg from "../assets/header.jpg";
 import ScrollToTopLink from "../components/ScrollToTopLink";
 import DepartmentStats from "../components/Home/DepartmentStats";
 import Cards from "../components/Home/Cards";
@@ -30,20 +29,18 @@ const Home = () => {
       <Navbar />
       
       <main className="flex-grow">
-        {/* Unified Hero Section for Mobile and Desktop */}
-        <section className="relative flex min-h-[500px] sm:min-h-[540px] md:h-[80vh] items-center justify-center overflow-hidden bg-gray-950">
-          {/* Real hero photo matching desktop */}
+        {/* Standard Responsive Full-Screen Fitting Hero */}
+        <section className="relative flex min-h-[calc(100dvh-64px)] md:h-[calc(100vh-64px)] items-center justify-center overflow-hidden bg-gray-950 px-4 sm:px-6">
           <img
             src={HERO_IMAGE_URL}
             alt="Department of Computer Science FUTO"
-            className="absolute inset-0 w-full h-full object-cover object-center"
+            className="absolute inset-0 w-full h-full object-cover object-[center_35%]"
           />
 
-          {/* Clean dark gradient overlay for text readability across devices */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#041801]/95 via-[#041801]/60 to-black/35" />
           <div className="absolute inset-0 bg-black/25" />
 
-          <div className="relative z-10 text-center px-4 sm:px-6 max-w-4xl mx-auto flex flex-col items-center py-16 sm:py-20 md:py-0">
+          <div className="relative z-10 text-center px-4 sm:px-6 max-w-4xl mx-auto flex flex-col items-center">
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-4 sm:mb-6 drop-shadow-lg tracking-tight leading-[1.2]">
               Empowering the Next Generation of <br className="hidden sm:inline" />
               <span className="text-[#4bd043]">Computer Scientists</span>

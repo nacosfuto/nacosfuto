@@ -44,18 +44,18 @@ const Cards = () => {
   ];
 
   return (
-    <section className="py-20 bg-[#f8f9fa] dark:bg-[#061e02] border-b border-gray-200/80 dark:border-[#138601]/25 transition-colors duration-300">
-      <div className="site-container">
-        <div className="flex flex-col items-center mb-12 text-center">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight mb-3">
+    <section className="relative flex flex-col justify-center items-center min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] py-8 sm:py-12 lg:py-0 bg-[#f8f9fa] dark:bg-[#061e02] border-b border-gray-200/80 dark:border-[#138601]/25 transition-colors duration-300 overflow-hidden">
+      <div className="site-container w-full flex flex-col justify-center my-auto">
+        <div className="flex flex-col items-center mb-6 sm:mb-8 md:mb-10 text-center">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-black dark:text-white tracking-tight mb-2 sm:mb-3">
             Academic & Community <span className="text-[#138601] dark:text-[#4bd043]">Gateways</span>
           </h2>
-          <p className="text-gray-700 dark:text-gray-300 max-w-2xl text-base leading-relaxed">
+          <p className="text-gray-700 dark:text-gray-300 max-w-2xl text-xs sm:text-sm md:text-base leading-relaxed">
             Essential tools, academic resources, and skill pathways tailored for our computing community.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
           {quickAccessLinks.map((item, index) => {
             const CardWrapper = item.isExternal ? 'a' : ScrollToTopLink;
             const linkProps = item.isExternal
@@ -66,11 +66,11 @@ const Cards = () => {
               <CardWrapper
                 key={index}
                 {...linkProps}
-                className="group relative bg-white dark:bg-[#083002] rounded p-6 border border-gray-200 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] transform hover:-translate-y-1.5 hover:shadow-xl transition-all duration-300 flex flex-col h-full overflow-hidden shadow-sm cursor-pointer"
+                className="group relative bg-white dark:bg-[#083002] rounded p-5 sm:p-6 border border-gray-200 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] transform hover:-translate-y-1.5 hover:shadow-xl transition-all duration-300 flex flex-col h-full overflow-hidden shadow-sm cursor-pointer"
               >
                 {/* Icon Container with smooth hover pulse */}
-                <div className="mb-5 flex items-center justify-between">
-                  <div className="w-12 h-12 rounded bg-[#138601] group-hover:bg-[#0f6c01] flex items-center justify-center text-white text-xl shadow-md transition-all duration-300 group-hover:scale-105">
+                <div className="mb-4 sm:mb-5 flex items-center justify-between">
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded bg-[#138601] group-hover:bg-[#0f6c01] flex items-center justify-center text-white text-lg sm:text-xl shadow-md transition-all duration-300 group-hover:scale-105">
                     {item.icon}
                   </div>
                   {item.badge && (
@@ -81,16 +81,16 @@ const Cards = () => {
                 </div>
 
                 {/* Content */}
-                <h3 className="text-lg font-bold text-black dark:text-white mb-2 group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors duration-300 tracking-tight leading-snug">
+                <h3 className="text-base sm:text-lg font-bold text-black dark:text-white mb-2 group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors duration-300 tracking-tight leading-snug">
                   {item.title}
                 </h3>
                 
-                <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed mb-6 flex-grow">
+                <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed mb-4 sm:mb-6 flex-grow">
                   {item.description}
                 </p>
 
                 {/* Action Button Link */}
-                <div className="mt-auto inline-flex items-center justify-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-[#138601] group-hover:bg-[#0f6c01] rounded shadow-sm transition-colors w-fit min-h-[36px]">
+                <div className="mt-auto inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 text-xs font-semibold text-white bg-[#138601] group-hover:bg-[#0f6c01] rounded shadow-sm transition-colors w-fit min-h-[36px]">
                   <span>{item.buttonText || 'Explore'}</span>
                   <FaArrowRight className="ml-1 text-xs group-hover:translate-x-0.5 transition-transform duration-200" />
                 </div>

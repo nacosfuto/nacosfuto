@@ -63,7 +63,7 @@ const Research = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#041801] text-[#083002] dark:text-white transition-colors duration-300">
+    <div className="min-h-screen bg-white dark:bg-[#041801] text-black dark:text-white transition-colors duration-300">
       <Navbar />
 
       {/* Hero Section */}
@@ -71,10 +71,10 @@ const Research = () => {
         <div className="site-container">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h1 className="text-4xl md:text-5xl font-extrabold mb-6 text-[#083002] dark:text-white tracking-tight leading-tight">
+              <h1 className="text-4xl md:text-5xl font-extrabold mb-6 text-black dark:text-white tracking-tight leading-tight">
                 Research & <span className="text-[#138601] dark:text-[#4bd043]">Innovation Hub</span>
               </h1>
-              <p className="text-base sm:text-lg text-[#083002]/75 dark:text-green-100/75 mb-8 leading-relaxed">
+              <p className="text-base sm:text-lg text-black/75 dark:text-green-100/75 mb-8 leading-relaxed">
                 Advancing the frontiers of computing sciences through cutting-edge research, peer-reviewed publications, and scalable software solutions addressing local and continental challenges.
               </p>
               <ScrollToTopLink
@@ -99,10 +99,10 @@ const Research = () => {
       <section className="py-20 bg-[#f8f9fa] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
         <div className="site-container">
           <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#083002] dark:text-white tracking-tight mb-3">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight mb-3">
               Research <span className="text-[#138601] dark:text-[#4bd043]">Clusters</span>
             </h2>
-            <p className="text-base text-[#083002]/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
+            <p className="text-base text-black/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
               Our multidisciplinary research groups push boundaries across theoretical and applied computer science.
             </p>
           </div>
@@ -115,10 +115,10 @@ const Research = () => {
               >
                 <div>
                   <div className="mb-4">{area.icon}</div>
-                  <h3 className="text-lg font-bold text-[#083002] dark:text-white mb-2 leading-snug">
+                  <h3 className="text-lg font-bold text-black dark:text-white mb-2 leading-snug">
                     {area.title}
                   </h3>
-                  <p className="text-xs text-[#083002]/75 dark:text-green-100/75 leading-relaxed">
+                  <p className="text-xs text-black/75 dark:text-green-100/75 leading-relaxed">
                     {area.description}
                   </p>
                 </div>
@@ -132,10 +132,10 @@ const Research = () => {
       <section className="py-20 bg-white dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
         <div className="site-container">
           <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#083002] dark:text-white tracking-tight mb-3">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight mb-3">
               Research <span className="text-[#138601] dark:text-[#4bd043]">Impact & Metrics</span>
             </h2>
-            <p className="text-base text-[#083002]/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
+            <p className="text-base text-black/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
               Tangible output from our academic faculty, research fellows, and graduate students.
             </p>
           </div>
@@ -150,7 +150,7 @@ const Research = () => {
                 <h4 className="text-3xl font-extrabold text-[#138601] dark:text-[#4bd043] mt-3 mb-1">
                   {stat.value}
                 </h4>
-                <p className="text-xs font-semibold text-[#083002]/80 dark:text-green-200/80 uppercase tracking-wider">{stat.label}</p>
+                <p className="text-xs font-semibold text-black/80 dark:text-green-200/80 uppercase tracking-wider">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -162,13 +162,13 @@ const Research = () => {
         <div className="site-container">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#083002] dark:text-white mb-4 tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-black dark:text-white mb-4 tracking-tight">
                 Specialized <span className="text-[#138601] dark:text-[#4bd043]">Research Facilities</span>
               </h2>
-              <p className="text-sm text-[#083002]/75 dark:text-green-100/75 mb-6 leading-relaxed">
+              <p className="text-sm text-black/75 dark:text-green-100/75 mb-6 leading-relaxed">
                 Our faculty labs provide enterprise-grade compute and testing infrastructure for high-level computing experiments:
               </p>
-              <ul className="space-y-3 text-sm text-[#083002]/85 dark:text-green-100/85">
+              <ul className="space-y-3 text-sm text-black/85 dark:text-green-100/85">
                 <li className="flex items-start gap-2">
                   <span className="text-[#138601] dark:text-[#4bd043] font-bold">✓</span>
                   <span>High-performance compute clusters with GPU acceleration for ML model training.</span>
@@ -189,24 +189,24 @@ const Research = () => {
             </div>
 
             <div className="bg-white dark:bg-[#083002] p-8 rounded shadow-sm border border-[#138601]/20 dark:border-[#138601]/30">
-              <h3 className="text-xl font-bold text-[#083002] dark:text-white mb-4">
+              <h3 className="text-xl font-bold text-black dark:text-white mb-4">
                 Research Pathways & Opportunities
               </h3>
-              <p className="text-xs text-[#083002]/75 dark:text-green-100/75 mb-6">
+              <p className="text-xs text-black/75 dark:text-green-100/75 mb-6">
                 Opportunities available for students, alumni, and external academic or industrial partners:
               </p>
               <div className="space-y-4">
                 <div className="border-l-4 border-[#138601] pl-4">
-                  <h4 className="font-bold text-sm text-[#083002] dark:text-white">Undergraduate Research & Final Year Projects</h4>
-                  <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">Direct mentorship by faculty on novel software engineering projects.</p>
+                  <h4 className="font-bold text-sm text-black dark:text-white">Undergraduate Research & Final Year Projects</h4>
+                  <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">Direct mentorship by faculty on novel software engineering projects.</p>
                 </div>
                 <div className="border-l-4 border-[#138601] pl-4">
-                  <h4 className="font-bold text-sm text-[#083002] dark:text-white">Postgraduate Degrees (PGD, M.Sc, Ph.D)</h4>
-                  <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">Rigorous research programs with global academic publication standards.</p>
+                  <h4 className="font-bold text-sm text-black dark:text-white">Postgraduate Degrees (PGD, M.Sc, Ph.D)</h4>
+                  <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">Rigorous research programs with global academic publication standards.</p>
                 </div>
                 <div className="border-l-4 border-[#138601] pl-4">
-                  <h4 className="font-bold text-sm text-[#083002] dark:text-white">Industry Partnerships & Tech Transfer</h4>
-                  <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">Collaborate with department researchers on commercial R&D solutions.</p>
+                  <h4 className="font-bold text-sm text-black dark:text-white">Industry Partnerships & Tech Transfer</h4>
+                  <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">Collaborate with department researchers on commercial R&D solutions.</p>
                 </div>
               </div>
             </div>

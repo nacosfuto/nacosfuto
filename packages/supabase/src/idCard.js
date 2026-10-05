@@ -25,7 +25,7 @@ export function getLocalIdSettingsDatabase() {
 
   const initialSettings = {
     id: 'default',
-    id_card_fee: 2500,
+    id_card_fee: 5000,
     is_application_open: true,
     academic_session: '2026/2027',
     allow_reapplication_on_revoke: true,
@@ -161,7 +161,32 @@ export async function checkStudentPaymentStatus(matricNumber) {
   const today = new Date();
   const threeSixtyFiveDays = 365 * 24 * 60 * 60 * 1000;
 
-  // 1. Check Supabase remote if available
+  // 1. Check Bachs payments table in Supabase (Authoritative)
+  try {
+    const { data: bachsPayment, error: bachsErr } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('payment_type', 'ID_CARD')
+      .eq('status', 'successful')
+      .or(`registration_number.eq.${cleanMatric},student_id.eq.${cleanMatric}`)
+      .order('paid_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!bachsErr && bachsPayment) {
+      return { 
+        isPaid: true, 
+        payment: bachsPayment, 
+        provider: bachsPayment.provider || 'BACHS',
+        reference: bachsPayment.reference,
+        amount: bachsPayment.amount 
+      };
+    }
+  } catch (err) {
+    // Offline / table fallback
+  }
+
+  // 2. Check Supabase departmental_dues remote if available
   try {
     const { data, error } = await supabase
       .from('departmental_dues')
@@ -798,30 +823,48 @@ export async function portalAdminGetApplications(options = {}) {
 
     const { data, error } = await query;
     if (!error && Array.isArray(data)) {
-      // Enrich with matching profile details
+      // Enrich with matching profile details and payment records
       const regNos = data.map(d => d.matric_number || d.registration_number).filter(Boolean);
       let profilesMap = {};
+      let paymentsMap = {};
+
       if (regNos.length > 0) {
         try {
-          const { data: profs, error: profErr } = await supabase
-            .from('profiles')
-            .select('id, registration_number, matric_number, full_name, surname, first_name, department, programme, admission_year, profile_photo_url, avatar_url')
-            .in('registration_number', regNos);
-          if (!profErr && Array.isArray(profs)) {
-            profs.forEach(p => {
+          const [profsRes, paysRes] = await Promise.all([
+            supabase
+              .from('profiles')
+              .select('id, registration_number, matric_number, full_name, surname, first_name, department, programme, admission_year, profile_photo_url, avatar_url')
+              .in('registration_number', regNos),
+            supabase
+              .from('payments')
+              .select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at')
+              .eq('payment_type', 'ID_CARD')
+              .in('registration_number', regNos)
+          ]);
+
+          if (!profsRes.error && Array.isArray(profsRes.data)) {
+            profsRes.data.forEach(p => {
               if (p.registration_number) profilesMap[p.registration_number.toUpperCase()] = p;
               if (p.matric_number) profilesMap[p.matric_number.toUpperCase()] = p;
               if (p.id) profilesMap[p.id] = p;
             });
           }
-        } catch (profErr) {
-          console.warn('Could not enrich applications with profiles:', profErr);
+
+          if (!paysRes.error && Array.isArray(paysRes.data)) {
+            paysRes.data.forEach(pay => {
+              if (pay.registration_number) paymentsMap[pay.registration_number.toUpperCase()] = pay;
+            });
+          }
+        } catch (enrichErr) {
+          console.warn('Could not enrich applications:', enrichErr);
         }
       }
 
       list = data.map(app => {
         const reg = (app.matric_number || app.registration_number || '').toUpperCase();
         const profile = profilesMap[reg] || (app.student_id ? profilesMap[app.student_id] : {}) || {};
+        const payRecord = paymentsMap[reg] || null;
+
         return {
           ...app,
           matric_number: app.matric_number || profile.registration_number || profile.matric_number || reg,
@@ -832,7 +875,10 @@ export async function portalAdminGetApplications(options = {}) {
           department: profile.department || app.department || 'Computer Science',
           level: profile.admission_year ? `${Math.min(500, Math.max(100, (new Date().getFullYear() - profile.admission_year + 1) * 100))} Level` : (app.level || '300 Level'),
           passport_url: app.passport_url || profile.profile_photo_url || profile.avatar_url || null,
-          passport_photo_url: app.passport_url || profile.profile_photo_url || profile.avatar_url || null
+          passport_photo_url: app.passport_url || profile.profile_photo_url || profile.avatar_url || null,
+          payment_reference: app.payment_reference || payRecord?.reference || null,
+          payment_provider: payRecord?.provider || (app.payment_reference?.startsWith('NACOS-IDCARD') ? 'BACHS' : 'DIRECT'),
+          payment_record: payRecord
         };
       });
     }

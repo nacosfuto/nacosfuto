@@ -10,7 +10,7 @@ const AdmissionRequirements = () => {
   const { theme } = useTheme();
 
   return (
-    <div className={`min-h-screen flex flex-col ${theme === 'dark' ? 'bg-[#041801] text-white' : 'bg-white text-[#083002]'} transition-colors duration-300`}>
+    <div className={`min-h-screen flex flex-col ${theme === 'dark' ? 'bg-[#041801] text-white' : 'bg-white text-black'} transition-colors duration-300`}>
       <Navbar />
       <div className="flex-grow site-container py-16 w-full">
         <header className="text-center mb-16">

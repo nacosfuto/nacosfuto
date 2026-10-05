@@ -11,6 +11,7 @@ import Courses from './pages/Courses';
 import Profile from './pages/Profile';
 import IdCard from './pages/IdCard';
 import IdVerification from './pages/IdVerification';
+import PaymentSuccess from './pages/PaymentSuccess';
 import Notices from './pages/Notices';
 import HackathonDetail from './pages/HackathonDetail';
 import HackathonApply from './pages/HackathonApply';
@@ -70,6 +71,8 @@ function App() {
           <Route path="/resource-hub" element={<Courses />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/id-card" element={<IdCard />} />
+          <Route path="/payment/success" element={<PaymentSuccess />} />
+          <Route path="/payment/verify" element={<PaymentSuccess />} />
 
           {/* Dedicated Administrative Gateway & Control Center */}
           <Route path="/admin-hub" element={<AdminHub />} />

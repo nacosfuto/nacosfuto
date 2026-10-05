@@ -47,7 +47,7 @@ const NacosSection = () => {
     badge: exec.position === "President" ? "President" : undefined
   }));
 
-  const autoplaySpeed = 0.0028; // Idle scrolling speed
+  const autoplaySpeed = 0.0068; // Increased continuous carousel speed
 
   // Carousel state
   const [scrollPosition, setScrollPosition] = useState(0);
@@ -226,25 +226,20 @@ const NacosSection = () => {
   }
 
   return (
-    <section className="py-10 md:py-14 bg-white dark:bg-[#041801] border-t border-b border-gray-200 dark:border-[#138601]/20 text-black dark:text-white overflow-hidden transition-colors duration-300">
-      <div className="site-container">
-        {/* Centered Introduction Header - Compact to fit in one glance */}
-        <div className="text-center max-w-xl mx-auto mb-6 md:mb-8">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <h2 className="text-2xl md:text-3xl font-black tracking-tight text-black dark:text-white">
-              <span className="text-[#138601] dark:text-[#4bd043]">NACOS</span> Executives
-            </h2>
-            <ScrollToTopLink to="/about/nacos-executives" className="inline-flex items-center justify-center px-4 py-1.5 bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-xs rounded shadow-2xs transition-colors cursor-pointer">
-              Meet All
-            </ScrollToTopLink>
-          </div>
+    <section className="relative flex flex-col justify-center items-center min-h-[calc(100dvh-64px)] md:h-[calc(100vh-64px)] py-6 sm:py-8 bg-white dark:bg-[#041801] border-t border-b border-gray-200 dark:border-[#138601]/20 text-black dark:text-white overflow-hidden transition-colors duration-300">
+      <div className="site-container w-full flex flex-col justify-between items-center h-full max-h-[calc(100vh-80px)]">
+        {/* Centered Introduction Header */}
+        <div className="text-center max-w-xl mx-auto mb-2 sm:mb-4">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-black dark:text-white mb-1.5">
+            <span className="text-[#138601] dark:text-[#4bd043]">NACOS</span> Executives
+          </h2>
           <p className="text-gray-700 dark:text-gray-300 text-xs sm:text-sm leading-snug">
             Elected student leadership driving computing innovation, mentorship, and tech excellence across FUTO.
           </p>
         </div>
 
         {/* Full-width Carousel Area */}
-        <div className="flex flex-col items-center w-full mt-2">
+        <div className="flex flex-col items-center justify-center w-full flex-grow my-auto">
 
           {/* Carousel Stage Track */}
           <div
@@ -255,7 +250,7 @@ const NacosSection = () => {
             onPointerCancel={handleDragEnd}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className="relative w-full h-[270px] sm:h-[300px] md:h-[330px] overflow-visible cursor-grab active:cursor-grabbing select-none flex justify-center items-center"
+            className="relative w-full h-[290px] sm:h-[330px] md:h-[370px] lg:h-[390px] overflow-visible cursor-grab active:cursor-grabbing select-none flex justify-center items-center"
           >
             {visibleItems.map((data, idx) => {
               const { item, dist, absDist } = data;
@@ -277,7 +272,7 @@ const NacosSection = () => {
                     filter: `blur(${blurVal}px)`,
                     zIndex: isActive ? 30 : 20,
                   }}
-                  className="absolute left-1/2 top-1/2 h-[220px] sm:h-[250px] md:h-[280px] rounded-[5px] overflow-hidden border border-[#138601]/40 bg-[#083002] dark:bg-[#083002] shadow-lg transition-shadow duration-[600ms] group pointer-events-auto"
+                  className="absolute left-1/2 top-1/2 h-[250px] sm:h-[290px] md:h-[330px] lg:h-[350px] rounded-[5px] overflow-hidden border border-[#138601]/40 bg-[#083002] dark:bg-[#083002] shadow-lg transition-shadow duration-[600ms] group pointer-events-auto"
                 >
                   {/* Background image */}
                   <div className="absolute inset-0 w-full h-full pointer-events-none">
@@ -332,23 +327,33 @@ const NacosSection = () => {
             })}
           </div>
 
-          {/* Slide Navigation Dots */}
-          <div className="flex gap-2 mt-8">
-            {items.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => {
-                  let target = i;
-                  let diff = target - scrollPosition;
-                  if (diff > items.length / 2) target -= items.length;
-                  if (diff < -items.length / 2) target += items.length;
-                  targetPosition.current = target;
-                }}
-                className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${i === activeIndex ? 'w-8 bg-green-500' : 'w-2.5 bg-gray-300 dark:bg-gray-700 hover:bg-green-300'
-                  }`}
-                aria-label={`Go to slide ${i + 1}`}
-              />
-            ))}
+          {/* Slide Navigation Dots and Action Button */}
+          <div className="flex flex-col items-center gap-3 sm:gap-4 mt-5 sm:mt-6">
+            <div className="flex gap-2">
+              {items.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    let target = i;
+                    let diff = target - scrollPosition;
+                    if (diff > items.length / 2) target -= items.length;
+                    if (diff < -items.length / 2) target += items.length;
+                    targetPosition.current = target;
+                  }}
+                  className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${i === activeIndex ? 'w-8 bg-green-500' : 'w-2.5 bg-gray-300 dark:bg-gray-700 hover:bg-green-300'
+                    }`}
+                  aria-label={`Go to slide ${i + 1}`}
+                />
+              ))}
+            </div>
+
+            <ScrollToTopLink
+              to="/about/nacos-executives"
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer group"
+            >
+              <span>Meet All NACOS Executives</span>
+              <FiArrowRight className="text-xs transition-transform duration-200 group-hover:translate-x-1" />
+            </ScrollToTopLink>
           </div>
         </div>
       </div>

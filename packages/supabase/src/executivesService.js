@@ -179,11 +179,12 @@ export const INITIAL_CURRENT_EXECUTIVES = [
   }
 ];
 
-// Initial Seeded Past Executives
+// Initial Seeded Past Executives (Multi-tenure archive)
 export const INITIAL_PAST_EXECUTIVES = [
+  // 2024/2025 Tenure - Led by AKINNUBI PETER
   {
-    id: 'past-1',
-    name: 'Comr. JOHNSON EDIDIONG EKPO',
+    id: 'past-24-1',
+    name: 'Comr. AKINNUBI PETER',
     role: 'President',
     image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569281/nacos/executives/nacos1.jpg',
     category: 'past',
@@ -191,7 +192,7 @@ export const INITIAL_PAST_EXECUTIVES = [
     order_index: 0
   },
   {
-    id: 'past-2',
+    id: 'past-24-2',
     name: 'Comr. BENJAMIN CHIAGOZIE P.',
     role: 'Vice President',
     image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569282/nacos/executives/nacos2.jpg',
@@ -200,7 +201,7 @@ export const INITIAL_PAST_EXECUTIVES = [
     order_index: 1
   },
   {
-    id: 'past-3',
+    id: 'past-24-3',
     name: 'Comr. OKECHUKWU CHIDERA A.',
     role: 'Secretary General',
     image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569283/nacos/executives/nacos3.jpg',
@@ -209,7 +210,7 @@ export const INITIAL_PAST_EXECUTIVES = [
     order_index: 2
   },
   {
-    id: 'past-4',
+    id: 'past-24-4',
     name: 'Comr. OGBONNA FAVOUR A.',
     role: 'Ass. Secretary General',
     image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569284/nacos/executives/nacos4.jpg',
@@ -218,7 +219,7 @@ export const INITIAL_PAST_EXECUTIVES = [
     order_index: 3
   },
   {
-    id: 'past-5',
+    id: 'past-24-5',
     name: 'Comr. Egwu Makuochukwu V.',
     role: 'Treasurer',
     image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569285/nacos/executives/nacos5.jpg',
@@ -227,7 +228,7 @@ export const INITIAL_PAST_EXECUTIVES = [
     order_index: 4
   },
   {
-    id: 'past-6',
+    id: 'past-24-6',
     name: 'Barr. Comr. Chimeziri Freedom C.',
     role: 'P.R.O',
     image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569286/nacos/executives/nacos6.jpg',
@@ -236,7 +237,7 @@ export const INITIAL_PAST_EXECUTIVES = [
     order_index: 5
   },
   {
-    id: 'past-7',
+    id: 'past-24-7',
     name: 'Comr. ABASILI GODWIN CHINEDU',
     role: 'Director of Welfare',
     image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569287/nacos/executives/nacos7.jpg',
@@ -245,7 +246,7 @@ export const INITIAL_PAST_EXECUTIVES = [
     order_index: 6
   },
   {
-    id: 'past-8',
+    id: 'past-24-8',
     name: 'Comr. EZIHE FORTUNE C.',
     role: 'Director of Software',
     image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569288/nacos/executives/nacos8.jpg',
@@ -253,50 +254,99 @@ export const INITIAL_PAST_EXECUTIVES = [
     session: '2024/2025',
     order_index: 7
   },
+
+  // 2023/2024 Tenure - Led by IHEKWOBA SUCCESS
   {
-    id: 'past-9',
-    name: 'Comr. ONUKWUGHA PRINCE U.',
-    role: 'Director of Hardware',
+    id: 'past-23-1',
+    name: 'Comr. IHEKWOBA SUCCESS',
+    role: 'President',
     image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569289/nacos/executives/nacos9.jpg',
     category: 'past',
-    session: '2024/2025',
-    order_index: 8
+    session: '2023/2024',
+    order_index: 0
   },
   {
-    id: 'past-10',
-    name: 'Comr. OPARAK CHIDIEBERE D.',
-    role: 'Director of Sports',
+    id: 'past-23-2',
+    name: 'Comr. AMADI PROMISE C.',
+    role: 'Vice President',
     image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569290/nacos/executives/nacos10.jpg',
     category: 'past',
-    session: '2024/2025',
-    order_index: 9
+    session: '2023/2024',
+    order_index: 1
   },
   {
-    id: 'past-11',
-    name: 'Comr. ONWUBIKO KAMSIYOCHI D.',
-    role: 'Director of Socials',
+    id: 'past-23-3',
+    name: 'Comr. NWOKO PRECIOUS O.',
+    role: 'Secretary General',
     image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569291/nacos/executives/nacos11.jpg',
     category: 'past',
-    session: '2024/2025',
-    order_index: 10
+    session: '2023/2024',
+    order_index: 2
   },
   {
-    id: 'past-12',
-    name: 'Comr. MADUBUIKE NZUBECHUKWU D.',
-    role: 'Provost',
+    id: 'past-23-4',
+    name: 'Comr. KALU VICTOR E.',
+    role: 'Director of Software',
     image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569292/nacos/executives/nacos12.jpg',
     category: 'past',
-    session: '2024/2025',
-    order_index: 11
+    session: '2023/2024',
+    order_index: 3
   },
   {
-    id: 'past-13',
-    name: 'Hon. Ogbu Promise Ucha',
-    role: 'MSRC',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569271/nacos/executives/hon_ogbu.jpg',
+    id: 'past-23-5',
+    name: 'Comr. UBAH DANIEL K.',
+    role: 'Director of Welfare',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569273/nacos/executives/socials_dir_munachimso.jpg',
     category: 'past',
-    session: '2024/2025',
-    order_index: 12
+    session: '2023/2024',
+    order_index: 4
+  },
+
+  // 2022/2023 Tenure - Led by CHIKEZIE GREAT EME
+  {
+    id: 'past-22-1',
+    name: 'Comr. CHIKEZIE GREAT EME',
+    role: 'President',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569275/nacos/executives/president_irechukwu.jpg',
+    category: 'past',
+    session: '2022/2023',
+    order_index: 0
+  },
+  {
+    id: 'past-22-2',
+    name: 'Comr. EZINNE MIRACLE O.',
+    role: 'Vice President',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569279/nacos/executives/vp_chinaemerem.jpg',
+    category: 'past',
+    session: '2022/2023',
+    order_index: 1
+  },
+  {
+    id: 'past-22-3',
+    name: 'Comr. EMEKA JUDE O.',
+    role: 'Secretary General',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569277/nacos/executives/sec_gen_makuochukwu.jpg',
+    category: 'past',
+    session: '2022/2023',
+    order_index: 2
+  },
+  {
+    id: 'past-22-4',
+    name: 'Comr. OKORAFOR KINGSLEY C.',
+    role: 'Director of ICT',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569272/nacos/executives/ict_dir_ifeanyi.jpg',
+    category: 'past',
+    session: '2022/2023',
+    order_index: 3
+  },
+  {
+    id: 'past-22-5',
+    name: 'Comr. OBASI JOSHUA N.',
+    role: 'Director of Welfare',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569274/nacos/executives/sports_dir_ifeanyi.jpg',
+    category: 'past',
+    session: '2022/2023',
+    order_index: 4
   }
 ];
 

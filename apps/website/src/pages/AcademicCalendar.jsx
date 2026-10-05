@@ -81,7 +81,7 @@ const AcademicCalendar = () => {
                                 <div className="absolute -left-[14px] top-4 w-5 h-5 rounded-full border-4 bg-[#138601] border-green-200 dark:border-[#041801] z-10 box-content"></div>
                                 <div className={`p-5 rounded-[5px] shadow-sm border transition-all hover:shadow-md ${theme === 'dark' ? 'bg-[#083002] border-[#138601]/30' : 'bg-white border-gray-200'}`}>
                                     <div className="flex items-center justify-between gap-2 mb-2">
-                                        <span className="inline-block px-2.5 py-0.5 rounded-[5px] text-xs font-bold uppercase tracking-wider bg-green-100 text-[#083002] dark:bg-green-900/40 dark:text-green-200">
+                                        <span className="inline-block px-2.5 py-0.5 rounded-[5px] text-xs font-bold uppercase tracking-wider bg-green-100 text-black dark:bg-green-900/40 dark:text-green-200">
                                             {event.semester}
                                         </span>
                                         <span className={`inline-block px-2.5 py-0.5 rounded-[5px] text-xs font-semibold ${getBadgeStyle(event.badge)}`}>

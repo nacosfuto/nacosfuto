@@ -163,21 +163,14 @@ const Resources = () => {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  // Load Categories on mount
+  // Load Categories on mount from Supabase
   useEffect(() => {
     async function loadCategories() {
       const res = await fetchResourceCategories();
       if (res.data && res.data.length > 0) {
         setCategories(res.data);
       } else {
-        setCategories([
-          { id: 'all', name: 'All Resources', slug: 'all' },
-          { id: 'cat-books', name: 'Books', slug: 'books' },
-          { id: 'cat-handouts', name: 'Handouts', slug: 'handouts' },
-          { id: 'cat-past-questions', name: 'Past Questions', slug: 'past-questions' },
-          { id: 'cat-videos', name: 'Videos', slug: 'videos' },
-          { id: 'cat-tutorials', name: 'Tutorials', slug: 'tutorials' }
-        ]);
+        setCategories([]);
       }
     }
     loadCategories();
@@ -603,7 +596,7 @@ const Resources = () => {
         {/* Catalog Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-6 border-b border-[#138601]/20 dark:border-[#138601]/30 gap-3">
           <div>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-[#083002] dark:text-white tracking-tight flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-extrabold text-black dark:text-white tracking-tight flex items-center gap-2">
               <span>Catalog & Archive</span>
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-[#138601]/10 dark:bg-[#138601]/30 text-[#138601] dark:text-[#4bd043]">
                 {resources.length} Available
@@ -643,7 +636,7 @@ const Resources = () => {
                 className={`px-3 sm:px-3.5 py-1.5 rounded font-semibold text-xs whitespace-nowrap transition-colors cursor-pointer border shrink-0 ${
                   activeCategory === cat
                     ? 'bg-[#138601] text-white border-[#138601] shadow-xs'
-                    : 'bg-[#f2fbf1] dark:bg-[#083002] text-[#083002] dark:text-green-100 border-[#138601]/20 dark:border-[#138601]/30 hover:bg-[#e2f7df] dark:hover:bg-[#138601]/20'
+                    : 'bg-[#f2fbf1] dark:bg-[#083002] text-black dark:text-green-100 border-[#138601]/20 dark:border-[#138601]/30 hover:bg-[#e2f7df] dark:hover:bg-[#138601]/20'
                 }`}
               >
                 {cat}
@@ -731,7 +724,7 @@ const Resources = () => {
 
                       {/* Course Title + Level & Semester Badges on the Same Line Header (Mobile Responsive) */}
                       <div className="flex flex-wrap sm:flex-nowrap items-baseline justify-between gap-x-2 gap-y-1">
-                        <h3 className="text-sm sm:text-base font-bold text-[#083002] dark:text-white leading-snug group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors flex-1 min-w-[140px] break-words">
+                        <h3 className="text-sm sm:text-base font-bold text-black dark:text-white leading-snug group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors flex-1 min-w-[140px] break-words">
                           {resource.title}
                         </h3>
 
@@ -751,7 +744,7 @@ const Resources = () => {
                       </div>
 
                       {(resource.author || resource.lecturer) && (
-                        <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-1.5 font-medium">
+                        <p className="text-xs text-black/70 dark:text-green-100/70 mt-1.5 font-medium">
                           Instructor: {resource.author || resource.lecturer}
                         </p>
                       )}

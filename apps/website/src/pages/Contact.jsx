@@ -63,7 +63,7 @@ const Contact = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#041801] text-[#083002] dark:text-white transition-colors duration-300">
+    <div className="min-h-screen bg-white dark:bg-[#041801] text-black dark:text-white transition-colors duration-300">
       <Navbar />
 
       {/* Hero Section */}
@@ -71,10 +71,10 @@ const Contact = () => {
         <div className="site-container">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h1 className="text-4xl md:text-5xl font-extrabold mb-6 text-[#083002] dark:text-white tracking-tight leading-tight">
+              <h1 className="text-4xl md:text-5xl font-extrabold mb-6 text-black dark:text-white tracking-tight leading-tight">
                 Contact <span className="text-[#138601] dark:text-[#4bd043]">The Department</span>
               </h1>
-              <p className="text-base sm:text-lg text-[#083002]/75 dark:text-green-100/75 mb-8 leading-relaxed">
+              <p className="text-base sm:text-lg text-black/75 dark:text-green-100/75 mb-8 leading-relaxed">
                 Have inquiries regarding admissions, student verification, research partnerships, or NACOS activities? Connect directly with our team.
               </p>
               <div className="flex space-x-4">
@@ -102,12 +102,12 @@ const Contact = () => {
         <div className="site-container">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div className="bg-white dark:bg-[#083002] p-8 rounded-2xl shadow-sm border border-[#138601]/20 dark:border-[#138601]/30">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#083002] dark:text-white mb-6 tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-black dark:text-white mb-6 tracking-tight">
                 Send Us a <span className="text-[#138601] dark:text-[#4bd043]">Message</span>
               </h2>
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                  <label htmlFor="name" className="block text-xs font-bold uppercase tracking-wider text-[#083002] dark:text-green-100/80 mb-2">
+                  <label htmlFor="name" className="block text-xs font-bold uppercase tracking-wider text-black dark:text-green-100/80 mb-2">
                     Full Name *
                   </label>
                   <input
@@ -121,7 +121,7 @@ const Contact = () => {
                   />
                 </div>
                 <div>
-                  <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-[#083002] dark:text-green-100/80 mb-2">
+                  <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-black dark:text-green-100/80 mb-2">
                     Email Address *
                   </label>
                   <input
@@ -135,7 +135,7 @@ const Contact = () => {
                   />
                 </div>
                 <div>
-                  <label htmlFor="subject" className="block text-xs font-bold uppercase tracking-wider text-[#083002] dark:text-green-100/80 mb-2">
+                  <label htmlFor="subject" className="block text-xs font-bold uppercase tracking-wider text-black dark:text-green-100/80 mb-2">
                     Subject *
                   </label>
                   <input
@@ -149,7 +149,7 @@ const Contact = () => {
                   />
                 </div>
                 <div>
-                  <label htmlFor="message" className="block text-xs font-bold uppercase tracking-wider text-[#083002] dark:text-green-100/80 mb-2">
+                  <label htmlFor="message" className="block text-xs font-bold uppercase tracking-wider text-black dark:text-green-100/80 mb-2">
                     Message Content *
                   </label>
                   <textarea
@@ -173,7 +173,7 @@ const Contact = () => {
             </div>
 
             <div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#083002] dark:text-white mb-6 tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-black dark:text-white mb-6 tracking-tight">
                 Official <span className="text-[#138601] dark:text-[#4bd043]">Contact Information</span>
               </h2>
               <div className="space-y-6">
@@ -183,10 +183,10 @@ const Contact = () => {
                       {item.icon}
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-[#083002] dark:text-white mb-1">
+                      <h3 className="text-base font-bold text-black dark:text-white mb-1">
                         {item.title}
                       </h3>
-                      <p className="text-xs text-[#083002]/75 dark:text-green-100/75 leading-relaxed">
+                      <p className="text-xs text-black/75 dark:text-green-100/75 leading-relaxed">
                         {item.info}
                       </p>
                     </div>

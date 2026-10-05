@@ -132,7 +132,7 @@ const Alumni = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#041801] text-[#083002] dark:text-white transition-colors duration-300 font-sans">
+    <div className="min-h-screen bg-white dark:bg-[#041801] text-black dark:text-white transition-colors duration-300 font-sans">
       <Navbar />
 
       {/* Success Toast */}
@@ -223,7 +223,7 @@ const Alumni = () => {
                 <h4 className="text-3xl font-extrabold text-[#138601] dark:text-[#4bd043] mt-3 mb-1">
                   {stat.value}
                 </h4>
-                <p className="text-xs font-semibold text-[#083002]/80 dark:text-green-200/80 uppercase tracking-wider">{stat.label}</p>
+                <p className="text-xs font-semibold text-black/80 dark:text-green-200/80 uppercase tracking-wider">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -237,10 +237,10 @@ const Alumni = () => {
             <span className="text-xs font-bold uppercase tracking-wider text-[#138601] dark:text-[#4bd043] bg-green-50 dark:bg-[#0d4603] px-3 py-1 rounded-md border border-green-200 dark:border-[#138601]/40">
               Alumni Hall of Fame
             </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#083002] dark:text-white tracking-tight mt-2 mb-2">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-black dark:text-white tracking-tight mt-2 mb-2">
               Distinguished Alumni Directory
             </h2>
-            <p className="text-xs sm:text-sm text-[#083002]/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
+            <p className="text-xs sm:text-sm text-black/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
               Spotlighting our extraordinary graduates excelling across major global tech leaders and startups.
             </p>
           </div>
@@ -266,7 +266,7 @@ const Alumni = () => {
                 </div>
 
                 <div className="flex flex-col flex-grow text-center items-center pt-4 space-y-2">
-                  <h3 className="font-bold text-lg tracking-tight text-[#083002] dark:text-white uppercase line-clamp-1">
+                  <h3 className="font-bold text-lg tracking-tight text-black dark:text-white uppercase line-clamp-1">
                     {alum.name}
                   </h3>
 

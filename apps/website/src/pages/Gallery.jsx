@@ -127,7 +127,6 @@ const Gallery = () => {
     const { theme } = useTheme();
     const [images, setImages] = useState(CANONICAL_GALLERY);
     const [activeFilter, setActiveFilter] = useState('All');
-    const [activeModalImage, setActiveModalImage] = useState(null);
 
     // Fetch dynamic gallery items from Supabase if added via admin dashboard
     useEffect(() => {
@@ -214,65 +213,34 @@ const Gallery = () => {
                         ))}
                     </div>
 
-                    {/* 4:3 Landscape Ratio Grid */}
+                    {/* 4:3 Landscape Ratio Grid with Hover Description (Non-Clickable) */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredImages.map((img, index) => (
                             <div 
                                 key={index} 
-                                onClick={() => setActiveModalImage(img)}
-                                className="relative group rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer border border-[#138601]/20 dark:border-[#138601]/30 aspect-[4/3] bg-gray-900"
+                                className="relative group rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-[#138601]/30 aspect-[4/3] bg-gray-900 select-none"
                             >
                                 <img
                                     src={img.src}
                                     alt={img.caption}
-                                    className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-700"
+                                    loading="lazy"
+                                    className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-700 ease-out"
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-5 text-white text-left">
-                                    <span className="p-2 bg-white/20 backdrop-blur rounded-lg text-white w-fit mb-2">
-                                        <FiMaximize2 size={16} />
+                                
+                                {/* Description Overlay on Hover Only */}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-5 text-white text-left pointer-events-none">
+                                    <span className="text-[10px] uppercase font-bold tracking-wider text-[#4bd043] mb-1.5 inline-block">
+                                        {img.category}
                                     </span>
-                                    <span className="text-[10px] uppercase font-bold tracking-wider text-green-400 mb-1">{img.category}</span>
-                                    <p className="font-semibold text-xs leading-snug drop-shadow line-clamp-2">{img.caption}</p>
+                                    <p className="font-semibold text-xs sm:text-sm leading-snug drop-shadow-md text-white/95">
+                                        {img.caption}
+                                    </p>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
             </main>
-
-            {/* Modal for full resolution viewing */}
-            {activeModalImage && (
-                <div 
-                    className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
-                    onClick={() => setActiveModalImage(null)}
-                >
-                    <div 
-                        className="relative max-w-4xl w-full bg-gray-900 rounded-2xl overflow-hidden shadow-2xl p-2"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <button
-                            type="button"
-                            onClick={() => setActiveModalImage(null)}
-                            className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/60 hover:bg-black text-white transition-colors cursor-pointer"
-                        >
-                            <FiX size={20} />
-                        </button>
-                        <div className="flex items-center justify-center max-h-[75vh] overflow-hidden rounded-xl bg-black">
-                            <CloudinaryImage
-                                src={activeModalImage.publicId}
-                                fallbackSrc={activeModalImage.src}
-                                alt={activeModalImage.caption}
-                                preset="gallery_full"
-                                className="max-h-[75vh] w-auto object-contain"
-                            />
-                        </div>
-                        <div className="p-4 text-center text-white">
-                            <p className="text-sm font-semibold">{activeModalImage.caption}</p>
-                            <span className="text-xs text-green-400 font-mono mt-1 block">Official Department Archive</span>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             <Footer />
         </div>

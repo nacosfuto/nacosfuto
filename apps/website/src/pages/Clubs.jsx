@@ -53,7 +53,7 @@ const Clubs = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#041801] text-[#083002] dark:text-white transition-colors duration-300">
+    <div className="min-h-screen bg-white dark:bg-[#041801] text-black dark:text-white transition-colors duration-300">
       <Navbar />
 
       {/* Hero Section */}
@@ -61,10 +61,10 @@ const Clubs = () => {
         <div className="site-container">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h1 className="text-4xl md:text-5xl font-extrabold mb-6 text-[#083002] dark:text-white tracking-tight leading-tight">
+              <h1 className="text-4xl md:text-5xl font-extrabold mb-6 text-black dark:text-white tracking-tight leading-tight">
                 Student <span className="text-[#138601] dark:text-[#4bd043]">Clubs & Chapters</span>
               </h1>
-              <p className="text-base sm:text-lg text-[#083002]/75 dark:text-green-100/75 mb-8 leading-relaxed">
+              <p className="text-base sm:text-lg text-black/75 dark:text-green-100/75 mb-8 leading-relaxed">
                 Join our specialized tech communities to enhance your engineering skills, network with ambitious peers, and build portfolio projects beyond the lecture room.
               </p>
               <ScrollToTopLink
@@ -89,10 +89,10 @@ const Clubs = () => {
       <section className="py-20 bg-[#f8f9fa] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
         <div className="site-container">
           <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#083002] dark:text-white tracking-tight mb-3">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight mb-3">
               Technical <span className="text-[#138601] dark:text-[#4bd043]">Guilds</span>
             </h2>
-            <p className="text-base text-[#083002]/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
+            <p className="text-base text-black/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
               Explore specialized student chapters focused on practical software mastery.
             </p>
           </div>
@@ -105,10 +105,10 @@ const Clubs = () => {
               >
                 <div>
                   <div className="mb-4">{club.icon}</div>
-                  <h3 className="text-lg font-bold text-[#083002] dark:text-white mb-2 leading-snug">
+                  <h3 className="text-lg font-bold text-black dark:text-white mb-2 leading-snug">
                     {club.name}
                   </h3>
-                  <p className="text-xs text-[#083002]/75 dark:text-green-100/75 leading-relaxed mb-4">
+                  <p className="text-xs text-black/75 dark:text-green-100/75 leading-relaxed mb-4">
                     {club.description}
                   </p>
                 </div>
@@ -126,13 +126,13 @@ const Clubs = () => {
         <div className="site-container">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div className="bg-white dark:bg-[#083002] p-8 rounded-2xl shadow-sm border border-[#138601]/20 dark:border-[#138601]/30">
-              <h2 className="text-2xl font-bold text-[#083002] dark:text-white mb-4 tracking-tight">
+              <h2 className="text-2xl font-bold text-black dark:text-white mb-4 tracking-tight">
                 Charter a New Student Club
               </h2>
-              <p className="text-xs text-[#083002]/75 dark:text-green-100/75 mb-6 leading-relaxed">
+              <p className="text-xs text-black/75 dark:text-green-100/75 mb-6 leading-relaxed">
                 Have a vision for a new developer chapter or interest group? The department and NACOS secretariat support new student initiatives:
               </p>
-              <ul className="space-y-3 text-xs text-[#083002]/85 dark:text-green-100/85 mb-8">
+              <ul className="space-y-3 text-xs text-black/85 dark:text-green-100/85 mb-8">
                 <li className="flex items-start gap-2">
                   <span className="text-[#138601] dark:text-[#4bd043] font-bold">✓</span>
                   <span>Gather at least 10 committed computing student founders.</span>
@@ -155,28 +155,28 @@ const Clubs = () => {
             </div>
 
             <div className="bg-white dark:bg-[#083002] p-8 rounded-2xl shadow-sm border border-[#138601]/20 dark:border-[#138601]/30">
-              <h2 className="text-2xl font-bold text-[#083002] dark:text-white mb-4 tracking-tight">
+              <h2 className="text-2xl font-bold text-black dark:text-white mb-4 tracking-tight">
                 Club Resources & Benefits
               </h2>
-              <p className="text-xs text-[#083002]/75 dark:text-green-100/75 mb-6">
+              <p className="text-xs text-black/75 dark:text-green-100/75 mb-6">
                 Registered student organizations receive direct departmental backing:
               </p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-[#f8f9fa] dark:bg-[#041801] p-4 rounded-xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
-                  <h4 className="font-bold text-sm text-[#083002] dark:text-white">Lab & Hall Access</h4>
-                  <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">Free booking of SICT lecture halls.</p>
+                  <h4 className="font-bold text-sm text-black dark:text-white">Lab & Hall Access</h4>
+                  <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">Free booking of SICT lecture halls.</p>
                 </div>
                 <div className="bg-[#f8f9fa] dark:bg-[#041801] p-4 rounded-xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
-                  <h4 className="font-bold text-sm text-[#083002] dark:text-white">Project Sponsorship</h4>
-                  <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">Eligibility for NACOS build grants.</p>
+                  <h4 className="font-bold text-sm text-black dark:text-white">Project Sponsorship</h4>
+                  <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">Eligibility for NACOS build grants.</p>
                 </div>
                 <div className="bg-[#f8f9fa] dark:bg-[#041801] p-4 rounded-xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
-                  <h4 className="font-bold text-sm text-[#083002] dark:text-white">Event Promotion</h4>
-                  <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">Broadcast on NACOS channels.</p>
+                  <h4 className="font-bold text-sm text-black dark:text-white">Event Promotion</h4>
+                  <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">Broadcast on NACOS channels.</p>
                 </div>
                 <div className="bg-[#f8f9fa] dark:bg-[#041801] p-4 rounded-xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
-                  <h4 className="font-bold text-sm text-[#083002] dark:text-white">Faculty Mentors</h4>
-                  <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">Guidance from tech researchers.</p>
+                  <h4 className="font-bold text-sm text-black dark:text-white">Faculty Mentors</h4>
+                  <p className="text-xs text-black/70 dark:text-green-100/70 mt-0.5">Guidance from tech researchers.</p>
                 </div>
               </div>
             </div>

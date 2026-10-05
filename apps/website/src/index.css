@@ -155,7 +155,7 @@ html {
 
 body {
   background-color: #ffffff;
-  color: #0f172a; /* Crisp modern black text for all default light-mode body content */
+  color: #000000; /* Crisp pure black text for all default light-mode content */
   font-family: var(--font-sans);
   font-size: 1rem; /* 16px standard steady base font size */
   line-height: 1.6;

@@ -45,7 +45,7 @@ export const EventRecapModal = ({ isOpen, event, theme, onClose, onExploreUpcomi
             <p className="text-sm leading-relaxed opacity-85">{event.description}</p>
           </div>
 
-          <div className="p-3.5 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/40 text-xs text-[#083002] dark:text-green-200 flex items-start gap-2">
+          <div className="p-3.5 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/40 text-xs text-black dark:text-green-200 flex items-start gap-2">
             <FiInfo className="w-4 h-4 text-[#138601] dark:text-[#4bd043] flex-shrink-0 mt-0.5" />
             <span>This event has concluded. Stay tuned for upcoming gatherings, conferences, and workshops.</span>
           </div>

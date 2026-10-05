@@ -8,7 +8,7 @@ const Anthems = () => {
     const { theme } = useTheme();
 
     return (
-        <div className={`min-h-screen flex flex-col ${theme === 'dark' ? 'bg-[#041801] text-white' : 'bg-white text-[#083002]'} transition-colors duration-300`}>
+        <div className={`min-h-screen flex flex-col ${theme === 'dark' ? 'bg-[#041801] text-white' : 'bg-white text-black'} transition-colors duration-300`}>
             <Navbar />
             <div className="flex-grow max-w-5xl mx-auto px-6 py-16 w-full">
                 <header className="text-center mb-16">
@@ -26,7 +26,7 @@ const Anthems = () => {
                         <div className="flex items-center justify-center w-14 h-14 rounded-full bg-[#138601]/10 text-[#138601] dark:text-[#4bd043] mb-6 mx-auto">
                             <FiMusic size={26} />
                         </div>
-                        <h2 className="text-xl font-bold text-center mb-6 uppercase tracking-wider text-[#083002] dark:text-white">FUTO Anthem</h2>
+                        <h2 className="text-xl font-bold text-center mb-6 uppercase tracking-wider text-black dark:text-white">FUTO Anthem</h2>
                         <div className="space-y-4 text-center leading-relaxed italic text-xs sm:text-sm opacity-90 font-serif">
                             <p>
                                 Hurrah our great Fed Unitech,<br/>
@@ -57,7 +57,7 @@ const Anthems = () => {
                         <div className="flex items-center justify-center w-14 h-14 rounded-full bg-[#138601]/10 text-[#138601] dark:text-[#4bd043] mb-6 mx-auto">
                             <FiMusic size={26} />
                         </div>
-                        <h2 className="text-xl font-bold text-center mb-6 uppercase tracking-wider text-[#083002] dark:text-white">National Anthem</h2>
+                        <h2 className="text-xl font-bold text-center mb-6 uppercase tracking-wider text-black dark:text-white">National Anthem</h2>
                         <div className="space-y-4 text-center leading-relaxed italic text-xs sm:text-sm opacity-90 font-serif">
                             <p>
                                 Nigeria, we hail thee,<br/>
@@ -88,7 +88,7 @@ const Anthems = () => {
 
                     {/* National Pledge */}
                     <div className={`md:col-span-2 p-8 rounded-2xl shadow-sm border border-t-4 border-t-[#138601] ${theme === 'dark' ? 'bg-[#083002] border-[#138601]/30' : 'bg-white border-gray-200'}`}>
-                        <h2 className="text-xl font-bold text-center mb-4 uppercase tracking-wider text-[#083002] dark:text-white">The National Pledge</h2>
+                        <h2 className="text-xl font-bold text-center mb-4 uppercase tracking-wider text-black dark:text-white">The National Pledge</h2>
                         <p className="text-center leading-loose max-w-2xl mx-auto font-medium text-sm sm:text-base opacity-90">
                             "I pledge to Nigeria my country.<br/>
                             To be faithful, loyal and honest.<br/>

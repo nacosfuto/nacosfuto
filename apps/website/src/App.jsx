@@ -78,6 +78,26 @@ const UpskillCourseRedirect = () => {
   );
 };
 
+const PortalLoginRedirect = () => {
+  const location = useLocation();
+  const { portal } = getAppUrls();
+
+  useEffect(() => {
+    const baseUrl = portal.replace(/\/+$/, '');
+    const cleanSearch = location.search || '';
+    const destination = `${baseUrl}/login${cleanSearch}`;
+    if (window.location.href !== destination) {
+      window.location.replace(destination);
+    }
+  }, [location, portal]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-8 bg-white dark:bg-[#041801]">
+      <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+};
+
 import SEOHandler from "./components/SEO/SEOHandler";
 
 // Loading fallback component
@@ -175,9 +195,10 @@ function App() {
             <Route path="/admin-hub" element={<AdminHub />} />
             <Route path="/admin-portal" element={<AdminHub />} />
             <Route path="/admin-gateway" element={<AdminHub />} />
-            <Route path="/admin-access" element={<AdminHub />} />
-            <Route path="/admin-login" element={<AdminHub />} />
-            <Route path="/admin" element={<AdminHub />} />
+            {/* Student Portal Login Redirects */}
+            <Route path="/login" element={<PortalLoginRedirect />} />
+            <Route path="/portal/login" element={<PortalLoginRedirect />} />
+            <Route path="/portal/*" element={<PortalLoginRedirect />} />
 
             {/* 404 Not Found */}
             <Route path="*" element={<NotFound />} />

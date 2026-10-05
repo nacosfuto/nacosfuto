@@ -47,10 +47,10 @@ const UpskillSection = () => {
           <p className="text-xs font-bold uppercase tracking-widest text-[#138601] dark:text-[#4bd043] font-mono">
             Open Source Learning Platform · Free for Everyone · Anyone Can Contribute
           </p>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#083002] dark:text-white tracking-tight">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-black dark:text-white tracking-tight">
             Open Community Masterclasses & Tech Tracks
           </h2>
-          <p className="text-base text-[#083002]/70 dark:text-green-100/70 leading-relaxed max-w-2xl mx-auto">
+          <p className="text-base text-black/70 dark:text-green-100/70 leading-relaxed max-w-2xl mx-auto">
             An open learning platform available to everyone. Anyone can access free practical curriculums or request to contribute a course to empower scholars.
           </p>
         </div>
@@ -80,10 +80,10 @@ const UpskillSection = () => {
               {/* Card Body */}
               <div className="p-6 flex-grow flex flex-col justify-between">
                 <div>
-                  <h3 className="text-lg sm:text-xl font-bold text-[#083002] dark:text-white mb-2 group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors tracking-tight leading-snug">
+                  <h3 className="text-lg sm:text-xl font-bold text-black dark:text-white mb-2 group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors tracking-tight leading-snug">
                     {course.name}
                   </h3>
-                  <p className="text-sm text-[#083002]/75 dark:text-green-100/75 leading-relaxed mb-5 line-clamp-2">
+                  <p className="text-sm text-black/75 dark:text-green-100/75 leading-relaxed mb-5 line-clamp-2">
                     {course.description}
                   </p>
                 </div>
