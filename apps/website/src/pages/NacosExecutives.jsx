@@ -120,11 +120,6 @@ const NacosExecutives = () => {
                 : 'bg-white border-gray-200 text-gray-900 shadow-sm'
             }`}>
               <div className="max-w-3xl mx-auto flex flex-col items-center">
-                <div className="flex items-center justify-center gap-2 mb-3">
-                  <span className="px-3 py-1 rounded-[5px] text-xs font-bold uppercase tracking-wider bg-green-100 dark:bg-green-900/40 text-[#138601] dark:text-green-300">
-                    Official Student Association
-                  </span>
-                </div>
                 <h2 className="text-2xl sm:text-3xl font-black tracking-tight mb-3 text-black dark:text-white">
                   About <span className="text-[#138601] dark:text-[#4bd043]">NACOS FUTO</span>
                 </h2>
