@@ -2,17 +2,78 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+    <!-- Primary SEO Meta Tags -->
+    <title>NACOS FUTO Portal | Student Academic, Dues & Clearance Hub</title>
+    <meta name="title" content="NACOS FUTO Portal | Student Academic, Dues & Clearance Hub" />
+    <meta name="description" content="Official student academic portal for FUTO Computer Science. Register courses, pay departmental dues, generate verified digital student ID cards, view semester results, and track departmental clearances." />
+    <meta name="keywords" content="NACOS Portal, FUTO Computer Science Portal, FUTO Student Portal, NACOS Dues Payment, FUTO CSC Results, Digital ID Card FUTO, Course Registration FUTO" />
+    <meta name="author" content="Department of Computer Science & NACOS FUTO" />
+    <meta name="theme-color" content="#041801" />
+    <link rel="canonical" href="https://nacosfuto.com/portal/" />
+
+    <!-- Search Engine Directives -->
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+    <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://nacosfuto.com/portal/" />
+    <meta property="og:site_name" content="NACOS FUTO Student Portal" />
+    <meta property="og:title" content="NACOS FUTO Portal | Student Academic, Dues & Clearance Hub" />
+    <meta property="og:description" content="Official student academic portal for FUTO Computer Science. Register courses, pay departmental dues, generate verified digital student ID cards, view semester results, and track departmental clearances." />
+    <meta property="og:image" content="https://nacosfuto.com/logo.png" />
+    <meta property="og:image:alt" content="NACOS FUTO Student Portal" />
+    <meta property="og:locale" content="en_NG" />
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@nacosfuto" />
+    <meta name="twitter:url" content="https://nacosfuto.com/portal/" />
+    <meta name="twitter:title" content="NACOS FUTO Portal | Student Academic & Clearance Hub" />
+    <meta name="twitter:description" content="Official student portal for FUTO Computer Science. Access course registration, dues payment, results, and digital ID card." />
+    <meta name="twitter:image" content="https://nacosfuto.com/logo.png" />
+
+    <!-- Favicon & Icons -->
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
     
-    <title>NACOS FUTO Portal - Student Academic & Clearance Hub</title>
-    <meta name="description" content="Official student portal for the Department of Computer Science and NACOS, Federal University of Technology Owerri (FUTO)." />
+    <!-- Preconnect & Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet" />
+
+    <!-- JSON-LD Structured Data: SoftwareApplication & WebApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "NACOS FUTO Student Portal",
+      "url": "https://nacosfuto.com/portal/",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "All",
+      "browserRequirements": "Requires JavaScript. Requires HTML5.",
+      "description": "Student academic management portal for course registration, dues payment, and digital ID cards for Computer Science students at FUTO.",
+      "provider": {
+        "@type": "EducationalOrganization",
+        "name": "Department of Computer Science, Federal University of Technology Owerri",
+        "url": "https://nacosfuto.com"
+      }
+    }
+    </script>
   </head>
   <body class="font-sans antialiased text-white bg-[#041801]">
+    <noscript>
+      <div style="padding: 24px; font-family: sans-serif; max-width: 600px; margin: 0 auto; text-align: center;">
+        <h1>NACOS FUTO Student Academic Portal</h1>
+        <p>
+          Official portal for Department of Computer Science students at Federal University of Technology Owerri (FUTO).
+        </p>
+        <p>Please enable JavaScript in your browser to access the interactive portal dashboard, course registration, and ID card generator.</p>
+        <p><a href="/" style="color: #4bd043;">Return to NACOS FUTO Home</a></p>
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

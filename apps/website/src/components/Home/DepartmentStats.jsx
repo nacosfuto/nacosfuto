@@ -114,15 +114,15 @@ const DepartmentStats = () => {
     return (
         <section
             ref={sectionRef}
-            className="py-20 transition-colors duration-300 bg-gray-50 dark:bg-[#041801] text-gray-800 dark:text-white"
+            className="py-20 transition-colors duration-300 bg-white dark:bg-[#041801] text-black dark:text-white border-b border-gray-150 dark:border-[#138601]/20"
         >
             <div className="site-container">
                 {/* Section Header */}
                 <div className="text-center mb-12">
-                    <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3 text-[#083002] dark:text-white">
+                    <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3 text-black dark:text-white">
                         Department at a <span className="text-[#138601] dark:text-[#4bd043]">Glance</span>
                     </h2>
-                    <p className="text-base text-[#083002]/70 dark:text-green-100/70 max-w-xl mx-auto leading-relaxed">
+                    <p className="text-base text-gray-700 dark:text-gray-300 max-w-xl mx-auto leading-relaxed">
                         Key metrics defining four decades of computing excellence at FUTO.
                     </p>
                 </div>

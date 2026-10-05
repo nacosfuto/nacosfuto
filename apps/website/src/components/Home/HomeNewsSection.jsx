@@ -75,7 +75,7 @@ const HomeNewsSection = () => {
   }, []);
 
   return (
-    <section className="py-20 bg-white dark:bg-[#041801] text-[#083002] dark:text-white transition-colors duration-300 border-t border-[#138601]/15 dark:border-[#138601]/25">
+    <section className="py-20 bg-[#f8f9fa] dark:bg-[#061e02] text-black dark:text-white transition-colors duration-300 border-b border-gray-200/80 dark:border-[#138601]/25">
       <div className="site-container">
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
@@ -84,10 +84,10 @@ const HomeNewsSection = () => {
               <FaNewspaper className="text-xs" />
               <span>Latest Updates & Press</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#083002] dark:text-white">
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-black dark:text-white">
               Department <span className="text-[#138601] dark:text-[#4bd043]">News & Journal</span>
             </h2>
-            <p className="mt-2 text-base text-[#083002]/70 dark:text-green-100/70 max-w-xl">
+            <p className="mt-2 text-base text-gray-700 dark:text-gray-300 max-w-xl">
               Stay informed with recent achievements, research milestones, academic press releases, and computing innovations.
             </p>
           </div>
@@ -106,7 +106,7 @@ const HomeNewsSection = () => {
           {articles.map((item) => (
             <article
               key={item.id || item.slug}
-              className="group bg-[#f9fdf8] dark:bg-[#083002] rounded overflow-hidden border border-[#138601]/20 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full transform hover:-translate-y-1.5"
+              className="group bg-white dark:bg-[#083002] rounded overflow-hidden border border-gray-200 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full transform hover:-translate-y-1.5"
             >
               {/* Image Banner */}
               <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-gray-900">
@@ -123,7 +123,7 @@ const HomeNewsSection = () => {
               {/* Body */}
               <div className="p-6 flex flex-col flex-grow justify-between">
                 <div>
-                  <div className="flex items-center gap-4 text-xs text-[#083002]/60 dark:text-green-200/60 mb-3">
+                  <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mb-3">
                     <span className="inline-flex items-center gap-1.5">
                       <FaCalendarAlt className="text-[#138601] dark:text-[#4bd043]" />
                       {item.date}
@@ -135,11 +135,11 @@ const HomeNewsSection = () => {
                     </span>
                   </div>
 
-                  <h3 className="text-lg font-bold text-[#083002] dark:text-white group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors line-clamp-2 mb-3 leading-snug">
+                  <h3 className="text-lg font-bold text-black dark:text-white group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors line-clamp-2 mb-3 leading-snug">
                     {item.title}
                   </h3>
 
-                  <p className="text-sm text-[#083002]/75 dark:text-green-100/75 line-clamp-3 leading-relaxed mb-6">
+                  <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 leading-relaxed mb-6">
                     {item.excerpt}
                   </p>
                 </div>

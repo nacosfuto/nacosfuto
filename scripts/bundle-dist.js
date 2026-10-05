@@ -87,6 +87,11 @@ if (fs.existsSync(upskillHubDist)) {
   fs.mkdirSync(targetUpskillHubDist, { recursive: true });
   fs.cpSync(upskillHubDist, targetUpskillHubDist, { recursive: true });
   copyAssetsToRoot(upskillHubDist, 'upskill-hub');
+
+  const upskillIndex = path.join(upskillHubDist, 'index.html');
+  if (fs.existsSync(upskillIndex)) {
+    fs.copyFileSync(upskillIndex, path.join(targetDist, 'upskill-hub.html'));
+  }
 } else {
   console.warn('[bundle-dist] Warning: apps/upskill-hub/dist was not found.');
 }

@@ -2,53 +2,67 @@ import React from 'react';
 import Navbar from '../components/Nav/Navbar';
 import Footer from '../components/Footer';
 import { useTheme } from '../context/ThemeContext';
-import { FiCalendar } from 'react-icons/fi';
+import { FiBookOpen, FiAward, FiClock, FiCalendar } from 'react-icons/fi';
 
 const AcademicCalendar = () => {
     const { theme } = useTheme();
 
     const rainEvents = [
-        { semester: "Rain Semester", title: "Week 1: Lectures", date: "19th – 23rd Apr, 2026" },
-        { semester: "Rain Semester", title: "Week 2: Lectures", date: "26th – 30th Apr, 2026" },
-        { semester: "Rain Semester", title: "Week 3: Lectures", date: "3rd – 7th May, 2026" },
-        { semester: "Rain Semester", title: "Week 4: Lectures", date: "10th – 14th May, 2026" },
-        { semester: "Rain Semester", title: "Week 5: Lectures", date: "17th – 21st May, 2026" },
-        { semester: "Rain Semester", title: "Week 6: Lectures", date: "24th – 28th May, 2026" },
-        { semester: "Rain Semester", title: "Senate", date: "28th May, 2026" },
-        { semester: "Rain Semester", title: "Break", date: "31st May – 4th Jun, 2026" },
-        { semester: "Rain Semester", title: "Break", date: "7th – 12th Jun, 2026" },
-        { semester: "Rain Semester", title: "Break", date: "14th – 19th Jun, 2026" },
-        { semester: "Rain Semester", title: "Break", date: "21st – 26th Jun, 2026" },
-        { semester: "Rain Semester", title: "Senate", date: "25th Jun, 2026" },
-        { semester: "Rain Semester", title: "Break Ends", date: "29th Jun, 2026" },
-        { semester: "Rain Semester", title: "Week 7: Lectures", date: "30th Jun – 3rd Jul, 2026" },
-        { semester: "Rain Semester", title: "Week 8: Lectures", date: "6th – 10th Jul, 2026" },
-        { semester: "Rain Semester", title: "Week 9: Lectures", date: "13th – 17th Jul, 2026" },
-        { semester: "Rain Semester", title: "Week 10: Lectures", date: "20th – 24th Jul, 2026" },
-        { semester: "Rain Semester", title: "Week 11: Lectures", date: "27th – 31st Jul, 2026" },
-        { semester: "Rain Semester", title: "Senate", date: "30th Jul, 2026" },
-        { semester: "Rain Semester", title: "Week 12: Lectures", date: "3rd – 7th Aug, 2026" },
-        { semester: "Rain Semester", title: "Week 13: Lectures", date: "10th – 14th Aug, 2026" },
-        { semester: "Rain Semester", title: "Week 14: Lectures", date: "17th – 21st Aug, 2026" },
-        { semester: "Rain Semester", title: "ID EL MAULUD HOLIDAYS", date: "26th Aug, 2026" },
-        { semester: "Rain Semester", title: "Senate", date: "27th Aug, 2026" },
-        { semester: "Rain Semester", title: "Revision Week", date: "1st – 4th Sep, 2026" },
-        { semester: "Rain Semester", title: "Commencement of Rain Semester Exams", date: "7th – 11th Sep, 2026" },
-        { semester: "Rain Semester", title: "Continuation of Rain Semester Exams", date: "14th – 18th Sep, 2026" },
-        { semester: "Rain Semester", title: "End of Rain Semester Exams", date: "21st – 25th Sep, 2026" },
-        { semester: "Rain Semester", title: "Commencement of End of Session Break", date: "28th Sep, 2026" },
+        { semester: "Rain Semester", title: "Week 1: Lectures Begin", badge: "Academic" },
+        { semester: "Rain Semester", title: "Week 2: Lectures", badge: "Academic" },
+        { semester: "Rain Semester", title: "Week 3: Lectures", badge: "Academic" },
+        { semester: "Rain Semester", title: "Week 4: Lectures", badge: "Academic" },
+        { semester: "Rain Semester", title: "Week 5: Lectures", badge: "Academic" },
+        { semester: "Rain Semester", title: "Week 6: Lectures", badge: "Academic" },
+        { semester: "Rain Semester", title: "University Senate Meeting", badge: "Administrative" },
+        { semester: "Rain Semester", title: "Mid-Semester Break", badge: "Break" },
+        { semester: "Rain Semester", title: "University Senate Meeting", badge: "Administrative" },
+        { semester: "Rain Semester", title: "Resumption from Mid-Semester Break", badge: "Academic" },
+        { semester: "Rain Semester", title: "Week 7: Lectures", badge: "Academic" },
+        { semester: "Rain Semester", title: "Week 8: Lectures", badge: "Academic" },
+        { semester: "Rain Semester", title: "Week 9: Lectures", badge: "Academic" },
+        { semester: "Rain Semester", title: "Week 10: Lectures", badge: "Academic" },
+        { semester: "Rain Semester", title: "Week 11: Lectures", badge: "Academic" },
+        { semester: "Rain Semester", title: "University Senate Meeting", badge: "Administrative" },
+        { semester: "Rain Semester", title: "Week 12: Lectures", badge: "Academic" },
+        { semester: "Rain Semester", title: "Week 13: Lectures", badge: "Academic" },
+        { semester: "Rain Semester", title: "Week 14: Lectures Conclude", badge: "Academic" },
+        { semester: "Rain Semester", title: "Public Holiday (Id El Maulud)", badge: "Holiday" },
+        { semester: "Rain Semester", title: "University Senate Meeting", badge: "Administrative" },
+        { semester: "Rain Semester", title: "Revision Week", badge: "Revision" },
+        { semester: "Rain Semester", title: "Commencement of Rain Semester Examinations", badge: "Examination" },
+        { semester: "Rain Semester", title: "Continuation of Rain Semester Examinations", badge: "Examination" },
+        { semester: "Rain Semester", title: "Conclusion of Rain Semester Examinations", badge: "Examination" },
+        { semester: "Rain Semester", title: "Commencement of End of Session Break", badge: "Vacation" },
     ];
 
+    const getBadgeStyle = (badge) => {
+        switch (badge) {
+            case 'Examination':
+                return 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-900/50';
+            case 'Revision':
+                return 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50';
+            case 'Break':
+            case 'Vacation':
+            case 'Holiday':
+                return 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-200 dark:border-purple-900/50';
+            case 'Administrative':
+                return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700';
+            default:
+                return 'bg-green-50 text-[#138601] dark:bg-[#138601]/20 dark:text-[#4bd043] border border-green-200 dark:border-[#138601]/40';
+        }
+    };
+
     return (
-        <div className={`min-h-screen flex flex-col ${theme === 'dark' ? 'bg-[#041801] text-white' : 'bg-white text-[#083002]'} transition-colors duration-300`}>
+        <div className={`min-h-screen flex flex-col ${theme === 'dark' ? 'bg-[#041801] text-white' : 'bg-white text-black'} transition-colors duration-300`}>
             <Navbar />
             <div className="flex-grow max-w-5xl mx-auto px-6 py-16 w-full">
                 <header className="text-center mb-16">
-                    <h1 className="text-4xl md:text-5xl font-black mb-4">
+                    <h1 className="text-4xl md:text-5xl font-black mb-4 tracking-tight">
                         Academic <span className="text-[#138601] dark:text-[#4bd043]">Calendar</span>
                     </h1>
                     <p className="text-base sm:text-lg opacity-80 max-w-2xl mx-auto leading-relaxed">
-                        Key dates for the <span className="font-semibold">2025/2026 Academic Session</span>
+                        Academic activity timeline and semester progression for Computer Science undergraduates
                     </p>
                 </header>
 
@@ -61,20 +75,20 @@ const AcademicCalendar = () => {
                         </h2>
                         <div className="h-px flex-1 bg-gradient-to-r from-[#138601]/0 via-[#138601] to-[#138601]/0"></div>
                     </div>
-                    <div className="relative border-l-4 border-[#138601]/30 ml-4 md:ml-10 space-y-6">
+                    <div className="relative border-l-4 border-[#138601]/30 ml-4 md:ml-10 space-y-5">
                         {rainEvents.map((event, index) => (
                             <div key={index} className="relative pl-8 md:pl-12">
-                                <div className="absolute -left-[14px] top-1 w-6 h-6 rounded-full border-4 bg-[#138601] border-green-200 z-10 box-content"></div>
-                                <div className={`p-5 rounded-2xl shadow-sm border transition-all hover:shadow-xl ${theme === 'dark' ? 'bg-[#083002] border-[#138601]/30' : 'bg-white border-gray-200'}`}>
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-1">
-                                        <span className={`inline-block px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-blue-100 text-blue-600`}>
+                                <div className="absolute -left-[14px] top-4 w-5 h-5 rounded-full border-4 bg-[#138601] border-green-200 dark:border-[#041801] z-10 box-content"></div>
+                                <div className={`p-5 rounded-[5px] shadow-sm border transition-all hover:shadow-md ${theme === 'dark' ? 'bg-[#083002] border-[#138601]/30' : 'bg-white border-gray-200'}`}>
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <span className="inline-block px-2.5 py-0.5 rounded-[5px] text-xs font-bold uppercase tracking-wider bg-green-100 text-[#083002] dark:bg-green-900/40 dark:text-green-200">
                                             {event.semester}
                                         </span>
-                                        <div className="flex items-center text-sm font-semibold opacity-70">
-                                            <FiCalendar className="mr-2" /> {event.date}
-                                        </div>
+                                        <span className={`inline-block px-2.5 py-0.5 rounded-[5px] text-xs font-semibold ${getBadgeStyle(event.badge)}`}>
+                                            {event.badge}
+                                        </span>
                                     </div>
-                                    <h3 className="text-lg font-bold">
+                                    <h3 className="text-base sm:text-lg font-bold text-black dark:text-white">
                                         {event.title}
                                     </h3>
                                 </div>

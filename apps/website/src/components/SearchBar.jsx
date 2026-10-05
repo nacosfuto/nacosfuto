@@ -47,22 +47,22 @@ function SearchBar() {
   };
 
   return (
-    <div className="hidden md:flex items-center relative max-w-md w-full">
-      <FiSearch className="absolute left-3 top-3 text-gray-400" />
+    <div className="hidden md:flex items-center relative w-full">
+      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-300 pointer-events-none text-sm z-10" />
       <input
         type="text"
         value={search}
         onChange={handleInputChange}
         onKeyDown={handleSearch}
-        className="pl-10 pr-4 py-1.5 rounded bg-white dark:bg-[#083002] border border-gray-300 dark:border-[#138601]/40 focus:outline-none focus:ring-1 focus:ring-[#138601] w-full text-xs text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-green-100/60"
+        className="pl-9 pr-3.5 h-9 rounded-[5px] bg-white dark:bg-[#041801] border border-gray-300 dark:border-[#138601]/40 focus:outline-none focus:border-[#138601] dark:focus:border-[#4bd043] w-full text-xs text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 shadow-2xs transition-colors"
         placeholder="Search..."
       />
       {suggestions.length > 0 && (
-        <ul className="absolute top-12 left-0 w-full bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 rounded shadow-xl z-50 overflow-hidden">
+        <ul className="absolute top-full mt-1.5 left-0 w-full bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 rounded-[5px] shadow-xl z-50 overflow-hidden">
           {suggestions.map((suggestion) => (
             <li
               key={suggestion}
-              className="px-4 py-3 text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-[#041801] cursor-pointer border-b last:border-none border-gray-100 dark:border-[#138601]/20 transition-colors"
+              className="px-4 py-2.5 text-xs text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-[#041801] cursor-pointer border-b last:border-none border-gray-100 dark:border-[#138601]/20 transition-colors"
               onClick={() => {
                 navigate(`/${suggestion}`);
                 setSearch('');

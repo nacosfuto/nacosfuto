@@ -86,7 +86,7 @@ const Clubs = () => {
       </section>
 
       {/* Technical Clubs Grid */}
-      <section className="py-20 bg-[#f4faf3] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
+      <section className="py-20 bg-[#f8f9fa] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
         <div className="site-container">
           <div className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#083002] dark:text-white tracking-tight mb-3">
@@ -162,19 +162,19 @@ const Clubs = () => {
                 Registered student organizations receive direct departmental backing:
               </p>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-[#f4faf3] dark:bg-[#041801] p-4 rounded-xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
+                <div className="bg-[#f8f9fa] dark:bg-[#041801] p-4 rounded-xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
                   <h4 className="font-bold text-sm text-[#083002] dark:text-white">Lab & Hall Access</h4>
                   <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">Free booking of SICT lecture halls.</p>
                 </div>
-                <div className="bg-[#f4faf3] dark:bg-[#041801] p-4 rounded-xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
+                <div className="bg-[#f8f9fa] dark:bg-[#041801] p-4 rounded-xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
                   <h4 className="font-bold text-sm text-[#083002] dark:text-white">Project Sponsorship</h4>
                   <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">Eligibility for NACOS build grants.</p>
                 </div>
-                <div className="bg-[#f4faf3] dark:bg-[#041801] p-4 rounded-xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
+                <div className="bg-[#f8f9fa] dark:bg-[#041801] p-4 rounded-xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
                   <h4 className="font-bold text-sm text-[#083002] dark:text-white">Event Promotion</h4>
                   <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">Broadcast on NACOS channels.</p>
                 </div>
-                <div className="bg-[#f4faf3] dark:bg-[#041801] p-4 rounded-xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
+                <div className="bg-[#f8f9fa] dark:bg-[#041801] p-4 rounded-xl border border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
                   <h4 className="font-bold text-sm text-[#083002] dark:text-white">Faculty Mentors</h4>
                   <p className="text-xs text-[#083002]/70 dark:text-green-100/70 mt-0.5">Guidance from tech researchers.</p>
                 </div>

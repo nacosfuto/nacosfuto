@@ -22,10 +22,11 @@ const ResourcesOverlay = ({ isOpen, closeOverlay }) => {
       { name: "Gallery", link: "/about/gallery" },
     ],
     ACADEMICS: [
-      { name: "Academic Year Calendar", link: "/about/calendar" },
       { name: "Programs", link: "/programs" },
-      { name: "Admission Portal", link: "/admission-portal" },
       { name: "How To Apply", link: "/how-to-apply" },
+      { name: "Learning Resources", link: "/resources" },
+      { name: "Academic Year Calendar", link: "/about/calendar" },
+      { name: "Admission Portal", link: "/admission-portal" },
       { name: "Admission Requirements", link: "/admission-requirements" },
       { name: "Tuition & Fees", link: "/tuition-fees" },
       { name: "Futo Website", link: "https://futo.edu.ng" },
@@ -69,7 +70,7 @@ const ResourcesOverlay = ({ isOpen, closeOverlay }) => {
         <div className="flex justify-end mb-8">
           <button
             onClick={closeOverlay}
-            className="p-2 rounded-full transition-colors cursor-pointer text-[#083002] dark:text-white hover:bg-[#f2fbf1] dark:hover:bg-[#083002]"
+            className="p-2 rounded-full transition-colors cursor-pointer text-black dark:text-white hover:bg-gray-100 dark:hover:bg-[#083002] hover:text-[#138601]"
             aria-label="Close resources menu"
           >
             <AiOutlineClose size={24} />
@@ -80,7 +81,7 @@ const ResourcesOverlay = ({ isOpen, closeOverlay }) => {
           {Object.entries(resources).map(([category, items]) => (
             <div
               key={category}
-              className="p-5 rounded-2xl shadow-lg border bg-[#f2fbf1] dark:bg-[#083002] border-[#138601]/20 dark:border-[#138601]/30 transition-all"
+              className="p-5 rounded-2xl shadow-lg border bg-gray-50 dark:bg-[#083002] border-gray-200 dark:border-[#138601]/30 transition-all"
             >
               <h3
                 className="text-base font-extrabold mb-3 border-b pb-2 uppercase tracking-wider text-[#138601] dark:text-[#4bd043] border-[#138601]/20 dark:border-[#138601]/30"
@@ -95,7 +96,7 @@ const ResourcesOverlay = ({ isOpen, closeOverlay }) => {
                         href={item.link}
                         target={item.target || "_blank"}
                         rel="noopener noreferrer"
-                        className="block py-2 px-3 rounded-lg transition-colors text-sm font-medium text-[#083002]/90 dark:text-green-100 hover:bg-[#138601] hover:text-white"
+                        className="block py-2 px-3 rounded-lg transition-colors text-sm font-medium text-black dark:text-gray-200 hover:bg-[#138601] hover:text-white"
                         onClick={closeOverlay}
                       >
                         {item.name}
@@ -106,7 +107,7 @@ const ResourcesOverlay = ({ isOpen, closeOverlay }) => {
                         className={`block py-2 px-3 rounded-lg transition-colors text-sm font-medium ${
                           location.pathname === item.link
                             ? "bg-[#138601] text-white"
-                            : "text-[#083002]/90 dark:text-green-100 hover:bg-[#138601] hover:text-white"
+                            : "text-black dark:text-gray-200 hover:bg-[#138601] hover:text-white"
                         }`}
                         onClick={closeOverlay}
                       >

@@ -206,7 +206,7 @@ const Gallery = () => {
                                         ? 'bg-[#138601] text-white shadow-sm'
                                         : theme === 'dark'
                                             ? 'bg-[#083002] text-gray-200 hover:bg-[#138601]/30 border border-[#138601]/30'
-                                            : 'bg-[#f4faf3] text-[#083002] hover:bg-[#e4f7e2] border border-[#138601]/20'
+                                            : 'bg-[#f8f9fa] text-gray-800 hover:bg-gray-100 border border-gray-200'
                                 }`}
                             >
                                 {cat}

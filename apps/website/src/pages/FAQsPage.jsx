@@ -65,7 +65,7 @@ const FAQsPage = () => {
         </div>
       </section>
 
-      <section className={`py-16 ${theme === 'dark' ? 'bg-[#041801]' : 'bg-[#f4faf3]'}`}>
+      <section className={`py-16 ${theme === 'dark' ? 'bg-[#041801]' : 'bg-[#f8f9fa]'}`}>
         <div className="max-w-4xl mx-auto padding-global">
           <div className="space-y-4">
             {faqs.map((faq, index) => (

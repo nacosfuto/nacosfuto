@@ -38,7 +38,7 @@ const Navbar = () => {
       <header
         className={`top-0 z-50 w-full transition-all duration-300 sticky shadow-md border-b ${
           theme === 'light'
-            ? 'bg-white border-[#138601]/15 text-[#083002]'
+            ? 'bg-white border-gray-200 text-black'
             : 'bg-[#083002] border-[#138601]/25 text-white'
         }`}
       >
@@ -64,7 +64,7 @@ const Navbar = () => {
             onClick={() => setMobileNavOpen(!mobileNavOpen)}
             className={`md:hidden p-2 rounded cursor-pointer transition-colors ${
               theme === 'light'
-                ? 'text-[#083002] hover:bg-[#f2fbf1]'
+                ? 'text-black hover:bg-gray-100 hover:text-[#138601]'
                 : 'text-white hover:bg-white/10'
             }`}
             aria-label="Toggle mobile menu"

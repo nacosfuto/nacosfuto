@@ -31,7 +31,6 @@ const Cards = () => {
       description: "Empower your technical growth with AI-generated curriculums, interactive video workshops, and hands-on developer tracks.",
       link: upskillHubUrl,
       buttonText: "Launch Upskill Hub",
-      badge: "Skill Platform",
       isExternal: true
     },
     {
@@ -40,19 +39,18 @@ const Cards = () => {
       description: "Access course registration, departmental dues clearance, digital ID card application, and academic results in the portal.",
       link: portalUrl,
       buttonText: "Access Portal",
-      badge: "Live Portal",
       isExternal: true
     }
   ];
 
   return (
-    <section className="py-20 bg-[#f4faf3] dark:bg-[#041801] transition-colors duration-300">
+    <section className="py-20 bg-[#f8f9fa] dark:bg-[#061e02] border-b border-gray-200/80 dark:border-[#138601]/25 transition-colors duration-300">
       <div className="site-container">
         <div className="flex flex-col items-center mb-12 text-center">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#083002] dark:text-white tracking-tight mb-3">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight mb-3">
             Academic & Community <span className="text-[#138601] dark:text-[#4bd043]">Gateways</span>
           </h2>
-          <p className="text-[#083002]/70 dark:text-green-100/70 max-w-2xl text-base leading-relaxed">
+          <p className="text-gray-700 dark:text-gray-300 max-w-2xl text-base leading-relaxed">
             Essential tools, academic resources, and skill pathways tailored for our computing community.
           </p>
         </div>
@@ -68,7 +66,7 @@ const Cards = () => {
               <CardWrapper
                 key={index}
                 {...linkProps}
-                className="group relative bg-white dark:bg-[#083002] rounded p-6 border border-[#138601]/20 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] transform hover:-translate-y-1.5 hover:shadow-xl transition-all duration-300 flex flex-col h-full overflow-hidden shadow-sm cursor-pointer"
+                className="group relative bg-white dark:bg-[#083002] rounded p-6 border border-gray-200 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] transform hover:-translate-y-1.5 hover:shadow-xl transition-all duration-300 flex flex-col h-full overflow-hidden shadow-sm cursor-pointer"
               >
                 {/* Icon Container with smooth hover pulse */}
                 <div className="mb-5 flex items-center justify-between">
@@ -83,11 +81,11 @@ const Cards = () => {
                 </div>
 
                 {/* Content */}
-                <h3 className="text-lg font-bold text-[#083002] dark:text-white mb-2 group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors duration-300 tracking-tight leading-snug">
+                <h3 className="text-lg font-bold text-black dark:text-white mb-2 group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors duration-300 tracking-tight leading-snug">
                   {item.title}
                 </h3>
                 
-                <p className="text-xs text-[#083002]/75 dark:text-green-100/75 leading-relaxed mb-6 flex-grow">
+                <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed mb-6 flex-grow">
                   {item.description}
                 </p>
 

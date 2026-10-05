@@ -96,7 +96,7 @@ const Research = () => {
       </section>
 
       {/* Research Areas */}
-      <section className="py-20 bg-[#f4faf3] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
+      <section className="py-20 bg-[#f8f9fa] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
         <div className="site-container">
           <div className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#083002] dark:text-white tracking-tight mb-3">
@@ -158,7 +158,7 @@ const Research = () => {
       </section>
 
       {/* Facilities and Opportunities */}
-      <section className="py-20 bg-[#f4faf3] dark:bg-[#041801]">
+      <section className="py-20 bg-[#f8f9fa] dark:bg-[#041801]">
         <div className="site-container">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>

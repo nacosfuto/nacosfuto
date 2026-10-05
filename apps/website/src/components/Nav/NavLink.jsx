@@ -38,10 +38,9 @@ const NavLink = ({
 
   let colorClasses = '';
   if (isActive) {
-      colorClasses = 'text-green-500';
+      colorClasses = 'text-[#138601] dark:text-[#4bd043] font-bold';
   } else {
-      // If parent passed a class, use it (likely contains text color), else default to dark mode gray
-      colorClasses = className ? className : 'text-gray-300 hover:text-green-400';
+      colorClasses = className ? className : 'text-black dark:text-gray-200 hover:text-[#138601] dark:hover:text-[#4bd043]';
   }
 
   return (

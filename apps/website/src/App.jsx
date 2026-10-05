@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect } from "react";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation, Navigate } from "react-router-dom";
 import GSAPWrapper from "./utils/GSAPWrapper";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -67,19 +67,18 @@ const UpskillCourseRedirect = () => {
       : `${baseUrl}${cleanPath}${location.search}`;
 
     if (window.location.href !== destination) {
-      window.location.href = destination;
+      window.location.replace(destination);
     }
   }, [location, upskillHub]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-8 bg-white dark:bg-[#041801]">
-      <div className="text-center">
-        <div className="w-10 h-10 border-4 border-[#138601] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-sm font-medium text-[#083002] dark:text-green-100">Directing to Upskill Hub...</p>
-      </div>
+      <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin" />
     </div>
   );
 };
+
+import SEOHandler from "./components/SEO/SEOHandler";
 
 // Loading fallback component
 const PageLoader = () => (
@@ -89,7 +88,6 @@ const PageLoader = () => (
 );
 
 function App() {
-  const { upskillHub } = getAppUrls();
   return (
     <>
       <ToastContainer
@@ -106,6 +104,7 @@ function App() {
       />
       <GSAPWrapper>
         <BrowserRouter>
+          <SEOHandler />
           <Routes>
             {/* Core Website Pages */}
             <Route path="/" element={<Home />} />
@@ -114,6 +113,7 @@ function App() {
             <Route path="/about/administration" element={<Administration />} />
             <Route path="/about/anthems" element={<Anthems />} />
             <Route path="/about/calendar" element={<AcademicCalendar />} />
+            <Route path="/calendar" element={<Navigate to="/about/calendar" replace />} />
             <Route path="/about/gallery" element={<Gallery />} />
             <Route path="/about/alumni" element={<Alumni />} />
 

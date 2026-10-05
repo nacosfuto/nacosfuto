@@ -172,7 +172,7 @@ const News = () => {
         </section>
 
         {/* Filters and Search Bar */}
-        <section className="py-8 bg-[#f4faf3] dark:bg-[#083002]/50 border-b border-[#138601]/20 dark:border-[#138601]/30">
+        <section className="py-8 bg-[#f8f9fa] dark:bg-[#083002]/50 border-b border-[#138601]/20 dark:border-[#138601]/30">
           <div className="site-container flex flex-col md:flex-row items-center justify-between gap-4">
             {/* Category Pills */}
             <div className="flex items-center flex-wrap gap-2 w-full md:w-auto">

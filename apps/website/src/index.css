@@ -7,7 +7,7 @@
   --font-display: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   /* Primary Brand Greens (#138601, #FFFFFF, #083002) */
-  --color-green-50: #f2fbf1;
+  --color-green-50: #f8f9fa;
   --color-green-100: #dcf6da;
   --color-green-200: #bbf0b7;
   --color-green-300: #88e482;
@@ -23,7 +23,7 @@
   --color-nacos-green: #138601;
   --color-nacos-dark: #083002;
   --color-nacos-black: #041801;
-  --color-nacos-light: #f2fbf1;
+  --color-nacos-light: #f8f9fa;
   --color-nacos-white: #ffffff;
 
   --color-primary: #138601;
@@ -155,7 +155,7 @@ html {
 
 body {
   background-color: #ffffff;
-  color: #083002;
+  color: #0f172a; /* Crisp modern black text for all default light-mode body content */
   font-family: var(--font-sans);
   font-size: 1rem; /* 16px standard steady base font size */
   line-height: 1.6;
@@ -168,7 +168,7 @@ h1, .h1 {
   font-family: var(--font-heading);
   letter-spacing: -0.03em;
   line-height: 1.15;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 h2, .h2 {
@@ -190,10 +190,54 @@ p {
   line-height: 1.6;
 }
 
+/* Major heading green accent helpers */
+.heading-green,
+.text-green-major {
+  color: #138601;
+}
+
+/* Global text variance tokens */
+.text-variance-headline {
+  color: #09090b;
+}
+.text-variance-subhead {
+  color: #1f2937;
+}
+.text-variance-body {
+  color: #374151;
+}
+.text-variance-muted {
+  color: #4b5563;
+}
+
+/* Links & interactive text hover */
+a:not(.btn-primary):not(.btn-nacos):not(.btn-global):hover {
+  color: #138601;
+}
+
+/* ─── Footer White Text Enforcement ─── */
+footer {
+  color: #ffffff !important;
+}
+footer h1, footer h2, footer h3, footer h4, footer h5, footer h6 {
+  color: #ffffff !important;
+}
+footer p, footer span, footer li, footer a {
+  color: #ffffff !important;
+}
+footer a:hover {
+  color: #4bd043 !important;
+}
+
 [data-theme="dark"] body,
 .dark body {
   background-color: #041801;
   color: #ffffff;
+}
+
+[data-theme="dark"] a:not(.btn-primary):not(.btn-nacos):not(.btn-global):hover,
+.dark a:not(.btn-primary):not(.btn-nacos):not(.btn-global):hover {
+  color: #4bd043 !important;
 }
 
 ::selection {
@@ -311,7 +355,7 @@ p {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f2fbf1;
+  background: #f8f9fa;
 }
 
 [data-theme="dark"] ::-webkit-scrollbar-track,

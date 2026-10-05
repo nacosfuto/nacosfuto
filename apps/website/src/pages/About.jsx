@@ -92,7 +92,7 @@ const About = () => {
       </section>
 
       {/* 1. About Department Section (Department Overview & Startup) */}
-      <section className="py-20 bg-[#f4faf3] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
+      <section className="py-20 bg-[#f8f9fa] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
         <div className="site-container">
           <div className="text-center mb-14">
             <h2
@@ -179,7 +179,7 @@ const About = () => {
       <DepartmentStats />
 
       {/* 4. FUTO History & University Details */}
-      <section className="py-20 bg-[#f4faf3] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
+      <section className="py-20 bg-[#f8f9fa] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
         <div className="site-container">
           <div className="text-center mb-14">
             <h2

@@ -1,0 +1,39 @@
+# NACOS FUTO Department of Computer Science Robots Configuration
+# https://nacosfuto.com
+
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /academics
+Allow: /admissions
+Allow: /news
+Allow: /events
+Allow: /resources
+Allow: /research
+Allow: /clubs
+Allow: /yellow-pages
+Allow: /student-life
+Allow: /contact
+Allow: /portal
+Allow: /portal/login
+Allow: /portal/register
+Allow: /portal/hackathons
+Allow: /portal/verify/
+Allow: /upskill-hub/
+Allow: /upskill-hub/courses
+Allow: /upskill-hub/workshops
+Allow: /upskill-hub/resources
+
+# Administrative & Protected gateways (Prevent search indexing)
+Disallow: /admin/
+Disallow: /admin-hub/
+Disallow: /portal-admin/
+Disallow: /portal/admin-hub/
+Disallow: /portal/admin-portal/
+Disallow: /portal/admin-access/
+Disallow: /portal/admin-login/
+Disallow: /api/
+
+# Host & Sitemap specification
+Host: https://nacosfuto.com
+Sitemap: https://nacosfuto.com/sitemap.xml

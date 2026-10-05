@@ -6,7 +6,6 @@ import ScrollToTopLink from "../components/ScrollToTopLink";
 import DepartmentStats from "../components/Home/DepartmentStats";
 import Cards from "../components/Home/Cards";
 import Analytics from "../components/Home/Analytics";
-import UpskillSection from "../components/Home/UpskillSection";
 import HomeNewsSection from "../components/Home/HomeNewsSection";
 import UpcomingEvents from "../components/Home/PastEvents";
 import NacosSection from "../components/Home/NacosSection";
@@ -27,7 +26,7 @@ const Home = () => {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-[#041801] text-[#083002] dark:text-white transition-colors duration-200">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-[#041801] text-black dark:text-white transition-colors duration-200">
       <Navbar />
       
       <main className="flex-grow">
@@ -61,8 +60,8 @@ const Home = () => {
         {/* 2. Quick Access Cards */}
         <Cards />
 
-        {/* 3. Upskill Section */}
-        <UpskillSection />
+        {/* 3. NACOS Executives Section */}
+        <NacosSection />
 
         {/* 4. Latest News & Articles */}
         <HomeNewsSection />
@@ -70,21 +69,22 @@ const Home = () => {
         {/* 5. Upcoming Events */}
         <UpcomingEvents />
 
-        {/* 5. Educational Framework & Analytics */}
+        {/* 6. Educational Framework & Analytics */}
         <Analytics />
 
-        {/* 6. NACOS Section */}
-        <NacosSection />
-
         {/* 7. Alumni Section */}
-        <section className="py-20 bg-[#f2fbf1] dark:bg-[#083002] text-[#083002] dark:text-white transition-colors duration-300">
+        <section className="py-20 bg-white dark:bg-[#041801] text-black dark:text-white transition-colors duration-300">
           <div className="site-container text-center">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3 text-[#083002] dark:text-white">Our Alumni Network</h2>
-            <p className="mb-10 text-[#083002]/80 dark:text-green-100/80 max-w-xl mx-auto text-base leading-relaxed">Join a network of successful graduates making waves across top global tech companies.</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3 text-black dark:text-white">
+              Our Alumni <span className="text-[#138601] dark:text-[#4bd043]">Network</span>
+            </h2>
+            <p className="mb-10 text-gray-700 dark:text-gray-300 max-w-xl mx-auto text-base leading-relaxed">
+              Join a network of successful graduates making waves across top global tech companies.
+            </p>
             <div className="rounded overflow-hidden shadow-lg h-64 md:h-96 bg-gray-200 dark:bg-gray-700 relative border border-[#138601]/20 dark:border-[#138601]/30 group">
               <img src={liveAlumniHomeImg} alt="FUTO CSC Alumni Group" className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700" />
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                <ScrollToTopLink to="/about/alumni" className="inline-flex items-center justify-center px-7 py-2.5 bg-white text-[#083002] hover:bg-[#f1f3f5] font-semibold text-sm rounded shadow-md transition-colors cursor-pointer min-h-[42px]">
+                <ScrollToTopLink to="/about/alumni" className="inline-flex items-center justify-center px-7 py-2.5 bg-white text-black hover:text-[#138601] hover:bg-[#f1f3f5] font-semibold text-sm rounded shadow-md transition-colors cursor-pointer min-h-[42px]">
                   Meet Our Alumni
                 </ScrollToTopLink>
               </div>

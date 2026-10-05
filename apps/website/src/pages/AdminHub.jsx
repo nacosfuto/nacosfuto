@@ -163,7 +163,9 @@ const AdminHub = () => {
       localStorage.setItem('nacos_creator_applications_db', JSON.stringify(updatedApps));
       setCreatorFeedback({ type: 'info', text: 'Application rejected.' });
       setTimeout(() => setCreatorFeedback({ type: '', text: '' }), 3000);
-    } catch (e) {}
+    } catch (e) {
+      console.error('Failed to reject creator application:', e);
+    }
   };
 
   const handleDirectAssignCreator = (e) => {
@@ -251,7 +253,9 @@ const AdminHub = () => {
       if (supabase) {
         await supabase.from('admin_scopes').update({ is_active: updatedStatus }).eq('id', admin.id);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Failed to update admin scope:', e);
+    }
   };
 
   const handleCreateAdmin = async (e) => {

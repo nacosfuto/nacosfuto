@@ -20,7 +20,7 @@ const NavDropdown = ({ label, items, theme, headerLink }) => {
         {...headerProps}
         className={`flex items-center space-x-1 font-semibold transition-colors cursor-pointer ${
           theme === "light"
-            ? "text-[#083002] hover:text-[#138601]"
+            ? "text-black hover:text-[#138601]"
             : "text-gray-200 hover:text-[#4bd043]"
         }`}
       >
@@ -32,7 +32,7 @@ const NavDropdown = ({ label, items, theme, headerLink }) => {
       <div
         className={`absolute top-full left-0 mt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 py-2 w-56 z-50 rounded-xl shadow-xl border ${
           theme === "light"
-            ? "bg-white border-[#138601]/20 text-[#083002]"
+            ? "bg-white border-gray-200 text-black"
             : "bg-[#083002] border-[#138601]/30 text-white shadow-black/60"
         }`}
       >
@@ -47,7 +47,7 @@ const NavDropdown = ({ label, items, theme, headerLink }) => {
                 rel={isExternal ? "noopener noreferrer" : undefined}
                 className={`block px-4 py-2.5 text-sm font-medium transition-colors ${
                   theme === "light"
-                    ? "hover:bg-[#f2fbf1] hover:text-[#138601] text-[#083002]"
+                    ? "hover:bg-gray-50 hover:text-[#138601] text-black"
                     : "hover:bg-[#138601]/25 hover:text-[#4bd043] text-green-100"
                 }`}
               >
@@ -61,7 +61,7 @@ const NavDropdown = ({ label, items, theme, headerLink }) => {
               to={item.link}
               className={`block px-4 py-2.5 text-sm font-medium transition-colors ${
                 theme === "light"
-                  ? "hover:bg-[#f2fbf1] hover:text-[#138601] text-[#083002]"
+                  ? "hover:bg-gray-50 hover:text-[#138601] text-black"
                   : "hover:bg-[#138601]/25 hover:text-[#4bd043] text-green-100"
               }`}
             >
@@ -100,7 +100,7 @@ const MoreDropdown = ({ theme }) => {
       <button
         className={`flex items-center space-x-1 font-semibold transition-colors cursor-pointer ${
           theme === "light"
-            ? "text-[#083002] hover:text-[#138601]"
+            ? "text-black hover:text-[#138601]"
             : "text-gray-200 hover:text-[#4bd043]"
         }`}
       >
@@ -111,7 +111,7 @@ const MoreDropdown = ({ theme }) => {
       <div
         className={`absolute top-full right-0 mt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 p-6 w-[560px] z-50 rounded-2xl shadow-2xl border grid grid-cols-1 md:grid-cols-3 gap-6 ${
           theme === "light"
-            ? "bg-white border-[#138601]/20 text-[#083002]"
+            ? "bg-white border-gray-200 text-black"
             : "bg-[#083002] border-[#138601]/30 text-white shadow-black/60"
         }`}
       >
@@ -127,7 +127,7 @@ const MoreDropdown = ({ theme }) => {
                     to={item.link}
                     className={`block py-1 text-sm font-medium transition-colors ${
                       theme === "light"
-                        ? "hover:text-[#138601] text-[#083002]/80"
+                        ? "hover:text-[#138601] text-gray-900"
                         : "hover:text-[#4bd043] text-green-100/80"
                     }`}
                   >
@@ -158,11 +158,11 @@ const DesktopNav = () => {
   ];
 
   const academicsItems = [
-    { name: "Academic Year Calendar", link: "/about/calendar" },
-    { name: "Learning Resources", link: "/resources" },
     { name: "Programs", link: "/programs" },
-    { name: "Admission Portal", link: "/admission-portal" },
     { name: "How To Apply", link: "/how-to-apply" },
+    { name: "Learning Resources", link: "/resources" },
+    { name: "Academic Year Calendar", link: "/about/calendar" },
+    { name: "Admission Portal", link: "/admission-portal" },
     { name: "Admission Requirements", link: "/admission-requirements" },
     { name: "Tuition & Fees", link: "/tuition-fees" },
     { name: "Futo Website", link: "https://futo.edu.ng" },
@@ -179,7 +179,7 @@ const DesktopNav = () => {
   return (
     <nav
       className={`hidden md:flex w-full items-center justify-between gap-4 px-1 lg:gap-6 lg:px-2 ${
-        theme === "light" ? "text-[#083002]" : "text-white"
+        theme === "light" ? "text-black" : "text-white"
       }`}
     >
       {/* Navigation Links Group */}
@@ -187,7 +187,7 @@ const DesktopNav = () => {
         <NavLink
           to="/"
           className={`tracking-wide font-semibold ${
-            theme === "light" ? "text-[#083002] hover:text-[#138601]" : "text-gray-200 hover:text-[#4bd043]"
+            theme === "light" ? "text-black hover:text-[#138601]" : "text-gray-200 hover:text-[#4bd043]"
           }`}
         >
           HOME
@@ -198,7 +198,7 @@ const DesktopNav = () => {
           target="_blank"
           rel="noopener noreferrer"
           className={`tracking-wide font-semibold transition-colors cursor-pointer ${
-            theme === "light" ? "text-[#083002] hover:text-[#138601]" : "text-gray-200 hover:text-[#4bd043]"
+            theme === "light" ? "text-black hover:text-[#138601]" : "text-gray-200 hover:text-[#4bd043]"
           }`}
         >
           UPSKILL
@@ -210,29 +210,29 @@ const DesktopNav = () => {
       </div>
 
       {/* Utilities & Actions Group */}
-      <div className="flex items-center gap-2 lg:gap-4">
+      <div className="flex items-center gap-2 lg:gap-3">
         <button
           onClick={toggleTheme}
-          className={`p-2 rounded text-base transition-all cursor-pointer ${
+          className={`w-9 h-9 flex items-center justify-center rounded-[5px] text-lg transition-colors cursor-pointer bg-transparent ${
             theme === "light"
-              ? "text-[#083002] bg-[#f2fbf1] hover:bg-[#e4f7e2] hover:text-[#138601]"
-              : "text-yellow-300 bg-[#0d4603] hover:bg-[#138601]/40"
+              ? "text-black hover:text-[#138601] hover:bg-black/5"
+              : "text-yellow-400 hover:text-yellow-300 hover:bg-white/10"
           }`}
           aria-label="Toggle dark mode"
         >
-          {theme === "dark" ? <BsSun className="text-yellow-300" /> : <BsMoon className="text-[#083002]" />}
+          {theme === "dark" ? <BsSun className="text-yellow-400" /> : <BsMoon className="text-black" />}
         </button>
 
-        <div className="w-[180px] lg:w-[220px]">
+        <div className="w-[180px] lg:w-[220px] flex items-center">
           <SearchBar />
         </div>
 
-        <div className="flex items-center space-x-2 lg:space-x-4">
+        <div className="flex items-center">
           <a 
             href={import.meta.env.VITE_PORTAL_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? "http://localhost:5174/login" : "/portal")}
             target="_blank"
             rel="noopener noreferrer"
-            className="border border-[#138601] text-[#138601] dark:text-[#4bd043] dark:border-[#4bd043] hover:bg-[#138601] hover:text-white dark:hover:bg-[#138601] dark:hover:text-white px-4 py-2 rounded font-bold text-xs tracking-wider transition-all whitespace-nowrap uppercase shadow-sm"
+            className="h-9 inline-flex items-center justify-center border border-[#138601] text-[#138601] dark:text-[#4bd043] dark:border-[#4bd043] hover:bg-[#138601] hover:text-white dark:hover:bg-[#138601] dark:hover:text-white px-4 rounded-[5px] font-bold text-xs tracking-wider transition-all whitespace-nowrap uppercase shadow-2xs"
           >
             Portal
           </a>

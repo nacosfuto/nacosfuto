@@ -34,7 +34,7 @@ const UpskillSection = () => {
   ];
 
   return (
-    <section className="py-20 bg-[#f4faf3] dark:bg-[#041801] transition-colors duration-300">
+    <section className="py-20 bg-[#f8f9fa] dark:bg-[#041801] transition-colors duration-300">
       <div className="site-container">
         <div className="text-center mb-12 max-w-3xl mx-auto space-y-3">
           <div className="flex justify-center mb-1">

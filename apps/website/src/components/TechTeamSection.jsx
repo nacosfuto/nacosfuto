@@ -44,10 +44,10 @@ const TechTeamSection = () => {
     return (
         <section className="py-20 bg-white dark:bg-[#041801] border-t border-[#138601]/20 dark:border-[#138601]/30 transition-colors duration-300">
             <div className="site-container text-center">
-                <h2 className="text-3xl sm:text-4xl font-extrabold text-[#083002] dark:text-white mb-3 tracking-tight leading-tight">
+                <h2 className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white mb-3 tracking-tight leading-tight">
                     Developed by the <span className="text-[#138601] dark:text-[#4bd043]">ICT Team</span>
                 </h2>
-                <p className="text-base text-[#083002]/70 dark:text-green-100/70 max-w-2xl mx-auto mb-12 leading-relaxed">
+                <p className="text-base text-gray-700 dark:text-gray-300 max-w-2xl mx-auto mb-12 leading-relaxed">
                     Built with passion by the NACOS Synergy ICT Developers 2025/2026.
                 </p>
 
@@ -55,7 +55,7 @@ const TechTeamSection = () => {
                     {team.map((member, index) => (
                         <div
                             key={index}
-                            className="w-full max-w-[280px] rounded-2xl overflow-hidden border border-[#138601]/20 dark:border-[#138601]/30 bg-[#f8fdf7] dark:bg-[#083002] shadow-sm hover:shadow-xl hover:border-[#138601] dark:hover:border-[#4bd043] transform hover:-translate-y-1.5 transition-all duration-300 relative flex flex-col justify-between"
+                            className="w-full max-w-[280px] rounded-2xl overflow-hidden border border-gray-200 dark:border-[#138601]/30 bg-white dark:bg-[#083002] shadow-sm hover:shadow-xl hover:border-[#138601] dark:hover:border-[#4bd043] transform hover:-translate-y-1.5 transition-all duration-300 relative flex flex-col justify-between"
                         >
                             {/* Top abstract gradient mesh */}
                             <div className="h-16 w-full bg-gradient-to-r from-[#138601]/30 via-[#3db92c]/40 to-[#083002]/30 relative">
@@ -78,10 +78,10 @@ const TechTeamSection = () => {
                             {/* Info & Details */}
                             <div className="px-6 pt-3 pb-6 flex-grow flex flex-col justify-between text-center items-center">
                                 <div>
-                                    <h3 className="text-base font-bold text-[#083002] dark:text-white tracking-tight mb-0.5">{member.name}</h3>
+                                    <h3 className="text-base font-bold text-black dark:text-white tracking-tight mb-0.5">{member.name}</h3>
                                     <p className="text-xs font-semibold text-[#138601] dark:text-[#4bd043] mb-2 uppercase tracking-wider">{member.role}</p>
 
-                                    <span className="inline-block text-[10px] font-medium text-[#083002]/80 dark:text-green-200/80 mb-5 bg-white dark:bg-[#041801] px-2.5 py-1 rounded border border-[#138601]/20 dark:border-[#138601]/30">
+                                    <span className="inline-block text-[10px] font-medium text-gray-800 dark:text-green-200/80 mb-5 bg-gray-50 dark:bg-[#041801] px-2.5 py-1 rounded border border-gray-200 dark:border-[#138601]/30">
                                         {member.association}
                                     </span>
                                 </div>

@@ -27,6 +27,14 @@
       "destination": "/portal/index.html"
     },
     {
+      "source": "/upskill-hub",
+      "destination": "/upskill-hub/index.html"
+    },
+    {
+      "source": "/upskill-hub/((?!.*\\.).*)",
+      "destination": "/upskill-hub/index.html"
+    },
+    {
       "source": "/((?!api/)(?!.*\\.).*)",
       "destination": "/index.html"
     }

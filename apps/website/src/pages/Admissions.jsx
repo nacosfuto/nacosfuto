@@ -131,7 +131,7 @@ const Admissions = () => {
       </section>
 
       {/* Admission Pathways */}
-      <section className="py-20 bg-[#f4faf3] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
+      <section className="py-20 bg-[#f8f9fa] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
         <div className="site-container">
           <div className="text-center mb-14">
             <h2
@@ -221,7 +221,7 @@ const Admissions = () => {
       </section>
 
       {/* Tuition and International Students */}
-      <section className="py-20 bg-[#f4faf3] dark:bg-[#041801]">
+      <section className="py-20 bg-[#f8f9fa] dark:bg-[#041801]">
         <div className="site-container">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div className="bg-white dark:bg-[#083002] p-8 rounded-2xl shadow-sm border border-[#138601]/20 dark:border-[#138601]/30">

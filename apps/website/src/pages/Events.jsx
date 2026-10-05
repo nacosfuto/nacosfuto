@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Nav/Navbar';
 import Footer from '../components/Footer';
 import { useTheme } from '../context/ThemeContext';
-import { FaCalendarAlt, FaMapMarkerAlt, FaClock } from 'react-icons/fa';
+import { FaCalendarAlt } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 import { getCloudinaryAssetUrl } from '@nacos/media';
 import { supabase } from '@nacos/supabase';
+import EventCard from '../components/Events/EventCard';
+import { EventRecapModal } from '../components/Events/EventModals';
 
 // Local Fallback Flyer Images
 import eventMaskedAffairs from '../assets/event_masked_affairs.jpg';
@@ -36,7 +39,8 @@ const CANONICAL_UPCOMING_EVENTS = [
     time: "8:00 PM",
     location: "SOPS Theatre, FUTO",
     image: getCloudinaryAssetUrl('event_masked_affairs') || eventMaskedAffairs,
-    description: "Premium masked party, networking night, and social mixer hosted by the Office of the Directors of Socials. Dress code: Mask. Red carpet starts at 8:00 PM."
+    description: "Premium masked party, networking night, and social mixer hosted by the Office of the Directors of Socials. Dress code: Mask. Red carpet starts at 8:00 PM.",
+    registrationLink: "https://forms.gle/nacosfuto-masked-affairs"
   },
   {
     id: 9,
@@ -46,7 +50,8 @@ const CANONICAL_UPCOMING_EVENTS = [
     time: "12:00 PM",
     location: "CSC Seminar Hall, FUTO",
     image: getCloudinaryAssetUrl('event_founders_table') || eventFoundersTable,
-    description: "Convened by Kelechukwu Okere and Nestor Anyanwu. Delving into tech startups, entrepreneurship, venture capital, and building 'The Next Big Thing'."
+    description: "Convened by Kelechukwu Okere and Nestor Anyanwu. Delving into tech startups, entrepreneurship, venture capital, and building 'The Next Big Thing'.",
+    registrationLink: "https://forms.gle/nacosfuto-founders-table"
   },
   {
     id: 10,
@@ -56,7 +61,8 @@ const CANONICAL_UPCOMING_EVENTS = [
     time: "9:00 AM",
     location: "Ogbonnaya Onu Polytechnic, Aba",
     image: getCloudinaryAssetUrl('event_zonal_convention') || eventZonalConvention,
-    description: "Theme: d.i.g.i.t (Develop, Innovate, Grow, Inspire, Transform). Featuring panel sessions, keynote talks, hackathons, and regional networking."
+    description: "Theme: d.i.g.i.t (Develop, Innovate, Grow, Inspire, Transform). Featuring panel sessions, keynote talks, hackathons, and regional networking.",
+    registrationLink: "https://forms.gle/nacos-se-zonal-convention-2026"
   },
 ];
 
@@ -69,7 +75,8 @@ const CANONICAL_RECENT_EVENTS = [
     time: "11:00 AM",
     location: "SOPS Theater, FUTO",
     image: getCloudinaryAssetUrl('event_allstars_media') || eventAllstarsMedia,
-    description: "Theme: The New Media Order: Risk, Innovation, Influence & Impact. Organized by the PRO/DOI of CSC in collaboration with FSSJ."
+    description: "Theme: The New Media Order: Risk, Innovation, Influence & Impact. Organized by the PRO/DOI of CSC in collaboration with FSSJ.",
+    registrationLink: "https://forms.gle/nacosfuto-allstars-media"
   },
   {
     id: 18,
@@ -79,7 +86,8 @@ const CANONICAL_RECENT_EVENTS = [
     time: "7:00 PM",
     location: "Google Meet",
     image: getCloudinaryAssetUrl('event_atf_ai_challenge') || eventAtfAiChallenge,
-    description: "African Technology Forum presents the ATF AI Challenge: Don't just watch the AI Revolution, lead it."
+    description: "African Technology Forum presents the ATF AI Challenge: Don't just watch the AI Revolution, lead it.",
+    registrationLink: "https://forms.gle/nacosfuto-atf-ai-challenge"
   },
   {
     id: 19,
@@ -89,7 +97,8 @@ const CANONICAL_RECENT_EVENTS = [
     time: "7:00 PM",
     location: "Google Meet",
     image: getCloudinaryAssetUrl('event_ieee_opportunities') || eventIeeeOpportunities,
-    description: "Office of the Director of ICT in collaboration with IEEE present global opportunities and community leverage."
+    description: "Office of the Director of ICT in collaboration with IEEE present global opportunities and community leverage.",
+    registrationLink: "https://forms.gle/nacosfuto-ieee-opportunities"
   }
 ];
 
@@ -251,7 +260,8 @@ const Events = () => {
             time: d.event_time,
             location: d.location,
             image: d.image_url,
-            description: d.description
+            description: d.description,
+            registrationLink: d.registration_link || d.link || null
           }));
 
           const liveSlugs = new Set(liveUpcoming.map(l => l.slug));
@@ -267,7 +277,16 @@ const Events = () => {
     fetchLiveEvents();
   }, []);
 
-    return (
+  // Recap Modal State for Concluded Events
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
+
+  const handleOpenRecapModal = (event) => {
+    setSelectedEvent(event);
+    setIsRecapModalOpen(true);
+  };
+
+  return (
     <div className={`min-h-screen flex flex-col ${theme === 'dark' ? 'bg-[#041801] text-white' : 'bg-white text-[#083002]'} transition-colors duration-300`}>
       <Navbar />
 
@@ -300,7 +319,7 @@ const Events = () => {
         <div className="site-container py-16 w-full">
 
         {/* 1. Upcoming Events Section */}
-        <section className="mb-20">
+        <section id="upcoming-events-section" className="mb-20">
           <div className="flex items-center gap-4 mb-8">
             <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Upcoming Events</h2>
             <div className="h-1 flex-grow bg-gradient-to-r from-green-500 to-transparent rounded-full opacity-30"></div>
@@ -308,36 +327,12 @@ const Events = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {upcomingEvents.map(event => (
-              <div 
+              <EventCard
                 key={event.id || event.slug}
-                className={`group flex flex-col lg:flex-row rounded overflow-hidden border shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1.5 ${
-                  theme === 'dark' ? 'bg-[#083002] border-[#138601]/30' : 'bg-white border-gray-200'
-                }`}
-              >
-                <div className="lg:w-2/5 h-56 lg:h-auto overflow-hidden relative">
-                  <img src={event.image} alt={event.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" />
-                  <div className="absolute top-4 left-4 bg-green-600 text-white px-3 py-1.5 rounded font-bold text-xs shadow">
-                     UPCOMING
-                  </div>
-                </div>
-                <div className="p-8 lg:w-3/5 flex flex-col justify-between text-gray-900 dark:text-white">
-                  <div>
-                    <h3 className="text-2xl font-bold mb-3 group-hover:text-green-500 transition-colors text-gray-900 dark:text-white">{event.title}</h3>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-6">{event.description}</p>
-                  </div>
-                  <div className="space-y-2 border-t pt-4 border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
-                    <div className="flex items-center gap-2">
-                      <FaCalendarAlt className="text-green-500" /> <span className="font-semibold text-gray-850 dark:text-gray-200">{event.date}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <FaClock className="text-green-500" /> <span className="text-gray-700 dark:text-gray-300">{event.time}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <FaMapMarkerAlt className="text-green-500" /> <span className="text-gray-700 dark:text-gray-300">{event.location}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                event={event}
+                type="upcoming"
+                theme={theme}
+              />
             ))}
           </div>
         </section>
@@ -351,36 +346,12 @@ const Events = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {recentEvents.map(event => (
-              <div 
+              <EventCard
                 key={event.id || event.slug}
-                className={`group flex flex-col lg:flex-row rounded overflow-hidden border shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1.5 ${
-                  theme === 'dark' ? 'bg-[#083002] border-[#138601]/30' : 'bg-white border-gray-200'
-                }`}
-              >
-                <div className="lg:w-2/5 h-56 lg:h-auto overflow-hidden relative">
-                  <img src={event.image} alt={event.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" />
-                  <div className="absolute top-4 left-4 bg-[#138601] text-white px-3 py-1.5 rounded font-bold text-xs shadow">
-                     RECENT
-                  </div>
-                </div>
-                <div className="p-8 lg:w-3/5 flex flex-col justify-between text-gray-900 dark:text-white">
-                  <div>
-                    <h3 className="text-xl font-bold mb-2 group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors text-gray-900 dark:text-white">{event.title}</h3>
-                    <p className="text-gray-600 dark:text-green-100/70 text-xs leading-relaxed mb-4">{event.description}</p>
-                  </div>
-                  <div className="space-y-1.5 border-t pt-3 border-gray-200 dark:border-[#138601]/20 text-xs text-gray-500 dark:text-green-200/70">
-                    <div className="flex items-center gap-2">
-                      <FaCalendarAlt className="text-[#138601] dark:text-[#4bd043]" /> <span className="font-semibold text-gray-855 dark:text-gray-200">{event.date}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <FaClock className="text-[#138601] dark:text-[#4bd043]" /> <span className="text-gray-700 dark:text-gray-300">{event.time}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <FaMapMarkerAlt className="text-[#138601] dark:text-[#4bd043]" /> <span className="text-gray-700 dark:text-gray-300">{event.location}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                event={event}
+                type="recent"
+                theme={theme}
+              />
             ))}
           </div>
         </section>
@@ -394,41 +365,30 @@ const Events = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {pastEvents.map(event => (
-              <div 
+              <EventCard
                 key={event.id || event.slug}
-                className={`group flex flex-col lg:flex-row rounded overflow-hidden border shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1.5 ${
-                  theme === 'dark' ? 'bg-[#083002] border-[#138601]/30' : 'bg-white border-gray-200'
-                }`}
-              >
-                <div className="lg:w-2/5 h-56 lg:h-auto overflow-hidden relative">
-                  <img src={event.image} alt={event.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" />
-                  <div className="absolute top-4 left-4 bg-gray-500 text-white px-3 py-1.5 rounded font-bold text-xs shadow">
-                     PAST
-                  </div>
-                </div>
-                <div className="p-8 lg:w-3/5 flex flex-col justify-between text-gray-900 dark:text-white">
-                  <div>
-                    <h3 className="text-2xl font-bold mb-3 group-hover:text-green-500 transition-colors text-gray-900 dark:text-white">{event.title}</h3>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-6">{event.description}</p>
-                  </div>
-                  <div className="space-y-2 border-t pt-4 border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
-                    <div className="flex items-center gap-2">
-                      <FaCalendarAlt className="text-green-500" /> <span className="font-semibold text-gray-855 dark:text-gray-200">{event.date}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <FaClock className="text-green-500" /> <span className="text-gray-700 dark:text-gray-300">{event.time}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <FaMapMarkerAlt className="text-green-500" /> <span className="text-gray-700 dark:text-gray-300">{event.location}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                event={event}
+                type="past"
+                theme={theme}
+                onAction={handleOpenRecapModal}
+              />
             ))}
           </div>
         </section>
         </div>
       </main>
+
+      {/* Past Event Recap Modal Overlay */}
+      <EventRecapModal
+        isOpen={isRecapModalOpen}
+        event={selectedEvent}
+        theme={theme}
+        onClose={() => setIsRecapModalOpen(false)}
+        onExploreUpcoming={() => {
+          setIsRecapModalOpen(false);
+          document.getElementById('upcoming-events-section')?.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
 
       <Footer />
     </div>

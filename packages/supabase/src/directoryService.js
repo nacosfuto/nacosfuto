@@ -89,7 +89,7 @@ const INITIAL_YELLOW_PAGES = [
     rating: 4.9,
     reviewsCount: 19,
     image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569312/nacos/yellow_pages/flyer_ninas_braid.jpg',
-    imagePosition: 'center',
+    imagePosition: 'top center', // Enforces AGENTS.md rule
     status: 'approved',
     createdAt: '2026-08-12T16:00:00Z'
   }

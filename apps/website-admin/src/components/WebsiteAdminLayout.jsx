@@ -24,7 +24,8 @@ import {
   Bell,
   CheckCircle2,
   AlertCircle,
-  BookOpen
+  BookOpen,
+  Award
 } from 'lucide-react';
 import { BsSun, BsMoon } from 'react-icons/bs';
 import { useTheme } from '../context/ThemeContext';
@@ -91,6 +92,7 @@ export const WebsiteAdminLayout = ({ children, title, subtitle }) => {
     { label: 'Yellow Pages', path: '/admin/yellow-pages', icon: Store, permission: 'main_website.yellow_pages' },
     { label: 'Campus Clubs', path: '/admin/clubs', icon: Users, permission: 'main_website.clubs' },
     { label: 'Alumni Network', path: '/admin/alumni', icon: GraduationCap, permission: 'main_website.alumni' },
+    { label: 'NACOS Executives', path: '/admin/executives', icon: Award, permission: 'main_website.homepage' },
     { label: 'Media Library', path: '/admin/media', icon: ImageIcon, permission: 'main_website.media' },
     { label: 'Campus Gallery', path: '/admin/gallery', icon: Camera, permission: 'main_website.gallery' },
     { label: 'News & Journal', path: '/admin/news', icon: Newspaper, permission: 'main_website.news' },

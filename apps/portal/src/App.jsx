@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -16,12 +16,42 @@ import HackathonDetail from './pages/HackathonDetail';
 import HackathonApply from './pages/HackathonApply';
 import AdminHub from './pages/AdminHub';
 
+function PortalSEOHandler() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const titles = {
+      '/': 'Student Login | NACOS FUTO Portal',
+      '/login': 'Student Login | NACOS FUTO Portal',
+      '/register': 'Create Account | NACOS FUTO Student Portal',
+      '/forgot-password': 'Reset Password | NACOS FUTO Portal',
+      '/dashboard': 'Student Dashboard | NACOS FUTO Portal',
+      '/notices': 'Departmental Bulletins & Notices | NACOS FUTO Portal',
+      '/bulletin': 'Departmental Bulletins | NACOS FUTO Portal',
+      '/results': 'Semester Results & CGPA | NACOS FUTO Portal',
+      '/dues': 'Departmental Dues & Clearance | NACOS FUTO Portal',
+      '/courses': 'Course Registration & Syllabi | NACOS FUTO Portal',
+      '/profile': 'Student Academic Profile | NACOS FUTO Portal',
+      '/id-card': 'Digital Student ID Card | NACOS FUTO Portal',
+      '/admin-hub': 'Administrative Control Gateway | NACOS FUTO',
+      '/hackathons/BuildXNACOS': 'BuildX NACOS National Hackathon | NACOS FUTO',
+      '/hackathons/BuildXNACOS/apply': 'Apply - BuildX NACOS Hackathon | NACOS FUTO'
+    };
+
+    const title = titles[location.pathname] || 'NACOS FUTO Portal | Student Academic & Clearance Hub';
+    document.title = title;
+  }, [location.pathname]);
+
+  return null;
+}
+
 function App() {
   const isNestedUnderPortal = typeof window !== 'undefined' && window.location.pathname.startsWith('/portal');
 
   return (
     <ThemeProvider>
       <BrowserRouter basename={isNestedUnderPortal ? '/portal' : '/'}>
+        <PortalSEOHandler />
         <Routes>
           {/* Authentication & Student Entry */}
           <Route path="/" element={<Login />} />

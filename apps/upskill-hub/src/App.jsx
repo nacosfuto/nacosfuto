@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "./context/ThemeContext";
 
 import Layout from "./components/layout/Layout";
@@ -16,6 +16,30 @@ import ProfilePage from "./pages/ProfilePage";
 import LoginPage from "./pages/LoginPage";
 import SignUpPage from "./pages/SignUpPage";
 import InstructorProfilePage from "./pages/InstructorProfilePage";
+
+function UpskillSEOHandler() {
+  const location = useLocation();
+
+  React.useEffect(() => {
+    const titles = {
+      "/": "Upskill Hub | Free Tech Courses & Workshops - NACOS FUTO",
+      "/courses": "Explore Free Tech Courses | Upskill Hub NACOS FUTO",
+      "/resources": "Tech Curricula & Developer Resources | Upskill Hub",
+      "/workshops": "Live Coding Workshops & Bootcamps | Upskill Hub",
+      "/create-course": "Become an Instructor | Upskill Hub NACOS FUTO",
+      "/my-learning": "My Learning Dashboard | Upskill Hub",
+      "/my-workshops": "My Registered Workshops | Upskill Hub",
+      "/profile": "Developer Profile | Upskill Hub",
+      "/login": "Sign In | Upskill Hub NACOS FUTO",
+      "/sign-up": "Create Student Account | Upskill Hub"
+    };
+
+    const title = titles[location.pathname] || "Upskill Hub - Open Source Learning Platform | NACOS FUTO";
+    document.title = title;
+  }, [location.pathname]);
+
+  return null;
+}
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -67,6 +91,7 @@ export function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <BrowserRouter basename={isNestedUnderUpskill ? "/upskill-hub" : "/"}>
+          <UpskillSEOHandler />
           <Routes>
             <Route element={<Layout />}>
               <Route path="/" element={<HomePage />} />

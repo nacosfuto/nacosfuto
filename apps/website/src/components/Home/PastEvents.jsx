@@ -57,10 +57,10 @@ const UpcomingEvents = () => {
     <section className="py-20 bg-white dark:bg-[#041801] transition-colors duration-300">
       <div className="site-container">
         <div className="text-center mb-12 max-w-3xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#083002] dark:text-white tracking-tight mb-3">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight mb-3">
             Upcoming <span className="text-[#138601] dark:text-[#4bd043]">Events</span>
           </h2>
-          <p className="text-base text-[#083002]/70 dark:text-green-100/70 leading-relaxed max-w-2xl mx-auto">
+          <p className="text-base text-gray-700 dark:text-gray-300 leading-relaxed max-w-2xl mx-auto">
             Stay updated with department hackathons, technical conferences, conventions, and networking sessions.
           </p>
         </div>
@@ -69,7 +69,7 @@ const UpcomingEvents = () => {
           {displayedEvents.map((event) => (
             <div
               key={event.id}
-              className="group flex flex-col sm:flex-row rounded overflow-hidden border border-[#138601]/20 dark:border-[#138601]/30 bg-[#f8fdf7] dark:bg-[#083002] shadow-sm hover:shadow-xl hover:border-[#138601] dark:hover:border-[#4bd043] transform hover:-translate-y-1.5 transition-all duration-300"
+              className="group flex flex-col sm:flex-row rounded overflow-hidden border border-gray-200 dark:border-[#138601]/30 bg-white dark:bg-[#083002] shadow-sm hover:shadow-xl hover:border-[#138601] dark:hover:border-[#4bd043] transform hover:-translate-y-1.5 transition-all duration-300"
             >
               {/* Image Container */}
               <div className="sm:w-2/5 h-52 sm:h-auto overflow-hidden relative bg-[#041801]">
@@ -84,20 +84,20 @@ const UpcomingEvents = () => {
               </div>
 
               {/* Content */}
-              <div className="p-6 sm:w-3/5 flex flex-col justify-between text-[#083002] dark:text-white">
+              <div className="p-6 sm:w-3/5 flex flex-col justify-between text-black dark:text-white">
                 <div>
-                  <h3 className="text-lg sm:text-xl font-bold mb-2 group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors leading-snug tracking-tight">
+                  <h3 className="text-lg sm:text-xl font-bold mb-2 text-black dark:text-white group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors leading-snug tracking-tight">
                     {event.title}
                   </h3>
-                  <p className="text-[#083002]/75 dark:text-green-100/75 text-sm leading-relaxed mb-4 line-clamp-2">
+                  <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed mb-4 line-clamp-2">
                     {event.description}
                   </p>
                 </div>
                 
-                <div className="space-y-1.5 border-t pt-3 border-[#138601]/15 dark:border-white/10 text-xs text-[#083002]/70 dark:text-green-100/70">
+                <div className="space-y-1.5 border-t pt-3 border-gray-100 dark:border-white/10 text-xs text-gray-600 dark:text-gray-400">
                   <div className="flex items-center gap-2">
                     <FaCalendarAlt className="text-[#138601] dark:text-[#4bd043]" />
-                    <span className="font-semibold text-[#083002] dark:text-white">{event.date}</span>
+                    <span className="font-semibold text-black dark:text-white">{event.date}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <FaClock className="text-[#138601] dark:text-[#4bd043]" />

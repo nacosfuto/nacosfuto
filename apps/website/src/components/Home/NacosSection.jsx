@@ -180,10 +180,10 @@ const NacosSection = () => {
     }, 50);
   };
 
-  // Layout sizing parameters - optimized for wider full-width display
-  const minWidth = isMobile ? 150 : isTablet ? 210 : 260;
-  const maxWidth = isMobile ? 220 : isTablet ? 290 : 360;
-  const gap = isMobile ? 12 : isTablet ? 18 : 24;
+  // Layout sizing parameters - compact & fitted for one glance on desktop
+  const minWidth = isMobile ? 140 : isTablet ? 170 : 210;
+  const maxWidth = isMobile ? 200 : isTablet ? 230 : 280;
+  const gap = isMobile ? 10 : isTablet ? 14 : 18;
 
   // Visible items projection
   const visibleItems = items
@@ -226,25 +226,25 @@ const NacosSection = () => {
   }
 
   return (
-    <section className="py-24 bg-[#083002] dark:bg-[#021200] border-t border-b border-[#138601]/20 text-white overflow-hidden transition-colors duration-300">
+    <section className="py-10 md:py-14 bg-white dark:bg-[#041801] border-t border-b border-gray-200 dark:border-[#138601]/20 text-black dark:text-white overflow-hidden transition-colors duration-300">
       <div className="site-container">
-        {/* Centered Introduction Header (Prevents blocking or overlapping with carousel) */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-6 text-white">
-            <span className="text-green-300">NACOS</span> Student Association
-          </h2>
-          <p className="text-green-100 text-sm md:text-base leading-relaxed mb-8">
-            The Nigerian Association of Computing Students (NACOS) is the premier umbrella body for all student software developers, cybersecurity analysts, network engineers, and data scientists within our department.
-          </p>
-          <div className="flex justify-center">
-            <ScrollToTopLink to="/about/nacos-executives" className="inline-flex items-center justify-center px-7 py-2.5 bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-sm rounded shadow-sm transition-colors cursor-pointer min-h-[42px]">
-              Meet the Executives
+        {/* Centered Introduction Header - Compact to fit in one glance */}
+        <div className="text-center max-w-xl mx-auto mb-6 md:mb-8">
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <h2 className="text-2xl md:text-3xl font-black tracking-tight text-black dark:text-white">
+              <span className="text-[#138601] dark:text-[#4bd043]">NACOS</span> Executives
+            </h2>
+            <ScrollToTopLink to="/about/nacos-executives" className="inline-flex items-center justify-center px-4 py-1.5 bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-xs rounded shadow-2xs transition-colors cursor-pointer">
+              Meet All
             </ScrollToTopLink>
           </div>
+          <p className="text-gray-700 dark:text-gray-300 text-xs sm:text-sm leading-snug">
+            Elected student leadership driving computing innovation, mentorship, and tech excellence across FUTO.
+          </p>
         </div>
 
         {/* Full-width Carousel Area */}
-        <div className="flex flex-col items-center w-full mt-10">
+        <div className="flex flex-col items-center w-full mt-2">
 
           {/* Carousel Stage Track */}
           <div
@@ -255,7 +255,7 @@ const NacosSection = () => {
             onPointerCancel={handleDragEnd}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className="relative w-full h-[320px] sm:h-[400px] md:h-[450px] overflow-visible cursor-grab active:cursor-grabbing select-none flex justify-center items-center"
+            className="relative w-full h-[270px] sm:h-[300px] md:h-[330px] overflow-visible cursor-grab active:cursor-grabbing select-none flex justify-center items-center"
           >
             {visibleItems.map((data, idx) => {
               const { item, dist, absDist } = data;
@@ -277,7 +277,7 @@ const NacosSection = () => {
                     filter: `blur(${blurVal}px)`,
                     zIndex: isActive ? 30 : 20,
                   }}
-                  className="absolute left-1/2 top-1/2 h-[260px] sm:h-[340px] md:h-[390px] rounded overflow-hidden border border-[#138601]/40 bg-[#083002] dark:bg-[#083002] shadow-xl transition-shadow duration-[600ms] group pointer-events-auto"
+                  className="absolute left-1/2 top-1/2 h-[220px] sm:h-[250px] md:h-[280px] rounded-[5px] overflow-hidden border border-[#138601]/40 bg-[#083002] dark:bg-[#083002] shadow-lg transition-shadow duration-[600ms] group pointer-events-auto"
                 >
                   {/* Background image */}
                   <div className="absolute inset-0 w-full h-full pointer-events-none">
@@ -291,9 +291,9 @@ const NacosSection = () => {
 
                   {/* Accented Badge for President */}
                   {item.badge && isActive && (
-                    <div className="absolute top-6 left-6 z-10">
+                    <div className="absolute top-4 left-4 z-10">
                       <span
-                        className="text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded text-white backdrop-blur-md shadow-sm border border-white/10"
+                        className="text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded text-white backdrop-blur-md shadow-sm border border-white/10"
                         style={{ backgroundColor: `${item.accentColor}cc` }}
                       >
                         {item.badge}
@@ -303,25 +303,25 @@ const NacosSection = () => {
 
                   {/* Active Card Bottom Details Overlay */}
                   <div
-                    className={`absolute bottom-0 left-0 right-0 p-6 md:p-8 z-10 flex flex-col justify-end transition-all duration-[600ms] ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+                    className={`absolute bottom-0 left-0 right-0 p-4 md:p-5 z-10 flex flex-col justify-end transition-all duration-[600ms] ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
                       }`}
                   >
-                    <div className="space-y-2 max-w-sm text-left">
-                      <h4 className="text-lg md:text-2xl font-black text-white tracking-tight leading-tight uppercase">
+                    <div className="space-y-1 max-w-sm text-left">
+                      <h4 className="text-sm md:text-base font-black text-white tracking-tight leading-tight uppercase">
                         {item.title}
                       </h4>
-                      <p className="text-white/70 text-xs md:text-sm font-semibold">
+                      <p className="text-white/80 text-[11px] md:text-xs font-semibold">
                         {item.subtitle}
                       </p>
                       {item.link && isActive && (
-                        <div className="pt-4">
+                        <div className="pt-2">
                           <ScrollToTopLink
                             to={item.link}
-                            className="inline-flex items-center gap-1.5 px-7 py-2.5 bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-xs rounded shadow-sm transition-colors cursor-pointer min-h-[42px]"
+                            className="inline-flex items-center gap-1 px-4 py-1 bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-[11px] rounded shadow-2xs transition-colors cursor-pointer"
                             onClick={(e) => e.stopPropagation()}
                           >
                             Explore Bio
-                            <FiArrowRight className="text-xs" />
+                            <FiArrowRight className="text-[10px]" />
                           </ScrollToTopLink>
                         </div>
                       )}

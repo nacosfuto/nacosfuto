@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Navbar from "../components/Nav/Navbar";
 import Footer from "../components/Footer";
+import { useTheme } from "../context/ThemeContext";
 import {
   FiUsers,
   FiAward,
@@ -22,6 +23,7 @@ import benitaImg from "../assets/alumni_benita.jpg";
 import godfirstImg from "../assets/alumni_godfirst.jpg";
 
 const Alumni = () => {
+  const { theme } = useTheme();
   const [alumniList, setAlumniList] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -209,7 +211,7 @@ const Alumni = () => {
       </div>
 
       {/* Alumni Impact Stats */}
-      <section className="py-16 bg-[#f4faf3] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
+      <section className="py-16 bg-[#f8f9fa] dark:bg-[#041801] border-b border-[#138601]/20 dark:border-[#138601]/30">
         <div className="site-container">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {alumniStats.map((stat, index) => (

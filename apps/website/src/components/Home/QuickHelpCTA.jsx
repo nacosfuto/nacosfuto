@@ -4,9 +4,9 @@ import ScrollToTopLink from '../ScrollToTopLink';
 
 const QuickHelpCTA = () => {
     return (
-        <section className="py-16 transition-colors duration-300 bg-[#f4faf3] dark:bg-[#041801]">
+        <section className="py-16 transition-colors duration-300 bg-[#f8f9fa] dark:bg-[#061e02] border-t border-gray-200/80 dark:border-[#138601]/25">
             <div className="max-w-5xl mx-auto padding-global">
-                <div className="relative overflow-hidden rounded p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 border bg-white dark:bg-[#083002] border-[#138601]/20 dark:border-[#138601]/30 shadow-sm">
+                <div className="relative overflow-hidden rounded p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 border bg-white dark:bg-[#083002] border-gray-200 dark:border-[#138601]/30 shadow-sm">
                     
                     {/* Content */}
                     <div className="relative flex items-start gap-4 flex-1">
@@ -14,10 +14,10 @@ const QuickHelpCTA = () => {
                             <FiHelpCircle />
                         </div>
                         <div>
-                            <h3 className="text-xl md:text-2xl font-bold mb-1.5 text-[#083002] dark:text-white tracking-tight">
+                            <h3 className="text-xl md:text-2xl font-bold mb-1.5 text-black dark:text-white tracking-tight">
                                 Have Questions or Need Help?
                             </h3>
-                            <p className="text-sm text-[#083002]/70 dark:text-green-100/70 leading-relaxed max-w-lg">
+                            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed max-w-lg">
                                 Whether you have questions about admissions, courses, curriculum, or student clearance — the department is here to support you.
                             </p>
                         </div>

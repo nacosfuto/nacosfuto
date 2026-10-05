@@ -13,7 +13,8 @@ import {
   Eye, 
   Upload,
   Globe,
-  Plus
+  Plus,
+  Award
 } from 'lucide-react';
 import { getWebsiteAdminSession, getAdminAuditLogs } from '@nacos/supabase/adminAuth';
 
@@ -130,6 +131,16 @@ const AdminDashboard = () => {
                 >
                   <span className="flex items-center gap-2 text-gray-800 dark:text-white">
                     <Globe className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" /> Edit Homepage Hero & Alerts
+                  </span>
+                  <ArrowUpRight className="w-4 h-4 text-gray-400" />
+                </Link>
+
+                <Link
+                  to="/admin/executives"
+                  className="w-full flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-[#041801] hover:bg-gray-100 dark:hover:bg-black transition-colors"
+                >
+                  <span className="flex items-center gap-2 text-gray-800 dark:text-white">
+                    <Award className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" /> Manage NACOS Executives & Header
                   </span>
                   <ArrowUpRight className="w-4 h-4 text-gray-400" />
                 </Link>

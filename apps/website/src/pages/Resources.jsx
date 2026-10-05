@@ -57,7 +57,9 @@ const Resources = () => {
       if (stored) {
         try {
           return JSON.parse(stored);
-        } catch (e) {}
+        } catch (e) {
+          console.warn('Failed to parse nacos_user from localStorage', e);
+        }
       }
     }
     return null;
@@ -414,13 +416,11 @@ const Resources = () => {
 
   const handleSelectCategoryFromHero = (cat) => {
     setActiveCategory(cat);
-    setIsDiscoverDropdownOpen(false);
     scrollToCatalog();
   };
 
   const handleSelectLevelFromHero = (lvl) => {
     setSelectedLevel(lvl);
-    setIsDiscoverDropdownOpen(false);
     scrollToCatalog();
   };
 
@@ -671,7 +671,7 @@ const Resources = () => {
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="bg-[#f8fdf7] dark:bg-[#083002] rounded border border-[#138601]/20 p-4 sm:p-5 space-y-4 animate-pulse">
+              <div key={i} className="bg-white dark:bg-[#083002] rounded border border-gray-200 dark:border-[#138601]/20 p-4 sm:p-5 space-y-4 animate-pulse">
                 <div className="h-32 bg-gray-200 dark:bg-[#041801] rounded"></div>
                 <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
                 <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-4/5"></div>
@@ -687,7 +687,7 @@ const Resources = () => {
               return (
                 <div
                   key={resource.id}
-                  className="bg-[#f8fdf7] dark:bg-[#083002] rounded overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 border border-[#138601]/20 dark:border-[#138601]/30 flex flex-col justify-between group"
+                  className="bg-white dark:bg-[#083002] rounded overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 border border-gray-200 dark:border-[#138601]/30 flex flex-col justify-between group"
                 >
                   {/* Card Visual Header */}
                   <div className="h-32 sm:h-36 bg-[#041801] flex items-center justify-center text-white border-b border-[#138601]/20 relative overflow-hidden">
@@ -799,7 +799,7 @@ const Resources = () => {
             })}
           </div>
         ) : (
-          <div className="text-center py-16 px-4 bg-[#f8fdf7] dark:bg-[#083002] rounded border border-dashed border-[#138601]/30">
+          <div className="text-center py-16 px-4 bg-white dark:bg-[#083002] rounded border border-dashed border-gray-300 dark:border-[#138601]/30">
             <FiSearch className="mx-auto text-4xl text-gray-400 dark:text-gray-500 mb-3" />
             <h3 className="text-base font-bold text-gray-800 dark:text-white">No academic resources found</h3>
             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mt-1 max-w-md mx-auto leading-relaxed">

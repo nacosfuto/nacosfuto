@@ -14,4 +14,5 @@ export * from './courses.js';
 export * from './results.js';
 export * from './directoryService.js';
 export * from './notificationService.js';
+export * from './executivesService.js';
 export { default } from './client.js';

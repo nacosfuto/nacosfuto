@@ -34,11 +34,11 @@ const MobileNav = ({ isOpen, closeMenu, toggleDarkMode, darkMode, isNacosExec })
       { name: "Gallery", link: "/about/gallery" },
     ],
     ACADEMICS: [
-      { name: "Academic Year Calendar", link: "/about/calendar" },
-      { name: "Learning Resources", link: "/resources" },
       { name: "Programs", link: "/programs" },
-      { name: "Admission Portal", link: "/admission-portal" },
       { name: "How To Apply", link: "/how-to-apply" },
+      { name: "Learning Resources", link: "/resources" },
+      { name: "Academic Year Calendar", link: "/about/calendar" },
+      { name: "Admission Portal", link: "/admission-portal" },
       { name: "Admission Requirements", link: "/admission-requirements" },
       { name: "Tuition & Fees", link: "/tuition-fees" },
       { name: "Futo Website", link: "https://futo.edu.ng" },
@@ -71,7 +71,7 @@ const MobileNav = ({ isOpen, closeMenu, toggleDarkMode, darkMode, isNacosExec })
   return (
     <div
       className={`md:hidden fixed inset-0 z-50 flex flex-col ${
-        darkMode ? "bg-[#041801] text-white" : "bg-white text-[#083002]"
+        darkMode ? "bg-[#041801] text-white" : "bg-white text-black"
       } transition-colors duration-200`}
     >
       {/* Dynamic top bar - pixel-perfect match to Navbar header */}
@@ -81,7 +81,7 @@ const MobileNav = ({ isOpen, closeMenu, toggleDarkMode, darkMode, isNacosExec })
             ? "bg-transparent border-white/10 backdrop-blur-md"
             : darkMode
             ? "bg-[#083002] border-[#138601]/25 text-white"
-            : "bg-white border-[#138601]/15 text-[#083002]"
+            : "bg-white border-gray-200 text-black"
         }`}
       >
         <div className="flex items-center flex-shrink-0">
@@ -101,7 +101,7 @@ const MobileNav = ({ isOpen, closeMenu, toggleDarkMode, darkMode, isNacosExec })
               ? "text-white hover:bg-white/10"
               : darkMode
               ? "text-white hover:bg-white/10"
-              : "text-[#083002] hover:bg-[#f2fbf1]"
+              : "text-black hover:bg-gray-100 hover:text-[#138601]"
           }`}
           aria-label="Close mobile menu"
         >
@@ -137,12 +137,12 @@ const MobileNav = ({ isOpen, closeMenu, toggleDarkMode, darkMode, isNacosExec })
                 className={`w-full flex items-center justify-between px-4 py-3 rounded cursor-pointer ${
                   darkMode
                     ? "bg-[#083002] text-[#4bd043] border border-[#138601]/30 shadow-black/40"
-                    : "bg-[#f2fbf1] text-[#083002] border border-[#138601]/20 shadow-sm"
+                    : "bg-gray-50 text-black border border-gray-200 shadow-sm hover:text-[#138601]"
                 } font-semibold text-base sm:text-lg transition-all duration-200 focus:outline-none ${
                   openCategory === category
                     ? darkMode
                       ? "bg-[#0d4603]"
-                      : "bg-[#e2f7df]"
+                      : "bg-gray-100 text-[#138601]"
                     : ""
                 }`}
                 onClick={() => handleCategoryClick(category)}
@@ -150,11 +150,11 @@ const MobileNav = ({ isOpen, closeMenu, toggleDarkMode, darkMode, isNacosExec })
                 <span>{category}</span>
                 {openCategory === category ? (
                   <FiChevronDown
-                    className={darkMode ? "ml-2 text-[#4bd043]" : "ml-2 text-[#083002]"}
+                    className={darkMode ? "ml-2 text-[#4bd043]" : "ml-2 text-black"}
                   />
                 ) : (
                   <FiChevronRight
-                    className={darkMode ? "ml-2 text-[#4bd043]" : "ml-2 text-[#083002]"}
+                    className={darkMode ? "ml-2 text-[#4bd043]" : "ml-2 text-black"}
                   />
                 )}
               </button>
@@ -163,7 +163,7 @@ const MobileNav = ({ isOpen, closeMenu, toggleDarkMode, darkMode, isNacosExec })
                   className={`mt-2 mb-2 rounded shadow-inner ${
                     darkMode
                       ? "bg-[#083002]/90 border border-[#138601]/30"
-                      : "bg-white border border-[#138601]/15"
+                      : "bg-white border border-gray-200"
                   }`}
                 >
                   {items.map((item) => (
@@ -176,7 +176,7 @@ const MobileNav = ({ isOpen, closeMenu, toggleDarkMode, darkMode, isNacosExec })
                           className={`block py-2.5 px-5 rounded transition-colors text-sm sm:text-base font-medium ${
                             darkMode
                               ? "text-green-100 hover:bg-[#138601]/25 hover:text-[#4bd043]"
-                              : "text-[#083002] hover:bg-[#f2fbf1] hover:text-[#138601]"
+                              : "text-black hover:bg-gray-50 hover:text-[#138601]"
                           }`}
                           onClick={closeMenu}
                         >
@@ -190,7 +190,7 @@ const MobileNav = ({ isOpen, closeMenu, toggleDarkMode, darkMode, isNacosExec })
                               ? "bg-[#138601] text-white"
                               : darkMode
                               ? "text-green-100 hover:bg-[#138601]/25 hover:text-[#4bd043]"
-                              : "text-[#083002] hover:bg-[#f2fbf1] hover:text-[#138601]"
+                              : "text-black hover:bg-gray-50 hover:text-[#138601]"
                           }`}
                           onClick={closeMenu}
                         >
@@ -232,7 +232,7 @@ const MobileNav = ({ isOpen, closeMenu, toggleDarkMode, darkMode, isNacosExec })
             className={`w-full flex items-center justify-center py-3 px-4 transition-colors font-semibold rounded ${
               darkMode 
                 ? "bg-[#083002] text-yellow-300 border border-[#138601]/30 hover:bg-[#0d4603]" 
-                : "bg-[#f2fbf1] text-[#083002] border border-[#138601]/20 hover:bg-[#e2f7df]"
+                : "bg-[#f8f9fa] text-[#083002] border border-gray-200 hover:bg-gray-100"
             }`}
           >
             {darkMode ? (
