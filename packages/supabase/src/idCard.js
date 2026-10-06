@@ -101,23 +101,31 @@ export async function updateIdCardFee(newFee, session = null, allowRegistration 
         updated_at: new Date().toISOString()
       };
 
-      // 1. Direct table update
-      await supabase
+      // 1. Direct authoritative database update
+      const { error: dbError } = await supabase
         .from('id_card_settings')
         .upsert(payload);
 
+      if (dbError) {
+        console.error('[ID Settings Database Error]:', dbError);
+        return { error: `Database error: ${dbError.message}` };
+      }
+
       // 2. Open media_assets sync pipeline for cross-device resilience
-      await supabase
-        .from('media_assets')
-        .upsert({
-          asset_type: 'id_card_settings',
-          title: 'default',
-          caption: `ID Card Configured Fee: ₦${feeNumber.toLocaleString()}`,
-          metadata: payload
-        }, { onConflict: 'asset_type,title' });
+      try {
+        await supabase
+          .from('media_assets')
+          .upsert({
+            asset_type: 'id_card_settings',
+            title: 'default',
+            caption: `ID Card Configured Fee: ₦${feeNumber.toLocaleString()}`,
+            metadata: payload
+          }, { onConflict: 'asset_type,title' });
+      } catch (_) {}
     }
   } catch (e) {
-    console.warn('[ID Settings Sync Error]:', e);
+    console.error('[ID Settings Sync Error]:', e);
+    return { error: e.message || 'Failed to update database' };
   }
 
   try {

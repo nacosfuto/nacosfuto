@@ -28,6 +28,7 @@ export const PortalAdminSettings = () => {
   const [academicSession, setAcademicSession] = useState('2026/2027');
   const [allowRegistration, setAllowRegistration] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // Admin Scope Management
   const [currentAdmin, setCurrentAdmin] = useState(null);
@@ -35,29 +36,27 @@ export const PortalAdminSettings = () => {
   const [adminUpdateMsg, setAdminUpdateMsg] = useState('');
 
   useEffect(() => {
-    try {
-      getIdCardSettings().then(s => {
-        if (s?.id_card_fee) setIdCardFee(s.id_card_fee);
-        if (s?.academic_session) setAcademicSession(s.academic_session);
-        if (s?.is_application_open !== undefined) setAllowRegistration(Boolean(s.is_application_open));
-      });
+    // 1. Authoritative fetch from Supabase database
+    getIdCardSettings().then(s => {
+      if (s?.id_card_fee) setIdCardFee(s.id_card_fee);
+      if (s?.academic_session) setAcademicSession(s.academic_session);
+      if (s?.is_application_open !== undefined) setAllowRegistration(Boolean(s.is_application_open));
+    }).catch(e => console.warn('Supabase ID settings load warning:', e));
 
-      getDuesSettings().then(ds => {
-        if (ds?.dues_amount) setDuesFee(ds.dues_amount);
-      });
+    getDuesSettings().then(ds => {
+      if (ds?.dues_amount) setDuesFee(ds.dues_amount);
+    }).catch(e => console.warn('Supabase Dues settings load warning:', e));
 
-      const session = getPortalAdminSession();
-      setCurrentAdmin(session);
+    const session = getPortalAdminSession();
+    setCurrentAdmin(session);
 
-      const admins = getLocalPortalAdmins();
-      setPortalAdmins(admins);
-
-      fetchPortalAdminsFromSupabase().then(liveAdmins => {
-        if (liveAdmins && liveAdmins.length > 0) {
-          setPortalAdmins(liveAdmins);
-        }
-      });
-    } catch (e) {}
+    fetchPortalAdminsFromSupabase().then(liveAdmins => {
+      if (liveAdmins && liveAdmins.length > 0) {
+        setPortalAdmins(liveAdmins);
+      } else {
+        setPortalAdmins(getLocalPortalAdmins());
+      }
+    });
 
     const handleAdminsUpdate = () => {
       fetchPortalAdminsFromSupabase().then(liveAdmins => {
@@ -76,11 +75,16 @@ export const PortalAdminSettings = () => {
   const handleLevelChange = async (adminId, newLevel) => {
     try {
       const res = await updateAdminAssignedLevel(adminId, newLevel);
-      setPortalAdmins(res.admins);
-      setAdminUpdateMsg(`Academic level assigned: ${newLevel === 'all' ? 'Full Level Rights' : `${newLevel} Level Only`}`);
+      if (res?.error) {
+        setAdminUpdateMsg(`Error: ${res.error}`);
+      } else {
+        setPortalAdmins(res.admins);
+        setAdminUpdateMsg(`Academic level assigned: ${newLevel === 'all' ? 'Full Level Rights' : `${newLevel} Level Only`}`);
+      }
       setTimeout(() => setAdminUpdateMsg(''), 3500);
     } catch (e) {
       console.error(e);
+      setAdminUpdateMsg(`Failed to update level in database: ${e.message}`);
     }
   };
 
@@ -89,13 +93,21 @@ export const PortalAdminSettings = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setIsSaving(true);
+    setSavedSuccess(false);
+    setSaveError('');
     try {
-      await updateIdCardFee(Number(idCardFee), academicSession, allowRegistration);
-      await updateDuesFee(Number(duesFee), academicSession);
+      // Direct write to Supabase database
+      const idRes = await updateIdCardFee(Number(idCardFee), academicSession, allowRegistration);
+      if (idRes?.error) throw new Error(idRes.error);
+
+      const duesRes = await updateDuesFee(Number(duesFee), academicSession);
+      if (duesRes?.error) throw new Error(duesRes.error);
+
       setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 3000);
+      setTimeout(() => setSavedSuccess(false), 3500);
     } catch (err) {
-      console.error('Failed to save settings:', err);
+      console.error('Failed to save settings to database:', err);
+      setSaveError(err.message || 'Failed to update settings in Supabase database.');
     } finally {
       setIsSaving(false);
     }
@@ -110,7 +122,14 @@ export const PortalAdminSettings = () => {
         {savedSuccess && (
           <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-800/60 flex items-center gap-3 text-emerald-300 text-xs">
             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-            <span>Portal settings updated and persisted successfully.</span>
+            <span>Portal settings written directly to database and live across all devices.</span>
+          </div>
+        )}
+
+        {saveError && (
+          <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-800/60 flex items-center gap-3 text-rose-300 text-xs">
+            <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
+            <span>Database Error: {saveError}</span>
           </div>
         )}
 

@@ -219,13 +219,9 @@ export async function updateDuesFee(amount, academicSession = '2026/2027') {
   };
 
   try {
-    localStorage.setItem(DUES_SETTINGS_KEY, JSON.stringify(settings));
-  } catch (e) {}
-
-  try {
     if (supabase) {
       // 1. Live Supabase id_card_settings table (id: 'dues')
-      await supabase
+      const { error: duesErr } = await supabase
         .from('id_card_settings')
         .upsert({
           id: 'dues',
@@ -235,15 +231,27 @@ export async function updateDuesFee(amount, academicSession = '2026/2027') {
           updated_at: now
         });
 
+      if (duesErr) {
+        console.error('[Dues Settings Database Error]:', duesErr);
+        return { error: `Database error: ${duesErr.message}` };
+      }
+
       // 2. Also keep academic session synchronized on default settings row
-      await supabase
-        .from('id_card_settings')
-        .update({ academic_session: academicSession, updated_at: now })
-        .eq('id', 'default');
+      try {
+        await supabase
+          .from('id_card_settings')
+          .update({ academic_session: academicSession, updated_at: now })
+          .eq('id', 'default');
+      } catch (_) {}
     }
   } catch (err) {
-    console.warn('[Dues Settings Sync Error]:', err);
+    console.error('[Dues Settings Sync Error]:', err);
+    return { error: err.message || 'Failed to update dues in database' };
   }
+
+  try {
+    localStorage.setItem(DUES_SETTINGS_KEY, JSON.stringify(settings));
+  } catch (e) {}
 
   try {
     window.dispatchEvent(new CustomEvent('nacos_dues_settings_updated', { detail: settings }));
