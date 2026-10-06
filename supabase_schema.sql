@@ -1297,12 +1297,56 @@ DROP POLICY IF EXISTS "Admins manage student results" ON public.student_results;
 CREATE POLICY "Admins manage student results" ON public.student_results FOR ALL USING (true);
 
 -- 15g. Announcements Table Synchronization
+CREATE TABLE IF NOT EXISTS public.announcements (
+  id TEXT PRIMARY KEY,
+  title TEXT,
+  slug TEXT UNIQUE,
+  excerpt TEXT,
+  content TEXT,
+  cover_image_url TEXT,
+  target_audience TEXT DEFAULT 'ALL STUDENTS',
+  author_unit TEXT DEFAULT 'Admissions Unit',
+  category TEXT DEFAULT 'Academic',
+  priority TEXT DEFAULT 'normal',
+  is_popup BOOLEAN DEFAULT false,
+  is_urgent BOOLEAN DEFAULT false,
+  is_published BOOLEAN DEFAULT true,
+  views_count INTEGER DEFAULT 0,
+  published_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()),
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
 ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS target_audience TEXT DEFAULT 'ALL STUDENTS';
 ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS author_unit TEXT DEFAULT 'Admissions Unit';
 ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS is_popup BOOLEAN DEFAULT false;
 ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS is_urgent BOOLEAN DEFAULT false;
 
--- 15h. Bachs Payments & Webhooks Table
+ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read announcements" ON public.announcements;
+CREATE POLICY "Public read announcements" ON public.announcements FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins manage announcements" ON public.announcements;
+CREATE POLICY "Admins manage announcements" ON public.announcements FOR ALL USING (true);
+
+-- 15h. ID Card & System Settings Synchronization
+CREATE TABLE IF NOT EXISTS public.id_card_settings (
+  id VARCHAR(50) PRIMARY KEY DEFAULT 'default',
+  id_card_fee NUMERIC NOT NULL DEFAULT 2500,
+  is_application_open BOOLEAN NOT NULL DEFAULT true,
+  academic_session TEXT NOT NULL DEFAULT '2026/2027',
+  allow_reapplication_on_revoke BOOLEAN NOT NULL DEFAULT true,
+  card_template_version TEXT NOT NULL DEFAULT '2026.1',
+  updated_by UUID,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+ALTER TABLE public.id_card_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read id_card_settings" ON public.id_card_settings;
+CREATE POLICY "Public read id_card_settings" ON public.id_card_settings FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins manage id_card_settings" ON public.id_card_settings;
+CREATE POLICY "Admins manage id_card_settings" ON public.id_card_settings FOR ALL USING (true);
+
+-- 15i. Bachs Payments & Webhooks Table
 CREATE TABLE IF NOT EXISTS public.payments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   tx_ref TEXT UNIQUE NOT NULL,
@@ -1343,7 +1387,24 @@ ALTER TABLE public.webhook_events ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Admins manage webhooks" ON public.webhook_events;
 CREATE POLICY "Admins manage webhooks" ON public.webhook_events FOR ALL USING (true);
 
--- 15i. Media Assets Registry Unique Constraints
+-- 15j. Media Assets Registry Unique Constraints
+CREATE TABLE IF NOT EXISTS public.media_assets (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  cloudinary_public_id TEXT,
+  image_url TEXT,
+  image_alt TEXT,
+  title TEXT,
+  folder TEXT DEFAULT 'nacos',
+  media_type TEXT DEFAULT 'image',
+  category TEXT DEFAULT 'general',
+  surface TEXT DEFAULT 'shared',
+  entity_type TEXT,
+  entity_id TEXT,
+  uploaded_by TEXT,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
 ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS cloudinary_public_id TEXT;
 ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS image_url TEXT;
 ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS image_alt TEXT;
@@ -1352,6 +1413,7 @@ ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS entity_type TEXT;
 ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS entity_id TEXT;
 ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW());
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_assets_cloudinary_pub_id ON public.media_assets (cloudinary_public_id) WHERE cloudinary_public_id IS NOT NULL;
+
 
 
 
