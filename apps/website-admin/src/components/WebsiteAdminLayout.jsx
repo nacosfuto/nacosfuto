@@ -232,7 +232,7 @@ export const WebsiteAdminLayout = ({ children, title, subtitle }) => {
           ? 'bg-[#083002] border-[#138601]/25 text-white' 
           : 'bg-white border-gray-200 text-gray-900 shadow-xs'
       }`}>
-        <div className="px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="site-container h-16 flex items-center justify-between">
           
           {/* Left: Mobile Hamburger Toggle & Logo */}
           <div className="flex items-center gap-3">
@@ -583,23 +583,25 @@ export const WebsiteAdminLayout = ({ children, title, subtitle }) => {
       </aside>
 
       {/* ─── Main Content Area ─── */}
-      <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {(title || subtitle) && (
-          <div className="p-6 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 shadow-xs">
-            {title && (
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-                {title}
-              </h1>
-            )}
-            {subtitle && (
-              <p className="text-xs text-gray-500 dark:text-green-200/80 mt-1">
-                {subtitle}
-              </p>
-            )}
-          </div>
-        )}
-        {children}
-      </main>
+      <div className="flex-1 site-container w-full min-h-0 print:p-0 print:m-0 print:max-w-none print:w-full">
+        <main className="w-full py-5 sm:py-6 space-y-6 overflow-x-hidden print:py-0 print:m-0 print:w-full">
+          {(title || subtitle) && (
+            <div className="p-6 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 shadow-xs">
+              {title && (
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+                  {title}
+                </h1>
+              )}
+              {subtitle && (
+                <p className="text-xs text-gray-500 dark:text-green-200/80 mt-1">
+                  {subtitle}
+                </p>
+              )}
+            </div>
+          )}
+          {children}
+        </main>
+      </div>
 
     </div>
   );

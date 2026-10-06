@@ -237,7 +237,7 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
           ? 'bg-[#083002] border-[#138601]/25 text-white'
           : 'bg-white border-gray-200 text-gray-900 shadow-xs'
       }`}>
-        <div className="px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="site-container h-16 flex items-center justify-between">
           
           {/* Left: Mobile Hamburger Toggle & Logo */}
           <div className="flex items-center gap-3">
@@ -480,25 +480,29 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
       </aside>
 
       {/* ─── Page Title Header Strip ─── */}
-      <div className={`px-6 sm:px-8 py-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+      <div className={`border-b ${
         isDark 
           ? 'bg-[#083002]/40 border-[#138601]/20' 
           : 'bg-white border-gray-200 shadow-xs'
       }`}>
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-            {title || 'Portal Administration Dashboard'}
-          </h1>
-          <p className="text-xs text-gray-500 dark:text-green-200/70 mt-0.5">
-            {subtitle || 'Manage student verification records, digital ID applications, and portal access.'}
-          </p>
+        <div className="site-container py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+              {title || 'Portal Administration Dashboard'}
+            </h1>
+            <p className="text-xs text-gray-500 dark:text-green-200/70 mt-0.5">
+              {subtitle || 'Manage student verification records, digital ID applications, and portal access.'}
+            </p>
+          </div>
         </div>
       </div>
 
       {/* ─── Main Content Body ─── */}
-      <main className="flex-1 p-6 sm:p-8 max-w-7xl w-full mx-auto space-y-6">
-        {children}
-      </main>
+      <div className="flex-1 site-container w-full min-h-0 print:p-0 print:m-0 print:max-w-none print:w-full">
+        <main className="w-full py-5 sm:py-6 space-y-6 overflow-x-hidden print:py-0 print:m-0 print:w-full">
+          {children}
+        </main>
+      </div>
 
     </div>
   );

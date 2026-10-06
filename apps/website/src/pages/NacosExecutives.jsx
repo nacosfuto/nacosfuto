@@ -28,9 +28,11 @@ const NacosExecutives = () => {
     const leaderMap = {
       '2024/2025': 'AKINNUBI PETER',
       '2023/2024': 'IHEKWOBA SUCCESS',
-      '2022/2023': 'CHIKEZIE GREAT EME'
+      '2022/2023': 'CHIKEZIE GREAT EME',
+      '2021/2022': 'UGHONU HECTOR',
+      '2020/2021': 'ONYEKACHI FRANKLIN'
     };
-    const set = new Set(['2024/2025', '2023/2024', '2022/2023']);
+    const set = new Set(['2024/2025', '2023/2024', '2022/2023', '2021/2022', '2020/2021']);
     pastExecutives.forEach(e => {
       if (e.session) set.add(e.session);
     });

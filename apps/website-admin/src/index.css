@@ -47,6 +47,12 @@ h1, h2, h3, h4, h5, h6, .font-heading, .font-display {
 }
 
 :root {
+  /* ─── Standard Web Development Responsive Layout Container ─── */
+  --container-max-width: 90rem; /* 90rem */
+  --gutter-mobile: 16px;        /* Mobile gutter standard (16px) */
+  --gutter-tablet: 20px;        /* Tablet gutter standard (20px) */
+  --gutter-desktop: 24px;       /* Desktop gutter standard (24px) */
+
   /* Override Tailwind v4 border-radius tokens to 5px universally */
   --rounded-sm: 5px;
   --rounded:    5px;
@@ -56,6 +62,57 @@ h1, h2, h3, h4, h5, h6, .font-heading, .font-display {
   --rounded-2xl: 5px;
   --rounded-3xl: 5px;
 }
+
+.padding-global,
+.page-gutter {
+  padding-inline: var(--gutter-mobile);
+}
+
+@media (min-width: 640px) {
+  .padding-global,
+  .page-gutter {
+    padding-inline: var(--gutter-tablet);
+  }
+}
+
+@media (min-width: 1024px) {
+  .padding-global,
+  .page-gutter {
+    padding-inline: var(--gutter-desktop);
+  }
+}
+
+.site-container,
+.container-site,
+.container-webflow,
+.webflow-container,
+.container-large {
+  width: 100%;
+  max-width: var(--container-max-width);
+  margin-inline: auto;
+  padding-inline: var(--gutter-mobile);
+}
+
+@media (min-width: 640px) {
+  .site-container,
+  .container-site,
+  .container-webflow,
+  .webflow-container,
+  .container-large {
+    padding-inline: var(--gutter-tablet);
+  }
+}
+
+@media (min-width: 1024px) {
+  .site-container,
+  .container-site,
+  .container-webflow,
+  .webflow-container,
+  .container-large {
+    padding-inline: var(--gutter-desktop);
+  }
+}
+
 
 /* ─── Universal 5px Radius — enforced on all Tailwind rounded-* classes ─── */
 /* rounded-full (9999px) is intentionally excluded to preserve pills & avatars */

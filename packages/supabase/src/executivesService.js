@@ -22,7 +22,9 @@ export const DEFAULT_TENURES = [
   '2025/2026',
   '2024/2025',
   '2023/2024',
-  '2022/2023'
+  '2022/2023',
+  '2021/2022',
+  '2020/2021'
 ];
 
 export function getTenures() {
@@ -80,8 +82,16 @@ export async function fetchExecutivesFromSupabase() {
 
     if (!error && data && Array.isArray(data) && data.length > 0) {
       if (typeof window !== 'undefined') {
-        localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(data));
+        const dbIds = new Set(data.map(d => d.id));
+        const missingInitial = getAllInitialExecutives().filter(e => !dbIds.has(e.id));
+        const merged = [...data, ...missingInitial];
+        localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(merged));
         window.dispatchEvent(new Event('nacos_executives_updated'));
+
+        // Push any missing initial records to Supabase in the background
+        if (missingInitial.length > 0) {
+          supabase.from('nacos_executives').upsert(missingInitial).then(() => {}).catch(() => {});
+        }
       }
     }
   } catch (err) {
@@ -448,6 +458,316 @@ export const INITIAL_PAST_EXECUTIVES = [
     category: 'past',
     session: '2022/2023',
     order_index: 4
+  },
+
+  // 2021/2022 Tenure - INGENIUM TECH EXECUTIVES - Led by UGHONU HECTOR
+  {
+    id: 'past-21-1',
+    name: 'Comr. Ughonu Hector',
+    role: 'President',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569281/nacos/executives/nacos1.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 0
+  },
+  {
+    id: 'past-21-2',
+    name: 'Comr. Benson Faith',
+    role: 'Vice President',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569279/nacos/executives/vp_chinaemerem.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 1
+  },
+  {
+    id: 'past-21-3',
+    name: 'Comr. Ezeigbo Austin',
+    role: 'Secretary General',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569277/nacos/executives/sec_gen_makuochukwu.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 2
+  },
+  {
+    id: 'past-21-4',
+    name: 'Comr. Aniekwu Princess',
+    role: 'Ass. Secretary General',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569268/nacos/executives/asg_chinecherem.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 3
+  },
+  {
+    id: 'past-21-5',
+    name: 'Comr. Isidore Chidinma',
+    role: 'Financial Secretary',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569269/nacos/executives/daniel_chukwuka.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 4
+  },
+  {
+    id: 'past-21-6',
+    name: 'Comr. Okopowas Iboyem',
+    role: 'Treasurer',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569278/nacos/executives/treasurer_chikamso.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 5
+  },
+  {
+    id: 'past-21-7',
+    name: 'Comr. Chinoke Charles',
+    role: 'P.R.O',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569276/nacos/executives/pro_john.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 6
+  },
+  {
+    id: 'past-21-8',
+    name: 'Comr. Nduziem Ugochukwu',
+    role: 'Director of Welfare',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569280/nacos/executives/welfare_onyoiza.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 7
+  },
+  {
+    id: 'past-21-9',
+    name: 'Comr. Ogbuefi Praise',
+    role: 'Director of Sports',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569274/nacos/executives/sports_dir_ifeanyi.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 8
+  },
+  {
+    id: 'past-21-10',
+    name: 'Comr. Eni Samson',
+    role: 'Director of Socials',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569273/nacos/executives/socials_dir_munachimso.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 9
+  },
+  {
+    id: 'past-21-11',
+    name: 'Comr. Nnobuka John',
+    role: 'ICT Director 1',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569272/nacos/executives/ict_dir_ifeanyi.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 10
+  },
+  {
+    id: 'past-21-12',
+    name: 'Comr. Nnanyerelugo Emmanuel',
+    role: 'ICT Director 2',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569271/nacos/executives/ict_asst_victory.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 11
+  },
+  {
+    id: 'past-21-13',
+    name: 'Dr. (Mrs) Juliet N. Odii',
+    role: 'Head of Department (CSC)',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569300/nacos/administration/hod_stanley.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 12
+  },
+  {
+    id: 'past-21-14',
+    name: 'Dr. (Mrs) E. C. Nwokorie',
+    role: 'Staff Adviser',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569301/nacos/administration/staff_adviser_nwokorie.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 13
+  },
+  {
+    id: 'past-21-15',
+    name: 'Comr. Onuoha Godfirst',
+    role: 'Chairman Electoral Commission',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569325/nacos/alumni/alumni_godfirst.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 14
+  },
+  {
+    id: 'past-21-16',
+    name: 'Hon. Onwunna Chimere',
+    role: 'MSRC CSC (Parliamentary)',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569276/nacos/executives/provost2_chidera.jpg',
+    category: 'past',
+    session: '2021/2022',
+    order_index: 15
+  },
+
+  // 2020/2021 Tenure - TECHI-Q EXECUTIVES - Led by ONYEKACHI FRANKLIN
+  {
+    id: 'past-20-1',
+    name: 'Comr. Onyekachi Franklin',
+    role: 'President',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569281/nacos/executives/nacos1.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 0
+  },
+  {
+    id: 'past-20-2',
+    name: 'Comr. Agim Amaka',
+    role: 'Vice President',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569282/nacos/executives/nacos2.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 1
+  },
+  {
+    id: 'past-20-3',
+    name: 'Rotr. Comr. Nwonumara Elochukwu',
+    role: 'Secretary General',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569283/nacos/executives/nacos3.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 2
+  },
+  {
+    id: 'past-20-4',
+    name: 'Comr. Emmanuel Gift',
+    role: 'Ass. Secretary General',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569284/nacos/executives/nacos4.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 3
+  },
+  {
+    id: 'past-20-5',
+    name: 'Comr. Sunday Beauty',
+    role: 'Financial Secretary',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569285/nacos/executives/nacos5.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 4
+  },
+  {
+    id: 'past-20-6',
+    name: 'Comr. Uwakwe Gloria',
+    role: 'Treasurer',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569286/nacos/executives/nacos6.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 5
+  },
+  {
+    id: 'past-20-7',
+    name: 'Comr. Ughonu Hector',
+    role: 'P.R.O',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569287/nacos/executives/nacos7.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 6
+  },
+  {
+    id: 'past-20-8',
+    name: 'Comr. Mkpa James',
+    role: 'Director of Welfare',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569288/nacos/executives/nacos8.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 7
+  },
+  {
+    id: 'past-20-9',
+    name: 'Comr. Nwanyanwu Jeffery',
+    role: 'Director of Sports',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569289/nacos/executives/nacos9.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 8
+  },
+  {
+    id: 'past-20-10',
+    name: 'Comr. Oparah Charles',
+    role: 'Director of Socials',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569290/nacos/executives/nacos10.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 9
+  },
+  {
+    id: 'past-20-11',
+    name: 'Comr. Onuoha Godfirst',
+    role: 'ICT Director 1',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569325/nacos/alumni/alumni_godfirst.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 10
+  },
+  {
+    id: 'past-20-12',
+    name: 'Comr. Okoli Chidimma',
+    role: 'ICT Director 2',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569291/nacos/executives/nacos11.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 11
+  },
+  {
+    id: 'past-20-13',
+    name: 'Comr. Chidera Uchechukwu',
+    role: 'Provost 1',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569292/nacos/executives/nacos12.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 12
+  },
+  {
+    id: 'past-20-14',
+    name: 'Comr. Owunna Chimere',
+    role: 'Provost 2',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569276/nacos/executives/provost2_chidera.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 13
+  },
+  {
+    id: 'past-20-15',
+    name: 'Prof. Aloy Onyeka PhD',
+    role: 'Head of Department (CSC)',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569300/nacos/administration/hod_stanley.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 14
+  },
+  {
+    id: 'past-20-16',
+    name: 'Mr. Njoku Obilor',
+    role: 'Staff Adviser',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569301/nacos/administration/staff_adviser_nwokorie.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 15
+  },
+  {
+    id: 'past-20-17',
+    name: 'Rotr. Comr. Ibingha Favour',
+    role: 'ICT Director Imo State',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569272/nacos/executives/ict_dir_ifeanyi.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 16
+  },
+  {
+    id: 'past-20-18',
+    name: 'Hon. Rotr. Amaechi Sixtus',
+    role: 'MSRC CSC (Parliamentary)',
+    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569274/nacos/executives/msrc_ruby.jpg',
+    category: 'past',
+    session: '2020/2021',
+    order_index: 17
   }
 ];
 
@@ -529,6 +849,14 @@ export function getExecutives(category = 'all') {
     if (!list || !Array.isArray(list) || list.length === 0) {
       list = getAllInitialExecutives();
       localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(list));
+    } else {
+      // Merge any newly introduced initial executives (e.g., archived historical sessions)
+      const existingIds = new Set(list.map(e => e.id));
+      const missingInitial = getAllInitialExecutives().filter(e => !existingIds.has(e.id));
+      if (missingInitial.length > 0) {
+        list = [...list, ...missingInitial];
+        localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(list));
+      }
     }
 
     // Sort by order_index ascending
