@@ -32,8 +32,13 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [admin, setAdmin] = useState(null);
+
+  // Close sidebar drawer on route navigation
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
 
   // 1-Hour Inactivity Watchdog & Auto-Logout for Portal Admin
   useEffect(() => {
@@ -124,81 +129,281 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
     .toUpperCase() || 'PO';
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#041801] text-gray-900 dark:text-white flex flex-col md:flex-row font-sans selection:bg-[#138601] selection:text-white">
-      {/* Sidebar Desktop */}
-      <aside className={`hidden md:flex flex-col w-64 border-r shrink-0 z-30 transition-colors duration-200 ${
-        isDark 
-          ? 'bg-[#083002] border-[#138601]/25 text-white' 
-          : 'bg-white border-gray-200 text-gray-900 shadow-sm'
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#041801] text-gray-900 dark:text-white flex flex-col font-sans selection:bg-[#138601] selection:text-white md:pl-16 print:pl-0">
+      
+      {/* ─── Collapsed Vertical Icon Rail (Matching Portal UI) ─── */}
+      <aside
+        className={`hidden md:flex fixed inset-y-0 left-0 top-0 bottom-0 w-16 flex-col justify-between items-center py-3.5 border-r z-30 select-none print:hidden transition-colors ${
+          isDark
+            ? 'bg-[#083002] border-[#138601]/25 text-white'
+            : 'bg-white border-gray-200 text-gray-900 shadow-xs'
+        }`}
+        aria-label="Collapsed portal admin rail"
+      >
+        {/* Top: Hamburger Menu Button & Navigation Items */}
+        <div className="flex flex-col items-center gap-4 w-full">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#138601] to-[#0d5c01] text-white flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer relative group"
+            title={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+          >
+            <Menu className="w-5 h-5 text-white" />
+            
+            {/* Tooltip on hover */}
+            <span className="absolute left-full ml-2.5 px-2.5 py-1 rounded bg-gray-900 text-white dark:bg-white dark:text-gray-900 text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+              Menu
+            </span>
+          </button>
+          
+          {/* Navigation Icons Column */}
+          <nav className="flex flex-col items-center gap-1.5 w-full px-2" aria-label="Quick Navigation">
+            {navItems.map((item) => {
+              const active = isActive(item);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  title={item.label}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all relative group cursor-pointer ${
+                    active
+                      ? isDark
+                        ? 'bg-[#138601] text-white shadow-xs font-semibold'
+                        : 'bg-[#138601] text-white shadow-xs font-semibold'
+                      : isDark
+                      ? 'text-green-100/70 hover:text-white hover:bg-[#041801]/70 border border-transparent hover:border-[#138601]/20'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100 border border-transparent'
+                  }`}
+                >
+                  <Icon className="w-5 h-5 shrink-0" />
+                  
+                  {/* Tooltip on hover */}
+                  <span className="absolute left-full ml-2.5 px-2.5 py-1 rounded bg-gray-900 text-white dark:bg-white dark:text-gray-900 text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Bottom Tools Column: Theme, Settings, Sign Out */}
+        <div className="flex flex-col items-center gap-2 w-full px-2 pt-3 border-t border-gray-100 dark:border-[#138601]/20">
+          {/* Theme Toggle */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 dark:text-green-200/70 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#041801]/70 transition-all cursor-pointer relative group"
+          >
+            {isDark ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
+            <span className="absolute left-full ml-2.5 px-2.5 py-1 rounded bg-gray-900 text-white dark:bg-white dark:text-gray-900 text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+              {isDark ? "Light Mode" : "Dark Mode"}
+            </span>
+          </button>
+
+          {/* Settings */}
+          <Link
+            to="/settings"
+            title="Portal Settings"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 dark:text-green-200/70 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#041801]/70 transition-all cursor-pointer relative group"
+          >
+            <Settings className="w-5 h-5" />
+            <span className="absolute left-full ml-2.5 px-2.5 py-1 rounded bg-gray-900 text-white dark:bg-white dark:text-gray-900 text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+              Settings
+            </span>
+          </Link>
+
+          {/* Sign Out */}
+          <button
+            type="button"
+            onClick={handleSignOut}
+            title="Sign Out"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all cursor-pointer relative group"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="absolute left-full ml-2.5 px-2.5 py-1 rounded bg-red-600 text-white text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+              Sign Out
+            </span>
+          </button>
+        </div>
+      </aside>
+
+      {/* ─── Top Header ─── */}
+      <header className={`sticky top-0 z-40 w-full border-b print:hidden ${
+        isDark
+          ? 'bg-[#083002] border-[#138601]/25 text-white'
+          : 'bg-white border-gray-200 text-gray-900 shadow-xs'
       }`}>
-        {/* Brand Header */}
-        <div className="p-5 border-b border-inherit flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <img 
-              src={isDark ? logoDark : logoLight} 
-              alt="NACOS Logo" 
-              className="h-8 w-auto object-contain"
-            />
+        <div className="px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          
+          {/* Left: Mobile Hamburger Toggle & Logo */}
+          <div className="flex items-center gap-3">
+            {/* Mobile Hamburger Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className={`p-2 rounded cursor-pointer transition-colors relative w-9 h-9 flex items-center justify-center border shrink-0 md:hidden ${
+                isDark
+                  ? 'text-gray-200 hover:text-white bg-[#041801] hover:bg-[#138601]/20 border-[#138601]/30 active:scale-95'
+                  : 'text-gray-700 bg-gray-100 hover:bg-gray-200 border-gray-200 active:scale-95'
+              }`}
+              title="Open navigation menu"
+              aria-label="Open navigation menu"
+            >
+              <Menu className="w-4.5 h-4.5" />
+            </button>
+
+            <Link to="/" className="flex items-center gap-3 shrink-0">
+              <img src={isDark ? logoDark : logoLight} alt="NACOS FUTO Logo" className="h-8 md:h-9 w-auto object-contain" />
+              <div className="hidden sm:block border-l border-gray-200 dark:border-[#138601]/30 pl-3">
+                <span className="text-xs font-bold text-[#138601] dark:text-[#4bd043] tracking-wide uppercase block">
+                  Portal Admin
+                </span>
+                <span className="text-[10px] text-gray-500 dark:text-green-200/60 block">
+                  {admin?.assigned_level && admin.assigned_level !== 'all' ? `${admin.assigned_level}L Coordinator` : 'Registry & Operations'}
+                </span>
+              </div>
+            </Link>
+          </div>
+
+          {/* Right Header Actions */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-500/10 text-[#138601] dark:text-[#4bd043] border border-[#138601]/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#138601] animate-pulse"></span>
+              <span>System Live</span>
+            </span>
+
+            {/* Launch Student Portal */}
+            <a
+              href={getAppUrls().portal}
+              target="_blank"
+              rel="noreferrer"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#138601] hover:bg-[#0f6c01] text-white transition-all shadow-xs cursor-pointer"
+              title="Open Main Student Portal"
+            >
+              <GraduationCap className="w-3.5 h-3.5" />
+              <span>Student Portal</span>
+              <ExternalLink className="w-3 h-3 opacity-80" />
+            </a>
+
+            {/* Admin Profile Pill */}
+            {admin && (
+              <div className="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-[#138601]/30 text-xs">
+                <div className="w-8 h-8 rounded-lg bg-[#138601] text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                  {displayInitials}
+                </div>
+                <div className="hidden lg:block text-left">
+                  <div className="font-bold text-gray-900 dark:text-white truncate max-w-[130px] leading-tight">
+                    {displayName}
+                  </div>
+                  <span className="text-[10px] text-[#138601] dark:text-[#4bd043] font-medium leading-none block capitalize">
+                    {admin.role ? admin.role.replace(/_/g, ' ') : 'Portal Admin'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Mobile Sign Out */}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="md:hidden p-2 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* ─── Off-Canvas Navigation Sidebar Drawer & Backdrop ─── */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs transition-opacity duration-200 print:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 top-0 left-0 bottom-0 z-50 w-72 sm:w-80 max-w-[85vw] flex flex-col justify-between overflow-y-auto sidebar-scroll transition-transform duration-300 ease-in-out print:hidden ${
+          isDark
+            ? 'bg-[#083002] border-r border-[#138601]/30 text-white shadow-2xl'
+            : 'bg-white border-r border-gray-200 text-gray-900 shadow-2xl'
+        } ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
+        }`}
+      >
+        {/* Drawer Brand Header: Covers top navbar completely */}
+        <div className={`h-16 px-4 sm:px-5 lg:px-6 flex items-center gap-3 border-b shrink-0 ${
+          isDark ? 'border-[#138601]/25 bg-[#083002]' : 'border-gray-200 bg-white'
+        }`}>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            className={`p-2 rounded cursor-pointer transition-colors relative w-9 h-9 flex items-center justify-center border shrink-0 ${
+              isDark
+                ? 'text-gray-200 hover:text-white bg-[#041801] hover:bg-[#138601]/20 border-[#138601]/30 active:scale-95'
+                : 'text-gray-700 bg-gray-100 hover:bg-gray-200 border-gray-200 active:scale-95'
+            }`}
+            title="Close navigation menu"
+            aria-label="Close navigation menu"
+          >
+            <X className="w-4.5 h-4.5" />
+          </button>
+
+          <Link to="/" onClick={() => setSidebarOpen(false)} className="flex items-center shrink-0">
+            <img src={isDark ? logoDark : logoLight} alt="NACOS FUTO Logo" className="h-8 md:h-9 w-auto object-contain" />
           </Link>
         </div>
 
-        {/* Scope & Level Clearance Information */}
-        <div className="px-5 py-3 border-b border-inherit">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-[#138601] dark:text-[#4bd043]">
-            Portal Administration
-          </p>
-          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-            {admin?.assigned_level && admin.assigned_level !== 'all' ? `${admin.assigned_level}L Coordinator` : 'Full Level Rights'}
-          </p>
-        </div>
-
-        {/* Navigation Items */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item);
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                  active
-                    ? isDark 
-                      ? 'bg-[#138601] text-white shadow-sm font-bold'
-                      : 'bg-[#138601] text-white shadow-sm font-bold'
-                    : isDark
-                      ? 'text-gray-300 hover:text-white hover:bg-white/5'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-400'}`} />
-                  <span>{item.label}</span>
-                </div>
-                {active && <ChevronRight className="w-3.5 h-3.5 text-white/80" />}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* User Profile Card & Sign Out */}
-        <div className="p-4 border-t border-inherit space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-[#138601] text-white flex items-center justify-center font-bold text-xs shadow-inner">
-              {displayInitials}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold truncate text-inherit">
-                {displayName}
-              </p>
-              <p className="text-[10px] text-gray-500 dark:text-green-200/60 truncate font-mono">
-                {displayEmail}
-              </p>
-            </div>
+        {/* Drawer Scrollable Navigation Body */}
+        <div className="flex-1 overflow-y-auto sidebar-scroll p-4 space-y-4">
+          <div className="px-2 pb-1 flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-green-300/70">
+              Admin Navigation
+            </span>
+            <span className="text-[10px] font-mono text-[#138601] dark:text-[#4bd043] bg-emerald-500/10 px-2 py-0.5 rounded">
+              {admin?.assigned_level && admin.assigned_level !== 'all' ? `${admin.assigned_level}L Coordinator` : 'Full Access'}
+            </span>
           </div>
 
-          {/* Dynamic Cross-Portal Launch Links (No hardcoded localhost) */}
-          <div className="space-y-1.5 pt-1">
+          <nav className="space-y-1">
+            {navItems.map((item) => {
+              const active = isActive(item);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    active
+                      ? isDark
+                        ? 'bg-[#138601] text-white shadow-sm font-bold'
+                        : 'bg-[#138601] text-white shadow-sm font-bold'
+                      : isDark
+                      ? 'text-gray-300 hover:text-white hover:bg-white/5'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-400'}`} />
+                    <span>{item.label}</span>
+                  </div>
+                  {active && <ChevronRight className="w-3.5 h-3.5 text-white/80" />}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* External Portals & Actions */}
+        <div className="p-4 pt-3 border-t shrink-0 space-y-3 border-gray-100 dark:border-[#138601]/20">
+          <div className="space-y-1.5">
             <a
               href={getAppUrls().portal}
               target="_blank"
@@ -246,173 +451,55 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 pt-1 border-t border-inherit/40">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className={`p-2 rounded-lg text-xs flex-1 flex items-center justify-center gap-1.5 border transition-colors cursor-pointer ${
-                isDark 
-                  ? 'bg-white/5 border-[#138601]/25 text-gray-200 hover:text-white hover:bg-white/10' 
-                  : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-indigo-600" />}
-              <span>{isDark ? 'Light' : 'Dark'}</span>
-            </button>
+          {/* Profile Card & Theme/Signout in Drawer */}
+          <div className="pt-2 border-t border-gray-100 dark:border-[#138601]/20 flex items-center justify-between">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-[#138601] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                {displayInitials}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                  {displayName}
+                </p>
+                <p className="text-[10px] text-gray-400 truncate font-mono">
+                  {displayEmail}
+                </p>
+              </div>
+            </div>
 
             <button
               type="button"
               onClick={handleSignOut}
-              className="p-2 rounded-lg text-xs flex items-center justify-center gap-1.5 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40 transition-colors cursor-pointer px-3"
+              className="p-2 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
               title="Sign Out"
             >
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile Header */}
-        <header className={`md:hidden flex items-center justify-between p-4 border-b sticky top-0 z-40 ${
-          isDark 
-            ? 'bg-[#083002] border-[#138601]/25 text-white' 
-            : 'bg-white border-gray-200 text-gray-900 shadow-sm'
-        }`}>
-          <div className="flex items-center gap-3">
-            <img src={isDark ? logoDark : logoLight} alt="Logo" className="h-7 w-auto" />
-            <span className="text-xs font-bold text-[#138601] dark:text-[#4bd043]">Portal Admin</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button 
-              type="button"
-              onClick={toggleTheme} 
-              className="p-1.5 rounded-lg border border-inherit text-inherit"
-            >
-              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
-            </button>
-            <button 
-              type="button"
-              onClick={() => setMobileOpen(!mobileOpen)} 
-              className="p-1.5 rounded-lg border border-inherit text-inherit"
-            >
-              {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
-          </div>
-        </header>
-
-        {/* Mobile Dropdown Nav */}
-        {mobileOpen && (
-          <div className={`md:hidden border-b px-4 py-3 space-y-1 ${
-            isDark ? 'bg-[#083002] border-[#138601]/25' : 'bg-white border-gray-200'
-          }`}>
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item);
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold ${
-                    active 
-                      ? 'bg-[#138601] text-white font-bold' 
-                      : 'text-inherit hover:bg-white/5'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-            <div className="py-2 border-t border-inherit space-y-1">
-              <a
-                href={getAppUrls().portal}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-between px-3 py-2 rounded text-xs font-semibold bg-[#138601] text-white"
-              >
-                <div className="flex items-center gap-2">
-                  <GraduationCap className="w-3.5 h-3.5" />
-                  <span>Main Student Portal</span>
-                </div>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <a
-                  href={getAppUrls().website}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs border border-inherit text-inherit"
-                >
-                  <Globe className="w-3 h-3" />
-                  <span>Website</span>
-                </a>
-                <a
-                  href={getAppUrls().adminHub}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs border border-inherit text-inherit"
-                >
-                  <Shield className="w-3 h-3" />
-                  <span>Admin Hub</span>
-                </a>
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-inherit flex items-center justify-between">
-              <span className="text-xs text-inherit opacity-75">{displayName}</span>
-              <button 
-                type="button"
-                onClick={handleSignOut} 
-                className="text-xs text-red-500 font-semibold"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Top Header Bar for Desktop with Page Title and Quick Stats */}
-        <div className={`px-6 sm:px-8 py-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-          isDark 
-            ? 'bg-[#083002]/40 border-[#138601]/20' 
-            : 'bg-white border-gray-200 shadow-sm'
-        }`}>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-inherit">
-              {title || 'Portal Administration Dashboard'}
-            </h1>
-            <p className="text-xs text-gray-500 dark:text-green-200/70 mt-0.5">
-              {subtitle || 'Manage student verification records, digital ID applications, and portal access.'}
-            </p>
-          </div>
-          <div className="flex items-center gap-3 self-start sm:self-auto">
-            <a
-              href={getAppUrls().portal}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#138601] hover:bg-[#0f6c01] text-white transition-all shadow-xs cursor-pointer"
-              title="Open Student Portal"
-            >
-              <GraduationCap className="w-3.5 h-3.5" />
-              <span>Open Student Portal</span>
-              <ExternalLink className="w-3 h-3 opacity-80" />
-            </a>
-
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-emerald-500/10 text-[#138601] dark:text-[#4bd043] border border-[#138601]/30">
-              <span className="w-2 h-2 rounded-xs bg-[#138601] animate-pulse"></span>
-              <span>System Live</span>
-            </span>
-          </div>
+      {/* ─── Page Title Header Strip ─── */}
+      <div className={`px-6 sm:px-8 py-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+        isDark 
+          ? 'bg-[#083002]/40 border-[#138601]/20' 
+          : 'bg-white border-gray-200 shadow-xs'
+      }`}>
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+            {title || 'Portal Administration Dashboard'}
+          </h1>
+          <p className="text-xs text-gray-500 dark:text-green-200/70 mt-0.5">
+            {subtitle || 'Manage student verification records, digital ID applications, and portal access.'}
+          </p>
         </div>
-
-        {/* Main Content Body */}
-        <main className="flex-1 p-6 sm:p-8 max-w-7xl w-full mx-auto space-y-6">
-          {children}
-        </main>
       </div>
+
+      {/* ─── Main Content Body ─── */}
+      <main className="flex-1 p-6 sm:p-8 max-w-7xl w-full mx-auto space-y-6">
+        {children}
+      </main>
+
     </div>
   );
 };
