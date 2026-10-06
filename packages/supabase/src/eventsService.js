@@ -463,8 +463,31 @@ export async function fetchEventsFromSupabase() {
   return getEvents({ category: 'all' });
 }
 
+async function getRemoteStoreEvents() {
+  const fallback = getEvents({ category: 'all' });
+  try {
+    if (supabase) {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_events')
+        .maybeSingle();
+      if (storeRow?.academic_session) {
+        const parsed = JSON.parse(storeRow.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map();
+          parsed.forEach(item => { if (item?.id || item?.slug) map.set(item.id || item.slug, item); });
+          fallback.forEach(item => { if ((item?.id || item?.slug) && !map.has(item.id || item.slug)) map.set(item.id || item.slug, item); });
+          return Array.from(map.values()).map(normalizeEvent);
+        }
+      }
+    }
+  } catch (_) {}
+  return fallback;
+}
+
 export async function saveEvent(eventData) {
-  const current = getEvents({ category: 'all' });
+  const current = await getRemoteStoreEvents();
   const id = eventData.id || `evt-${Date.now()}`;
   const now = new Date().toISOString();
   const slug = eventData.slug || eventData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -551,7 +574,7 @@ export async function saveEvent(eventData) {
 }
 
 export async function deleteEvent(eventItem) {
-  const current = getEvents({ category: 'all' });
+  const current = await getRemoteStoreEvents();
   const targetId = typeof eventItem === 'string' ? eventItem : eventItem?.id;
   const targetSlug = typeof eventItem === 'object' ? eventItem?.slug : null;
   const pubId = typeof eventItem === 'object' ? eventItem?.cloudinary_public_id : null;

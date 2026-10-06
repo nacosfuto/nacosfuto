@@ -949,12 +949,14 @@ const AdminExecutives = () => {
                   aspectRatio="portrait"
                   label="Upload Portrait Photo"
                   helperText="Upload official studio portrait photo"
-                  onUploadSuccess={({ secure_url, public_id }) => {
-                    setFormData({
-                      ...formData,
-                      image: secure_url,
-                      cloudinary_public_id: public_id
-                    });
+                  onUploadSuccess={(uploadRes) => {
+                    const imgUrl = uploadRes?.secure_url || uploadRes?.url || '';
+                    const pubId = uploadRes?.public_id || uploadRes?.publicId || '';
+                    setFormData(prev => ({
+                      ...prev,
+                      image: imgUrl,
+                      cloudinary_public_id: pubId
+                    }));
                     showNotice('Portrait photo uploaded to Cloudinary!');
                   }}
                 />

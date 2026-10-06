@@ -148,6 +148,37 @@ export async function fetchSpiritualFellowshipsFromSupabase(statusFilter = 'all'
           }
         } catch (e) {}
       }
+
+      // Check media_assets fallback
+      const { data: mediaFel, error: mediaErr } = await supabase
+        .from('media_assets')
+        .select('*')
+        .eq('category', 'spiritual_life')
+        .order('created_at', { ascending: false });
+
+      if (!mediaErr && mediaFel && mediaFel.length > 0) {
+        const parsedFel = [];
+        for (const m of mediaFel) {
+          try {
+            if (m.image_alt && m.image_alt.startsWith('{')) {
+              const obj = JSON.parse(m.image_alt);
+              parsedFel.push({
+                ...obj,
+                id: obj.id || m.entity_id || m.id,
+                image: m.image_url || obj.image
+              });
+            }
+          } catch (_) {}
+        }
+        if (parsedFel.length > 0) {
+          const remoteIds = new Set(parsedFel.map(f => f.id));
+          const localInitials = INITIAL_FELLOWSHIPS.filter(f => !remoteIds.has(f.id));
+          const merged = [...parsedFel, ...localInitials];
+          saveLocalSpiritualFellowships(merged);
+          if (statusFilter === 'all') return merged;
+          return merged.filter(f => f.status === statusFilter);
+        }
+      }
     }
   } catch (err) {
     console.warn('Supabase fetchSpiritualFellowships error:', err);
@@ -183,16 +214,41 @@ export function saveLocalSpiritualFellowships(list) {
   window.dispatchEvent(new Event('nacos_spiritual_life_updated'));
 }
 
+async function getRemoteStoreFellowships() {
+  const fallback = getSpiritualFellowships('all');
+  try {
+    if (supabase) {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_spiritual_life')
+        .maybeSingle();
+      if (storeRow?.academic_session) {
+        const parsed = JSON.parse(storeRow.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map();
+          parsed.forEach(item => { if (item?.id) map.set(item.id, item); });
+          fallback.forEach(item => { if (item?.id && !map.has(item.id)) map.set(item.id, item); });
+          return Array.from(map.values());
+        }
+      }
+    }
+  } catch (_) {}
+  return fallback;
+}
+
 export async function submitSpiritualFellowship(fellowshipData) {
-  const list = getSpiritualFellowships('all');
+  const currentList = await getRemoteStoreFellowships();
+  const now = new Date().toISOString();
+  const id = fellowshipData.id || `fel-${Date.now()}`;
   const newFellowship = {
-    id: `fel-${Date.now()}`,
+    id,
     ...fellowshipData,
-    status: 'pending',
-    createdAt: new Date().toISOString()
+    status: fellowshipData.status || 'pending',
+    createdAt: now
   };
 
-  const updated = [newFellowship, ...list];
+  const updated = [newFellowship, ...currentList.filter(f => f.id !== id)];
   saveLocalSpiritualFellowships(updated);
 
   // Authoritative live sync to Supabase store_spiritual_life
@@ -201,12 +257,29 @@ export async function submitSpiritualFellowship(fellowshipData) {
       await supabase.from('id_card_settings').upsert({
         id: 'store_spiritual_life',
         academic_session: JSON.stringify(updated),
-        updated_at: new Date().toISOString()
+        updated_at: now
       });
     }
   } catch (err) {
     console.warn('Supabase store_spiritual_life sync error:', err);
   }
+
+  // Real-time universal live sync to media_assets
+  try {
+    if (supabase) {
+      await supabase.from('media_assets').upsert({
+        cloudinary_public_id: newFellowship.cloudinary_public_id || ('nacos/spiritual_life/' + newFellowship.id),
+        image_url: newFellowship.image || 'https://images.unsplash.com/photo-1519791883288-dc8bd696e667?auto=format&fit=crop&w=800&q=80',
+        image_alt: JSON.stringify(newFellowship),
+        media_type: 'image',
+        folder: 'nacos/spiritual_life',
+        category: 'spiritual_life',
+        entity_type: 'fellowship',
+        entity_id: newFellowship.id,
+        updated_at: now
+      }, { onConflict: 'cloudinary_public_id' });
+    }
+  } catch (_) {}
 
   addAdminNotification({
     type: 'spiritual_life',
@@ -219,48 +292,12 @@ export async function submitSpiritualFellowship(fellowshipData) {
   return newFellowship;
 }
 
-export async function approveSpiritualFellowship(id) {
-  const list = getSpiritualFellowships('all');
-  const updated = list.map(f => f.id === id ? { ...f, status: 'approved' } : f);
-  saveLocalSpiritualFellowships(updated);
-
-  try {
-    if (supabase) {
-      await supabase.from('id_card_settings').upsert({
-        id: 'store_spiritual_life',
-        academic_session: JSON.stringify(updated),
-        updated_at: new Date().toISOString()
-      });
-    }
-  } catch (err) {}
-
-  return updated;
-}
-
-export async function denySpiritualFellowship(id) {
-  const list = getSpiritualFellowships('all');
-  const updated = list.map(f => f.id === id ? { ...f, status: 'denied' } : f);
-  saveLocalSpiritualFellowships(updated);
-
-  try {
-    if (supabase) {
-      await supabase.from('id_card_settings').upsert({
-        id: 'store_spiritual_life',
-        academic_session: JSON.stringify(updated),
-        updated_at: new Date().toISOString()
-      });
-    }
-  } catch (err) {}
-
-  return updated;
-}
-
 export async function updateSpiritualFellowship(id, updates) {
-  const list = getSpiritualFellowships('all');
+  const currentList = await getRemoteStoreFellowships();
   const now = new Date().toISOString();
   let updatedItem = null;
 
-  const updatedList = list.map(f => {
+  const updatedList = currentList.map(f => {
     if (f.id === id) {
       updatedItem = {
         ...f,
@@ -286,15 +323,40 @@ export async function updateSpiritualFellowship(id, updates) {
       });
     }
   } catch (err) {
-    console.warn('Could not sync spiritual fellowship to Supabase store:', err);
+    console.warn('Supabase store_spiritual_life update error:', err);
   }
+
+  // Real-time universal live sync to media_assets
+  try {
+    if (supabase) {
+      await supabase.from('media_assets').upsert({
+        cloudinary_public_id: updatedItem.cloudinary_public_id || ('nacos/spiritual_life/' + updatedItem.id),
+        image_url: updatedItem.image || 'https://images.unsplash.com/photo-1519791883288-dc8bd696e667?auto=format&fit=crop&w=800&q=80',
+        image_alt: JSON.stringify(updatedItem),
+        media_type: 'image',
+        folder: 'nacos/spiritual_life',
+        category: 'spiritual_life',
+        entity_type: 'fellowship',
+        entity_id: updatedItem.id,
+        updated_at: now
+      }, { onConflict: 'cloudinary_public_id' });
+    }
+  } catch (_) {}
 
   return updatedItem;
 }
 
+export async function approveSpiritualFellowship(id) {
+  return updateSpiritualFellowship(id, { status: 'approved' });
+}
+
+export async function denySpiritualFellowship(id) {
+  return updateSpiritualFellowship(id, { status: 'denied' });
+}
+
 export async function deleteSpiritualFellowship(id) {
-  const list = getSpiritualFellowships('all');
-  const updated = list.filter(f => f.id !== id);
+  const currentList = await getRemoteStoreFellowships();
+  const updated = currentList.filter(f => f.id !== id);
   saveLocalSpiritualFellowships(updated);
 
   try {
@@ -304,6 +366,7 @@ export async function deleteSpiritualFellowship(id) {
         academic_session: JSON.stringify(updated),
         updated_at: new Date().toISOString()
       });
+      await supabase.from('media_assets').delete().eq('entity_id', id);
     }
   } catch (err) {}
 

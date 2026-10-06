@@ -47,6 +47,9 @@ export async function getIdCardSettings() {
         .maybeSingle();
 
       if (!error && data && data.id_card_fee) {
+        try {
+          localStorage.setItem(ID_SETTINGS_STORAGE_KEY, JSON.stringify(data));
+        } catch (_) {}
         return data;
       }
 
@@ -59,7 +62,11 @@ export async function getIdCardSettings() {
         .maybeSingle();
 
       if (mediaData?.metadata?.id_card_fee) {
-        return { ...getLocalIdSettingsDatabase(), ...mediaData.metadata };
+        const merged = { ...getLocalIdSettingsDatabase(), ...mediaData.metadata };
+        try {
+          localStorage.setItem(ID_SETTINGS_STORAGE_KEY, JSON.stringify(merged));
+        } catch (_) {}
+        return merged;
       }
     }
   } catch (e) {
@@ -69,7 +76,7 @@ export async function getIdCardSettings() {
   return getLocalIdSettingsDatabase();
 }
 
-export async function updateIdCardFee(newFee) {
+export async function updateIdCardFee(newFee, session = null, allowRegistration = null) {
   const feeNumber = Number(newFee);
   if (isNaN(feeNumber) || feeNumber < 0) {
     return { error: 'Fee must be a valid positive number.' };
@@ -77,15 +84,27 @@ export async function updateIdCardFee(newFee) {
 
   const settings = getLocalIdSettingsDatabase();
   settings.id_card_fee = feeNumber;
+  if (session) settings.academic_session = session;
+  if (allowRegistration !== null && allowRegistration !== undefined) {
+    settings.is_application_open = Boolean(allowRegistration);
+  }
   settings.updated_at = new Date().toISOString();
   localStorage.setItem(ID_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
 
   try {
     if (supabase) {
+      const payload = {
+        id: 'default',
+        id_card_fee: feeNumber,
+        academic_session: session || settings.academic_session || '2026/2027',
+        is_application_open: settings.is_application_open ?? true,
+        updated_at: new Date().toISOString()
+      };
+
       // 1. Direct table update
       await supabase
         .from('id_card_settings')
-        .upsert({ id: 'default', id_card_fee: feeNumber, updated_at: new Date().toISOString() });
+        .upsert(payload);
 
       // 2. Open media_assets sync pipeline for cross-device resilience
       await supabase
@@ -94,7 +113,7 @@ export async function updateIdCardFee(newFee) {
           asset_type: 'id_card_settings',
           title: 'default',
           caption: `ID Card Configured Fee: ₦${feeNumber.toLocaleString()}`,
-          metadata: { id_card_fee: feeNumber, updated_at: new Date().toISOString() }
+          metadata: payload
         }, { onConflict: 'asset_type,title' });
     }
   } catch (e) {

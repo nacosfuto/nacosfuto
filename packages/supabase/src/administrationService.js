@@ -156,8 +156,31 @@ export async function fetchDepartmentStaff({ activeOnly = true } = {}) {
   return activeOnly ? local.filter(s => s.is_active) : local;
 }
 
+async function getRemoteStoreStaff() {
+  const fallback = getLocalDepartmentStaff();
+  try {
+    if (supabase) {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_administration')
+        .maybeSingle();
+      if (storeRow?.academic_session) {
+        const parsed = JSON.parse(storeRow.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map();
+          parsed.forEach(item => { if (item?.id) map.set(item.id, item); });
+          fallback.forEach(item => { if (item?.id && !map.has(item.id)) map.set(item.id, item); });
+          return Array.from(map.values());
+        }
+      }
+    }
+  } catch (_) {}
+  return fallback;
+}
+
 export async function saveDepartmentStaffMember(memberData) {
-  const current = getLocalDepartmentStaff();
+  const current = await getRemoteStoreStaff();
   const id = memberData.id || `staff-${Date.now()}`;
   const now = new Date().toISOString();
 
@@ -226,7 +249,7 @@ export async function saveDepartmentStaffMember(memberData) {
 }
 
 export async function deleteDepartmentStaffMember(id) {
-  const current = getLocalDepartmentStaff();
+  const current = await getRemoteStoreStaff();
   const updated = current.filter(s => s.id !== id);
   saveLocalDepartmentStaff(updated);
 

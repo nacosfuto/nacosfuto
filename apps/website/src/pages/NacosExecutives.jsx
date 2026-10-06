@@ -42,11 +42,16 @@ const NacosExecutives = () => {
     return pastExecutives.filter(e => (e.session || '2024/2025') === selectedTenure);
   }, [pastExecutives, selectedTenure]);
 
-  const loadData = () => {
+  const loadData = (liveList) => {
     try {
       setPageSettings(getExecutivesSettings());
-      setCurrentExecutives(getExecutives('current'));
-      setPastExecutives(getExecutives('past'));
+      if (Array.isArray(liveList) && liveList.length > 0) {
+        setCurrentExecutives(liveList.filter(e => e.category === 'current'));
+        setPastExecutives(liveList.filter(e => e.category === 'past'));
+      } else {
+        setCurrentExecutives(getExecutives('current'));
+        setPastExecutives(getExecutives('past'));
+      }
     } catch (e) {
       console.warn('Error loading executives data:', e);
     } finally {
@@ -56,11 +61,10 @@ const NacosExecutives = () => {
 
   useEffect(() => {
     loadData();
-    fetchExecutivesFromSupabase().then(() => loadData()).catch(() => {});
+    fetchExecutivesFromSupabase().then((live) => loadData(live)).catch(() => {});
 
     const handleExecutivesUpdate = () => {
-      setCurrentExecutives(getExecutives('current'));
-      setPastExecutives(getExecutives('past'));
+      fetchExecutivesFromSupabase().then((live) => loadData(live)).catch(() => loadData());
     };
 
     const handleSettingsUpdate = () => {
@@ -69,10 +73,12 @@ const NacosExecutives = () => {
 
     window.addEventListener('nacos_executives_updated', handleExecutivesUpdate);
     window.addEventListener('nacos_executives_settings_updated', handleSettingsUpdate);
+    window.addEventListener('storage', handleExecutivesUpdate);
 
     return () => {
       window.removeEventListener('nacos_executives_updated', handleExecutivesUpdate);
       window.removeEventListener('nacos_executives_settings_updated', handleSettingsUpdate);
+      window.removeEventListener('storage', handleExecutivesUpdate);
     };
   }, []);
 

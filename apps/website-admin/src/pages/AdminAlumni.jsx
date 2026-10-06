@@ -51,7 +51,11 @@ const AdminAlumni = () => {
     loadAlumni();
     const handleUpdate = () => loadAlumni();
     window.addEventListener('nacos_alumni_updated', handleUpdate);
-    return () => window.removeEventListener('nacos_alumni_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('nacos_alumni_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, []);
 
   const loadAlumni = async () => {
@@ -103,25 +107,25 @@ const AdminAlumni = () => {
   };
 
   const handleApprove = async (alm) => {
-    approveAlumnus(alm.id);
+    await approveAlumnus(alm.id);
     await recordAdminAction('approve_alumnus', 'alumni', alm.id, { name: alm.name });
     showNotice(`Alumnus "${alm.name}" approved and featured in directory!`);
-    loadAlumni();
+    await loadAlumni();
   };
 
   const handleDeny = async (alm) => {
-    denyAlumnus(alm.id);
+    await denyAlumnus(alm.id);
     await recordAdminAction('deny_alumnus', 'alumni', alm.id, { name: alm.name });
     showNotice(`Alumnus "${alm.name}" marked as denied.`, 'error');
-    loadAlumni();
+    await loadAlumni();
   };
 
   const handleDelete = async (alm) => {
     if (window.confirm(`Permanently remove alumnus "${alm.name}"?`)) {
-      deleteAlumnus(alm.id);
+      await deleteAlumnus(alm.id);
       await recordAdminAction('delete_alumnus', 'alumni', alm.id, { name: alm.name });
       showNotice(`Alumnus "${alm.name}" removed.`);
-      loadAlumni();
+      await loadAlumni();
     }
   };
 
@@ -137,7 +141,7 @@ const AdminAlumni = () => {
       });
       showNotice(`Alumnus "${formData.name}" profile updated!`);
     } else {
-      submitAlumnus({
+      await submitAlumnus({
         ...formData,
         status: 'approved'
       });
@@ -151,7 +155,7 @@ const AdminAlumni = () => {
     }
 
     setIsAddModalOpen(false);
-    loadAlumni();
+    await loadAlumni();
   };
 
   const filtered = alumni.filter((a) => {

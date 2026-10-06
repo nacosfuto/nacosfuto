@@ -612,19 +612,41 @@ export function getExecutives(category = 'all') {
 }
 
 export async function saveExecutive(execData) {
-  const list = getExecutives('all');
-  const now = new Date().toISOString();
+  let list = getExecutives('all');
+  if (supabase) {
+    try {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_executives')
+        .maybeSingle();
+      if (storeRow?.academic_session) {
+        const parsed = JSON.parse(storeRow.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const remoteIds = new Set(parsed.map(e => e.id));
+          list = [...parsed, ...list.filter(l => !remoteIds.has(l.id))];
+        }
+      }
+    } catch (e) {}
+  }
 
+  const now = new Date().toISOString();
   let updatedList;
   let savedItem;
 
-  if (execData.id) {
+  if (execData.id && list.some(item => item.id === execData.id)) {
     // Update existing
     savedItem = {
       ...execData,
       updated_at: now
     };
     updatedList = list.map(item => item.id === execData.id ? savedItem : item);
+  } else if (execData.id) {
+    savedItem = {
+      ...execData,
+      updated_at: now
+    };
+    updatedList = [savedItem, ...list];
   } else {
     // Create new
     const categoryList = list.filter(e => e.category === (execData.category || 'current'));
@@ -658,6 +680,20 @@ export async function saveExecutive(execData) {
         academic_session: JSON.stringify(updatedList),
         updated_at: now
       });
+
+      if (savedItem.image) {
+        await supabase.from('media_assets').upsert({
+          cloudinary_public_id: savedItem.cloudinary_public_id || `nacos/executives/${savedItem.id}`,
+          image_url: savedItem.image,
+          image_alt: JSON.stringify(savedItem),
+          media_type: 'image',
+          folder: 'nacos/executives',
+          category: 'executives',
+          entity_type: 'executive',
+          entity_id: savedItem.id,
+          updated_at: now
+        }, { onConflict: 'cloudinary_public_id' });
+      }
     }
   } catch (err) {
     console.warn('Supabase store_executives save error:', err);
@@ -676,7 +712,23 @@ export async function saveExecutive(execData) {
 }
 
 export async function deleteExecutive(id) {
-  const list = getExecutives('all');
+  let list = getExecutives('all');
+  if (supabase) {
+    try {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_executives')
+        .maybeSingle();
+      if (storeRow?.academic_session) {
+        const parsed = JSON.parse(storeRow.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          list = parsed;
+        }
+      }
+    } catch (e) {}
+  }
+
   const target = list.find(e => e.id === id);
   const updatedList = list.filter(e => e.id !== id);
 
@@ -693,6 +745,10 @@ export async function deleteExecutive(id) {
         academic_session: JSON.stringify(updatedList),
         updated_at: new Date().toISOString()
       });
+
+      if (target?.cloudinary_public_id) {
+        await supabase.from('media_assets').delete().eq('cloudinary_public_id', target.cloudinary_public_id);
+      }
     }
   } catch (err) {
     console.warn('Supabase store_executives delete sync error:', err);
@@ -715,7 +771,23 @@ export async function deleteExecutive(id) {
  * Move a single executive from Current to Past
  */
 export async function moveExecutiveToPast(id, pastSessionLabel = '2024/2025') {
-  const list = getExecutives('all');
+  let list = getExecutives('all');
+  if (supabase) {
+    try {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_executives')
+        .maybeSingle();
+      if (storeRow?.academic_session) {
+        const parsed = JSON.parse(storeRow.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          list = parsed;
+        }
+      }
+    } catch (e) {}
+  }
+
   const pastList = list.filter(e => e.category === 'past');
   const nextOrder = pastList.length;
 
@@ -739,11 +811,11 @@ export async function moveExecutiveToPast(id, pastSessionLabel = '2024/2025') {
 
   try {
     if (supabase) {
-      supabase.from('id_card_settings').upsert({
+      await supabase.from('id_card_settings').upsert({
         id: 'store_executives',
         academic_session: JSON.stringify(updatedList),
         updated_at: new Date().toISOString()
-      }).then(() => {}).catch(() => {});
+      });
     }
   } catch (err) {}
 
@@ -754,7 +826,23 @@ export async function moveExecutiveToPast(id, pastSessionLabel = '2024/2025') {
  * Move a single executive from Past to Current
  */
 export async function moveExecutiveToCurrent(id, currentSessionLabel = '2025/2026') {
-  const list = getExecutives('all');
+  let list = getExecutives('all');
+  if (supabase) {
+    try {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_executives')
+        .maybeSingle();
+      if (storeRow?.academic_session) {
+        const parsed = JSON.parse(storeRow.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          list = parsed;
+        }
+      }
+    } catch (e) {}
+  }
+
   const currentList = list.filter(e => e.category === 'current');
   const nextOrder = currentList.length;
 
@@ -778,11 +866,11 @@ export async function moveExecutiveToCurrent(id, currentSessionLabel = '2025/202
 
   try {
     if (supabase) {
-      supabase.from('id_card_settings').upsert({
+      await supabase.from('id_card_settings').upsert({
         id: 'store_executives',
         academic_session: JSON.stringify(updatedList),
         updated_at: new Date().toISOString()
-      }).then(() => {}).catch(() => {});
+      });
     }
   } catch (err) {}
 
@@ -793,7 +881,23 @@ export async function moveExecutiveToCurrent(id, currentSessionLabel = '2025/202
  * Archive entire Current Tenure to Past (Preserves exact order)
  */
 export async function archiveCurrentTenure(archiveSession = '2024/2025', newTenureSession = '2025/2026') {
-  const list = getExecutives('all');
+  let list = getExecutives('all');
+  if (supabase) {
+    try {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_executives')
+        .maybeSingle();
+      if (storeRow?.academic_session) {
+        const parsed = JSON.parse(storeRow.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          list = parsed;
+        }
+      }
+    } catch (e) {}
+  }
+
   const now = new Date().toISOString();
 
   // Find existing past max order

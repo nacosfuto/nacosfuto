@@ -167,15 +167,21 @@ const AdminGallery = () => {
   const [editImageUrl, setEditImageUrl] = useState('');
   const [editPublicId, setEditPublicId] = useState('');
 
-  const loadGallery = () => {
-    setItems(getGalleryItems());
+  const loadGallery = (liveData) => {
+    if (Array.isArray(liveData) && liveData.length > 0) {
+      setItems(liveData);
+    } else {
+      setItems(getGalleryItems());
+    }
   };
 
   useEffect(() => {
     loadGallery();
-    fetchGalleryFromSupabase().then(() => loadGallery()).catch(() => {});
+    fetchGalleryFromSupabase().then((data) => loadGallery(data)).catch(() => {});
 
-    const handleUpdate = () => loadGallery();
+    const handleUpdate = () => {
+      fetchGalleryFromSupabase().then((data) => loadGallery(data)).catch(() => loadGallery());
+    };
     window.addEventListener('nacos_website_gallery_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
@@ -207,7 +213,9 @@ const AdminGallery = () => {
     showFeedback('Photo removed from campus gallery and database.');
   };
 
-  const handleUploadSuccess = async ({ url, publicId }) => {
+  const handleUploadSuccess = async (uploadRes) => {
+    const url = uploadRes?.secure_url || uploadRes?.url || '';
+    const publicId = uploadRes?.public_id || uploadRes?.publicId || '';
     const newItem = {
       id: `gal-${Date.now()}`,
       title: newItemTitle || 'Campus Moment',
@@ -539,7 +547,9 @@ const AdminGallery = () => {
                     label="Replace Photo (Optional)"
                     aspectRatio="landscape"
                     previewPreset="gallery_preview"
-                    onUploadSuccess={({ url, publicId }) => {
+                    onUploadSuccess={(uploadRes) => {
+                      const url = uploadRes?.secure_url || uploadRes?.url || '';
+                      const publicId = uploadRes?.public_id || uploadRes?.publicId || '';
                       setEditImageUrl(url);
                       setEditPublicId(publicId);
                     }}

@@ -129,16 +129,22 @@ const Gallery = () => {
     const [activeFilter, setActiveFilter] = useState('All');
     const [selectedImageIndex, setSelectedImageIndex] = useState(null);
 
-    const loadGallery = () => {
-        setImages(getGalleryItems());
+    const loadGallery = (liveItems) => {
+        if (Array.isArray(liveItems) && liveItems.length > 0) {
+            setImages(liveItems);
+        } else {
+            setImages(getGalleryItems());
+        }
     };
 
     // Live sync with galleryService, Supabase, and admin changes
     useEffect(() => {
         loadGallery();
-        fetchGalleryFromSupabase().then(() => loadGallery()).catch(() => {});
+        fetchGalleryFromSupabase().then((data) => loadGallery(data)).catch(() => {});
 
-        const handleUpdate = () => loadGallery();
+        const handleUpdate = () => {
+            fetchGalleryFromSupabase().then((data) => loadGallery(data)).catch(() => loadGallery());
+        };
         window.addEventListener('nacos_website_gallery_updated', handleUpdate);
         window.addEventListener('storage', handleUpdate);
 
@@ -148,7 +154,10 @@ const Gallery = () => {
         };
     }, []);
 
-    const categories = ['All', 'Academics', 'Tech', 'Culture', 'Socials', 'Campus Life', 'Sports'];
+    const categories = ['All', ...Array.from(new Set([
+        'Academics', 'Tech', 'Culture', 'Socials', 'Campus Life', 'Sports',
+        ...images.map(img => img.category).filter(Boolean)
+    ]))];
 
     const filteredImages = activeFilter === 'All'
         ? images

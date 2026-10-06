@@ -14,7 +14,7 @@ import {
   FiExternalLink
 } from 'react-icons/fi';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
-import { getSpiritualFellowships, submitSpiritualFellowship } from '@nacos/supabase';
+import { getSpiritualFellowships, submitSpiritualFellowship, fetchSpiritualFellowshipsFromSupabase } from '@nacos/supabase';
 import headerImg from '../assets/header.jpg';
 
 const SpiritualLife = () => {
@@ -52,11 +52,15 @@ const SpiritualLife = () => {
   // Fellowships database state
   const [fellowships, setFellowships] = useState([]);
 
-  const loadFellowships = () => {
+  const loadFellowships = async () => {
     try {
-      const data = getSpiritualFellowships('approved');
-      if (data && data.length > 0) {
-        setFellowships(data);
+      const local = getSpiritualFellowships('approved');
+      if (local && local.length > 0) {
+        setFellowships(local);
+      }
+      const remote = await fetchSpiritualFellowshipsFromSupabase('approved');
+      if (remote && remote.length > 0) {
+        setFellowships(remote);
       }
     } catch (e) {
       console.warn('Error loading spiritual fellowships:', e);
@@ -86,14 +90,14 @@ const SpiritualLife = () => {
     image: ''
   });
 
-  const handleRegisterFellowship = (e) => {
+  const handleRegisterFellowship = async (e) => {
     e.preventDefault();
     if (!newFellowship.name || !newFellowship.description || !newFellowship.link) {
       alert('Please fill in the fellowship name, description, and WhatsApp/community contact link.');
       return;
     }
 
-    submitSpiritualFellowship({
+    await submitSpiritualFellowship({
       ...newFellowship,
       image: newFellowship.image || 'https://images.unsplash.com/photo-1548625361-12503a277713?auto=format&fit=crop&w=800&q=80'
     });

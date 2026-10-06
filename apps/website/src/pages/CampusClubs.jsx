@@ -19,7 +19,7 @@ import ScrollToTopLink from '../components/ScrollToTopLink';
 import clubsImage from '../assets/clubs.jpg';
 import laptopImage from '../assets/laptop.jpg';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
-import { getCampusClubs, submitCampusClub } from '@nacos/supabase';
+import { getCampusClubs, submitCampusClub, fetchCampusClubsFromSupabase } from '@nacos/supabase';
 
 const CampusClubs = () => {
   const { theme } = useTheme();
@@ -56,11 +56,15 @@ const CampusClubs = () => {
   // Clubs database state
   const [clubs, setClubs] = useState([]);
 
-  const loadClubs = () => {
+  const loadClubs = async () => {
     try {
-      const data = getCampusClubs('approved');
-      if (data && data.length > 0) {
-        setClubs(data);
+      const local = getCampusClubs('approved');
+      if (local && local.length > 0) {
+        setClubs(local);
+      }
+      const remote = await fetchCampusClubsFromSupabase('approved');
+      if (remote && remote.length > 0) {
+        setClubs(remote);
       }
     } catch (e) {
       console.warn('Error loading campus clubs:', e);
@@ -71,7 +75,11 @@ const CampusClubs = () => {
     loadClubs();
     const handleUpdate = () => loadClubs();
     window.addEventListener('nacos_campus_clubs_updated', handleUpdate);
-    return () => window.removeEventListener('nacos_campus_clubs_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('nacos_campus_clubs_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, []);
 
   // Form State
@@ -84,14 +92,14 @@ const CampusClubs = () => {
     image: ''
   });
 
-  const handleRegisterClub = (e) => {
+  const handleRegisterClub = async (e) => {
     e.preventDefault();
     if (!newClub.name || !newClub.description || !newClub.link) {
       alert('Please fill in the club name, description, and WhatsApp/community link.');
       return;
     }
 
-    submitCampusClub({
+    await submitCampusClub({
       ...newClub,
       image: newClub.image || 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=800&q=80'
     });

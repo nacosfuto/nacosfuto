@@ -296,8 +296,30 @@ export async function fetchYellowPagesFromSupabase(statusFilter = 'all') {
   return getYellowPages(statusFilter);
 }
 
+async function getRemoteStoreList(storeId, fallbackList) {
+  try {
+    if (supabase) {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', storeId)
+        .maybeSingle();
+      if (storeRow?.academic_session) {
+        const parsed = JSON.parse(storeRow.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map();
+          parsed.forEach(item => { if (item?.id) map.set(item.id, item); });
+          fallbackList.forEach(item => { if (item?.id && !map.has(item.id)) map.set(item.id, item); });
+          return Array.from(map.values());
+        }
+      }
+    }
+  } catch (_) {}
+  return [...fallbackList];
+}
+
 export async function submitYellowPageBusiness(businessData) {
-  const list = getYellowPages('all');
+  const currentList = await getRemoteStoreList('store_yellow_pages', getYellowPages('all'));
   const id = businessData.id || `yp-${Date.now()}`;
   const now = new Date().toISOString();
   const newBusiness = {
@@ -308,7 +330,7 @@ export async function submitYellowPageBusiness(businessData) {
     createdAt: now
   };
 
-  const updated = [newBusiness, ...list.filter(b => b.id !== id)];
+  const updated = [newBusiness, ...currentList.filter(b => b.id !== id)];
   if (typeof window !== 'undefined') {
     localStorage.setItem(YELLOW_PAGES_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
@@ -359,11 +381,11 @@ export async function submitYellowPageBusiness(businessData) {
 }
 
 export async function updateYellowPageBusiness(id, updates) {
-  const list = getYellowPages('all');
+  const currentList = await getRemoteStoreList('store_yellow_pages', getYellowPages('all'));
   const now = new Date().toISOString();
   let updatedItem = null;
 
-  const updatedList = list.map(b => {
+  const updatedList = currentList.map(b => {
     if (b.id === id) {
       updatedItem = {
         ...b,
@@ -427,8 +449,8 @@ export async function denyYellowPageBusiness(id) {
 }
 
 export async function deleteYellowPageBusiness(id) {
-  const list = getYellowPages('all');
-  const updated = list.filter(b => b.id !== id);
+  const currentList = await getRemoteStoreList('store_yellow_pages', getYellowPages('all'));
+  const updated = currentList.filter(b => b.id !== id);
   if (typeof window !== 'undefined') {
     localStorage.setItem(YELLOW_PAGES_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
@@ -484,6 +506,40 @@ export async function fetchCampusClubsFromSupabase(statusFilter = 'all') {
           }
         } catch (e) {}
       }
+
+      // Check media_assets fallback
+      const { data: mediaClubs, error: mediaErr } = await supabase
+        .from('media_assets')
+        .select('*')
+        .eq('category', 'campus_clubs')
+        .order('created_at', { ascending: false });
+
+      if (!mediaErr && mediaClubs && mediaClubs.length > 0) {
+        const parsedClubs = [];
+        for (const m of mediaClubs) {
+          try {
+            if (m.image_alt && m.image_alt.startsWith('{')) {
+              const obj = JSON.parse(m.image_alt);
+              parsedClubs.push({
+                ...obj,
+                id: obj.id || m.entity_id || m.id,
+                image: m.image_url || obj.image
+              });
+            }
+          } catch (_) {}
+        }
+        if (parsedClubs.length > 0) {
+          const remoteIds = new Set(parsedClubs.map(c => c.id));
+          const localInitials = INITIAL_CAMPUS_CLUBS.filter(c => !remoteIds.has(c.id));
+          const merged = [...parsedClubs, ...localInitials];
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(CAMPUS_CLUBS_STORAGE_KEY, JSON.stringify(merged));
+            window.dispatchEvent(new Event('nacos_campus_clubs_updated'));
+          }
+          if (statusFilter === 'all') return merged;
+          return merged.filter(c => c.status === statusFilter);
+        }
+      }
     }
   } catch (err) {
     console.warn('Supabase fetchCampusClubs error:', err);
@@ -508,15 +564,17 @@ export function getCampusClubs(statusFilter = 'all') {
 }
 
 export async function submitCampusClub(clubData) {
-  const list = getCampusClubs('all');
+  const currentList = await getRemoteStoreList('store_campus_clubs', getCampusClubs('all'));
+  const now = new Date().toISOString();
+  const id = clubData.id || `club-${Date.now()}`;
   const newClub = {
-    id: `club-${Date.now()}`,
+    id,
     ...clubData,
-    status: 'pending',
-    createdAt: new Date().toISOString()
+    status: clubData.status || 'pending',
+    createdAt: now
   };
 
-  const updated = [newClub, ...list];
+  const updated = [newClub, ...currentList.filter(c => c.id !== id)];
   if (typeof window !== 'undefined') {
     localStorage.setItem(CAMPUS_CLUBS_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_campus_clubs_updated'));
@@ -528,12 +586,29 @@ export async function submitCampusClub(clubData) {
       await supabase.from('id_card_settings').upsert({
         id: 'store_campus_clubs',
         academic_session: JSON.stringify(updated),
-        updated_at: new Date().toISOString()
+        updated_at: now
       });
     }
   } catch (err) {
     console.warn('Supabase store_campus_clubs sync error:', err);
   }
+
+  // Real-time universal live sync to media_assets
+  try {
+    if (supabase) {
+      await supabase.from('media_assets').upsert({
+        cloudinary_public_id: newClub.cloudinary_public_id || ('nacos/campus_clubs/' + newClub.id),
+        image_url: newClub.image || 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=800&q=80',
+        image_alt: JSON.stringify(newClub),
+        media_type: 'image',
+        folder: 'nacos/campus_clubs',
+        category: 'campus_clubs',
+        entity_type: 'campus_club',
+        entity_id: newClub.id,
+        updated_at: now
+      }, { onConflict: 'cloudinary_public_id' });
+    }
+  } catch (_) {}
 
   // Trigger Admin notification
   addAdminNotification({
@@ -547,54 +622,12 @@ export async function submitCampusClub(clubData) {
   return newClub;
 }
 
-export async function approveCampusClub(id) {
-  const list = getCampusClubs('all');
-  const updated = list.map(c => c.id === id ? { ...c, status: 'approved' } : c);
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(CAMPUS_CLUBS_STORAGE_KEY, JSON.stringify(updated));
-    window.dispatchEvent(new Event('nacos_campus_clubs_updated'));
-  }
-
-  try {
-    if (supabase) {
-      await supabase.from('id_card_settings').upsert({
-        id: 'store_campus_clubs',
-        academic_session: JSON.stringify(updated),
-        updated_at: new Date().toISOString()
-      });
-    }
-  } catch (err) {}
-
-  return updated;
-}
-
-export async function denyCampusClub(id) {
-  const list = getCampusClubs('all');
-  const updated = list.map(c => c.id === id ? { ...c, status: 'denied' } : c);
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(CAMPUS_CLUBS_STORAGE_KEY, JSON.stringify(updated));
-    window.dispatchEvent(new Event('nacos_campus_clubs_updated'));
-  }
-
-  try {
-    if (supabase) {
-      await supabase.from('id_card_settings').upsert({
-        id: 'store_campus_clubs',
-        academic_session: JSON.stringify(updated),
-        updated_at: new Date().toISOString()
-      });
-    }
-  } catch (err) {}
-
-  return updated;
-}
-
 export async function updateCampusClub(id, updates) {
-  const list = getCampusClubs('all');
+  const currentList = await getRemoteStoreList('store_campus_clubs', getCampusClubs('all'));
   const now = new Date().toISOString();
   let updatedClub = null;
 
-  const updatedList = list.map(c => {
+  const updatedList = currentList.map(c => {
     if (c.id === id) {
       updatedClub = {
         ...c,
@@ -626,12 +659,37 @@ export async function updateCampusClub(id, updates) {
     console.warn('Supabase store_campus_clubs update error:', err);
   }
 
+  // Real-time universal live sync to media_assets
+  try {
+    if (supabase) {
+      await supabase.from('media_assets').upsert({
+        cloudinary_public_id: updatedClub.cloudinary_public_id || ('nacos/campus_clubs/' + updatedClub.id),
+        image_url: updatedClub.image || 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=800&q=80',
+        image_alt: JSON.stringify(updatedClub),
+        media_type: 'image',
+        folder: 'nacos/campus_clubs',
+        category: 'campus_clubs',
+        entity_type: 'campus_club',
+        entity_id: updatedClub.id,
+        updated_at: now
+      }, { onConflict: 'cloudinary_public_id' });
+    }
+  } catch (_) {}
+
   return updatedClub;
 }
 
+export async function approveCampusClub(id) {
+  return updateCampusClub(id, { status: 'approved' });
+}
+
+export async function denyCampusClub(id) {
+  return updateCampusClub(id, { status: 'denied' });
+}
+
 export async function deleteCampusClub(id) {
-  const list = getCampusClubs('all');
-  const updated = list.filter(c => c.id !== id);
+  const currentList = await getRemoteStoreList('store_campus_clubs', getCampusClubs('all'));
+  const updated = currentList.filter(c => c.id !== id);
   if (typeof window !== 'undefined') {
     localStorage.setItem(CAMPUS_CLUBS_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_campus_clubs_updated'));
@@ -644,6 +702,7 @@ export async function deleteCampusClub(id) {
         academic_session: JSON.stringify(updated),
         updated_at: new Date().toISOString()
       });
+      await supabase.from('media_assets').delete().eq('entity_id', id);
     }
   } catch (err) {}
 
@@ -657,6 +716,7 @@ export async function deleteCampusClub(id) {
 export async function fetchAlumniFromSupabase(statusFilter = 'all') {
   try {
     if (supabase) {
+      // 1. Authoritative check on store_alumni in id_card_settings
       const { data: storeRow } = await supabase
         .from('id_card_settings')
         .select('academic_session')
@@ -676,6 +736,45 @@ export async function fetchAlumniFromSupabase(statusFilter = 'all') {
             return parsed.filter(a => a.status === statusFilter);
           }
         } catch (e) {}
+      }
+
+      // 2. Real-time media_assets fallback
+      const { data: mediaAlumni, error: mediaErr } = await supabase
+        .from('media_assets')
+        .select('*')
+        .eq('category', 'alumni')
+        .order('created_at', { ascending: false });
+
+      if (!mediaErr && mediaAlumni && mediaAlumni.length > 0) {
+        const parsedAlumni = [];
+        for (const m of mediaAlumni) {
+          try {
+            if (m.image_alt && m.image_alt.startsWith('{')) {
+              const obj = JSON.parse(m.image_alt);
+              parsedAlumni.push({
+                ...obj,
+                id: obj.id || m.entity_id || m.id,
+                image: m.image_url || obj.image,
+                cloudinary_public_id: m.cloudinary_public_id || obj.cloudinary_public_id
+              });
+            }
+          } catch (_) {}
+        }
+
+        if (parsedAlumni.length > 0) {
+          const remoteIds = new Set(parsedAlumni.map(a => a.id));
+          const localInitials = INITIAL_ALUMNI.filter(a => !remoteIds.has(a.id));
+          const merged = [...parsedAlumni, ...localInitials];
+
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(ALUMNI_STORAGE_KEY, JSON.stringify(merged));
+            window.dispatchEvent(new Event('nacos_alumni_updated'));
+            window.dispatchEvent(new Event('nacos_alumni_directory_updated'));
+          }
+
+          if (statusFilter === 'all') return merged;
+          return merged.filter(a => a.status === statusFilter);
+        }
       }
     }
   } catch (err) {
@@ -701,15 +800,17 @@ export function getAlumni(statusFilter = 'all') {
 }
 
 export async function submitAlumnus(alumnusData) {
-  const list = getAlumni('all');
+  const currentList = await getRemoteStoreList('store_alumni', getAlumni('all'));
+  const id = alumnusData.id || `alm-${Date.now()}`;
+  const now = new Date().toISOString();
   const newAlumnus = {
-    id: `alm-${Date.now()}`,
+    id,
     ...alumnusData,
-    status: 'pending',
-    createdAt: new Date().toISOString()
+    status: alumnusData.status || 'pending',
+    createdAt: now
   };
 
-  const updated = [newAlumnus, ...list];
+  const updated = [newAlumnus, ...currentList.filter(a => a.id !== id)];
   if (typeof window !== 'undefined') {
     localStorage.setItem(ALUMNI_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_alumni_updated'));
@@ -722,11 +823,30 @@ export async function submitAlumnus(alumnusData) {
       await supabase.from('id_card_settings').upsert({
         id: 'store_alumni',
         academic_session: JSON.stringify(updated),
-        updated_at: new Date().toISOString()
+        updated_at: now
       });
     }
   } catch (err) {
     console.warn('Supabase store_alumni sync error:', err);
+  }
+
+  // Real-time universal live sync to media_assets
+  try {
+    if (supabase) {
+      await supabase.from('media_assets').upsert({
+        cloudinary_public_id: newAlumnus.cloudinary_public_id || ('nacos/alumni/' + newAlumnus.id),
+        image_url: newAlumnus.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569300/nacos/alumni/alumni_godfirst.jpg',
+        image_alt: JSON.stringify(newAlumnus),
+        media_type: 'image',
+        folder: 'nacos/alumni',
+        category: 'alumni',
+        entity_type: 'alumni',
+        entity_id: newAlumnus.id,
+        updated_at: now
+      }, { onConflict: 'cloudinary_public_id' });
+    }
+  } catch (e) {
+    console.warn('Live sync alumni notice:', e);
   }
 
   // Trigger Admin notification
@@ -745,56 +865,12 @@ export const getAlumniDirectory = getAlumni;
 export const submitAlumniRequest = submitAlumnus;
 export const submitAlumni = submitAlumnus;
 
-export async function approveAlumnus(id) {
-  const list = getAlumni('all');
-  const updated = list.map(a => a.id === id ? { ...a, status: 'approved' } : a);
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(ALUMNI_STORAGE_KEY, JSON.stringify(updated));
-    window.dispatchEvent(new Event('nacos_alumni_updated'));
-    window.dispatchEvent(new Event('nacos_alumni_directory_updated'));
-  }
-
-  try {
-    if (supabase) {
-      await supabase.from('id_card_settings').upsert({
-        id: 'store_alumni',
-        academic_session: JSON.stringify(updated),
-        updated_at: new Date().toISOString()
-      });
-    }
-  } catch (err) {}
-
-  return updated;
-}
-
-export async function denyAlumnus(id) {
-  const list = getAlumni('all');
-  const updated = list.map(a => a.id === id ? { ...a, status: 'denied' } : a);
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(ALUMNI_STORAGE_KEY, JSON.stringify(updated));
-    window.dispatchEvent(new Event('nacos_alumni_updated'));
-    window.dispatchEvent(new Event('nacos_alumni_directory_updated'));
-  }
-
-  try {
-    if (supabase) {
-      await supabase.from('id_card_settings').upsert({
-        id: 'store_alumni',
-        academic_session: JSON.stringify(updated),
-        updated_at: new Date().toISOString()
-      });
-    }
-  } catch (err) {}
-
-  return updated;
-}
-
 export async function updateAlumnus(id, updates) {
-  const list = getAlumni('all');
+  const currentList = await getRemoteStoreList('store_alumni', getAlumni('all'));
   const now = new Date().toISOString();
   let updatedAlm = null;
 
-  const updatedList = list.map(a => {
+  const updatedList = currentList.map(a => {
     if (a.id === id) {
       updatedAlm = {
         ...a,
@@ -827,12 +903,37 @@ export async function updateAlumnus(id, updates) {
     console.warn('Supabase store_alumni update error:', err);
   }
 
+  // Real-time universal live sync to media_assets
+  try {
+    if (supabase) {
+      await supabase.from('media_assets').upsert({
+        cloudinary_public_id: updatedAlm.cloudinary_public_id || ('nacos/alumni/' + updatedAlm.id),
+        image_url: updatedAlm.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569300/nacos/alumni/alumni_godfirst.jpg',
+        image_alt: JSON.stringify(updatedAlm),
+        media_type: 'image',
+        folder: 'nacos/alumni',
+        category: 'alumni',
+        entity_type: 'alumni',
+        entity_id: updatedAlm.id,
+        updated_at: now
+      }, { onConflict: 'cloudinary_public_id' });
+    }
+  } catch (_) {}
+
   return updatedAlm;
 }
 
+export async function approveAlumnus(id) {
+  return updateAlumnus(id, { status: 'approved' });
+}
+
+export async function denyAlumnus(id) {
+  return updateAlumnus(id, { status: 'denied' });
+}
+
 export async function deleteAlumnus(id) {
-  const list = getAlumni('all');
-  const updated = list.filter(a => a.id !== id);
+  const currentList = await getRemoteStoreList('store_alumni', getAlumni('all'));
+  const updated = currentList.filter(a => a.id !== id);
   if (typeof window !== 'undefined') {
     localStorage.setItem(ALUMNI_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_alumni_updated'));
@@ -846,6 +947,7 @@ export async function deleteAlumnus(id) {
         academic_session: JSON.stringify(updated),
         updated_at: new Date().toISOString()
       });
+      await supabase.from('media_assets').delete().eq('entity_id', id);
     }
   } catch (err) {}
 

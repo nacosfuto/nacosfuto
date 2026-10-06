@@ -17,7 +17,7 @@ import {
 import { getIdCardSettings, updateIdCardFee, getDuesSettings, updateDuesFee } from '@nacos/supabase';
 import { CURRENT_ACADEMIC_YEAR_START, getAcademicSession } from '@nacos/config/academic';
 import { useTheme } from '../context/ThemeContext';
-import { getLocalPortalAdmins, updateAdminAssignedLevel, getPortalAdminSession } from '@nacos/auth';
+import { getLocalPortalAdmins, fetchPortalAdminsFromSupabase, updateAdminAssignedLevel, getPortalAdminSession } from '@nacos/auth';
 
 export const PortalAdminSettings = () => {
   const { theme } = useTheme();
@@ -39,6 +39,7 @@ export const PortalAdminSettings = () => {
       getIdCardSettings().then(s => {
         if (s?.id_card_fee) setIdCardFee(s.id_card_fee);
         if (s?.academic_session) setAcademicSession(s.academic_session);
+        if (s?.is_application_open !== undefined) setAllowRegistration(Boolean(s.is_application_open));
       });
 
       getDuesSettings().then(ds => {
@@ -50,7 +51,26 @@ export const PortalAdminSettings = () => {
 
       const admins = getLocalPortalAdmins();
       setPortalAdmins(admins);
+
+      fetchPortalAdminsFromSupabase().then(liveAdmins => {
+        if (liveAdmins && liveAdmins.length > 0) {
+          setPortalAdmins(liveAdmins);
+        }
+      });
     } catch (e) {}
+
+    const handleAdminsUpdate = () => {
+      fetchPortalAdminsFromSupabase().then(liveAdmins => {
+        if (liveAdmins && liveAdmins.length > 0) setPortalAdmins(liveAdmins);
+      });
+    };
+
+    window.addEventListener('nacos_portal_admin_updated', handleAdminsUpdate);
+    window.addEventListener('storage', handleAdminsUpdate);
+    return () => {
+      window.removeEventListener('nacos_portal_admin_updated', handleAdminsUpdate);
+      window.removeEventListener('storage', handleAdminsUpdate);
+    };
   }, []);
 
   const handleLevelChange = async (adminId, newLevel) => {
@@ -70,7 +90,7 @@ export const PortalAdminSettings = () => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      await updateIdCardFee(Number(idCardFee));
+      await updateIdCardFee(Number(idCardFee), academicSession, allowRegistration);
       await updateDuesFee(Number(duesFee), academicSession);
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);

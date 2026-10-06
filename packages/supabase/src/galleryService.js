@@ -322,7 +322,24 @@ export async function fetchGalleryFromSupabase() {
 }
 
 export async function saveGalleryItem(itemData) {
-  const current = getGalleryItems();
+  let current = getGalleryItems();
+  if (supabase) {
+    try {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_gallery')
+        .maybeSingle();
+      if (storeRow?.academic_session) {
+        const parsed = JSON.parse(storeRow.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const remoteIds = new Set(parsed.map(i => i.id));
+          current = [...parsed, ...current.filter(c => !remoteIds.has(c.id))];
+        }
+      }
+    } catch (e) {}
+  }
+
   const id = itemData.id || `gal-${Date.now()}`;
   const now = new Date().toISOString();
 
@@ -372,18 +389,20 @@ export async function saveGalleryItem(itemData) {
     }
 
     if (supabase) {
-      await supabase
-        .from('website_gallery')
-        .upsert({
-          id: normalized.id.startsWith('gal-') ? undefined : normalized.id,
-          title: normalized.title,
-          caption: normalized.caption,
-          image_url: normalized.image_url,
-          cloudinary_public_id: normalized.cloudinary_public_id,
-          category: normalized.category || 'Campus Life',
-          is_featured: Boolean(normalized.is_featured),
-          created_at: normalized.created_at
-        }, { onConflict: 'cloudinary_public_id' });
+      try {
+        await supabase
+          .from('website_gallery')
+          .upsert({
+            id: normalized.id.startsWith('gal-') ? undefined : normalized.id,
+            title: normalized.title,
+            caption: normalized.caption,
+            image_url: normalized.image_url,
+            cloudinary_public_id: normalized.cloudinary_public_id,
+            category: normalized.category || 'Campus Life',
+            is_featured: Boolean(normalized.is_featured),
+            created_at: normalized.created_at
+          });
+      } catch (err) {}
     }
   } catch (err) {
     console.warn('Remote sync notice for gallery item:', err);
@@ -396,7 +415,23 @@ export async function saveGalleryItem(itemData) {
  * Delete a gallery item from local storage, Supabase, and Cloudinary
  */
 export async function deleteGalleryItem(item) {
-  const current = getGalleryItems();
+  let current = getGalleryItems();
+  if (supabase) {
+    try {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_gallery')
+        .maybeSingle();
+      if (storeRow?.academic_session) {
+        const parsed = JSON.parse(storeRow.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          current = parsed;
+        }
+      }
+    } catch (e) {}
+  }
+
   const targetId = typeof item === 'string' ? item : item?.id;
   const targetPublicId = typeof item === 'object' ? item?.cloudinary_public_id : null;
 
@@ -416,9 +451,14 @@ export async function deleteGalleryItem(item) {
         academic_session: JSON.stringify(updated),
         updated_at: new Date().toISOString()
       });
+
+      if (targetPublicId) {
+        await supabase.from('media_assets').delete().eq('cloudinary_public_id', targetPublicId);
+        await supabase.from('website_gallery').delete().eq('cloudinary_public_id', targetPublicId);
+      }
     }
   } catch (err) {
-    console.warn('Supabase store_gallery delete sync error:', err);
+    console.warn('Supabase store_gallery delete error:', err);
   }
 
   // Remote delete

@@ -70,7 +70,11 @@ const AdminYellowPages = () => {
     loadBusinesses();
     const handleUpdate = () => loadBusinesses();
     window.addEventListener('nacos_yellow_pages_updated', handleUpdate);
-    return () => window.removeEventListener('nacos_yellow_pages_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('nacos_yellow_pages_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, []);
 
   const loadBusinesses = async () => {
@@ -91,25 +95,25 @@ const AdminYellowPages = () => {
   };
 
   const handleApprove = async (biz) => {
-    approveYellowPageBusiness(biz.id);
+    await approveYellowPageBusiness(biz.id);
     await recordAdminAction('approve_yellow_pages', 'business', biz.id, { name: biz.name });
     showNotice(`Business "${biz.name}" approved and published to Yellow Pages!`);
-    loadBusinesses();
+    await loadBusinesses();
   };
 
   const handleDeny = async (biz) => {
-    denyYellowPageBusiness(biz.id);
+    await denyYellowPageBusiness(biz.id);
     await recordAdminAction('deny_yellow_pages', 'business', biz.id, { name: biz.name });
     showNotice(`Business "${biz.name}" marked as denied.`, 'error');
-    loadBusinesses();
+    await loadBusinesses();
   };
 
   const handleDelete = async (biz) => {
     if (window.confirm(`Are you sure you want to permanently delete "${biz.name}"?`)) {
-      deleteYellowPageBusiness(biz.id);
+      await deleteYellowPageBusiness(biz.id);
       await recordAdminAction('delete_yellow_pages', 'business', biz.id, { name: biz.name });
       showNotice(`Business "${biz.name}" deleted successfully.`);
-      loadBusinesses();
+      await loadBusinesses();
     }
   };
 

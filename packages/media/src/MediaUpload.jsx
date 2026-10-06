@@ -103,9 +103,14 @@ export const MediaUpload = ({
         clearStatus();
 
         if (onUploadSuccess) {
+          const finalUrl = result.secureUrl || result.url;
+          const finalPublicId = result.publicId;
           onUploadSuccess({
-            url: result.secureUrl || result.url,
-            publicId: result.publicId,
+            url: finalUrl,
+            secure_url: finalUrl,
+            secureUrl: finalUrl,
+            publicId: finalPublicId,
+            public_id: finalPublicId,
             format: result.format,
             bytes: result.bytes,
             width: result.width,

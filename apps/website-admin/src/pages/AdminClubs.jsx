@@ -49,7 +49,11 @@ const AdminClubs = () => {
     loadClubs();
     const handleUpdate = () => loadClubs();
     window.addEventListener('nacos_campus_clubs_updated', handleUpdate);
-    return () => window.removeEventListener('nacos_campus_clubs_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('nacos_campus_clubs_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, []);
 
   const loadClubs = async () => {
@@ -99,25 +103,25 @@ const AdminClubs = () => {
   };
 
   const handleApprove = async (club) => {
-    approveCampusClub(club.id);
+    await approveCampusClub(club.id);
     await recordAdminAction('approve_campus_club', 'club', club.id, { name: club.name });
     showNotice(`Club "${club.name}" approved and published!`);
-    loadClubs();
+    await loadClubs();
   };
 
   const handleDeny = async (club) => {
-    denyCampusClub(club.id);
+    await denyCampusClub(club.id);
     await recordAdminAction('deny_campus_club', 'club', club.id, { name: club.name });
     showNotice(`Club "${club.name}" denied.`, 'error');
-    loadClubs();
+    await loadClubs();
   };
 
   const handleDelete = async (club) => {
     if (window.confirm(`Delete campus club "${club.name}"?`)) {
-      deleteCampusClub(club.id);
+      await deleteCampusClub(club.id);
       await recordAdminAction('delete_campus_club', 'club', club.id, { name: club.name });
       showNotice(`Club "${club.name}" deleted.`);
-      loadClubs();
+      await loadClubs();
     }
   };
 
@@ -133,7 +137,7 @@ const AdminClubs = () => {
       });
       showNotice(`Club "${formData.name}" updated successfully!`);
     } else {
-      submitCampusClub({
+      await submitCampusClub({
         ...formData,
         status: 'approved'
       });
@@ -142,7 +146,7 @@ const AdminClubs = () => {
     }
 
     setIsAddModalOpen(false);
-    loadClubs();
+    await loadClubs();
   };
 
   const filtered = clubs.filter((c) => {

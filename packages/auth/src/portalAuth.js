@@ -216,12 +216,64 @@ export function getStudentSession() {
 }
 
 /**
+ * Fetch portal administrators from Supabase with multi-device resilience
+ */
+export async function fetchPortalAdminsFromSupabase() {
+  const local = getLocalPortalAdmins();
+  try {
+    if (supabase) {
+      // 1. Authoritative check on store_portal_admins row in id_card_settings
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_portal_admins')
+        .maybeSingle();
+
+      if (storeRow?.academic_session) {
+        try {
+          const parsed = JSON.parse(storeRow.academic_session);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(parsed));
+              window.dispatchEvent(new Event('nacos_portal_admin_updated'));
+            }
+            return parsed;
+          }
+        } catch (_) {}
+      }
+
+      // 2. Direct query on admin_scopes table
+      const { data: dbAdmins, error } = await supabase
+        .from('admin_scopes')
+        .select('*')
+        .in('scope', [ADMIN_SCOPES.STUDENT_PORTAL, ADMIN_SCOPES.SUPER_ADMIN]);
+
+      if (!error && Array.isArray(dbAdmins) && dbAdmins.length > 0) {
+        const mergedMap = new Map();
+        local.forEach(a => mergedMap.set(a.id || a.email, a));
+        dbAdmins.forEach(a => mergedMap.set(a.id || a.email, { ...(mergedMap.get(a.id || a.email) || {}), ...a }));
+        const merged = Array.from(mergedMap.values());
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(merged));
+          window.dispatchEvent(new Event('nacos_portal_admin_updated'));
+        }
+        return merged;
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase fetchPortalAdmins notice:', err);
+  }
+  return local;
+}
+
+/**
  * Super Admin: Update assigned academic level for a portal administrator
  * @param {string} adminId
  * @param {string} level 'all' | '100' | '200' | '300' | '400' | '500'
  */
 export async function updateAdminAssignedLevel(adminId, level) {
-  const admins = getLocalPortalAdmins();
+  let admins = await fetchPortalAdminsFromSupabase();
   const cleanLevel = String(level || 'all').toLowerCase().replace(' level', '');
   const updated = admins.map(a => {
     if (a.id === adminId || a.user_id === adminId) {
@@ -241,9 +293,15 @@ export async function updateAdminAssignedLevel(adminId, level) {
     window.dispatchEvent(new Event('nacos_portal_admin_updated'));
   }
 
-  // Sync to Supabase if connected
+  // Sync to Supabase id_card_settings store_portal_admins row & admin_scopes table
   try {
     if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_portal_admins',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+
       await supabase
         .from('admin_scopes')
         .update({ assigned_level: cleanLevel })

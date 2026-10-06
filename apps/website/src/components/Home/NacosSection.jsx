@@ -45,8 +45,15 @@ const NacosSection = () => {
   });
 
   useEffect(() => {
-    const loadCurrentExecutives = () => {
+    const loadCurrentExecutives = (liveData) => {
       try {
+        if (Array.isArray(liveData) && liveData.length > 0) {
+          const cur = liveData.filter(e => e.category === 'current');
+          if (cur.length > 0) {
+            setExecutivesList(cur);
+            return;
+          }
+        }
         const cur = getExecutives('current');
         if (Array.isArray(cur) && cur.length > 0) {
           setExecutivesList(cur);
@@ -57,9 +64,11 @@ const NacosSection = () => {
     };
 
     loadCurrentExecutives();
-    fetchExecutivesFromSupabase().then(() => loadCurrentExecutives()).catch(() => {});
+    fetchExecutivesFromSupabase().then((live) => loadCurrentExecutives(live)).catch(() => {});
 
-    const handleUpdate = () => loadCurrentExecutives();
+    const handleUpdate = () => {
+      fetchExecutivesFromSupabase().then((live) => loadCurrentExecutives(live)).catch(() => loadCurrentExecutives());
+    };
     window.addEventListener('nacos_executives_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 

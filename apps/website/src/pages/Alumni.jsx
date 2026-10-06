@@ -16,7 +16,7 @@ import {
 import { FaGraduationCap, FaAward, FaBuilding, FaGlobeAmericas, FaLinkedin, FaUserGraduate } from "react-icons/fa";
 import ScrollToTopLink from "../components/ScrollToTopLink";
 import { getCloudinaryAssetUrl, MediaUpload, CLOUDINARY_FOLDERS } from "@nacos/media";
-import { getAlumniDirectory, submitAlumniRequest } from "@nacos/supabase";
+import { getAlumniDirectory, submitAlumniRequest, fetchAlumniFromSupabase } from "@nacos/supabase";
 import alumniImage from "../assets/alumni.jpg";
 import departmentImage from "../assets/department.jpg";
 import benitaImg from "../assets/alumni_benita.jpg";
@@ -52,11 +52,15 @@ const Alumni = () => {
     return () => clearInterval(timer);
   }, [heroSlides.length]);
 
-  const loadAlumni = () => {
+  const loadAlumni = async () => {
     try {
-      const data = getAlumniDirectory('approved');
-      if (data && data.length > 0) {
-        setAlumniList(data);
+      const local = getAlumniDirectory('approved');
+      if (local && local.length > 0) {
+        setAlumniList(local);
+      }
+      const remote = await fetchAlumniFromSupabase('approved');
+      if (remote && remote.length > 0) {
+        setAlumniList(remote);
       }
     } catch (e) {
       console.warn('Error loading alumni directory:', e);
@@ -67,7 +71,13 @@ const Alumni = () => {
     loadAlumni();
     const handleUpdate = () => loadAlumni();
     window.addEventListener('nacos_alumni_directory_updated', handleUpdate);
-    return () => window.removeEventListener('nacos_alumni_directory_updated', handleUpdate);
+    window.addEventListener('nacos_alumni_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('nacos_alumni_directory_updated', handleUpdate);
+      window.removeEventListener('nacos_alumni_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, []);
 
   const [newAlumni, setNewAlumni] = useState({
@@ -80,14 +90,14 @@ const Alumni = () => {
     image: ''
   });
 
-  const handleRegisterAlumni = (e) => {
+  const handleRegisterAlumni = async (e) => {
     e.preventDefault();
     if (!newAlumni.name || !newAlumni.position) {
       alert('Please fill in your name and current position.');
       return;
     }
 
-    submitAlumniRequest({
+    await submitAlumniRequest({
       ...newAlumni,
       image: newAlumni.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'
     });

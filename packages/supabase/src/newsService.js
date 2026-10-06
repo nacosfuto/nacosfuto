@@ -290,8 +290,31 @@ export async function fetchNewsArticles({ publishedOnly = true, category = 'all'
   return getLocalNewsArticles({ publishedOnly, category });
 }
 
+async function getRemoteStoreNews() {
+  const fallback = getLocalNewsArticles({ publishedOnly: false });
+  try {
+    if (supabase) {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_news')
+        .maybeSingle();
+      if (storeRow?.academic_session) {
+        const parsed = JSON.parse(storeRow.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map();
+          parsed.forEach(item => { if (item?.id || item?.slug) map.set(item.id || item.slug, item); });
+          fallback.forEach(item => { if ((item?.id || item?.slug) && !map.has(item.id || item.slug)) map.set(item.id || item.slug, item); });
+          return Array.from(map.values()).map(normalizeArticle);
+        }
+      }
+    }
+  } catch (_) {}
+  return fallback;
+}
+
 export async function saveNewsArticle(articleData) {
-  const current = getLocalNewsArticles({ publishedOnly: false });
+  const current = await getRemoteStoreNews();
   const id = articleData.id || `art-${Date.now()}`;
   const now = new Date().toISOString();
   
@@ -374,7 +397,7 @@ export async function saveNewsArticle(articleData) {
 }
 
 export async function deleteNewsArticle(id, slug, cloudinaryPublicId) {
-  const current = getLocalNewsArticles({ publishedOnly: false });
+  const current = await getRemoteStoreNews();
   const updated = current.filter(a => a.id !== id && a.slug !== slug);
   saveLocalNewsArticles(updated);
 

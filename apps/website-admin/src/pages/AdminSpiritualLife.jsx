@@ -112,25 +112,25 @@ const AdminSpiritualLife = () => {
   };
 
   const handleApprove = async (fel) => {
-    approveSpiritualFellowship(fel.id);
+    await approveSpiritualFellowship(fel.id);
     await recordAdminAction('approve_spiritual_fellowship', 'spiritual_life', fel.id, { name: fel.name });
     showNotice(`Fellowship "${fel.name}" approved and published!`);
-    loadFellowships();
+    await loadFellowships();
   };
 
   const handleDeny = async (fel) => {
-    denySpiritualFellowship(fel.id);
+    await denySpiritualFellowship(fel.id);
     await recordAdminAction('deny_spiritual_fellowship', 'spiritual_life', fel.id, { name: fel.name });
     showNotice(`Fellowship "${fel.name}" denied.`, 'error');
-    loadFellowships();
+    await loadFellowships();
   };
 
   const handleDelete = async (fel) => {
     if (window.confirm(`Delete spiritual fellowship "${fel.name}" from directory?`)) {
-      deleteSpiritualFellowship(fel.id);
+      await deleteSpiritualFellowship(fel.id);
       await recordAdminAction('delete_spiritual_fellowship', 'spiritual_life', fel.id, { name: fel.name });
       showNotice(`Fellowship "${fel.name}" deleted.`);
-      loadFellowships();
+      await loadFellowships();
     }
   };
 
@@ -146,7 +146,7 @@ const AdminSpiritualLife = () => {
       });
       showNotice(`Fellowship "${formData.name}" updated successfully!`);
     } else {
-      submitSpiritualFellowship({
+      await submitSpiritualFellowship({
         ...formData,
         status: 'approved'
       });
@@ -155,7 +155,7 @@ const AdminSpiritualLife = () => {
     }
 
     setIsModalOpen(false);
-    loadFellowships();
+    await loadFellowships();
   };
 
   const filteredFellowships = fellowships.filter(fel => {
