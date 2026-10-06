@@ -31,7 +31,7 @@ const NacosExecutives = () => {
     });
     return Array.from(set).sort().reverse().map(session => {
       const pres = pastExecutives.find(e => (e.session === session) && (e.role?.toLowerCase().includes('president') && !e.role?.toLowerCase().includes('vice')));
-      const leader = pres?.name ? pres.name.replace(/^comr\.?\s+/i, '').replace(/^high comrade\s+/i, '') : 'Past Executives';
+      const leader = pres?.name ? pres.name.replace(/^(rtr\.?\s*)?(high\s+)?comr(ade)?\.?\s+/i, '') : 'Past Executives';
       return { session, leader };
     });
   }, [pastExecutives]);

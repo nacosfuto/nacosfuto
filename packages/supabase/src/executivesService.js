@@ -24,7 +24,8 @@ export const DEFAULT_TENURES = [
   '2023/2024',
   '2022/2023',
   '2021/2022',
-  '2020/2021'
+  '2020/2021',
+  '2019/2020'
 ];
 
 export function getTenures() {
@@ -151,8 +152,8 @@ export async function fetchExecutivesFromSupabase() {
 
         if (parsedExecs.length > 0) {
           const remoteIds = new Set(parsedExecs.map(e => e.id));
-          const currentDefaults = INITIAL_CURRENT_EXECUTIVES.filter(e => !remoteIds.has(e.id));
-          const merged = [...parsedExecs, ...currentDefaults].filter(e => !e.id?.startsWith('past-2'));
+          const missingDefaults = getAllInitialExecutives().filter(e => !remoteIds.has(e.id));
+          const merged = [...parsedExecs, ...missingDefaults].filter(e => e.id !== 'test-123');
           merged.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
           
           if (typeof window !== 'undefined') {
@@ -333,8 +334,171 @@ export const INITIAL_CURRENT_EXECUTIVES = [
   }
 ];
 
-// Initial Seeded Past Executives (Dynamic - only populated from Admin Dashboard)
-export const INITIAL_PAST_EXECUTIVES = [];
+// Initial Seeded Past Executives (2019/2020 Sleek-Tech Executive)
+export const INITIAL_PAST_EXECUTIVES = [
+  {
+    id: 'exec-2019-1',
+    name: 'Rtr. Comr. Igwe Kingsley',
+    role: 'President',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 0,
+    image: ''
+  },
+  {
+    id: 'exec-2019-2',
+    name: 'Comr. Iwuono Obiamaka',
+    role: 'Vice President',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 1,
+    image: ''
+  },
+  {
+    id: 'exec-2019-3',
+    name: 'Rtr. Comr. Nwido Paul',
+    role: 'Secretary General',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 2,
+    image: ''
+  },
+  {
+    id: 'exec-2019-4',
+    name: 'Comr. Amaechi Prisca',
+    role: 'Asst. Secretary General',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 3,
+    image: ''
+  },
+  {
+    id: 'exec-2019-5',
+    name: 'Comr. Emezie Victor',
+    role: 'Financial Secretary',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 4,
+    image: ''
+  },
+  {
+    id: 'exec-2019-6',
+    name: 'Comr. Sunday Beauty',
+    role: 'Treasurer',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 5,
+    image: ''
+  },
+  {
+    id: 'exec-2019-7',
+    name: 'Comr. Onyekachi Franklin',
+    role: 'P.R.O',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 6,
+    image: ''
+  },
+  {
+    id: 'exec-2019-8',
+    name: 'Comr. Ibe Victor',
+    role: 'Director of Welfare',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 7,
+    image: ''
+  },
+  {
+    id: 'exec-2019-9',
+    name: 'Comr. Ohaja Wisdom',
+    role: 'Director of ICT',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 8,
+    image: ''
+  },
+  {
+    id: 'exec-2019-10',
+    name: 'Comr. Mozie Promise',
+    role: 'Director of Socials',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 9,
+    image: ''
+  },
+  {
+    id: 'exec-2019-11',
+    name: 'Comr. Eze Stanley',
+    role: 'Director of Sports',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 10,
+    image: ''
+  },
+  {
+    id: 'exec-2019-12',
+    name: 'Comr. Nwaonumara Elochukwu',
+    role: 'Provost 1',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 11,
+    image: ''
+  },
+  {
+    id: 'exec-2019-13',
+    name: 'Comr. Ofordieze Anthony',
+    role: 'Provost 2',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 12,
+    image: ''
+  },
+  {
+    id: 'exec-2019-14',
+    name: 'Hon. Izeuma Thankgod',
+    role: 'MSRC CSC',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 13,
+    image: ''
+  },
+  {
+    id: 'exec-2019-15',
+    name: 'Comr. Okoye Goodness',
+    role: 'Female Coordinator (Southeast)',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 14,
+    image: ''
+  },
+  {
+    id: 'exec-2019-16',
+    name: 'Rtr. Comr. Ekejuba Chinonso',
+    role: 'ICT Director (Imo State)',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 15,
+    image: ''
+  },
+  {
+    id: 'exec-2019-17',
+    name: 'Dr. (Mrs) E.C. Nwokorie',
+    role: 'Head of Department',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 16,
+    image: ''
+  },
+  {
+    id: 'exec-2019-18',
+    name: 'Mr. Njoku Obilor',
+    role: 'Staff Adviser',
+    category: 'past',
+    session: '2019/2020',
+    order_index: 17,
+    image: ''
+  }
+];
 
 // Helper to get all seeded items initially
 function getAllInitialExecutives() {
@@ -435,7 +599,7 @@ export function getExecutives(category = 'all') {
       }
     }
 
-    list = list.filter(e => !e.id?.startsWith('past-2'));
+    list = list.filter(e => e.id !== 'test-123');
     // Sort by order_index ascending
     list.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
 
