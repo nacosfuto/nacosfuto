@@ -24,10 +24,7 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
-  AlertCircle,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PanelLeft
+  AlertCircle
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { hashPassword, isLocalEnvironment } from '@nacos/supabase/auth';
@@ -349,15 +346,22 @@ const PortalLayout = ({ children }) => {
         }`}
         aria-label="Collapsed navigation rail"
       >
-        {/* Top: 'N' Brand Logo Mark & Navigation Items */}
+        {/* Top: Hamburger Menu Button & Navigation Items */}
         <div className="flex flex-col items-center gap-4 w-full">
-          <Link
-            to="/dashboard"
-            className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#138601] to-[#0d5c01] text-white flex items-center justify-center font-black text-lg shadow-sm hover:scale-105 active:scale-95 transition-all"
-            title="NACOS FUTO Portal"
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#138601] to-[#0d5c01] text-white flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer relative group"
+            title={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
           >
-            N
-          </Link>
+            <Menu className="w-5 h-5 text-white" />
+            
+            {/* Tooltip on hover */}
+            <span className="absolute left-full ml-2.5 px-2.5 py-1 rounded bg-gray-900 text-white dark:bg-white dark:text-gray-900 text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+              Menu
+            </span>
+          </button>
           
           {/* Navigation Icons Column */}
           <nav className="flex flex-col items-center gap-1.5 w-full px-2" aria-label="Quick Navigation">
@@ -441,22 +445,21 @@ const PortalLayout = ({ children }) => {
         }`}>
         <div className="site-container h-16 flex items-center justify-between">
 
-          {/* Left: Hamburger / Panel Toggle Icon (comes BEFORE the logo) and Logo */}
+          {/* Left: Mobile Hamburger Toggle & Logo */}
           <div className="flex items-center gap-3">
-            {/* Hamburger / Toggle Button */}
+            {/* Mobile Hamburger Toggle Button (only on screens smaller than md where vertical rail is hidden) */}
             <button
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className={`p-2 rounded cursor-pointer transition-colors relative w-9 h-9 flex items-center justify-center border shrink-0 ${
+              className={`p-2 rounded cursor-pointer transition-colors relative w-9 h-9 flex items-center justify-center border shrink-0 md:hidden ${
                 isDark
                   ? 'text-gray-200 hover:text-white bg-[#041801] hover:bg-[#138601]/20 border-[#138601]/30 active:scale-95'
                   : 'text-gray-700 bg-gray-100 hover:bg-gray-200 border-gray-200 active:scale-95'
               }`}
-              title="Expand navigation menu in full"
-              aria-label="Expand navigation menu in full"
+              title="Open navigation menu"
+              aria-label="Open navigation menu"
             >
-              <PanelLeft className="w-4.5 h-4.5 hidden sm:block" />
-              <Menu className="w-4.5 h-4.5 sm:hidden" />
+              <Menu className="w-4.5 h-4.5" />
             </button>
 
             <Link to="/dashboard" className="flex items-center shrink-0">
@@ -795,8 +798,7 @@ const PortalLayout = ({ children }) => {
             title="Collapse navigation menu"
             aria-label="Collapse navigation menu"
           >
-            <PanelLeftClose className="w-4.5 h-4.5 hidden sm:block" />
-            <X className="w-4.5 h-4.5 sm:hidden" />
+            <X className="w-4.5 h-4.5" />
           </button>
 
           {/* Logo inside drawer */}
