@@ -1,85 +1,72 @@
-import React, { useState } from 'react';
-import { FaCalendarAlt, FaClock, FaMapMarkerAlt } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';
+import { FaCalendarAlt, FaClock, FaMapMarkerAlt, FaStar } from 'react-icons/fa';
 import ScrollToTopLink from '../ScrollToTopLink';
-
-// Asset imports for events
-import eventFoundersTable from '../../assets/event_founders_table.jpg';
-import eventZonalConvention from '../../assets/event_zonal_convention.jpg';
-import eventTechRewind from '../../assets/event_tech_rewind.jpg';
-import eventNacosSchedule from '../../assets/event_nacos_schedule.jpg';
+import { getEvents, fetchEventsFromSupabase } from '@nacos/supabase';
 
 const PLACEHOLDER_IMG = "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=600&q=80";
 
 const UpcomingEvents = () => {
-  const events = [
-    {
-      id: 1,
-      title: "NACOS Week 2026: Synergy & Innovation",
-      date: "August 2026 (Scheduled)",
-      time: "10:00 AM",
-      location: "FUTO ICT Center & SEET Complex",
-      image: eventNacosSchedule,
-      description: "A 5-day celebration featuring hackathons, gaming contests, project pitchings, industry tech talks, traditional day, and dinner night."
-    },
-    {
-      id: 2,
-      title: "FUTO Tech Rewind & Showcase 2026",
-      date: "August 2026 (Upcoming)",
-      time: "11:00 AM",
-      location: "School of Computing Hall, FUTO",
-      image: eventTechRewind,
-      description: "Celebrating innovative tech breakthroughs, student developer showcases, startup demos, and community networking."
-    },
-    {
-      id: 3,
-      title: "The Founders Table 1.0",
-      date: "August 2026 (Anticipated)",
-      time: "12:00 PM",
-      location: "CSC Seminar Hall, FUTO",
-      image: eventFoundersTable,
-      description: "Convened by Kelechukwu Okere and Nestor Anyanwu. Delving into tech startups, entrepreneurship, venture capital, and building products."
-    },
-    {
-      id: 4,
-      title: "16th Annual Zonal Convention (NACOS SE)",
-      date: "Sept 22-26, 2026",
-      time: "9:00 AM",
-      location: "Ogbonnaya Onu Polytechnic, Aba",
-      image: eventZonalConvention,
-      description: "Theme: d.i.g.i.t (Develop, Innovate, Grow, Inspire, Transform). Featuring keynote talks, hackathons, and regional networking."
-    }
-  ];
+  const [featuredEvents, setFeaturedEvents] = useState(() => {
+    return getEvents({ category: 'all', publishedOnly: true }).filter(e => e.is_featured);
+  });
 
-  const [showAll] = useState(false);
-  const displayedEvents = showAll ? events : events.slice(0, 4);
+  useEffect(() => {
+    const syncFeaturedEvents = () => {
+      const all = getEvents({ category: 'all', publishedOnly: true });
+      const featured = all.filter(e => Boolean(e.is_featured));
+      setFeaturedEvents(featured);
+    };
+
+    fetchEventsFromSupabase().then(() => syncFeaturedEvents()).catch(() => {});
+
+    window.addEventListener('nacos_website_events_updated', syncFeaturedEvents);
+    window.addEventListener('storage', syncFeaturedEvents);
+
+    return () => {
+      window.removeEventListener('nacos_website_events_updated', syncFeaturedEvents);
+      window.removeEventListener('storage', syncFeaturedEvents);
+    };
+  }, []);
+
+  // Display at most 4 spotlight featured events on homepage
+  const displayedEvents = featuredEvents.slice(0, 4);
+
+  if (featuredEvents.length === 0) {
+    return null;
+  }
 
   return (
     <section className="py-20 bg-white dark:bg-[#041801] transition-colors duration-300">
       <div className="site-container">
         <div className="text-center mb-12 max-w-3xl mx-auto">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs uppercase tracking-wider mb-3 border border-amber-500/20">
+            <FaStar className="text-xs" />
+            <span>Spotlight & Highlights</span>
+          </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight mb-3">
-            Upcoming <span className="text-[#138601] dark:text-[#4bd043]">Events</span>
+            Featured <span className="text-[#138601] dark:text-[#4bd043]">Events</span>
           </h2>
           <p className="text-base text-gray-700 dark:text-gray-300 leading-relaxed max-w-2xl mx-auto">
-            Stay updated with department hackathons, technical conferences, conventions, and networking sessions.
+            Explore department spotlight hackathons, technical conferences, conventions, and networking sessions.
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {displayedEvents.map((event) => (
             <div
-              key={event.id}
+              key={event.id || event.slug}
               className="group flex flex-col sm:flex-row rounded overflow-hidden border border-gray-200 dark:border-[#138601]/30 bg-white dark:bg-[#083002] shadow-sm hover:shadow-xl hover:border-[#138601] dark:hover:border-[#4bd043] transform hover:-translate-y-1.5 transition-all duration-300"
             >
               {/* Image Container */}
               <div className="sm:w-2/5 h-52 sm:h-auto overflow-hidden relative bg-[#041801]">
                 <img
-                  src={event.image || PLACEHOLDER_IMG}
+                  src={event.image || event.image_url || PLACEHOLDER_IMG}
                   alt={event.title}
                   className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                 />
-                <div className="absolute top-3 left-3 bg-[#138601] text-white px-2.5 py-0.5 rounded font-bold text-[10px] uppercase tracking-wider shadow-sm">
-                  UPCOMING
+                <div className="absolute top-3 left-3 bg-[#138601] text-white px-2.5 py-0.5 rounded font-bold text-[10px] uppercase tracking-wider shadow-sm flex items-center gap-1">
+                  <FaStar className="text-[9px] text-amber-300" />
+                  FEATURED
                 </div>
               </div>
 
@@ -97,16 +84,20 @@ const UpcomingEvents = () => {
                 <div className="space-y-1.5 border-t pt-3 border-gray-100 dark:border-white/10 text-xs text-gray-600 dark:text-gray-400">
                   <div className="flex items-center gap-2">
                     <FaCalendarAlt className="text-[#138601] dark:text-[#4bd043]" />
-                    <span className="font-semibold text-black dark:text-white">{event.date}</span>
+                    <span className="font-semibold text-black dark:text-white">{event.date || event.event_date}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FaClock className="text-[#138601] dark:text-[#4bd043]" />
-                    <span>{event.time}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <FaMapMarkerAlt className="text-[#138601] dark:text-[#4bd043]" />
-                    <span className="truncate">{event.location}</span>
-                  </div>
+                  {event.time && (
+                    <div className="flex items-center gap-2">
+                      <FaClock className="text-[#138601] dark:text-[#4bd043]" />
+                      <span>{event.time || event.event_time}</span>
+                    </div>
+                  )}
+                  {event.location && (
+                    <div className="flex items-center gap-2">
+                      <FaMapMarkerAlt className="text-[#138601] dark:text-[#4bd043]" />
+                      <span className="truncate">{event.location}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
