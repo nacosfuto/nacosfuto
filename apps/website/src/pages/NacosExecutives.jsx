@@ -8,7 +8,8 @@ import { FiClock, FiChevronDown, FiChevronUp, FiCalendar } from 'react-icons/fi'
 import { 
   getExecutives, 
   getExecutivesSettings, 
-  DEFAULT_EXECUTIVES_PAGE_SETTINGS 
+  DEFAULT_EXECUTIVES_PAGE_SETTINGS,
+  fetchExecutivesFromSupabase
 } from '@nacos/supabase';
 
 const NacosExecutives = () => {
@@ -60,6 +61,7 @@ const NacosExecutives = () => {
 
   useEffect(() => {
     loadData();
+    fetchExecutivesFromSupabase().then(() => loadData()).catch(() => {});
 
     const handleExecutivesUpdate = () => {
       setCurrentExecutives(getExecutives('current'));

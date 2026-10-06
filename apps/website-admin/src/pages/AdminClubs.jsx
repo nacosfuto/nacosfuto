@@ -11,14 +11,16 @@ import {
   Globe, 
   AlertCircle, 
   CheckCircle,
-  Tag
+  Tag,
+  Edit3
 } from 'lucide-react';
 import { 
   getCampusClubs, 
   approveCampusClub, 
   denyCampusClub, 
   deleteCampusClub, 
-  submitCampusClub 
+  submitCampusClub,
+  updateCampusClub 
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
@@ -30,6 +32,8 @@ const AdminClubs = () => {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [notification, setNotification] = useState({ message: '', type: '' });
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
+  const [selectedClubId, setSelectedClubId] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -56,6 +60,35 @@ const AdminClubs = () => {
   const showNotice = (msg, type = 'success') => {
     setNotification({ message: msg, type });
     setTimeout(() => setNotification({ message: '', type: '' }), 4000);
+  };
+
+  const handleOpenAdd = () => {
+    setModalMode('add');
+    setSelectedClubId(null);
+    setFormData({
+      name: '',
+      category: 'Software Engineering',
+      description: '',
+      image: '',
+      leadName: '',
+      link: ''
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleOpenEdit = (club) => {
+    setModalMode('edit');
+    setSelectedClubId(club.id);
+    setFormData({
+      name: club.name || '',
+      category: club.category || 'Software Engineering',
+      description: club.description || '',
+      image: club.image || '',
+      leadName: club.leadName || '',
+      link: club.link || '',
+      status: club.status || 'approved'
+    });
+    setIsAddModalOpen(true);
   };
 
   const handleApprove = async (club) => {
@@ -85,22 +118,23 @@ const AdminClubs = () => {
     e.preventDefault();
     if (!formData.name.trim()) return;
 
-    submitCampusClub({
-      ...formData,
-      status: 'approved'
-    });
+    if (modalMode === 'edit' && selectedClubId) {
+      await updateCampusClub(selectedClubId, formData);
+      await recordAdminAction('update_campus_club', 'club', selectedClubId, {
+        name: formData.name,
+        category: formData.category
+      });
+      showNotice(`Club "${formData.name}" updated successfully!`);
+    } else {
+      submitCampusClub({
+        ...formData,
+        status: 'approved'
+      });
+      await recordAdminAction('create_campus_club', 'club', formData.name, { category: formData.category });
+      showNotice(`Club "${formData.name}" added successfully!`);
+    }
 
-    await recordAdminAction('create_campus_club', 'club', formData.name, { category: formData.category });
-    showNotice(`Club "${formData.name}" added successfully!`);
     setIsAddModalOpen(false);
-    setFormData({
-      name: '',
-      category: 'Software Engineering',
-      description: '',
-      image: '',
-      leadName: '',
-      link: ''
-    });
     loadClubs();
   };
 
@@ -149,7 +183,7 @@ const AdminClubs = () => {
           </div>
 
           <button
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={handleOpenAdd}
             className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -255,8 +289,18 @@ const AdminClubs = () => {
 
                   <button
                     type="button"
+                    onClick={() => handleOpenEdit(club)}
+                    className="p-1.5 rounded-lg text-gray-500 hover:text-[#138601] hover:bg-green-50 dark:hover:bg-[#041801] transition-colors cursor-pointer ml-auto"
+                    title="Edit Campus Club"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => handleDelete(club)}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer ml-auto"
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                    title="Delete Campus Club"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -266,12 +310,14 @@ const AdminClubs = () => {
           ))}
         </div>
 
-        {/* Add Modal */}
+        {/* Add / Edit Modal */}
         {isAddModalOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
             <div className="bg-white dark:bg-[#083002] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 dark:border-[#138601]/40 space-y-4 max-h-[90vh] overflow-y-auto text-gray-900 dark:text-white">
               <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#138601]/20">
-                <h3 className="text-base font-bold">Register Campus Club</h3>
+                <h3 className="text-base font-bold">
+                  {modalMode === 'edit' ? 'Edit Campus Club' : 'Register Campus Club'}
+                </h3>
                 <button onClick={() => setIsAddModalOpen(false)} className="text-gray-400 cursor-pointer">✕</button>
               </div>
 
@@ -357,7 +403,7 @@ const AdminClubs = () => {
                     type="submit"
                     className="px-5 py-2 rounded-lg text-white bg-[#138601] hover:bg-[#0f6c01] font-bold shadow-xs cursor-pointer"
                   >
-                    Publish Club
+                    {modalMode === 'edit' ? 'Save Changes' : 'Publish Club'}
                   </button>
                 </div>
               </form>

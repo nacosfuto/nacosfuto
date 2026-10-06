@@ -26,7 +26,8 @@ import {
   CheckCircle2,
   AlertCircle,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  PanelLeft
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { hashPassword, isLocalEnvironment } from '@nacos/supabase/auth';
@@ -48,6 +49,17 @@ const PortalLayout = ({ children }) => {
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
+
+  // Close sidebar drawer on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && sidebarOpen) {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [sidebarOpen]);
 
   const [user, setUser] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -326,7 +338,101 @@ const PortalLayout = ({ children }) => {
       : displayName.split(' ')[0];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#041801] text-gray-900 dark:text-white flex flex-col font-sans selection:bg-[#138601] selection:text-white">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#041801] text-gray-900 dark:text-white flex flex-col font-sans selection:bg-[#138601] selection:text-white md:pl-16 print:pl-0">
+
+      {/* ─── Collapsed Vertical Icon Rail (Stripe-style) ─── */}
+      <aside
+        className={`hidden md:flex fixed inset-y-0 left-0 top-0 bottom-0 w-16 flex-col justify-between items-center py-3.5 border-r z-30 select-none print:hidden transition-colors ${
+          isDark
+            ? 'bg-[#083002] border-[#138601]/25 text-white'
+            : 'bg-white border-gray-200 text-gray-900'
+        }`}
+        aria-label="Collapsed navigation rail"
+      >
+        {/* Top: 'N' Brand Logo Mark & Navigation Items */}
+        <div className="flex flex-col items-center gap-4 w-full">
+          <Link
+            to="/dashboard"
+            className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#138601] to-[#0d5c01] text-white flex items-center justify-center font-black text-lg shadow-sm hover:scale-105 active:scale-95 transition-all"
+            title="NACOS FUTO Portal"
+          >
+            N
+          </Link>
+          
+          {/* Navigation Icons Column */}
+          <nav className="flex flex-col items-center gap-1.5 w-full px-2" aria-label="Quick Navigation">
+            {navItems.map((item) => {
+              const active = isItemActive(item.path);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  title={item.label}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all relative group cursor-pointer ${
+                    active
+                      ? isDark
+                        ? 'bg-[#138601] text-white shadow-xs font-semibold'
+                        : 'bg-[#138601] text-white shadow-xs font-semibold'
+                      : isDark
+                      ? 'text-green-100/70 hover:text-white hover:bg-[#041801]/70 border border-transparent hover:border-[#138601]/20'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100 border border-transparent'
+                  }`}
+                >
+                  <Icon className="w-5 h-5 shrink-0" />
+                  
+                  {/* Tooltip on hover */}
+                  <span className="absolute left-full ml-2.5 px-2.5 py-1 rounded bg-gray-900 text-white dark:bg-white dark:text-gray-900 text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Bottom Tools Column: Theme, Settings, Sign Out */}
+        <div className="flex flex-col items-center gap-2 w-full px-2 pt-3 border-t border-gray-100 dark:border-[#138601]/20">
+          {/* Theme Toggle */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 dark:text-green-200/70 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#041801]/70 transition-all cursor-pointer relative group"
+          >
+            {isDark ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
+            <span className="absolute left-full ml-2.5 px-2.5 py-1 rounded bg-gray-900 text-white dark:bg-white dark:text-gray-900 text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+              {isDark ? "Light Mode" : "Dark Mode"}
+            </span>
+          </button>
+
+          {/* Manage Password / Settings */}
+          <button
+            type="button"
+            onClick={() => setIsSettingsOpen(true)}
+            title="Manage Password / Settings"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 dark:text-green-200/70 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#041801]/70 transition-all cursor-pointer relative group"
+          >
+            <Settings className="w-5 h-5" />
+            <span className="absolute left-full ml-2.5 px-2.5 py-1 rounded bg-gray-900 text-white dark:bg-white dark:text-gray-900 text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+              Settings
+            </span>
+          </button>
+
+          {/* Sign Out */}
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Sign Out"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all cursor-pointer relative group"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="absolute left-full ml-2.5 px-2.5 py-1 rounded bg-red-600 text-white text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+              Sign Out
+            </span>
+          </button>
+        </div>
+      </aside>
 
       {/* Top Header */}
       <header className={`sticky top-0 z-40 w-full border-b print:hidden ${isDark
@@ -335,9 +441,9 @@ const PortalLayout = ({ children }) => {
         }`}>
         <div className="site-container h-16 flex items-center justify-between">
 
-          {/* Left: Hamburger Icon (comes BEFORE the logo) and Logo */}
+          {/* Left: Hamburger / Panel Toggle Icon (comes BEFORE the logo) and Logo */}
           <div className="flex items-center gap-3">
-            {/* Hamburger / Close (X) Toggle Button - stays at the same position */}
+            {/* Hamburger / Toggle Button */}
             <button
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -346,11 +452,11 @@ const PortalLayout = ({ children }) => {
                   ? 'text-gray-200 hover:text-white bg-[#041801] hover:bg-[#138601]/20 border-[#138601]/30 active:scale-95'
                   : 'text-gray-700 bg-gray-100 hover:bg-gray-200 border-gray-200 active:scale-95'
               }`}
-              title={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
-              aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+              title="Expand navigation menu in full"
+              aria-label="Expand navigation menu in full"
             >
-              <Menu className={`w-4.5 h-4.5 absolute transition-all duration-200 ${sidebarOpen ? 'opacity-0 scale-75 rotate-90' : 'opacity-100 scale-100 rotate-0'}`} />
-              <X className={`w-4.5 h-4.5 absolute transition-all duration-200 ${sidebarOpen ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-75 -rotate-90'}`} />
+              <PanelLeft className="w-4.5 h-4.5 hidden sm:block" />
+              <Menu className="w-4.5 h-4.5 sm:hidden" />
             </button>
 
             <Link to="/dashboard" className="flex items-center shrink-0">
@@ -665,15 +771,42 @@ const PortalLayout = ({ children }) => {
       )}
 
       <aside
-        className={`fixed top-16 left-0 bottom-0 z-50 w-72 max-w-[85vw] flex flex-col justify-between py-6 px-4 overflow-y-auto sidebar-scroll transition-transform duration-300 ease-in-out print:hidden ${
+        className={`fixed inset-y-0 top-0 left-0 bottom-0 z-50 w-72 sm:w-80 max-w-[85vw] flex flex-col justify-between overflow-y-auto sidebar-scroll transition-transform duration-300 ease-in-out print:hidden ${
           isDark
             ? 'bg-[#083002] border-r border-[#138601]/30 text-white shadow-2xl'
             : 'bg-white border-r border-gray-200 text-gray-900 shadow-2xl'
         } ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
         }`}
       >
-        <div className="space-y-4">
+        {/* Drawer Brand Header: Covers the top navbar completely from top to bottom */}
+        <div className={`h-16 px-4 sm:px-5 lg:px-6 flex items-center gap-3 border-b shrink-0 ${
+          isDark ? 'border-[#138601]/25 bg-[#083002]' : 'border-gray-200 bg-white'
+        }`}>
+          {/* Close / Collapse Toggle Button - in exact same location as the navbar hamburger */}
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            className={`p-2 rounded cursor-pointer transition-colors relative w-9 h-9 flex items-center justify-center border shrink-0 ${
+              isDark
+                ? 'text-gray-200 hover:text-white bg-[#041801] hover:bg-[#138601]/20 border-[#138601]/30 active:scale-95'
+                : 'text-gray-700 bg-gray-100 hover:bg-gray-200 border-gray-200 active:scale-95'
+            }`}
+            title="Collapse navigation menu"
+            aria-label="Collapse navigation menu"
+          >
+            <PanelLeftClose className="w-4.5 h-4.5 hidden sm:block" />
+            <X className="w-4.5 h-4.5 sm:hidden" />
+          </button>
+
+          {/* Logo inside drawer */}
+          <Link to="/dashboard" onClick={() => setSidebarOpen(false)} className="flex items-center shrink-0">
+            <img src={isDark ? logoDark : logoLight} alt="NACOS FUTO Logo" className="h-8 md:h-9 w-auto object-contain" />
+          </Link>
+        </div>
+
+        {/* Drawer Scrollable Navigation Body */}
+        <div className="flex-1 overflow-y-auto sidebar-scroll p-4 space-y-4">
           {/* Header inside sidebar */}
           <div className="px-2 pb-1 flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-green-300/70">
@@ -714,7 +847,7 @@ const PortalLayout = ({ children }) => {
         </div>
 
         {/* External Portals & Actions */}
-        <div className="space-y-3 pt-3 border-t border-gray-100 dark:border-[#138601]/20">
+        <div className="p-4 pt-3 border-t shrink-0 space-y-3 border-gray-100 dark:border-[#138601]/20">
           <div className="grid grid-cols-2 gap-2">
             <a
               href={getAppUrls().website}

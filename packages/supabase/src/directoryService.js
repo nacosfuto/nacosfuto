@@ -295,6 +295,61 @@ export async function submitYellowPageBusiness(businessData) {
   return newBusiness;
 }
 
+export async function updateYellowPageBusiness(id, updates) {
+  const list = getYellowPages('all');
+  const now = new Date().toISOString();
+  let updatedItem = null;
+
+  const updatedList = list.map(b => {
+    if (b.id === id) {
+      updatedItem = {
+        ...b,
+        ...updates,
+        imagePosition: updates.imagePosition || b.imagePosition || 'top center',
+        updatedAt: now
+      };
+      return updatedItem;
+    }
+    return b;
+  });
+
+  if (!updatedItem) return null;
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(YELLOW_PAGES_STORAGE_KEY, JSON.stringify(updatedList));
+    window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
+  }
+
+  try {
+    if (supabase) {
+      await supabase.from('yellow_pages').upsert({
+        id: updatedItem.id,
+        name: updatedItem.name,
+        category: updatedItem.category,
+        secondary_categories: updatedItem.secondaryCategories || [],
+        owner_name: updatedItem.ownerName || '',
+        owner_level: updatedItem.ownerLevel || '',
+        description: updatedItem.description || '',
+        location: updatedItem.location || '',
+        phone: updatedItem.phone || '',
+        whatsapp: updatedItem.whatsapp || '',
+        email: updatedItem.email || '',
+        rating: updatedItem.rating || 5.0,
+        reviews_count: updatedItem.reviewsCount || 0,
+        image: updatedItem.image || '',
+        cloudinary_public_id: updatedItem.cloudinary_public_id || '',
+        image_position: updatedItem.imagePosition || 'top center',
+        status: updatedItem.status || 'approved',
+        updated_at: now
+      }, { onConflict: 'id' });
+    }
+  } catch (err) {
+    console.warn('Could not sync updated business to Supabase:', err);
+  }
+
+  return updatedItem;
+}
+
 export async function approveYellowPageBusiness(id) {
   const list = getYellowPages('all');
   const updated = list.map(b => b.id === id ? { ...b, status: 'approved' } : b);
@@ -413,6 +468,51 @@ export function denyCampusClub(id) {
   return updated;
 }
 
+export async function updateCampusClub(id, updates) {
+  const list = getCampusClubs('all');
+  const now = new Date().toISOString();
+  let updatedClub = null;
+
+  const updatedList = list.map(c => {
+    if (c.id === id) {
+      updatedClub = {
+        ...c,
+        ...updates,
+        updatedAt: now
+      };
+      return updatedClub;
+    }
+    return c;
+  });
+
+  if (!updatedClub) return null;
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(CAMPUS_CLUBS_STORAGE_KEY, JSON.stringify(updatedList));
+    window.dispatchEvent(new Event('nacos_campus_clubs_updated'));
+  }
+
+  try {
+    if (supabase) {
+      await supabase.from('campus_clubs').upsert({
+        id: updatedClub.id,
+        name: updatedClub.name,
+        category: updatedClub.category,
+        description: updatedClub.description,
+        image: updatedClub.image,
+        lead_name: updatedClub.leadName,
+        link: updatedClub.link,
+        status: updatedClub.status || 'approved',
+        updated_at: now
+      }, { onConflict: 'id' });
+    }
+  } catch (err) {
+    console.warn('Could not sync club to Supabase:', err);
+  }
+
+  return updatedClub;
+}
+
 export function deleteCampusClub(id) {
   const list = getCampusClubs('all');
   const updated = list.filter(c => c.id !== id);
@@ -493,6 +593,53 @@ export function denyAlumnus(id) {
     window.dispatchEvent(new Event('nacos_alumni_updated'));
   }
   return updated;
+}
+
+export async function updateAlumnus(id, updates) {
+  const list = getAlumni('all');
+  const now = new Date().toISOString();
+  let updatedAlm = null;
+
+  const updatedList = list.map(a => {
+    if (a.id === id) {
+      updatedAlm = {
+        ...a,
+        ...updates,
+        updatedAt: now
+      };
+      return updatedAlm;
+    }
+    return a;
+  });
+
+  if (!updatedAlm) return null;
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(ALUMNI_STORAGE_KEY, JSON.stringify(updatedList));
+    window.dispatchEvent(new Event('nacos_alumni_updated'));
+    window.dispatchEvent(new Event('nacos_alumni_directory_updated'));
+  }
+
+  try {
+    if (supabase) {
+      await supabase.from('alumni_directory').upsert({
+        id: updatedAlm.id,
+        name: updatedAlm.name,
+        grad_year: updatedAlm.gradYear,
+        position: updatedAlm.position,
+        company: updatedAlm.company,
+        linkedin: updatedAlm.linkedin,
+        bio: updatedAlm.bio,
+        image: updatedAlm.image,
+        status: updatedAlm.status || 'approved',
+        updated_at: now
+      }, { onConflict: 'id' });
+    }
+  } catch (err) {
+    console.warn('Could not sync alumnus to Supabase:', err);
+  }
+
+  return updatedAlm;
 }
 
 export function deleteAlumnus(id) {

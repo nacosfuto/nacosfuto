@@ -15,14 +15,16 @@ import {
   CheckCircle,
   Clock,
   Eye,
-  Tag
+  Tag,
+  Edit3
 } from 'lucide-react';
 import { 
   getYellowPages, 
   approveYellowPageBusiness, 
   denyYellowPageBusiness, 
   deleteYellowPageBusiness, 
-  submitYellowPageBusiness 
+  submitYellowPageBusiness,
+  updateYellowPageBusiness 
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
@@ -34,6 +36,8 @@ const AdminYellowPages = () => {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [notification, setNotification] = useState({ message: '', type: '' });
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
+  const [selectedBizId, setSelectedBizId] = useState(null);
 
   // New Business Form State
   const [formData, setFormData] = useState({
@@ -103,22 +107,9 @@ const AdminYellowPages = () => {
     }
   };
 
-  const handleAddSubmit = async (e) => {
-    e.preventDefault();
-    if (!formData.name.trim()) return;
-
-    submitYellowPageBusiness({
-      ...formData,
-      status: 'approved' // Direct admin adds are approved
-    });
-
-    await recordAdminAction('create_yellow_pages', 'business', formData.name, {
-      category: formData.category,
-      owner: formData.ownerName
-    });
-
-    showNotice(`Business "${formData.name}" added and published to Yellow Pages!`);
-    setIsAddModalOpen(false);
+  const handleOpenAdd = () => {
+    setModalMode('add');
+    setSelectedBizId(null);
     setFormData({
       name: '',
       category: 'Food & Drinks',
@@ -133,6 +124,54 @@ const AdminYellowPages = () => {
       rating: 5.0,
       reviewsCount: 1
     });
+    setIsAddModalOpen(true);
+  };
+
+  const handleOpenEdit = (biz) => {
+    setModalMode('edit');
+    setSelectedBizId(biz.id);
+    setFormData({
+      name: biz.name || '',
+      category: biz.category || 'Food & Drinks',
+      ownerName: biz.ownerName || '',
+      ownerLevel: biz.ownerLevel || 'Student Business',
+      description: biz.description || '',
+      location: biz.location || 'FUTO Campus / Hostel Area',
+      phone: biz.phone || '',
+      whatsapp: biz.whatsapp || '',
+      image: biz.image || '',
+      imagePosition: biz.imagePosition || 'top center',
+      rating: biz.rating || 5.0,
+      reviewsCount: biz.reviewsCount || 1,
+      status: biz.status || 'approved'
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleAddSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name.trim()) return;
+
+    if (modalMode === 'edit' && selectedBizId) {
+      await updateYellowPageBusiness(selectedBizId, formData);
+      await recordAdminAction('update_yellow_pages', 'business', selectedBizId, {
+        name: formData.name,
+        category: formData.category
+      });
+      showNotice(`Business "${formData.name}" updated successfully!`);
+    } else {
+      await submitYellowPageBusiness({
+        ...formData,
+        status: 'approved' // Direct admin adds are approved
+      });
+      await recordAdminAction('create_yellow_pages', 'business', formData.name, {
+        category: formData.category,
+        owner: formData.ownerName
+      });
+      showNotice(`Business "${formData.name}" added and published to Yellow Pages!`);
+    }
+
+    setIsAddModalOpen(false);
     loadBusinesses();
   };
 
@@ -185,7 +224,7 @@ const AdminYellowPages = () => {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={handleOpenAdd}
               className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs flex items-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
@@ -322,8 +361,17 @@ const AdminYellowPages = () => {
 
                     <button
                       type="button"
+                      onClick={() => handleOpenEdit(biz)}
+                      className="p-1.5 rounded-lg text-gray-500 hover:text-[#138601] hover:bg-green-50 dark:hover:bg-[#041801] transition-colors cursor-pointer ml-auto"
+                      title="Edit Business Listing"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => handleDelete(biz)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer ml-auto"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
                       title="Permanently Delete Business"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -336,14 +384,16 @@ const AdminYellowPages = () => {
           )}
         </div>
 
-        {/* Add Business Modal */}
+        {/* Add / Edit Business Modal */}
         {isAddModalOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
             <div className="bg-white dark:bg-[#083002] rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-gray-200 dark:border-[#138601]/40 space-y-4 max-h-[90vh] overflow-y-auto text-gray-900 dark:text-white">
               <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#138601]/20">
                 <div className="flex items-center gap-2">
                   <Building2 className="w-5 h-5 text-[#138601]" />
-                  <h3 className="text-base font-bold">Add Business to Yellow Pages</h3>
+                  <h3 className="text-base font-bold">
+                    {modalMode === 'edit' ? 'Edit Business Listing' : 'Add Business to Yellow Pages'}
+                  </h3>
                 </div>
                 <button onClick={() => setIsAddModalOpen(false)} className="text-gray-400 hover:text-gray-700 dark:hover:text-white cursor-pointer">✕</button>
               </div>
@@ -473,7 +523,7 @@ const AdminYellowPages = () => {
                     type="submit"
                     className="px-5 py-2 rounded-lg text-white bg-[#138601] hover:bg-[#0f6c01] font-bold shadow-xs cursor-pointer"
                   >
-                    Publish Business
+                    {modalMode === 'edit' ? 'Save Changes' : 'Publish Business'}
                   </button>
                 </div>
               </form>

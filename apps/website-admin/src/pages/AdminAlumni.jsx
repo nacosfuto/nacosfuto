@@ -12,14 +12,16 @@ import {
   Building, 
   AlertCircle, 
   CheckCircle,
-  Award
+  Award,
+  Edit3
 } from 'lucide-react';
 import { 
   getAlumni, 
   approveAlumnus, 
   denyAlumnus, 
   deleteAlumnus, 
-  submitAlumnus 
+  submitAlumnus,
+  updateAlumnus 
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
@@ -31,6 +33,8 @@ const AdminAlumni = () => {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [notification, setNotification] = useState({ message: '', type: '' });
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
+  const [selectedAlmId, setSelectedAlmId] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -60,6 +64,37 @@ const AdminAlumni = () => {
     setTimeout(() => setNotification({ message: '', type: '' }), 4000);
   };
 
+  const handleOpenAdd = () => {
+    setModalMode('add');
+    setSelectedAlmId(null);
+    setFormData({
+      name: '',
+      gradYear: 'Class of 2024',
+      position: '',
+      company: '',
+      linkedin: '',
+      bio: '',
+      image: ''
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleOpenEdit = (alm) => {
+    setModalMode('edit');
+    setSelectedAlmId(alm.id);
+    setFormData({
+      name: alm.name || '',
+      gradYear: alm.gradYear || 'Class of 2024',
+      position: alm.position || '',
+      company: alm.company || '',
+      linkedin: alm.linkedin || '',
+      bio: alm.bio || '',
+      image: alm.image || '',
+      status: alm.status || 'approved'
+    });
+    setIsAddModalOpen(true);
+  };
+
   const handleApprove = async (alm) => {
     approveAlumnus(alm.id);
     await recordAdminAction('approve_alumnus', 'alumni', alm.id, { name: alm.name });
@@ -87,27 +122,28 @@ const AdminAlumni = () => {
     e.preventDefault();
     if (!formData.name.trim()) return;
 
-    submitAlumnus({
-      ...formData,
-      status: 'approved'
-    });
+    if (modalMode === 'edit' && selectedAlmId) {
+      await updateAlumnus(selectedAlmId, formData);
+      await recordAdminAction('update_alumnus', 'alumni', selectedAlmId, {
+        name: formData.name,
+        company: formData.company
+      });
+      showNotice(`Alumnus "${formData.name}" profile updated!`);
+    } else {
+      submitAlumnus({
+        ...formData,
+        status: 'approved'
+      });
 
-    await recordAdminAction('create_alumnus', 'alumni', formData.name, {
-      position: formData.position,
-      company: formData.company
-    });
+      await recordAdminAction('create_alumnus', 'alumni', formData.name, {
+        position: formData.position,
+        company: formData.company
+      });
 
-    showNotice(`Alumnus "${formData.name}" added to Alumni Hall of Fame!`);
+      showNotice(`Alumnus "${formData.name}" added to Alumni Hall of Fame!`);
+    }
+
     setIsAddModalOpen(false);
-    setFormData({
-      name: '',
-      gradYear: 'Class of 2024',
-      position: '',
-      company: '',
-      linkedin: '',
-      bio: '',
-      image: ''
-    });
     loadAlumni();
   };
 
@@ -157,7 +193,7 @@ const AdminAlumni = () => {
           </div>
 
           <button
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={handleOpenAdd}
             className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -272,8 +308,18 @@ const AdminAlumni = () => {
 
                   <button
                     type="button"
+                    onClick={() => handleOpenEdit(alm)}
+                    className="p-1.5 rounded-lg text-gray-500 hover:text-[#138601] hover:bg-green-50 dark:hover:bg-[#041801] transition-colors cursor-pointer ml-auto"
+                    title="Edit Alumnus Profile"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => handleDelete(alm)}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer ml-auto"
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                    title="Delete Alumnus"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -283,12 +329,14 @@ const AdminAlumni = () => {
           ))}
         </div>
 
-        {/* Add Modal */}
+        {/* Add / Edit Modal */}
         {isAddModalOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
             <div className="bg-white dark:bg-[#083002] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 dark:border-[#138601]/40 space-y-4 max-h-[90vh] overflow-y-auto text-gray-900 dark:text-white">
               <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#138601]/20">
-                <h3 className="text-base font-bold">Add Alumnus Profile</h3>
+                <h3 className="text-base font-bold">
+                  {modalMode === 'edit' ? 'Edit Alumnus Profile' : 'Add Alumnus Profile'}
+                </h3>
                 <button onClick={() => setIsAddModalOpen(false)} className="text-gray-400 cursor-pointer">✕</button>
               </div>
 
@@ -386,7 +434,7 @@ const AdminAlumni = () => {
                     type="submit"
                     className="px-5 py-2 rounded-lg text-white bg-[#138601] hover:bg-[#0f6c01] font-bold shadow-xs cursor-pointer"
                   >
-                    Publish Alumnus
+                    {modalMode === 'edit' ? 'Save Changes' : 'Publish Alumnus'}
                   </button>
                 </div>
               </form>

@@ -143,6 +143,8 @@ const INITIAL_GALLERY = [
 const AdminGallery = () => {
   const [items, setItems] = useState(INITIAL_GALLERY);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editItem, setEditItem] = useState(null);
   const [feedback, setFeedback] = useState(null);
 
   // New Item State
@@ -150,6 +152,14 @@ const AdminGallery = () => {
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('Campus Life');
   const [newItemFeatured, setNewItemFeatured] = useState(false);
+
+  // Edit Item State
+  const [editTitle, setEditTitle] = useState('');
+  const [editCaption, setEditCaption] = useState('');
+  const [editCategory, setEditCategory] = useState('Campus Life');
+  const [editFeatured, setEditFeatured] = useState(false);
+  const [editImageUrl, setEditImageUrl] = useState('');
+  const [editPublicId, setEditPublicId] = useState('');
 
   useEffect(() => {
     async function loadGallery() {
@@ -268,6 +278,64 @@ const AdminGallery = () => {
     showFeedback('Photo published & synced with database & Cloudinary!');
   };
 
+  const handleOpenEdit = (item) => {
+    setEditItem(item);
+    setEditTitle(item.title || '');
+    setEditCaption(item.caption || '');
+    setEditCategory(item.category || 'Campus Life');
+    setEditFeatured(Boolean(item.is_featured));
+    setEditImageUrl(item.image_url || '');
+    setEditPublicId(item.cloudinary_public_id || '');
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    if (!editItem) return;
+
+    const updatedItem = {
+      ...editItem,
+      title: editTitle || editItem.title,
+      caption: editCaption || editItem.caption,
+      category: editCategory,
+      is_featured: editFeatured,
+      image_url: editImageUrl || editItem.image_url,
+      cloudinary_public_id: editPublicId || editItem.cloudinary_public_id,
+      updated_at: new Date().toISOString()
+    };
+
+    const updated = items.map(it => it.id === editItem.id ? updatedItem : it);
+    setItems(updated);
+    localStorage.setItem('nacos_website_gallery_store', JSON.stringify(updated));
+
+    try {
+      if (editItem.cloudinary_public_id) {
+        await supabase
+          .from('website_gallery')
+          .update({
+            title: updatedItem.title,
+            caption: updatedItem.caption,
+            category: updatedItem.category,
+            is_featured: updatedItem.is_featured,
+            image_url: updatedItem.image_url,
+            cloudinary_public_id: updatedItem.cloudinary_public_id
+          })
+          .eq('cloudinary_public_id', editItem.cloudinary_public_id);
+      }
+    } catch (err) {
+      console.warn('Supabase gallery update error:', err);
+    }
+
+    await recordAdminAction('gallery_update', 'gallery', updatedItem.cloudinary_public_id, {
+      title: updatedItem.title,
+      category: updatedItem.category
+    });
+
+    setIsEditOpen(false);
+    setEditItem(null);
+    showFeedback('Gallery photo details updated successfully!');
+  };
+
   return (
     <WebsiteAdminLayout
       title="Campus Life Gallery Manager"
@@ -334,6 +402,14 @@ const AdminGallery = () => {
                     }`}
                   >
                     <Star className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    title="Edit Photo Details"
+                    onClick={() => handleOpenEdit(item)}
+                    className="p-2 rounded-lg bg-black/60 hover:bg-[#138601] text-white backdrop-blur cursor-pointer transition-colors"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
                   </button>
                   <button
                     type="button"
@@ -441,6 +517,117 @@ const AdminGallery = () => {
                   />
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Modal */}
+        {isEditOpen && editItem && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/40 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-gray-100 dark:border-[#138601]/20 pb-3">
+                <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                  Edit Photo Details
+                </h3>
+                <button onClick={() => { setIsEditOpen(false); setEditItem(null); }} className="text-gray-400 hover:text-gray-600">✕</button>
+              </div>
+
+              <form onSubmit={handleSaveEdit} className="space-y-3 text-xs">
+                {/* Photo Preview */}
+                {editImageUrl && (
+                  <div className="relative aspect-[16/10] rounded-xl overflow-hidden bg-gray-100 dark:bg-[#041801]">
+                    <img
+                      src={editImageUrl}
+                      alt={editTitle || 'Preview'}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block font-semibold mb-1">Title</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Traditional Attire Day 2026"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-300 dark:border-[#138601]/40 text-gray-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1">Detailed Caption</label>
+                  <textarea
+                    rows={2}
+                    required
+                    placeholder="Describe this moment..."
+                    value={editCaption}
+                    onChange={(e) => setEditCaption(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-300 dark:border-[#138601]/40 text-gray-900 dark:text-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold mb-1">Category</label>
+                    <select
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-300 dark:border-[#138601]/40 text-gray-900 dark:text-white"
+                    >
+                      <option value="Campus Life">Campus Life</option>
+                      <option value="Academics">Academics</option>
+                      <option value="Culture">Culture</option>
+                      <option value="Socials">Socials</option>
+                      <option value="Tech Events">Tech Events</option>
+                      <option value="Sports">Sports</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-6">
+                    <input
+                      type="checkbox"
+                      id="editFeatCheck"
+                      checked={editFeatured}
+                      onChange={(e) => setEditFeatured(e.target.checked)}
+                      className="rounded text-[#138601]"
+                    />
+                    <label htmlFor="editFeatCheck" className="font-semibold cursor-pointer">
+                      Feature on Homepage
+                    </label>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <MediaUpload
+                    folder={CLOUDINARY_FOLDERS.GALLERY}
+                    label="Replace Photo (Optional)"
+                    aspectRatio="landscape"
+                    previewPreset="gallery_preview"
+                    onUploadSuccess={({ url, publicId }) => {
+                      setEditImageUrl(url);
+                      setEditPublicId(publicId);
+                    }}
+                  />
+                </div>
+
+                <div className="pt-3 flex justify-end gap-2 border-t border-gray-100 dark:border-[#138601]/20">
+                  <button
+                    type="button"
+                    onClick={() => { setIsEditOpen(false); setEditItem(null); }}
+                    className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-[#041801] text-gray-700 dark:text-gray-300 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 rounded-xl bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold cursor-pointer"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

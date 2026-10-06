@@ -31,7 +31,10 @@ import {
   archiveCurrentTenure, 
   getExecutivesSettings, 
   updateExecutivesSettings, 
-  DEFAULT_EXECUTIVES_PAGE_SETTINGS 
+  DEFAULT_EXECUTIVES_PAGE_SETTINGS,
+  getTenures,
+  addTenure,
+  fetchExecutivesFromSupabase
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
@@ -40,6 +43,10 @@ const AdminExecutives = () => {
   const [activeTab, setActiveTab] = useState('current'); // 'current', 'past', 'header'
   const [executives, setExecutives] = useState([]);
   const [settings, setSettings] = useState(DEFAULT_EXECUTIVES_PAGE_SETTINGS);
+  const [tenures, setTenures] = useState(() => getTenures());
+  const [isAddTenureModalOpen, setIsAddTenureModalOpen] = useState(false);
+  const [newTenureInput, setNewTenureInput] = useState('');
+  const [isQuickAddingTenure, setIsQuickAddingTenure] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedPastSession, setSelectedPastSession] = useState('all');
@@ -70,12 +77,19 @@ const AdminExecutives = () => {
 
   useEffect(() => {
     loadAll();
+    fetchExecutivesFromSupabase().then(() => loadAll()).catch(() => {});
+
     const handleUpdate = () => loadAll();
+    const handleTenuresUpdate = () => setTenures(getTenures());
+
     window.addEventListener('nacos_executives_updated', handleUpdate);
     window.addEventListener('nacos_executives_settings_updated', handleUpdate);
+    window.addEventListener('nacos_tenures_updated', handleTenuresUpdate);
+
     return () => {
       window.removeEventListener('nacos_executives_updated', handleUpdate);
       window.removeEventListener('nacos_executives_settings_updated', handleUpdate);
+      window.removeEventListener('nacos_tenures_updated', handleTenuresUpdate);
     };
   }, []);
 
@@ -84,6 +98,7 @@ const AdminExecutives = () => {
     try {
       const allExecs = getExecutives('all');
       setExecutives(allExecs);
+      setTenures(getTenures());
       const currentSettings = getExecutivesSettings();
       setSettings(currentSettings);
       setHeaderForm(currentSettings);
@@ -92,6 +107,21 @@ const AdminExecutives = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveNewTenure = (sessionVal) => {
+    const val = (sessionVal || newTenureInput).trim();
+    if (!val) {
+      showNotice('Please enter a valid tenure session (e.g. 2026/2027)', 'error');
+      return '';
+    }
+    const updated = addTenure(val);
+    setTenures(updated);
+    setNewTenureInput('');
+    setIsAddTenureModalOpen(false);
+    setIsQuickAddingTenure(false);
+    showNotice(`Tenure "${val}" added successfully!`);
+    return val;
   };
 
   const showNotice = (msg, type = 'success') => {
@@ -289,6 +319,16 @@ const AdminExecutives = () => {
             >
               <Plus className="w-4 h-4" />
               Add Executive
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsAddTenureModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg border border-[#138601]/40 bg-[#138601]/10 text-[#138601] dark:text-[#4bd043] hover:bg-[#138601]/20 transition-all cursor-pointer"
+              title="Add a new executive tenure session (e.g. 2026/2027)"
+            >
+              <Plus className="w-4 h-4" />
+              Add Tenure
             </button>
 
             {activeTab === 'current' && (
@@ -838,16 +878,62 @@ const AdminExecutives = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-green-200 mb-1">
-                    Session / Tenure
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.session}
-                    onChange={(e) => setFormData({ ...formData, session: e.target.value })}
-                    placeholder="e.g. 2025/2026"
-                    className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 rounded-lg text-gray-900 dark:text-white"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-green-200">
+                      Session / Tenure
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsQuickAddingTenure(!isQuickAddingTenure)}
+                      className="text-[11px] font-semibold text-[#138601] dark:text-[#4bd043] hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      {isQuickAddingTenure ? 'Select Existing' : 'New Tenure'}
+                    </button>
+                  </div>
+
+                  {isQuickAddingTenure ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={newTenureInput}
+                        onChange={(e) => setNewTenureInput(e.target.value)}
+                        placeholder="e.g. 2026/2027"
+                        className="flex-1 px-3 py-2 text-xs bg-gray-50 dark:bg-[#041801] border border-[#138601]/50 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (newTenureInput.trim()) {
+                            const added = handleSaveNewTenure(newTenureInput.trim());
+                            setFormData({ ...formData, session: added });
+                          }
+                        }}
+                        className="px-3 py-2 text-xs font-bold rounded-lg bg-[#138601] text-white hover:bg-[#0f6c01] cursor-pointer"
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsQuickAddingTenure(false)}
+                        className="p-1.5 text-xs text-gray-400 hover:text-gray-700 dark:hover:text-white cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.session}
+                      onChange={(e) => setFormData({ ...formData, session: e.target.value })}
+                      className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601]"
+                    >
+                      {tenures.map((tenure) => (
+                        <option key={tenure} value={tenure}>
+                          {tenure}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 
@@ -969,6 +1055,71 @@ const AdminExecutives = () => {
               </div>
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* MODAL: ADD NEW TENURE */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {isAddTenureModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="relative w-full max-w-sm rounded-2xl shadow-2xl border bg-white dark:bg-[#083002] border-gray-200 dark:border-[#138601]/40 text-gray-900 dark:text-white overflow-hidden p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <Plus className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
+                Add New Executive Tenure
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsAddTenureModalOpen(false)}
+                className="text-gray-400 hover:text-gray-700 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <p className="text-xs text-gray-500 dark:text-green-200/70">
+              Enter the academic tenure session label (e.g. <strong>2026/2027</strong>). Once added, it will immediately be available in all executive forms and public dropdowns.
+            </p>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveNewTenure();
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-green-200 mb-1">
+                  Tenure Session Label
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newTenureInput}
+                  onChange={(e) => setNewTenureInput(e.target.value)}
+                  placeholder="e.g. 2026/2027"
+                  className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 rounded-lg text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-[#138601]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 dark:border-[#138601]/20">
+                <button
+                  type="button"
+                  onClick={() => setIsAddTenureModalOpen(false)}
+                  className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-gray-200 dark:border-[#138601]/30 hover:bg-gray-100 dark:hover:bg-[#041801] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-xs font-bold rounded-lg bg-[#138601] hover:bg-[#0f6c01] text-white cursor-pointer"
+                >
+                  Save Tenure
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -15,6 +15,107 @@ import { addAdminNotification } from './notificationService.js';
 
 export const EXECUTIVES_STORAGE_KEY = 'nacos_executives_db';
 export const EXECUTIVES_SETTINGS_STORAGE_KEY = 'nacos_executives_settings_db';
+export const TENURES_STORAGE_KEY = 'nacos_tenures_db';
+
+export const DEFAULT_TENURES = [
+  '2026/2027',
+  '2025/2026',
+  '2024/2025',
+  '2023/2024',
+  '2022/2023'
+];
+
+export function getTenures() {
+  let stored = [];
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(TENURES_STORAGE_KEY);
+      if (raw) stored = JSON.parse(raw);
+    } catch (e) {}
+  }
+  
+  // Extract all sessions from existing executives
+  const execs = getExecutives('all');
+  const execSessions = execs.map(e => e.session).filter(Boolean);
+  
+  // Combine defaults, stored, and execSessions, deduplicated
+  const combined = Array.from(new Set([...DEFAULT_TENURES, ...stored, ...execSessions]));
+  
+  // Sort descending by starting year
+  combined.sort((a, b) => {
+    const yearA = parseInt(a.split('/')[0] || a, 10) || 0;
+    const yearB = parseInt(b.split('/')[0] || b, 10) || 0;
+    return yearB - yearA;
+  });
+
+  return combined;
+}
+
+export function addTenure(tenureSession) {
+  if (!tenureSession || typeof tenureSession !== 'string') return getTenures();
+  const cleaned = tenureSession.trim();
+  if (!cleaned) return getTenures();
+
+  const current = getTenures();
+  if (!current.includes(cleaned)) {
+    const updated = [cleaned, ...current];
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(TENURES_STORAGE_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new Event('nacos_tenures_updated'));
+      window.dispatchEvent(new Event('nacos_executives_updated'));
+    }
+    return updated;
+  }
+  return current;
+}
+
+export async function fetchExecutivesFromSupabase() {
+  if (!supabase) return getExecutives('all');
+
+  try {
+    const { data, error } = await supabase
+      .from('nacos_executives')
+      .select('*')
+      .order('order_index', { ascending: true });
+
+    if (!error && data && Array.isArray(data) && data.length > 0) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(data));
+        window.dispatchEvent(new Event('nacos_executives_updated'));
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase fetch executives error:', err);
+  }
+
+  // Also sync settings from Supabase
+  try {
+    const { data: settingsData, error: settingsError } = await supabase
+      .from('nacos_executives_settings')
+      .select('*')
+      .eq('id', 'default')
+      .maybeSingle();
+
+    if (!settingsError && settingsData) {
+      const mappedSettings = {
+        heroImage: settingsData.hero_image,
+        heroTitle: settingsData.hero_title,
+        heroYear: settingsData.hero_year,
+        heroSubtitle: settingsData.hero_subtitle,
+        currentSessionTitle: settingsData.current_session_title,
+        pastSessionTitle: settingsData.past_session_title
+      };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(mappedSettings));
+        window.dispatchEvent(new Event('nacos_executives_settings_updated'));
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase fetch executives settings error:', err);
+  }
+
+  return getExecutives('all');
+}
 
 export const DEFAULT_EXECUTIVES_PAGE_SETTINGS = {
   heroImage: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569305/nacos/executives/nacos_exec_group.jpg',
@@ -469,6 +570,10 @@ export async function saveExecutive(execData) {
       updated_at: now
     };
     updatedList = [savedItem, ...list];
+  }
+
+  if (savedItem.session) {
+    addTenure(savedItem.session);
   }
 
   if (typeof window !== 'undefined') {
