@@ -256,7 +256,7 @@ const Login = () => {
                 placeholder="e.g. 20241450682 or name@futo.edu.ng"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full px-4 py-3 text-sm sm:text-base rounded bg-[#ebf3ff] text-gray-900 placeholder-gray-500 border-0 focus:outline-none focus:ring-1 focus:ring-black font-normal transition-all"
+                className="w-full px-4 py-3 text-sm sm:text-base rounded bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] font-normal transition-all"
               />
             </div>
 
@@ -271,7 +271,7 @@ const Login = () => {
                   placeholder="Your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-4 pr-11 py-3 text-sm sm:text-base rounded bg-[#ebf3ff] text-gray-900 placeholder-gray-500 border-0 focus:outline-none focus:ring-1 focus:ring-black font-normal transition-all"
+                  className="w-full pl-4 pr-11 py-3 text-sm sm:text-base rounded bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] font-normal transition-all"
                 />
                 <button
                   type="button"

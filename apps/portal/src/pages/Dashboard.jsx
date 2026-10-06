@@ -224,8 +224,8 @@ const Dashboard = () => {
         </div>
 
         {/* Feedback / Appraisal Banner */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#ebf3ff] dark:bg-[#083002] border border-blue-100 dark:border-[#138601]/30 flex items-start gap-3.5 shadow-xs">
-          <div className="w-5 h-5 rounded-full bg-blue-600 dark:bg-[#138601] flex items-center justify-center text-white shrink-0 mt-0.5">
+        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 flex items-start gap-3.5 shadow-xs">
+          <div className="w-5 h-5 rounded-full bg-[#138601] flex items-center justify-center text-white shrink-0 mt-0.5">
             <Info className="w-3.5 h-3.5" />
           </div>
           <div className="space-y-1">
@@ -239,7 +239,7 @@ const Dashboard = () => {
               href="https://docs.google.com/forms/d/e/1FAIpQLSdboB_xQGvHB9GJfFyj2JOHzQAYwRp3-RCFv5nJ7yP2_YPCcQ/viewform?usp=header"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-blue-600 dark:text-[#4bd043] hover:underline pt-0.5 cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#138601] dark:text-[#4bd043] hover:underline pt-0.5 cursor-pointer"
             >
               <span>Start Your Appraisal</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -251,8 +251,8 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
           {/* Card 1: Courses Registered */}
-          <div className="p-5 rounded-2xl bg-[#ebf3ff] dark:bg-[#083002] border border-blue-100/70 dark:border-[#138601]/30 flex flex-col justify-between min-h-[125px] shadow-xs">
-            <div className="text-blue-600 dark:text-[#4bd043]">
+          <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 flex flex-col justify-between min-h-[125px] shadow-xs">
+            <div className="text-[#138601] dark:text-[#4bd043]">
               <BookOpen className="w-6 h-6" />
             </div>
             <div className="mt-3 space-y-1.5">
@@ -266,8 +266,8 @@ const Dashboard = () => {
           </div>
 
           {/* Card 2: Results Published */}
-          <div className="p-5 rounded-2xl bg-[#e6fafc] dark:bg-[#083002] border border-cyan-100/70 dark:border-[#138601]/30 flex flex-col justify-between min-h-[125px] shadow-xs">
-            <div className="text-cyan-600 dark:text-[#4bd043]">
+          <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 flex flex-col justify-between min-h-[125px] shadow-xs">
+            <div className="text-[#138601] dark:text-[#4bd043]">
               <BarChart3 className="w-6 h-6" />
             </div>
             <div className="mt-3 space-y-1.5">
@@ -281,10 +281,7 @@ const Dashboard = () => {
           </div>
 
           {/* Card 3: Fees Paid */}
-          <div className={`p-5 rounded-2xl border flex flex-col justify-between min-h-[125px] shadow-xs transition-colors ${isPaid
-              ? 'bg-[#bbf0b7] dark:bg-[#138601]/30 border-green-200/70 dark:border-[#138601]/40'
-              : 'bg-amber-50/80 dark:bg-[#083002] border-amber-200/80 dark:border-amber-700/40'
-            }`}>
+          <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 flex flex-col justify-between min-h-[125px] shadow-xs">
             <div className={isPaid ? 'text-[#083002] dark:text-[#4bd043]' : 'text-amber-600 dark:text-amber-400'}>
               <Wallet className="w-6 h-6" />
             </div>

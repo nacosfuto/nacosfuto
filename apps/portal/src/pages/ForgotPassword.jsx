@@ -191,7 +191,7 @@ const ForgotPassword = () => {
                     placeholder="e.g., 20241450682 or your.name@futo.edu.ng"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    className="w-full px-4 py-3 text-sm rounded bg-[#ebf3ff] text-gray-900 placeholder-gray-500 border-0 focus:outline-none focus:ring-1 focus:ring-black font-normal transition-all"
+                    className="w-full px-4 py-3 text-sm rounded bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] font-normal transition-all"
                   />
                 </div>
 
@@ -270,7 +270,7 @@ const ForgotPassword = () => {
                       placeholder="• • • • • •"
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      className="w-full pl-10 pr-4 py-3 text-center tracking-[0.4em] font-mono text-lg font-bold rounded bg-[#ebf3ff] text-gray-900 border-0 focus:outline-none focus:ring-1 focus:ring-black transition-all"
+                      className="w-full pl-10 pr-4 py-3 text-center tracking-[0.4em] font-mono text-lg font-bold rounded bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] transition-all"
                     />
                   </div>
                 </div>
@@ -288,7 +288,7 @@ const ForgotPassword = () => {
                       placeholder="At least 6 characters"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full pl-10 pr-10 py-3 text-sm rounded bg-[#ebf3ff] text-gray-900 border-0 focus:outline-none focus:ring-1 focus:ring-black transition-all"
+                      className="w-full pl-10 pr-10 py-3 text-sm rounded bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] transition-all"
                     />
                     <button
                       type="button"
@@ -313,7 +313,7 @@ const ForgotPassword = () => {
                       placeholder="Re-enter your password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 text-sm rounded bg-[#ebf3ff] text-gray-900 border-0 focus:outline-none focus:ring-1 focus:ring-black transition-all"
+                      className="w-full pl-10 pr-4 py-3 text-sm rounded bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] transition-all"
                     />
                   </div>
                 </div>

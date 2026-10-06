@@ -430,11 +430,11 @@ const AdminHub = () => {
           </div>
 
           <div className="flex items-center space-x-3">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold bg-[#138601]/20 text-[#4bd043] border border-[#138601]/40">
-              <span className="w-2 h-2 rounded-full bg-[#4bd043] animate-pulse"></span>
+            <div className="flex items-center gap-1.5 text-xs text-[#4bd043] font-medium">
+              <span className="w-2 h-2 rounded-full bg-[#4bd043]"></span>
               <span className="hidden sm:inline">Central Database Online</span>
               <span className="sm:hidden">Online</span>
-            </span>
+            </div>
 
             <Link
               to="/"
@@ -449,10 +449,6 @@ const AdminHub = () => {
       {/* ─── Hero Section ─── */}
       <section className="relative overflow-hidden bg-gradient-to-b from-[#083002] via-[#041801] to-[#041801] border-b border-[#138601]/20 py-12 px-4 sm:px-8">
         <div className="max-w-5xl mx-auto text-center space-y-4">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded bg-[#138601]/20 border border-[#138601]/40 text-[#4bd043] text-xs font-semibold">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Unified Command Center & Routing Hub</span>
-          </div>
 
           <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
             NACOS FUTO Central Operations & Portals Gateway
@@ -511,9 +507,6 @@ const AdminHub = () => {
                       <div className={`w-12 h-12 rounded bg-gradient-to-br ${card.accentColor} text-white flex items-center justify-center shadow-md`}>
                         <Icon className="w-6 h-6" />
                       </div>
-                      <span className={`px-2.5 py-1 rounded text-[11px] font-semibold border ${card.badgeColor}`}>
-                        {card.badge}
-                      </span>
                     </div>
 
                     <div>
@@ -625,25 +618,13 @@ const AdminHub = () => {
                           {adm.email}
                         </td>
                         <td className="py-3.5 px-4">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold border ${
-                            isSuper 
-                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' 
-                              : isPortal 
-                              ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' 
-                              : 'bg-purple-500/10 text-purple-400 border-purple-500/30'
-                          }`}>
-                            <ShieldCheck className="w-3 h-3" />
-                            <span>{adm.role || adm.scope}</span>
+                          <span className="text-xs font-semibold text-green-200">
+                            {adm.role || adm.scope}
                           </span>
                         </td>
                         <td className="py-3.5 px-4">
-                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            adm.is_active !== false 
-                              ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
-                              : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${adm.is_active !== false ? 'bg-green-400' : 'bg-red-400'}`}></span>
-                            <span>{adm.is_active !== false ? 'Active' : 'Disabled'}</span>
+                          <span className={`text-xs font-semibold ${adm.is_active !== false ? 'text-green-400' : 'text-red-400'}`}>
+                            {adm.is_active !== false ? 'Active' : 'Disabled'}
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-right">

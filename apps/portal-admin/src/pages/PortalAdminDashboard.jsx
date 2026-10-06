@@ -161,10 +161,7 @@ export const PortalAdminDashboard = () => {
         }`}>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-              </span>
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
               <span className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
                 <Database className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
                 {dbStatus.source}
@@ -281,7 +278,7 @@ export const PortalAdminDashboard = () => {
                           {student.registration_number || student.matricNumber || '—'}
                         </td>
                         <td className="py-3 px-3">
-                          <span className="px-2 py-0.5 rounded bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 font-medium">
+                          <span className="text-gray-700 dark:text-gray-300 font-medium">
                             {student.level || student.current_level || '100 Level'}
                           </span>
                         </td>
@@ -289,12 +286,7 @@ export const PortalAdminDashboard = () => {
                           {student.department || 'Computer Science'}
                         </td>
                         <td className="py-3 px-3">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
-                            student.is_active !== false
-                              ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
-                              : 'bg-red-100 dark:bg-red-950/80 text-red-700 dark:text-red-300'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${student.is_active !== false ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                          <span className={`font-semibold ${student.is_active !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                             {student.is_active !== false ? 'Active' : 'Disabled'}
                           </span>
                         </td>

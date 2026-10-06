@@ -571,8 +571,8 @@ const Results = () => {
                           <td className="py-3 px-3 sm:px-4 text-center">
                             <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${
                               course.grade === 'A' 
-                                ? 'bg-[#ebf3ff] text-[#138601] dark:bg-[#138601]/30 dark:text-[#4bd043]' 
-                                : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                ? 'bg-emerald-50 text-[#138601] border border-emerald-200 dark:bg-[#138601]/25 dark:border-[#138601]/40 dark:text-[#4bd043]' 
+                                : 'bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-gray-200'
                             }`}>
                               {course.grade}
                             </span>

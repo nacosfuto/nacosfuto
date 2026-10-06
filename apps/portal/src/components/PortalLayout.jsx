@@ -40,28 +40,14 @@ const PortalLayout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  
+  // Off-canvas navigation sidebar drawer state
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Desktop sidebar collapse/expand state (persisted)
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('nacos_sidebar_collapsed') === 'true';
-    }
-    return false;
-  });
-  const [isHovered, setIsHovered] = useState(false);
-
-  const toggleCollapse = () => {
-    setIsCollapsed(prev => {
-      const next = !prev;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('nacos_sidebar_collapsed', String(next));
-      }
-      return next;
-    });
-  };
-
-  const isExpanded = !isCollapsed || isHovered;
+  // Close sidebar drawer on route navigation
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
 
   const [user, setUser] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -349,26 +335,27 @@ const PortalLayout = ({ children }) => {
         }`}>
         <div className="site-container h-16 flex items-center justify-between">
 
-          {/* Left: Logo and Desktop Sidebar Toggle */}
+          {/* Left: Hamburger Icon (comes BEFORE the logo) and Logo */}
           <div className="flex items-center gap-3">
+            {/* Hamburger / Close (X) Toggle Button - stays at the same position */}
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className={`p-2 rounded cursor-pointer transition-colors relative w-9 h-9 flex items-center justify-center border shrink-0 ${
+                isDark
+                  ? 'text-gray-200 hover:text-white bg-[#041801] hover:bg-[#138601]/20 border-[#138601]/30 active:scale-95'
+                  : 'text-gray-700 bg-gray-100 hover:bg-gray-200 border-gray-200 active:scale-95'
+              }`}
+              title={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+            >
+              <Menu className={`w-4.5 h-4.5 absolute transition-all duration-200 ${sidebarOpen ? 'opacity-0 scale-75 rotate-90' : 'opacity-100 scale-100 rotate-0'}`} />
+              <X className={`w-4.5 h-4.5 absolute transition-all duration-200 ${sidebarOpen ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-75 -rotate-90'}`} />
+            </button>
+
             <Link to="/dashboard" className="flex items-center shrink-0">
               <img src={isDark ? logoDark : logoLight} alt="NACOS FUTO Logo" className="h-8 md:h-9 w-auto object-contain" />
             </Link>
-
-            {/* Desktop Sidebar Collapse / Expand Toggle Button - Single Hamburger Icon */}
-            <button
-              type="button"
-              onClick={toggleCollapse}
-              className={`hidden md:flex items-center justify-center p-2 rounded transition-all duration-200 cursor-pointer border ${
-                isDark
-                  ? 'text-gray-300 hover:text-white bg-[#041801] hover:bg-[#138601]/20 border-[#138601]/30 active:scale-95'
-                  : 'text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 border-gray-200 active:scale-95'
-              }`}
-              title={isCollapsed ? "Expand navigation sidebar" : "Collapse navigation sidebar"}
-              aria-label={isCollapsed ? "Expand navigation sidebar" : "Collapse navigation sidebar"}
-            >
-              <Menu className="w-4.5 h-4.5 transition-transform duration-200" />
-            </button>
           </div>
 
           {/* Right actions: Notifications, Settings, Theme toggle, Profile Avatar, and Mobile Menu Toggle */}
@@ -543,144 +530,9 @@ const PortalLayout = ({ children }) => {
               )}
             </div>
 
-            {/* Mobile Hamburger / X Menu Button on the RIGHT (matching main website) */}
-            <button
-              type="button"
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className={`md:hidden p-2 rounded cursor-pointer transition-colors relative w-9 h-9 flex items-center justify-center border ${
-                isDark 
-                  ? 'text-gray-200 hover:text-white bg-[#041801] hover:bg-[#138601]/20 border-[#138601]/30' 
-                  : 'text-gray-700 bg-gray-100 hover:bg-gray-200 border-gray-200'
-              }`}
-              aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
-            >
-              <Menu className={`w-4.5 h-4.5 absolute transition-all duration-200 ${mobileOpen ? 'opacity-0 scale-75 rotate-90' : 'opacity-100 scale-100 rotate-0'}`} />
-              <X className={`w-4.5 h-4.5 absolute transition-all duration-200 ${mobileOpen ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-75 -rotate-90'}`} />
-            </button>
-
           </div>
 
         </div>
-
-        {/* MOBILE NAVIGATION DROPDOWN – Drops dynamically down from UNDER the navbar */}
-        {mobileOpen && (
-          <div 
-            className={`md:hidden border-b shadow-2xl max-h-[calc(100vh-4rem)] overflow-y-auto animate-in slide-in-from-top-2 duration-200 ${
-              isDark 
-                ? 'bg-[#083002] border-[#138601]/30 text-white' 
-                : 'bg-white border-gray-200 text-gray-900'
-            }`}
-          >
-            {/* User greeting strip */}
-            <div className={`px-5 py-3.5 border-b flex items-center gap-3 ${
-              isDark ? 'border-[#138601]/20 bg-[#041801]/60' : 'border-gray-100 bg-[#f8fafc]'
-            }`}>
-              <div className="w-10 h-10 rounded-full bg-[#138601] flex items-center justify-center text-white font-bold text-sm shrink-0 ring-2 ring-[#138601]/30">
-                {displayInitials}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold truncate text-gray-900 dark:text-white">{displayName}</p>
-                <p className="text-xs text-gray-500 dark:text-green-200/70 font-mono truncate">{displayMatric}</p>
-              </div>
-            </div>
-
-            {/* Nav Links formatted as clean card buttons */}
-            <nav className="p-4 space-y-2">
-              {navItems.map((item) => {
-                const active = isItemActive(item.path);
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setMobileOpen(false)}
-                    className={`flex items-center justify-between px-4 py-3 rounded text-xs sm:text-sm font-semibold transition-all cursor-pointer border ${
-                      active
-                        ? 'bg-[#138601] text-white border-[#138601] shadow-xs'
-                        : isDark
-                        ? 'bg-[#041801] text-gray-200 border-[#138601]/30 hover:bg-[#138601]/20 hover:text-white hover:border-[#138601]/60'
-                        : 'bg-[#f8fafc] text-gray-800 border-gray-200/80 hover:bg-[#f1f3f5] hover:text-[#138601]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon className={`w-4.5 h-4.5 shrink-0 ${active ? 'text-white' : isDark ? 'text-[#4bd043]' : 'text-gray-600'}`} />
-                      <span>{item.label}</span>
-                    </div>
-                    {active ? (
-                      <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 shrink-0 text-gray-400" />
-                    )}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            {/* External Portals & Actions */}
-            <div className={`p-4 pt-2 border-t space-y-2 ${isDark ? 'border-[#138601]/20' : 'border-gray-100'}`}>
-              <div className="grid grid-cols-2 gap-2">
-                <a
-                  href={getAppUrls().website}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded text-xs font-semibold border transition-colors ${
-                    isDark
-                      ? 'bg-[#041801] text-gray-200 border-[#138601]/30 hover:bg-[#138601]/20'
-                      : 'bg-[#f8fafc] text-gray-700 border-gray-200 hover:bg-gray-100'
-                  }`}
-                >
-                  <Globe className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
-                  <span>Main Website</span>
-                </a>
-
-                <a
-                  href={getAppUrls().adminHub}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded text-xs font-semibold border transition-colors ${
-                    isDark
-                      ? 'bg-[#041801] text-[#4bd043] border-[#138601]/30 hover:bg-[#138601]/20'
-                      : 'bg-green-50 text-[#138601] border-green-200 hover:bg-green-100'
-                  }`}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Admin Hub</span>
-                </a>
-              </div>
-
-              {/* Theme Toggle Button */}
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className={`w-full flex items-center justify-between px-4 py-2.5 rounded text-xs font-semibold border transition-colors cursor-pointer ${
-                  isDark
-                    ? 'bg-[#041801] text-gray-200 border-[#138601]/30 hover:bg-[#138601]/20'
-                    : 'bg-[#f8fafc] text-gray-700 border-gray-200 hover:bg-gray-100'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-gray-500" />}
-                  <span>{isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}</span>
-                </div>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-gray-200 dark:bg-[#083002] text-gray-700 dark:text-gray-300">
-                  {isDark ? 'Dark Active' : 'Light Active'}
-                </span>
-              </button>
-
-              {/* Sign Out Button */}
-              <button
-                type="button"
-                onClick={() => { setMobileOpen(false); handleLogout(); }}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Sign Out Account</span>
-              </button>
-            </div>
-          </div>
-        )}
       </header>
 
       {/* ─── Password Management / Settings Modal ─── */}
@@ -803,98 +655,122 @@ const PortalLayout = ({ children }) => {
         </div>
       )}
 
-      <div className="flex-1 flex site-container w-full gap-5 lg:gap-8 min-h-0 items-start print:p-0 print:m-0 print:max-w-none print:w-full">
+      {/* Off-Canvas Navigation Sidebar Drawer & Backdrop */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs transition-opacity duration-200 print:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
-        {/* DESKTOP SIDEBAR WRAPPER: Maintained Fixed Position on Scroll */}
-        <div className={`hidden md:block shrink-0 transition-all duration-300 sticky top-16 h-[calc(100vh-4rem)] z-30 ${isCollapsed ? 'w-16' : 'w-64'}`}>
-          <aside
-            onMouseEnter={() => isCollapsed && setIsHovered(true)}
-            onMouseLeave={() => isCollapsed && setIsHovered(false)}
-            className={`h-full overflow-y-auto overflow-x-hidden py-6 flex flex-col justify-between sidebar-scroll print:hidden transition-all duration-300 ease-in-out ${
-              isCollapsed
-                ? isHovered
-                  ? 'w-64 z-40 bg-white dark:bg-[#083002] shadow-2xl px-3 border-r border-gray-200 dark:border-[#138601]/30 rounded-r-xl absolute top-0 left-0 bottom-0'
-                  : 'w-16 px-2'
-                : 'w-64 px-1 pr-2'
-            }`}
-          >
-            <div className="space-y-4">
-              {/* Header inside sidebar */}
-              <div className="px-2 pb-1">
-                {isExpanded && (
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-green-300/70">
-                    Menu Navigation
-                  </span>
-                )}
-              </div>
+      <aside
+        className={`fixed top-16 left-0 bottom-0 z-50 w-72 max-w-[85vw] flex flex-col justify-between py-6 px-4 overflow-y-auto sidebar-scroll transition-transform duration-300 ease-in-out print:hidden ${
+          isDark
+            ? 'bg-[#083002] border-r border-[#138601]/30 text-white shadow-2xl'
+            : 'bg-white border-r border-gray-200 text-gray-900 shadow-2xl'
+        } ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="space-y-4">
+          {/* Header inside sidebar */}
+          <div className="px-2 pb-1 flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-green-300/70">
+              Menu Navigation
+            </span>
+            <span className="text-xs font-mono text-gray-400 dark:text-green-300/50">
+              {displayMatric}
+            </span>
+          </div>
 
-              {/* Navigation Links */}
-              <nav className="space-y-1.5">
-                {navItems.map((item) => {
-                  const active = isItemActive(item.path);
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      title={!isExpanded ? item.label : undefined}
-                      className={`group relative flex items-center rounded text-sm font-medium transition-all cursor-pointer ${
-                        isExpanded 
-                          ? 'justify-between px-3.5 py-2.5' 
-                          : 'justify-center h-11 w-11 mx-auto'
-                      } ${
-                        active
-                          ? 'bg-[#138601] text-white shadow-xs font-semibold'
-                          : isDark
-                          ? 'text-green-100/90 hover:text-white hover:bg-[#083002]/80 border border-transparent hover:border-[#138601]/20'
-                          : 'text-gray-700 hover:text-gray-900 hover:bg-[#f1f3f5] border border-transparent'
-                      }`}
-                    >
-                      <div className={`flex items-center ${isExpanded ? 'space-x-3' : 'justify-center'}`}>
-                        <Icon className={`w-4.5 h-4.5 shrink-0 ${active ? 'text-white' : isDark ? 'text-[#4bd043]' : 'text-gray-500'}`} />
-                        {isExpanded && <span className="truncate">{item.label}</span>}
-                      </div>
-                      {isExpanded && active && <ChevronRight className="w-4 h-4 text-white shrink-0" />}
-
-                      {/* Dynamic Floating Tooltip Popup when collapsed */}
-                      {!isExpanded && (
-                        <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs font-semibold text-white bg-gray-900/95 dark:bg-[#083002] border border-gray-700/80 dark:border-[#138601]/60 rounded-md shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 -translate-x-1 transition-all duration-200 z-50 whitespace-nowrap flex items-center gap-1.5 backdrop-blur-xs">
-                          <span>{item.label}</span>
-                          <span className="absolute -left-1 top-1/2 -translate-y-1/2 border-y-4 border-y-transparent border-r-4 border-r-gray-900/95 dark:border-r-[#083002]"></span>
-                        </div>
-                      )}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-
-            {/* Bottom Semester Progress Bar */}
-            {isExpanded && (
-              <div className={`p-4 rounded border mt-4 shrink-0 space-y-2.5 animate-in fade-in duration-200 ${
-                isDark ? 'bg-[#083002] border-[#138601]/30' : 'bg-white border-gray-200/80'
-              }`}>
-                <div className="flex items-center justify-between text-xs font-semibold text-gray-700 dark:text-green-200">
-                  <span>Semester 1 of 2</span>
-                  <span className="text-[#138601] dark:text-[#4bd043]">2025/2026</span>
-                </div>
-                {/* Clean Progress Track */}
-                <div className="w-full h-1.5 bg-gray-200 dark:bg-[#041801] rounded-full overflow-hidden">
-                  <div className="h-full bg-[#138601] w-3/5 rounded-full"></div>
-                </div>
-                <div className="text-[11px] text-gray-500 dark:text-green-200/70 font-normal">
-                  First Semester Examinations
-                </div>
-              </div>
-            )}
-          </aside>
+          {/* Navigation Links */}
+          <nav className="space-y-1.5">
+            {navItems.map((item) => {
+              const active = isItemActive(item.path);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded text-sm font-medium transition-all cursor-pointer ${
+                    active
+                      ? 'bg-[#138601] text-white shadow-xs font-semibold'
+                      : isDark
+                      ? 'text-green-100/90 hover:text-white hover:bg-[#083002]/80 border border-transparent hover:border-[#138601]/20'
+                      : 'text-gray-700 hover:text-gray-900 hover:bg-[#f1f3f5] border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <Icon className={`w-4.5 h-4.5 shrink-0 ${active ? 'text-white' : isDark ? 'text-[#4bd043]' : 'text-gray-500'}`} />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+                  {active && <ChevronRight className="w-4 h-4 text-white shrink-0" />}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
-        {/* MAIN BODY VIEW */}
-        <main className="flex-1 min-w-0 py-5 sm:py-6 overflow-x-hidden print:py-0 print:m-0 print:w-full">
+        {/* External Portals & Actions */}
+        <div className="space-y-3 pt-3 border-t border-gray-100 dark:border-[#138601]/20">
+          <div className="grid grid-cols-2 gap-2">
+            <a
+              href={getAppUrls().website}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => setSidebarOpen(false)}
+              className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded text-xs font-semibold border transition-colors ${
+                isDark
+                  ? 'bg-[#041801] text-gray-200 border-[#138601]/30 hover:bg-[#138601]/20'
+                  : 'bg-[#f8fafc] text-gray-700 border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
+              <span>Website</span>
+            </a>
+
+            <a
+              href={getAppUrls().adminHub}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => setSidebarOpen(false)}
+              className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded text-xs font-semibold border transition-colors ${
+                isDark
+                  ? 'bg-[#041801] text-[#4bd043] border-[#138601]/30 hover:bg-[#138601]/20'
+                  : 'bg-green-50 text-[#138601] border-green-200 hover:bg-green-100'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Admin Hub</span>
+            </a>
+          </div>
+
+          {/* Bottom Semester Progress Bar */}
+          <div className={`p-4 rounded border mt-2 shrink-0 space-y-2.5 ${
+            isDark ? 'bg-[#041801]/60 border-[#138601]/30' : 'bg-[#f8fafc] border-gray-200/80'
+          }`}>
+            <div className="flex items-center justify-between text-xs font-semibold text-gray-700 dark:text-green-200">
+              <span>Semester 1 of 2</span>
+              <span className="text-[#138601] dark:text-[#4bd043]">2025/2026</span>
+            </div>
+            {/* Clean Progress Track */}
+            <div className="w-full h-1.5 bg-gray-200 dark:bg-[#041801] rounded-full overflow-hidden">
+              <div className="h-full bg-[#138601] w-3/5 rounded-full"></div>
+            </div>
+            <div className="text-[11px] text-gray-500 dark:text-green-200/70 font-normal">
+              First Semester Examinations
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* MAIN BODY VIEW - Elements can now take up the full screen */}
+      <div className="flex-1 site-container w-full min-h-0 print:p-0 print:m-0 print:max-w-none print:w-full">
+        <main className="w-full py-5 sm:py-6 overflow-x-hidden print:py-0 print:m-0 print:w-full">
           {children}
         </main>
-
       </div>
 
       {/* Institutional Login Urgent Pop-up Notice */}

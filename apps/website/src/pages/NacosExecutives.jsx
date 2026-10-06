@@ -41,11 +41,10 @@ const NacosExecutives = () => {
   }, [pastExecutives]);
 
   const availableTenures = useMemo(() => tenureList.map(t => t.session), [tenureList]);
-  const activeTenure = selectedTenure || availableTenures[0] || '2024/2025';
-
   const displayedPastExecutives = useMemo(() => {
-    return pastExecutives.filter(e => (e.session || '2024/2025') === activeTenure);
-  }, [pastExecutives, activeTenure]);
+    if (!selectedTenure) return [];
+    return pastExecutives.filter(e => (e.session || '2024/2025') === selectedTenure);
+  }, [pastExecutives, selectedTenure]);
 
   const loadData = () => {
     try {
@@ -205,24 +204,22 @@ const NacosExecutives = () => {
               </p>
             </div>
 
-            {/* Tenure Dropdown Selector: Allows choosing from a single place by tenure */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-xl mx-auto mb-8 px-4">
+            {/* Simple Tenure Dropdown Selector */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-xl mx-auto mb-10 px-4">
               <label htmlFor="tenure-dropdown-select" className="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                Choose By Tenure:
+                Select Past Tenure:
               </label>
               <div className="relative w-full max-w-sm">
                 <select
                   id="tenure-dropdown-select"
-                  value={activeTenure}
-                  onChange={(e) => {
-                    setSelectedTenure(e.target.value);
-                    setShowPastExecutives(true);
-                  }}
-                  className="w-full appearance-none px-4 py-3 pr-10 rounded-xl border font-bold text-sm bg-white dark:bg-[#083002] border-gray-300 dark:border-[#138601]/50 text-gray-900 dark:text-white shadow-sm hover:border-[#138601] focus:outline-none focus:ring-2 focus:ring-[#138601] cursor-pointer transition-all"
+                  value={selectedTenure}
+                  onChange={(e) => setSelectedTenure(e.target.value)}
+                  className="w-full appearance-none px-4 py-3 pr-10 rounded-xl border font-semibold text-sm bg-white dark:bg-[#083002] border-gray-300 dark:border-[#138601]/50 text-gray-900 dark:text-white shadow-sm hover:border-[#138601] focus:outline-none focus:ring-2 focus:ring-[#138601] cursor-pointer transition-all"
                 >
-                  {tenureList.map(({ session, leader }) => (
+                  <option value="">-- Choose Past Tenure --</option>
+                  {availableTenures.map((session) => (
                     <option key={session} value={session} className="text-gray-900 dark:text-white dark:bg-gray-900">
-                      {session} — Led by {leader}
+                      {session} Academic Session
                     </option>
                   ))}
                 </select>
@@ -230,58 +227,20 @@ const NacosExecutives = () => {
               </div>
             </div>
 
-            {/* 2-Column Tenure Cards matching user design */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-10">
-              {tenureList.map(({ session, leader }) => {
-                const isSelected = activeTenure === session && showPastExecutives;
-                return (
-                  <button
-                    key={session}
-                    type="button"
-                    onClick={() => {
-                      if (activeTenure === session && showPastExecutives) {
-                        setShowPastExecutives(false);
-                      } else {
-                        setSelectedTenure(session);
-                        setShowPastExecutives(true);
-                      }
-                    }}
-                    className={`relative p-6 sm:p-7 rounded-2xl border text-left transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md flex flex-col justify-center ${
-                      isSelected
-                        ? 'bg-green-50/90 dark:bg-[#083002] border-[#138601] dark:border-[#4bd043] ring-2 ring-[#138601]/25'
-                        : theme === 'dark'
-                          ? 'bg-[#083002]/50 border-[#138601]/30 hover:border-[#138601] text-white'
-                          : 'bg-white border-gray-200 hover:border-gray-300 text-gray-900'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-4 mb-2 w-full">
-                      <h3 className="text-2xl font-black text-[#138601] dark:text-[#4bd043] tracking-tight">
-                        {session}
-                      </h3>
-                      <FiChevronDown className={`text-green-600 dark:text-green-400 text-xl transition-transform duration-300 ${isSelected ? 'rotate-180' : ''}`} />
-                    </div>
-                    <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">
-                      Led by <span className="font-bold text-gray-900 dark:text-white">{leader}</span>
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Display Executives for Selected Tenure */}
-            {showPastExecutives && (
+            {/* Display Executives for Selected Tenure - Hidden except when a tenure is chosen */}
+            {selectedTenure && (
               <div className="animate-in fade-in duration-300 mt-6">
                 <div className="flex items-center justify-between gap-4 mb-8 pb-3 border-b border-gray-200 dark:border-[#138601]/20">
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                    Executives for Tenure <span className="text-[#138601] dark:text-[#4bd043]">{activeTenure}</span>
+                    Executives for Tenure <span className="text-[#138601] dark:text-[#4bd043]">{selectedTenure}</span>
                   </h3>
                   <button
                     type="button"
-                    onClick={() => setShowPastExecutives(false)}
+                    onClick={() => setSelectedTenure('')}
                     className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-xs font-bold hover:bg-gray-100 dark:hover:bg-[#083002] transition-colors cursor-pointer flex items-center gap-1"
                   >
                     <FiChevronUp className="text-sm" />
-                    <span>Close</span>
+                    <span>Hide</span>
                   </button>
                 </div>
 

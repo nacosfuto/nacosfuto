@@ -142,23 +142,14 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
           </Link>
         </div>
 
-        {/* Scope & Level Clearance Pill Badge */}
-        <div className="px-5 py-3 border-b border-inherit space-y-1.5">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-green-500/10 text-[#138601] dark:text-[#4bd043] border border-[#138601]/30">
-            <Shield className="w-3 h-3" />
-            <span>Portal Administration</span>
-          </div>
-          {admin?.assigned_level && admin.assigned_level !== 'all' ? (
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-800">
-              <Lock className="w-3 h-3 shrink-0" />
-              <span>{admin.assigned_level}L Coordinator</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#138601] dark:text-[#4bd043] bg-emerald-50 dark:bg-[#041801] px-2 py-0.5 rounded border border-[#138601]/25">
-              <ShieldCheck className="w-3 h-3 shrink-0" />
-              <span>Full Level Rights</span>
-            </div>
-          )}
+        {/* Scope & Level Clearance Information */}
+        <div className="px-5 py-3 border-b border-inherit">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[#138601] dark:text-[#4bd043]">
+            Portal Administration
+          </p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+            {admin?.assigned_level && admin.assigned_level !== 'all' ? `${admin.assigned_level}L Coordinator` : 'Full Level Rights'}
+          </p>
         </div>
 
         {/* Navigation Items */}

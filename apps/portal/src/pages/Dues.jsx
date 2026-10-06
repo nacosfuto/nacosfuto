@@ -395,7 +395,7 @@ const Dues = () => {
 
             <div className="text-center sm:text-right">
               {isPaid ? (
-                <div className="inline-block px-3 py-1 rounded-md text-xs font-semibold bg-[#ebf3ff] text-[#138601] dark:bg-[#138601]/30 dark:text-[#4bd043]">
+                <div className="inline-block px-3 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-[#138601] border border-emerald-200 dark:bg-[#138601]/25 dark:border-[#138601]/40 dark:text-[#4bd043]">
                   Official Electronic Receipt
                 </div>
               ) : (
