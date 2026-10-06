@@ -39,14 +39,28 @@ export function getLocalIdSettingsDatabase() {
 
 export async function getIdCardSettings() {
   try {
-    const { data, error } = await supabase
-      .from('id_card_settings')
-      .select('*')
-      .eq('id', 'default')
-      .maybeSingle();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('id_card_settings')
+        .select('*')
+        .eq('id', 'default')
+        .maybeSingle();
 
-    if (!error && data) {
-      return data;
+      if (!error && data && data.id_card_fee) {
+        return data;
+      }
+
+      // Check media_assets fallback
+      const { data: mediaData } = await supabase
+        .from('media_assets')
+        .select('metadata')
+        .eq('asset_type', 'id_card_settings')
+        .eq('title', 'default')
+        .maybeSingle();
+
+      if (mediaData?.metadata?.id_card_fee) {
+        return { ...getLocalIdSettingsDatabase(), ...mediaData.metadata };
+      }
     }
   } catch (e) {
     // Offline fallback
@@ -67,12 +81,29 @@ export async function updateIdCardFee(newFee) {
   localStorage.setItem(ID_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
 
   try {
-    await supabase
-      .from('id_card_settings')
-      .upsert({ id: 'default', id_card_fee: feeNumber, updated_at: new Date().toISOString() });
+    if (supabase) {
+      // 1. Direct table update
+      await supabase
+        .from('id_card_settings')
+        .upsert({ id: 'default', id_card_fee: feeNumber, updated_at: new Date().toISOString() });
+
+      // 2. Open media_assets sync pipeline for cross-device resilience
+      await supabase
+        .from('media_assets')
+        .upsert({
+          asset_type: 'id_card_settings',
+          title: 'default',
+          caption: `ID Card Configured Fee: ₦${feeNumber.toLocaleString()}`,
+          metadata: { id_card_fee: feeNumber, updated_at: new Date().toISOString() }
+        }, { onConflict: 'asset_type,title' });
+    }
   } catch (e) {
-    // Offline
+    console.warn('[ID Settings Sync Error]:', e);
   }
+
+  try {
+    window.dispatchEvent(new CustomEvent('nacos_id_card_settings_updated', { detail: settings }));
+  } catch (e) {}
 
   return { success: true, settings };
 }

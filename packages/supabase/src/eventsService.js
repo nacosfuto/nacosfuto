@@ -374,6 +374,40 @@ export function saveLocalEvents(events) {
 export async function fetchEventsFromSupabase() {
   try {
     if (supabase) {
+      // 1. Fetch live events from media_assets where category = 'events'
+      const { data: mediaEvents, error: mediaError } = await supabase
+        .from('media_assets')
+        .select('*')
+        .eq('category', 'events')
+        .order('created_at', { ascending: false });
+
+      if (!mediaError && mediaEvents && mediaEvents.length > 0) {
+        const parsedEvents = [];
+        for (const item of mediaEvents) {
+          try {
+            if (item.image_alt && item.image_alt.startsWith('{')) {
+              const obj = JSON.parse(item.image_alt);
+              parsedEvents.push(normalizeEvent({
+                ...obj,
+                id: obj.id || item.entity_id || item.id,
+                image_url: item.image_url || obj.image_url,
+                cloudinary_public_id: item.cloudinary_public_id || obj.cloudinary_public_id
+              }));
+            }
+          } catch (e) {}
+        }
+
+        if (parsedEvents.length > 0) {
+          const remoteSlugs = new Set(parsedEvents.map(e => e.slug || e.id));
+          const localInitials = INITIAL_EVENTS.map(normalizeEvent).filter(e => !remoteSlugs.has(e.slug || e.id));
+          const merged = [...parsedEvents, ...localInitials];
+
+          saveLocalEvents(merged);
+          return merged;
+        }
+      }
+
+      // 2. Fallback to website_events table
       const { data, error } = await supabase
         .from('website_events')
         .select('*')
@@ -412,9 +446,6 @@ export async function fetchEventsFromSupabase() {
   return getEvents({ category: 'all' });
 }
 
-/**
- * Save / Create / Update an event
- */
 export async function saveEvent(eventData) {
   const current = getEvents({ category: 'all' });
   const id = eventData.id || `evt-${Date.now()}`;
@@ -440,21 +471,28 @@ export async function saveEvent(eventData) {
 
   saveLocalEvents(updated);
 
-  // Sync with Cloudinary Media Assets
+  // 1. Sync with media_assets for universal multi-device live sync
   try {
-    if (normalized.cloudinary_public_id && normalized.image_url) {
-      await syncMediaAsset({
-        publicId: normalized.cloudinary_public_id,
-        url: normalized.image_url,
-        folder: CLOUDINARY_FOLDERS.EVENTS,
+    if (supabase) {
+      const pubId = normalized.cloudinary_public_id || `nacos/events/${normalized.slug}`;
+      await supabase.from('media_assets').upsert({
+        cloudinary_public_id: pubId,
+        image_url: normalized.image_url || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569305/nacos/events/event_masked_affairs.jpg',
+        image_alt: JSON.stringify(normalized),
+        media_type: 'image',
+        folder: CLOUDINARY_FOLDERS.EVENTS || 'nacos/events',
         category: 'events',
-        image_alt: normalized.title || 'Event Flyer',
         entity_type: 'event',
-        entity_id: normalized.slug
-      });
+        entity_id: normalized.slug,
+        updated_at: now
+      }, { onConflict: 'cloudinary_public_id' });
     }
+  } catch (err) {
+    console.warn('Universal media_assets event sync notice:', err);
+  }
 
-    // Sync to Supabase `website_events` table
+  // 2. Also attempt website_events table
+  try {
     if (supabase) {
       await supabase
         .from('website_events')
@@ -476,15 +514,12 @@ export async function saveEvent(eventData) {
         }, { onConflict: 'slug' });
     }
   } catch (err) {
-    console.warn('Remote sync notice for event:', err);
+    console.warn('Remote sync notice for event table:', err);
   }
 
   return normalized;
 }
 
-/**
- * Delete an event from local storage, Supabase, and Cloudinary
- */
 export async function deleteEvent(eventItem) {
   const current = getEvents({ category: 'all' });
   const targetId = typeof eventItem === 'string' ? eventItem : eventItem?.id;
@@ -498,6 +533,23 @@ export async function deleteEvent(eventItem) {
   });
 
   saveLocalEvents(updated);
+
+  // Delete from media_assets
+  try {
+    if (supabase) {
+      if (targetSlug) {
+        await supabase.from('media_assets').delete().eq('entity_id', targetSlug);
+      }
+      if (targetId) {
+        await supabase.from('media_assets').delete().eq('entity_id', targetId);
+      }
+      if (pubId) {
+        await supabase.from('media_assets').delete().eq('cloudinary_public_id', pubId);
+      }
+    }
+  } catch (e) {
+    console.warn('Universal media_assets delete notice for event:', e);
+  }
 
   if (pubId) {
     try {
@@ -522,9 +574,6 @@ export async function deleteEvent(eventItem) {
   return updated;
 }
 
-/**
- * Toggle publish status of an event
- */
 export async function toggleEventPublish(id) {
   const current = getEvents({ category: 'all' });
   let nextPublished = false;

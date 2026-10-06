@@ -28,7 +28,8 @@ import {
   Award,
   Sun,
   Moon,
-  Heart
+  Heart,
+  Building2
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { getWebsiteAdminSession, logoutWebsiteAdmin, hasPermission } from '@nacos/auth';
@@ -101,6 +102,7 @@ export const WebsiteAdminLayout = ({ children, title, subtitle }) => {
     { label: 'Spiritual Life', path: '/admin/spiritual-life', icon: Heart, permission: 'main_website.clubs' },
     { label: 'Alumni Network', path: '/admin/alumni', icon: GraduationCap, permission: 'main_website.alumni' },
     { label: 'NACOS Executives', path: '/admin/executives', icon: Award, permission: 'main_website.homepage' },
+    { label: 'Administration', path: '/admin/administration', icon: Building2, permission: 'main_website.homepage' },
     { label: 'Media Library', path: '/admin/media', icon: ImageIcon, permission: 'main_website.media' },
     { label: 'Campus Gallery', path: '/admin/gallery', icon: Camera, permission: 'main_website.gallery' },
     { label: 'News & Journal', path: '/admin/news', icon: Newspaper, permission: 'main_website.news' },

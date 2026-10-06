@@ -14,7 +14,8 @@ import {
   Upload,
   Globe,
   Plus,
-  Award
+  Award,
+  Building2
 } from 'lucide-react';
 import { getWebsiteAdminSession, getAdminAuditLogs } from '@nacos/supabase/adminAuth';
 
@@ -141,6 +142,16 @@ const AdminDashboard = () => {
                 >
                   <span className="flex items-center gap-2 text-gray-800 dark:text-white">
                     <Award className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" /> Manage NACOS Executives & Header
+                  </span>
+                  <ArrowUpRight className="w-4 h-4 text-gray-400" />
+                </Link>
+
+                <Link
+                  to="/admin/administration"
+                  className="w-full flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-[#041801] hover:bg-gray-100 dark:hover:bg-black transition-colors"
+                >
+                  <span className="flex items-center gap-2 text-gray-800 dark:text-white">
+                    <Building2 className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" /> Manage Department Administration
                   </span>
                   <ArrowUpRight className="w-4 h-4 text-gray-400" />
                 </Link>

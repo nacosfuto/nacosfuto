@@ -207,6 +207,44 @@ export function saveLocalNewsArticles(articles) {
 export async function fetchNewsArticles({ publishedOnly = true, category = 'all' } = {}) {
   try {
     if (supabase) {
+      // 1. Fetch from media_assets where category = 'news' (Universal multi-device real-time sync)
+      const { data: mediaNews, error: mediaError } = await supabase
+        .from('media_assets')
+        .select('*')
+        .eq('category', 'news')
+        .order('created_at', { ascending: false });
+
+      if (!mediaError && mediaNews && mediaNews.length > 0) {
+        const parsedArticles = [];
+        for (const item of mediaNews) {
+          try {
+            if (item.image_alt && item.image_alt.startsWith('{')) {
+              const obj = JSON.parse(item.image_alt);
+              parsedArticles.push(normalizeArticle({
+                ...obj,
+                id: obj.id || item.entity_id || item.id,
+                cover_image_url: item.image_url || obj.cover_image_url,
+                cloudinary_public_id: item.cloudinary_public_id || obj.cloudinary_public_id
+              }));
+            }
+          } catch (e) {}
+        }
+
+        if (parsedArticles.length > 0) {
+          const remoteKeys = new Set(parsedArticles.map(a => a.slug || a.id));
+          const localInitials = INITIAL_NEWS_ARTICLES.map(normalizeArticle).filter(a => !remoteKeys.has(a.slug || a.id));
+          const merged = [...parsedArticles, ...localInitials];
+
+          saveLocalNewsArticles(merged);
+
+          let result = merged;
+          if (publishedOnly) result = result.filter(a => a.is_published);
+          if (category !== 'all') result = result.filter(a => a.category === category);
+          return result;
+        }
+      }
+
+      // 2. Fallback to news_articles table if available
       let query = supabase.from('news_articles').select('*').order('published_at', { ascending: false });
       if (publishedOnly) {
         query = query.eq('is_published', true);
@@ -257,24 +295,27 @@ export async function saveNewsArticle(articleData) {
 
   saveLocalNewsArticles(updated);
 
-  // Sync with Cloudinary Media Assets if applicable
+  // 1. Sync to Supabase `media_assets` for universal multi-device live sync
   try {
-    if (record.cloudinary_public_id && record.cover_image_url) {
-      await syncMediaAsset({
-        publicId: record.cloudinary_public_id,
-        url: record.cover_image_url,
-        folder: CLOUDINARY_FOLDERS.NEWS,
+    if (supabase) {
+      const pubId = record.cloudinary_public_id || `nacos/news/${record.slug || record.id}`;
+      await supabase.from('media_assets').upsert({
+        cloudinary_public_id: pubId,
+        image_url: record.cover_image_url || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569301/nacos/news/research.jpg',
+        image_alt: JSON.stringify(record),
+        media_type: 'image',
+        folder: CLOUDINARY_FOLDERS.NEWS || 'nacos/news',
         category: 'news',
-        image_alt: record.title,
         entity_type: 'news',
-        entity_id: record.slug
-      });
+        entity_id: record.slug || record.id,
+        updated_at: now
+      }, { onConflict: 'cloudinary_public_id' });
     }
   } catch (e) {
-    console.warn('Cloudinary sync for news article notice:', e);
+    console.warn('Live sync news to media_assets notice:', e);
   }
 
-  // Sync to Supabase `news_articles`
+  // 2. Also attempt Supabase news_articles table
   try {
     if (supabase) {
       await supabase.from('news_articles').upsert({
@@ -293,7 +334,7 @@ export async function saveNewsArticle(articleData) {
       }, { onConflict: 'slug' });
     }
   } catch (err) {
-    console.warn('Could not sync news article to Supabase:', err);
+    console.warn('Could not sync news article to news_articles table:', err);
   }
 
   return { success: true, article: record };
@@ -303,6 +344,23 @@ export async function deleteNewsArticle(id, slug, cloudinaryPublicId) {
   const current = getLocalNewsArticles({ publishedOnly: false });
   const updated = current.filter(a => a.id !== id && a.slug !== slug);
   saveLocalNewsArticles(updated);
+
+  // Delete from media_assets
+  try {
+    if (supabase) {
+      if (slug) {
+        await supabase.from('media_assets').delete().eq('entity_id', slug);
+      }
+      if (id) {
+        await supabase.from('media_assets').delete().eq('entity_id', id);
+      }
+      if (cloudinaryPublicId) {
+        await supabase.from('media_assets').delete().eq('cloudinary_public_id', cloudinaryPublicId);
+      }
+    }
+  } catch (e) {
+    console.warn('Universal media_assets delete notice for news:', e);
+  }
 
   if (cloudinaryPublicId) {
     try {
@@ -328,17 +386,23 @@ export async function toggleNewsPublish(id) {
   const current = getLocalNewsArticles({ publishedOnly: false });
   let nextPublished = false;
   let targetSlug = null;
+  let targetArticle = null;
 
   const updated = current.map(a => {
     if (a.id === id) {
       nextPublished = !a.is_published;
       targetSlug = a.slug;
-      return { ...a, is_published: nextPublished };
+      targetArticle = { ...a, is_published: nextPublished };
+      return targetArticle;
     }
     return a;
   });
 
   saveLocalNewsArticles(updated);
+
+  if (targetArticle) {
+    saveNewsArticle(targetArticle).catch(() => {});
+  }
 
   if (targetSlug && supabase) {
     try {

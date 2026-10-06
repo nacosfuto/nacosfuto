@@ -226,6 +226,51 @@ export function saveLocalGalleryItems(items) {
 export async function fetchGalleryFromSupabase() {
   try {
     if (supabase) {
+      // 1. Fetch from media_assets where category = 'gallery' (universal multi-device sync)
+      const { data: mediaItems, error: mediaError } = await supabase
+        .from('media_assets')
+        .select('*')
+        .eq('category', 'gallery')
+        .order('created_at', { ascending: false });
+
+      if (!mediaError && mediaItems && mediaItems.length > 0) {
+        const parsedItems = [];
+        for (const m of mediaItems) {
+          try {
+            if (m.image_alt && m.image_alt.startsWith('{')) {
+              const obj = JSON.parse(m.image_alt);
+              parsedItems.push(normalizeItem({
+                ...obj,
+                id: obj.id || m.entity_id || m.id,
+                image_url: m.image_url || obj.image_url,
+                cloudinary_public_id: m.cloudinary_public_id || obj.cloudinary_public_id
+              }));
+            } else {
+              parsedItems.push(normalizeItem({
+                id: m.entity_id || m.id,
+                title: m.image_alt || 'NACOS Gallery',
+                caption: m.image_alt || '',
+                image_url: m.image_url,
+                cloudinary_public_id: m.cloudinary_public_id,
+                category: 'Campus Life',
+                is_featured: false,
+                created_at: m.created_at
+              }));
+            }
+          } catch (e) {}
+        }
+
+        if (parsedItems.length > 0) {
+          const remoteIds = new Set(parsedItems.map(p => p.cloudinary_public_id || p.id));
+          const localInitials = INITIAL_GALLERY.map(normalizeItem).filter(l => !remoteIds.has(l.cloudinary_public_id || l.id));
+          const merged = [...parsedItems, ...localInitials];
+
+          saveLocalGalleryItems(merged);
+          return merged;
+        }
+      }
+
+      // 2. Fallback to website_gallery table
       const { data, error } = await supabase
         .from('website_gallery')
         .select('*')
@@ -244,7 +289,6 @@ export async function fetchGalleryFromSupabase() {
           created_at: d.created_at
         }));
 
-        // Merge with existing local or initial items
         const local = getGalleryItems();
         const remoteIds = new Set(mapped.map(m => m.cloudinary_public_id || m.id));
         const merged = [...mapped, ...local.filter(l => !remoteIds.has(l.cloudinary_public_id || l.id))];
@@ -260,9 +304,6 @@ export async function fetchGalleryFromSupabase() {
   return getGalleryItems();
 }
 
-/**
- * Save / Create / Update a gallery item
- */
 export async function saveGalleryItem(itemData) {
   const current = getGalleryItems();
   const id = itemData.id || `gal-${Date.now()}`;
@@ -294,7 +335,7 @@ export async function saveGalleryItem(itemData) {
         url: normalized.image_url,
         folder: CLOUDINARY_FOLDERS.GALLERY,
         category: 'gallery',
-        image_alt: normalized.caption || normalized.title,
+        image_alt: JSON.stringify(normalized),
         entity_type: 'gallery',
         entity_id: normalized.cloudinary_public_id.split('/').pop()
       });
@@ -339,6 +380,15 @@ export async function deleteGalleryItem(item) {
 
   // Remote delete
   const pubId = targetPublicId || (current.find(i => i.id === targetId)?.cloudinary_public_id);
+  try {
+    if (supabase) {
+      if (pubId) await supabase.from('media_assets').delete().eq('cloudinary_public_id', pubId);
+      if (targetId) await supabase.from('media_assets').delete().eq('entity_id', targetId);
+    }
+  } catch (e) {
+    console.warn('Universal media delete error:', e);
+  }
+
   if (pubId) {
     try {
       await deleteMediaAsset(pubId);

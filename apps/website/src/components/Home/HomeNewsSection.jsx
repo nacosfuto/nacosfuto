@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaArrowRight, FaCalendarAlt, FaClock, FaNewspaper } from 'react-icons/fa';
+import { FaArrowRight, FaCalendarAlt, FaClock } from 'react-icons/fa';
 import ScrollToTopLink from '../ScrollToTopLink';
 import { getLocalNewsArticles, fetchNewsArticles } from '@nacos/supabase';
 
@@ -33,10 +33,6 @@ const HomeNewsSection = () => {
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-[#138601]/10 dark:bg-[#138601]/20 text-[#138601] dark:text-[#4bd043] font-bold text-xs uppercase tracking-wider mb-3">
-              <FaNewspaper className="text-xs" />
-              <span>Latest Updates & Press</span>
-            </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-black dark:text-white">
               Department <span className="text-[#138601] dark:text-[#4bd043]">News & Journal</span>
             </h2>

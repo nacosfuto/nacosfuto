@@ -20,4 +20,5 @@ export * from './administrationService.js';
 export * from './galleryService.js';
 export * from './spiritualLifeService.js';
 export * from './eventsService.js';
+export * from './payments.js';
 export { default } from './client.js';

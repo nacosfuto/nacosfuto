@@ -86,6 +86,42 @@ export function saveLocalDepartmentStaff(staff) {
 export async function fetchDepartmentStaff({ activeOnly = true } = {}) {
   try {
     if (supabase) {
+      // 1. Live query from media_assets where category = 'general' and entity_type = 'staff'
+      const { data: mediaStaff, error: mediaErr } = await supabase
+        .from('media_assets')
+        .select('*')
+        .eq('category', 'general')
+        .eq('entity_type', 'staff')
+        .order('created_at', { ascending: false });
+
+      if (!mediaErr && mediaStaff && mediaStaff.length > 0) {
+        const parsedStaff = [];
+        for (const m of mediaStaff) {
+          try {
+            if (m.image_alt && m.image_alt.startsWith('{')) {
+              const obj = JSON.parse(m.image_alt);
+              parsedStaff.push({
+                ...obj,
+                id: obj.id || m.entity_id || m.id,
+                image: m.image_url || obj.image,
+                cloudinary_public_id: m.cloudinary_public_id || obj.cloudinary_public_id
+              });
+            }
+          } catch (e) {}
+        }
+
+        if (parsedStaff.length > 0) {
+          const remoteIds = new Set(parsedStaff.map(s => s.id));
+          const localInitials = INITIAL_STAFF.filter(s => !remoteIds.has(s.id));
+          const merged = [...parsedStaff, ...localInitials];
+          merged.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
+
+          saveLocalDepartmentStaff(merged);
+          return activeOnly ? merged.filter(s => s.is_active) : merged;
+        }
+      }
+
+      // 2. Fallback to department_administration table
       let query = supabase.from('department_administration').select('*').order('order_index', { ascending: true });
       if (activeOnly) {
         query = query.eq('is_active', true);
@@ -128,12 +164,32 @@ export async function saveDepartmentStaffMember(memberData) {
 
   saveLocalDepartmentStaff(updated);
 
+  // 1. Sync to media_assets for universal multi-device live sync
+  try {
+    if (supabase) {
+      await supabase.from('media_assets').upsert({
+        cloudinary_public_id: record.cloudinary_public_id || ('nacos/general/' + record.id),
+        image_url: record.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569270/nacos/executives/hod_stanley.jpg',
+        image_alt: JSON.stringify(record),
+        media_type: 'image',
+        folder: 'nacos/general',
+        category: 'general',
+        entity_type: 'staff',
+        entity_id: record.id,
+        updated_at: now
+      }, { onConflict: 'cloudinary_public_id' });
+    }
+  } catch (e) {
+    console.warn('Live sync staff to media_assets notice:', e);
+  }
+
+  // 2. Also attempt department_administration table
   try {
     if (supabase) {
       await supabase.from('department_administration').upsert(record, { onConflict: 'id' });
     }
   } catch (err) {
-    console.warn('Could not sync staff member to Supabase:', err);
+    console.warn('Could not sync staff member to Supabase table:', err);
   }
 
   return { success: true, member: record };
@@ -146,6 +202,7 @@ export async function deleteDepartmentStaffMember(id) {
 
   try {
     if (supabase) {
+      await supabase.from('media_assets').delete().eq('entity_id', id);
       await supabase.from('department_administration').delete().eq('id', id);
     }
   } catch (err) {

@@ -2,7 +2,15 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Nav/Navbar';
 import Footer from '../components/Footer';
 import { useTheme } from '../context/ThemeContext';
-import { FaCalendarAlt, FaClock, FaNewspaper, FaTag, FaSearch, FaArrowRight, FaBookOpen } from 'react-icons/fa';
+import { 
+  FaCalendarAlt, 
+  FaClock, 
+  FaNewspaper, 
+  FaTag, 
+  FaSearch, 
+  FaArrowRight, 
+  FaBookOpen 
+} from 'react-icons/fa';
 import { getLocalNewsArticles, fetchNewsArticles } from '@nacos/supabase';
 import { getCloudinaryAssetUrl } from '@nacos/media';
 
@@ -24,6 +32,25 @@ const News = () => {
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeArticleModal, setActiveArticleModal] = useState(null);
+
+  // Scroll lock and keyboard escape handler for full-screen article reader
+  useEffect(() => {
+    if (activeArticleModal) {
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          setActiveArticleModal(null);
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = 'auto';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+  }, [activeArticleModal]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -148,7 +175,13 @@ const News = () => {
                   key={item.id || item.slug}
                   className="group bg-white dark:bg-[#083002] rounded-2xl overflow-hidden border border-[#138601]/20 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full transform hover:-translate-y-1.5"
                 >
-                  <div className="relative h-52 w-full overflow-hidden bg-gray-900">
+                  <div 
+                    className="relative h-52 w-full overflow-hidden bg-gray-900 cursor-pointer"
+                    onClick={() => setActiveArticleModal(item)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter') setActiveArticleModal(item); }}
+                  >
                     <img
                       src={item.cover_image_url || item.image}
                       alt={item.title}
@@ -173,7 +206,10 @@ const News = () => {
                         </span>
                       </div>
 
-                      <h2 className="text-lg font-bold text-black dark:text-white group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors line-clamp-2 mb-3 leading-snug">
+                      <h2 
+                        onClick={() => setActiveArticleModal(item)}
+                        className="text-lg font-bold text-black dark:text-white group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors line-clamp-2 mb-3 leading-snug cursor-pointer"
+                      >
                         {item.title}
                       </h2>
 
@@ -202,11 +238,12 @@ const News = () => {
           )}
         </section>
 
-        {/* Modal for Full Article View */}
+        {/* Modal for Full Article View - Full Screen */}
         {activeArticleModal && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-            <div className="bg-white dark:bg-[#083002] max-w-2xl w-full rounded-3xl overflow-hidden shadow-2xl border border-[#138601]/30 my-8">
-              <div className="relative h-64 w-full bg-gray-950">
+          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md overflow-y-auto flex flex-col">
+            <div className="bg-white dark:bg-[#083002] w-full min-h-screen flex flex-col">
+              {/* Header Cover Banner */}
+              <div className="relative h-72 sm:h-96 md:h-[420px] w-full bg-gray-950 shrink-0">
                 <img
                   src={activeArticleModal.cover_image_url || activeArticleModal.image}
                   alt={activeArticleModal.title}
@@ -215,17 +252,20 @@ const News = () => {
                 <button
                   type="button"
                   onClick={() => setActiveArticleModal(null)}
-                  className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center transition-colors cursor-pointer"
+                  className="fixed sm:absolute top-4 right-4 sm:top-6 sm:right-6 z-50 w-10 h-10 rounded-full bg-black/75 hover:bg-black text-white flex items-center justify-center text-2xl font-bold transition-all shadow-xl cursor-pointer hover:scale-105"
+                  title="Close"
+                  aria-label="Close"
                 >
                   &times;
                 </button>
-                <div className="absolute bottom-3 left-4 bg-[#138601] text-white px-3 py-1 rounded-lg text-xs font-bold shadow">
+                <div className="absolute bottom-4 left-4 sm:left-8 bg-[#138601] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow">
                   {activeArticleModal.category}
                 </div>
               </div>
 
-              <div className="p-6 sm:p-8 space-y-4">
-                <div className="flex items-center gap-4 text-xs text-black/60 dark:text-green-200/60 flex-wrap">
+              {/* Formal Article Details & Body Content */}
+              <div className="p-6 sm:p-10 md:p-12 max-w-4xl w-full mx-auto space-y-4 flex-grow">
+                <div className="flex items-center gap-4 text-xs sm:text-sm text-black/60 dark:text-green-200/60 flex-wrap">
                   <span>{activeArticleModal.date}</span>
                   <span>&bull;</span>
                   <span>{activeArticleModal.readTime || `${activeArticleModal.read_time_minutes || 3} min read`}</span>
@@ -233,27 +273,24 @@ const News = () => {
                   <span>By {activeArticleModal.author}</span>
                 </div>
 
-                <h2 className="text-xl sm:text-2xl font-bold text-black dark:text-white leading-tight">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-black dark:text-white leading-tight">
                   {activeArticleModal.title}
                 </h2>
 
-                <div className="text-sm leading-relaxed text-black/85 dark:text-green-100/85 space-y-3 pt-3 border-t border-[#138601]/15 dark:border-white/10 max-h-96 overflow-y-auto">
-                  <p className="font-medium text-black dark:text-white">
+                <div className="text-base sm:text-lg leading-relaxed text-black/85 dark:text-green-100/85 space-y-4 pt-4 border-t border-[#138601]/15 dark:border-white/10">
+                  <p className="font-semibold text-black dark:text-white text-base sm:text-lg">
                     {activeArticleModal.summary || activeArticleModal.excerpt}
                   </p>
-                  <p className="whitespace-pre-line">
+                  <p className="whitespace-pre-line leading-relaxed">
                     {activeArticleModal.content || activeArticleModal.summary || activeArticleModal.excerpt}
-                  </p>
-                  <p className="pt-2 text-xs text-gray-500 dark:text-gray-400">
-                    For official press inquiries and editorial publications, contact the Department of Computer Science or the NACOS Editorial Board at <strong>hod.csc@futo.edu.ng</strong>.
                   </p>
                 </div>
 
-                <div className="pt-4 flex justify-end">
+                <div className="pt-6 pb-12 flex justify-end">
                   <button
                     type="button"
                     onClick={() => setActiveArticleModal(null)}
-                    className="px-6 py-2.5 bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                    className="px-6 py-2.5 bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-sm rounded-xl transition-colors cursor-pointer shadow-md"
                   >
                     Close Article
                   </button>

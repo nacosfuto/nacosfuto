@@ -197,13 +197,51 @@ export const getYellowPagesBusinesses = getYellowPages;
 export async function fetchYellowPagesFromSupabase(statusFilter = 'all') {
   try {
     if (supabase) {
+      // 1. Live query from media_assets for universal multi-device sync
+      const { data: mediaYP, error: mediaErr } = await supabase
+        .from('media_assets')
+        .select('*')
+        .eq('category', 'yellow_pages')
+        .order('created_at', { ascending: false });
+
+      if (!mediaErr && mediaYP && mediaYP.length > 0) {
+        const parsedYP = [];
+        for (const m of mediaYP) {
+          try {
+            if (m.image_alt && m.image_alt.startsWith('{')) {
+              const obj = JSON.parse(m.image_alt);
+              parsedYP.push({
+                ...obj,
+                id: obj.id || m.entity_id || m.id,
+                image: m.image_url || obj.image,
+                cloudinary_public_id: m.cloudinary_public_id || obj.cloudinary_public_id
+              });
+            }
+          } catch (e) {}
+        }
+
+        if (parsedYP.length > 0) {
+          const remoteIds = new Set(parsedYP.map(b => b.id));
+          const localInitials = INITIAL_YELLOW_PAGES.filter(b => !remoteIds.has(b.id));
+          const merged = [...parsedYP, ...localInitials];
+
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(YELLOW_PAGES_STORAGE_KEY, JSON.stringify(merged));
+            window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
+          }
+
+          if (statusFilter === 'all') return merged;
+          return merged.filter(b => b.status === statusFilter);
+        }
+      }
+
+      // 2. Fallback to yellow_pages table
       let query = supabase.from('yellow_pages').select('*').order('created_at', { ascending: false });
       if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
       }
       const { data, error } = await query;
       if (!error && data && data.length > 0) {
-        // Map database snake_case to frontend camelCase
         const mapped = data.map(b => ({
           id: b.id,
           name: b.name,
@@ -245,7 +283,7 @@ export async function submitYellowPageBusiness(businessData) {
     id,
     ...businessData,
     imagePosition: businessData.imagePosition || 'top center',
-    status: businessData.status || 'pending', // Requires admin approval unless pre-approved
+    status: businessData.status || 'pending',
     createdAt: now
   };
 
@@ -253,6 +291,25 @@ export async function submitYellowPageBusiness(businessData) {
   if (typeof window !== 'undefined') {
     localStorage.setItem(YELLOW_PAGES_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
+  }
+
+  // Real-time universal live sync to media_assets
+  try {
+    if (supabase) {
+      await supabase.from('media_assets').upsert({
+        cloudinary_public_id: newBusiness.cloudinary_public_id || ('nacos/yellow_pages/' + newBusiness.id),
+        image_url: newBusiness.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569313/nacos/yellow_pages/flyer_peacemaker.jpg',
+        image_alt: JSON.stringify(newBusiness),
+        media_type: 'image',
+        folder: 'nacos/yellow_pages',
+        category: 'yellow_pages',
+        entity_type: 'yellow_pages',
+        entity_id: newBusiness.id,
+        updated_at: now
+      }, { onConflict: 'cloudinary_public_id' });
+    }
+  } catch (e) {
+    console.warn('Live sync yellow pages notice:', e);
   }
 
   // Trigger real-time Admin notification
@@ -263,34 +320,6 @@ export async function submitYellowPageBusiness(businessData) {
     entityId: newBusiness.id,
     link: '/admin/yellow-pages'
   });
-
-  try {
-    if (supabase) {
-      await supabase.from('yellow_pages').upsert({
-        id: newBusiness.id,
-        name: newBusiness.name,
-        category: newBusiness.category,
-        secondary_categories: newBusiness.secondaryCategories || [],
-        owner_name: newBusiness.ownerName || '',
-        owner_level: newBusiness.ownerLevel || '',
-        description: newBusiness.description || '',
-        location: newBusiness.location || '',
-        phone: newBusiness.phone || '',
-        whatsapp: newBusiness.whatsapp || '',
-        email: newBusiness.email || '',
-        rating: newBusiness.rating || 5.0,
-        reviews_count: newBusiness.reviewsCount || 0,
-        image: newBusiness.image || '',
-        cloudinary_public_id: newBusiness.cloudinary_public_id || '',
-        image_position: newBusiness.imagePosition || 'top center',
-        status: newBusiness.status,
-        created_at: now,
-        updated_at: now
-      }, { onConflict: 'id' });
-    }
-  } catch (err) {
-    console.warn('Could not sync business to Supabase:', err);
-  }
 
   return newBusiness;
 }
@@ -320,68 +349,34 @@ export async function updateYellowPageBusiness(id, updates) {
     window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
   }
 
+  // Real-time universal live sync to media_assets
   try {
     if (supabase) {
-      await supabase.from('yellow_pages').upsert({
-        id: updatedItem.id,
-        name: updatedItem.name,
-        category: updatedItem.category,
-        secondary_categories: updatedItem.secondaryCategories || [],
-        owner_name: updatedItem.ownerName || '',
-        owner_level: updatedItem.ownerLevel || '',
-        description: updatedItem.description || '',
-        location: updatedItem.location || '',
-        phone: updatedItem.phone || '',
-        whatsapp: updatedItem.whatsapp || '',
-        email: updatedItem.email || '',
-        rating: updatedItem.rating || 5.0,
-        reviews_count: updatedItem.reviewsCount || 0,
-        image: updatedItem.image || '',
-        cloudinary_public_id: updatedItem.cloudinary_public_id || '',
-        image_position: updatedItem.imagePosition || 'top center',
-        status: updatedItem.status || 'approved',
+      await supabase.from('media_assets').upsert({
+        cloudinary_public_id: updatedItem.cloudinary_public_id || ('nacos/yellow_pages/' + updatedItem.id),
+        image_url: updatedItem.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569313/nacos/yellow_pages/flyer_peacemaker.jpg',
+        image_alt: JSON.stringify(updatedItem),
+        media_type: 'image',
+        folder: 'nacos/yellow_pages',
+        category: 'yellow_pages',
+        entity_type: 'yellow_pages',
+        entity_id: updatedItem.id,
         updated_at: now
-      }, { onConflict: 'id' });
+      }, { onConflict: 'cloudinary_public_id' });
     }
-  } catch (err) {
-    console.warn('Could not sync updated business to Supabase:', err);
+  } catch (e) {
+    console.warn('Live sync yellow pages update notice:', e);
   }
 
   return updatedItem;
 }
 
 export async function approveYellowPageBusiness(id) {
-  const list = getYellowPages('all');
-  const updated = list.map(b => b.id === id ? { ...b, status: 'approved' } : b);
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(YELLOW_PAGES_STORAGE_KEY, JSON.stringify(updated));
-    window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
-  }
-  try {
-    if (supabase) {
-      await supabase.from('yellow_pages').update({ status: 'approved', updated_at: new Date().toISOString() }).eq('id', id);
-    }
-  } catch (e) {
-    console.warn('Supabase approve error:', e);
-  }
-  return updated;
+  return updateYellowPageBusiness(id, { status: 'approved' });
 }
 
 export async function denyYellowPageBusiness(id) {
-  const list = getYellowPages('all');
-  const updated = list.map(b => b.id === id ? { ...b, status: 'denied' } : b);
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(YELLOW_PAGES_STORAGE_KEY, JSON.stringify(updated));
-    window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
-  }
-  try {
-    if (supabase) {
-      await supabase.from('yellow_pages').update({ status: 'denied', updated_at: new Date().toISOString() }).eq('id', id);
-    }
-  } catch (e) {
-    console.warn('Supabase deny error:', e);
-  }
-  return updated;
+  return updateYellowPageBusiness(id, { status: 'denied' });
 }
 
 export async function deleteYellowPageBusiness(id) {
@@ -393,6 +388,7 @@ export async function deleteYellowPageBusiness(id) {
   }
   try {
     if (supabase) {
+      await supabase.from('media_assets').delete().eq('entity_id', id);
       await supabase.from('yellow_pages').delete().eq('id', id);
     }
   } catch (e) {

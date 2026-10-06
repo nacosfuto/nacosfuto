@@ -4,7 +4,9 @@ import path from 'path';
 import crypto from 'crypto';
 import { dispatchEmail } from '../../packages/supabase/src/server/emailDispatcher.js';
 import {
+  createPaymentCheckout,
   createIdCardCheckout,
+  createDuesCheckout,
   getPaymentStatus,
   verifyBachsWebhookSignature,
   processBachsWebhook,
@@ -16,7 +18,64 @@ function cloudinaryDevPlugin() {
     name: 'cloudinary-dev-server',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        // --- BACHS PAYMENT GATEWAY DEV ENDPOINTS ---
+        // --- UNIVERSAL BACHS PAYMENT GATEWAY DEV ENDPOINTS ---
+        if (req.url?.startsWith('/api/payments/create-checkout') && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const data = JSON.parse(body || '{}');
+              const origin = req.headers.origin || `http://${req.headers.host || 'localhost:5174'}`;
+              const result = await createPaymentCheckout({
+                paymentType: data.paymentType,
+                title: data.title,
+                student: data.student,
+                customer: data.customer,
+                metadata: data.metadata,
+                returnBaseUrl: origin,
+                redirectPath: data.redirectPath,
+                cancelPath: data.cancelPath,
+                amountOverride: data.amountOverride
+              });
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = result.statusCode || (result.error ? 400 : 200);
+              res.end(JSON.stringify(result));
+            } catch (e) {
+              console.error('[Dev Universal Bachs Checkout Error]:', e);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: e.message }));
+            }
+          });
+          return;
+        }
+
+        if (req.url?.startsWith('/api/payments/dues/create-checkout') && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const data = JSON.parse(body || '{}');
+              const origin = req.headers.origin || `http://${req.headers.host || 'localhost:5174'}`;
+              const result = await createDuesCheckout({
+                student: data.student,
+                returnBaseUrl: origin,
+                academicSession: data.academicSession,
+                level: data.level
+              });
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = result.statusCode || (result.error ? 400 : 200);
+              res.end(JSON.stringify(result));
+            } catch (e) {
+              console.error('[Dev Dues Bachs Checkout Error]:', e);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: e.message }));
+            }
+          });
+          return;
+        }
+
         if (req.url?.startsWith('/api/payments/id-card/create-checkout') && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });
@@ -38,15 +97,16 @@ function cloudinaryDevPlugin() {
           return;
         }
 
-        if (req.url?.startsWith('/api/payments/id-card/status') && req.method === 'GET') {
+        if ((req.url?.startsWith('/api/payments/status') || req.url?.startsWith('/api/payments/id-card/status')) && req.method === 'GET') {
           const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost:5174'}`);
           const reference = urlObj.searchParams.get('reference');
+          const paymentType = urlObj.searchParams.get('paymentType');
           const registrationNumber = urlObj.searchParams.get('registrationNumber') || urlObj.searchParams.get('regNo');
           const studentId = urlObj.searchParams.get('studentId');
 
           (async () => {
             try {
-              const result = await getPaymentStatus({ reference, registrationNumber, studentId });
+              const result = await getPaymentStatus({ reference, paymentType, registrationNumber, studentId });
               res.setHeader('Content-Type', 'application/json');
               res.statusCode = result.statusCode || (result.error ? 400 : 200);
               res.end(JSON.stringify(result));
@@ -59,7 +119,30 @@ function cloudinaryDevPlugin() {
           return;
         }
 
-        if (req.url?.startsWith('/api/payments/id-card/simulate-success') && req.method === 'POST') {
+        if (req.url?.startsWith('/api/payments/fees')) {
+          (async () => {
+            try {
+              const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost:5174'}`);
+              const feeKey = urlObj.searchParams.get('feeKey') || urlObj.searchParams.get('paymentType');
+              if (req.method === 'GET') {
+                const { resolveDynamicFee } = await import('../../packages/supabase/src/server/bachs.js');
+                const amount = await resolveDynamicFee({ paymentType: feeKey || 'id_card' });
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ feeKey: feeKey || 'id_card', amount }));
+                return;
+              }
+              res.statusCode = 405;
+              res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+            } catch (err) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          })();
+          return;
+        }
+
+        if ((req.url?.startsWith('/api/payments/id-card/simulate-success') || req.url?.startsWith('/api/payments/simulate-success')) && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });
           req.on('end', async () => {

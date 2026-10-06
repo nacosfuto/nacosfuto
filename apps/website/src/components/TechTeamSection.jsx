@@ -1,43 +1,31 @@
 import React from 'react';
 import { FiArrowRight } from 'react-icons/fi';
-import devVictor from '../assets/executives/ict_asst_victory.jpg';
-import devIfeanyi from '../assets/executives/ict_dir_ifeanyi.jpg';
-import devDaniel from '../assets/executives/daniel_chukwuka.jpg';
-import devDavid from '../assets/executives/state_ict_okikere.jpg';
 
 const TechTeamSection = () => {
     const team = [
         {
             name: "Nestor Anyanwu",
-            role: "Fullstack / Lead Dev",
-            association: "Director of ICT, NACOS FUTO",
-            image: devIfeanyi,
-            portfolio: "https://www.linkedin.com/in/anyanwu-ifeanyichukwu-63309a250/",
-            track: "Full-Stack & Systems"
-        },
-        {
-            name: "Victory Otuonye",
-            role: "Frontend Engineer",
-            association: "Asst. Director of ICT, NACOS FUTO",
-            image: devVictor,
-            portfolio: "https://www.linkedin.com/in/victory-otuonye-a99166324/",
-            track: "Frontend & Architecture"
+            role: "PM/Lead Developer",
+            image: "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569335/nacos/gallery/nacos8.jpg",
+            portfolio: "https://www.linkedin.com/in/nestoranyanwu"
         },
         {
             name: "Kelechukwu Okere",
-            role: "Lead Software Architect",
-            association: "State Director of ICT, NACOS Imo",
-            image: devDavid,
-            portfolio: "https://www.linkedin.com/in/kelechi-okere-854722245/",
-            track: "Backend & Cloud"
+            role: "QA/UX Personnel",
+            image: "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569336/nacos/gallery/nacos9.jpg",
+            portfolio: "https://www.linkedin.com/in/kelechukwu-okere-7173b52a7/"
         },
         {
-            name: "Daniel Chukwuka",
-            role: "Frontend Engineer",
-            association: "Full-Stack Dev, NACOS FUTO",
-            image: devDaniel,
-            portfolio: "https://www.linkedin.com/in/daniel-maduka-a312b7345/",
-            track: "UI & Client State"
+            name: "Daniel Maduka",
+            role: "Consultant Developer",
+            image: "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569329/nacos/gallery/nacos11.jpg",
+            portfolio: "https://www.linkedin.com/in/daniel-maduka-a312b7345/"
+        },
+        {
+            name: "Dumebi Oruche",
+            role: "Associate Developer",
+            image: "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569328/nacos/gallery/nacos10.jpg",
+            portfolio: "https://www.linkedin.com/in/dumebioruche/"
         }
     ];
 
@@ -65,25 +53,27 @@ const TechTeamSection = () => {
                             {/* Overlapping Profile Photo */}
                             <div className="-mt-10 flex justify-center z-10">
                                 <div className="w-20 h-20 rounded-full p-1 bg-gradient-to-tr from-[#138601] to-[#4bd043] shadow-md">
-                                    <div className="w-full h-full rounded-full overflow-hidden border-2 border-white dark:border-[#083002] bg-[#041801]">
-                                        <img
-                                            src={member.image}
-                                            alt={member.name}
-                                            className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
-                                        />
+                                    <div className="w-full h-full rounded-full overflow-hidden border-2 border-white dark:border-[#083002] bg-[#041801] flex items-center justify-center">
+                                        {member.image ? (
+                                            <img
+                                                src={member.image}
+                                                alt={member.name}
+                                                className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full bg-gradient-to-br from-[#138601] to-[#041801] flex items-center justify-center text-white font-black text-lg tracking-wider">
+                                                {member.name.split(' ').map(n => n[0]).join('')}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
                             {/* Info & Details */}
-                            <div className="px-6 pt-3 pb-6 flex-grow flex flex-col justify-between text-center items-center">
-                                <div>
-                                    <h3 className="text-base font-bold text-black dark:text-white tracking-tight mb-0.5">{member.name}</h3>
-                                    <p className="text-xs font-semibold text-[#138601] dark:text-[#4bd043] mb-2 uppercase tracking-wider">{member.role}</p>
-
-                                    <span className="inline-block text-[10px] font-medium text-gray-800 dark:text-green-200/80 mb-5 bg-gray-50 dark:bg-[#041801] px-2.5 py-1 rounded border border-gray-200 dark:border-[#138601]/30">
-                                        {member.association}
-                                    </span>
+                            <div className="px-6 pt-4 pb-6 flex-grow flex flex-col justify-between text-center items-center">
+                                <div className="mb-6">
+                                    <h3 className="text-base font-bold text-black dark:text-white tracking-tight mb-1">{member.name}</h3>
+                                    <p className="text-xs font-semibold text-[#138601] dark:text-[#4bd043]">{member.role}</p>
                                 </div>
 
                                 <a

@@ -76,52 +76,57 @@ export async function fetchExecutivesFromSupabase() {
 
   try {
     const { data, error } = await supabase
-      .from('nacos_executives')
+      .from('media_assets')
       .select('*')
-      .order('order_index', { ascending: true });
+      .eq('category', 'executives')
+      .order('created_at', { ascending: false });
 
-    if (!error && data && Array.isArray(data) && data.length > 0) {
-      if (typeof window !== 'undefined') {
-        const dbIds = new Set(data.map(d => d.id));
-        const missingInitial = getAllInitialExecutives().filter(e => !dbIds.has(e.id));
-        const merged = [...data, ...missingInitial];
-        localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(merged));
-        window.dispatchEvent(new Event('nacos_executives_updated'));
+    if (!error && data && Array.isArray(data)) {
+      const execAssets = data.filter(d => d.entity_type === 'executive');
+      const settingsAsset = data.find(d => d.entity_type === 'executives_settings');
 
-        // Push any missing initial records to Supabase in the background
-        if (missingInitial.length > 0) {
-          supabase.from('nacos_executives').upsert(missingInitial).then(() => {}).catch(() => {});
+      if (settingsAsset && settingsAsset.image_alt) {
+        try {
+          const parsedSettings = JSON.parse(settingsAsset.image_alt);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(parsedSettings));
+            window.dispatchEvent(new Event('nacos_executives_settings_updated'));
+          }
+        } catch (e) {}
+      }
+
+      if (execAssets.length > 0) {
+        const parsedExecs = [];
+        for (const item of execAssets) {
+          try {
+            if (item.image_alt && item.image_alt.startsWith('{')) {
+              const obj = JSON.parse(item.image_alt);
+              parsedExecs.push({
+                ...obj,
+                id: obj.id || item.entity_id || item.id,
+                image: item.image_url || obj.image,
+                cloudinary_public_id: item.cloudinary_public_id || obj.cloudinary_public_id
+              });
+            }
+          } catch (e) {}
+        }
+
+        if (parsedExecs.length > 0) {
+          const remoteIds = new Set(parsedExecs.map(e => e.id));
+          const currentDefaults = INITIAL_CURRENT_EXECUTIVES.filter(e => !remoteIds.has(e.id));
+          const merged = [...parsedExecs, ...currentDefaults].filter(e => !e.id?.startsWith('past-2'));
+          merged.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
+          
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(merged));
+            window.dispatchEvent(new Event('nacos_executives_updated'));
+          }
+          return merged;
         }
       }
     }
   } catch (err) {
-    console.warn('Supabase fetch executives error:', err);
-  }
-
-  // Also sync settings from Supabase
-  try {
-    const { data: settingsData, error: settingsError } = await supabase
-      .from('nacos_executives_settings')
-      .select('*')
-      .eq('id', 'default')
-      .maybeSingle();
-
-    if (!settingsError && settingsData) {
-      const mappedSettings = {
-        heroImage: settingsData.hero_image,
-        heroTitle: settingsData.hero_title,
-        heroYear: settingsData.hero_year,
-        heroSubtitle: settingsData.hero_subtitle,
-        currentSessionTitle: settingsData.current_session_title,
-        pastSessionTitle: settingsData.past_session_title
-      };
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(mappedSettings));
-        window.dispatchEvent(new Event('nacos_executives_settings_updated'));
-      }
-    }
-  } catch (err) {
-    console.warn('Supabase fetch executives settings error:', err);
+    console.warn('Supabase fetch executives from media_assets notice:', err);
   }
 
   return getExecutives('all');
@@ -290,486 +295,8 @@ export const INITIAL_CURRENT_EXECUTIVES = [
   }
 ];
 
-// Initial Seeded Past Executives (Multi-tenure archive)
-export const INITIAL_PAST_EXECUTIVES = [
-  // 2024/2025 Tenure - Led by AKINNUBI PETER
-  {
-    id: 'past-24-1',
-    name: 'Comr. AKINNUBI PETER',
-    role: 'President',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569281/nacos/executives/nacos1.jpg',
-    category: 'past',
-    session: '2024/2025',
-    order_index: 0
-  },
-  {
-    id: 'past-24-2',
-    name: 'Comr. BENJAMIN CHIAGOZIE P.',
-    role: 'Vice President',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569282/nacos/executives/nacos2.jpg',
-    category: 'past',
-    session: '2024/2025',
-    order_index: 1
-  },
-  {
-    id: 'past-24-3',
-    name: 'Comr. OKECHUKWU CHIDERA A.',
-    role: 'Secretary General',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569283/nacos/executives/nacos3.jpg',
-    category: 'past',
-    session: '2024/2025',
-    order_index: 2
-  },
-  {
-    id: 'past-24-4',
-    name: 'Comr. OGBONNA FAVOUR A.',
-    role: 'Ass. Secretary General',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569284/nacos/executives/nacos4.jpg',
-    category: 'past',
-    session: '2024/2025',
-    order_index: 3
-  },
-  {
-    id: 'past-24-5',
-    name: 'Comr. Egwu Makuochukwu V.',
-    role: 'Treasurer',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569285/nacos/executives/nacos5.jpg',
-    category: 'past',
-    session: '2024/2025',
-    order_index: 4
-  },
-  {
-    id: 'past-24-6',
-    name: 'Barr. Comr. Chimeziri Freedom C.',
-    role: 'P.R.O',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569286/nacos/executives/nacos6.jpg',
-    category: 'past',
-    session: '2024/2025',
-    order_index: 5
-  },
-  {
-    id: 'past-24-7',
-    name: 'Comr. ABASILI GODWIN CHINEDU',
-    role: 'Director of Welfare',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569287/nacos/executives/nacos7.jpg',
-    category: 'past',
-    session: '2024/2025',
-    order_index: 6
-  },
-  {
-    id: 'past-24-8',
-    name: 'Comr. EZIHE FORTUNE C.',
-    role: 'Director of Software',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569288/nacos/executives/nacos8.jpg',
-    category: 'past',
-    session: '2024/2025',
-    order_index: 7
-  },
-
-  // 2023/2024 Tenure - Led by IHEKWOBA SUCCESS
-  {
-    id: 'past-23-1',
-    name: 'Comr. IHEKWOBA SUCCESS',
-    role: 'President',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569289/nacos/executives/nacos9.jpg',
-    category: 'past',
-    session: '2023/2024',
-    order_index: 0
-  },
-  {
-    id: 'past-23-2',
-    name: 'Comr. AMADI PROMISE C.',
-    role: 'Vice President',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569290/nacos/executives/nacos10.jpg',
-    category: 'past',
-    session: '2023/2024',
-    order_index: 1
-  },
-  {
-    id: 'past-23-3',
-    name: 'Comr. NWOKO PRECIOUS O.',
-    role: 'Secretary General',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569291/nacos/executives/nacos11.jpg',
-    category: 'past',
-    session: '2023/2024',
-    order_index: 2
-  },
-  {
-    id: 'past-23-4',
-    name: 'Comr. KALU VICTOR E.',
-    role: 'Director of Software',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569292/nacos/executives/nacos12.jpg',
-    category: 'past',
-    session: '2023/2024',
-    order_index: 3
-  },
-  {
-    id: 'past-23-5',
-    name: 'Comr. UBAH DANIEL K.',
-    role: 'Director of Welfare',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569273/nacos/executives/socials_dir_munachimso.jpg',
-    category: 'past',
-    session: '2023/2024',
-    order_index: 4
-  },
-
-  // 2022/2023 Tenure - Led by CHIKEZIE GREAT EME
-  {
-    id: 'past-22-1',
-    name: 'Comr. CHIKEZIE GREAT EME',
-    role: 'President',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569275/nacos/executives/president_irechukwu.jpg',
-    category: 'past',
-    session: '2022/2023',
-    order_index: 0
-  },
-  {
-    id: 'past-22-2',
-    name: 'Comr. EZINNE MIRACLE O.',
-    role: 'Vice President',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569279/nacos/executives/vp_chinaemerem.jpg',
-    category: 'past',
-    session: '2022/2023',
-    order_index: 1
-  },
-  {
-    id: 'past-22-3',
-    name: 'Comr. EMEKA JUDE O.',
-    role: 'Secretary General',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569277/nacos/executives/sec_gen_makuochukwu.jpg',
-    category: 'past',
-    session: '2022/2023',
-    order_index: 2
-  },
-  {
-    id: 'past-22-4',
-    name: 'Comr. OKORAFOR KINGSLEY C.',
-    role: 'Director of ICT',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569272/nacos/executives/ict_dir_ifeanyi.jpg',
-    category: 'past',
-    session: '2022/2023',
-    order_index: 3
-  },
-  {
-    id: 'past-22-5',
-    name: 'Comr. OBASI JOSHUA N.',
-    role: 'Director of Welfare',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569274/nacos/executives/sports_dir_ifeanyi.jpg',
-    category: 'past',
-    session: '2022/2023',
-    order_index: 4
-  },
-
-  // 2021/2022 Tenure - INGENIUM TECH EXECUTIVES - Led by UGHONU HECTOR
-  {
-    id: 'past-21-1',
-    name: 'Comr. Ughonu Hector',
-    role: 'President',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569281/nacos/executives/nacos1.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 0
-  },
-  {
-    id: 'past-21-2',
-    name: 'Comr. Benson Faith',
-    role: 'Vice President',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569279/nacos/executives/vp_chinaemerem.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 1
-  },
-  {
-    id: 'past-21-3',
-    name: 'Comr. Ezeigbo Austin',
-    role: 'Secretary General',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569277/nacos/executives/sec_gen_makuochukwu.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 2
-  },
-  {
-    id: 'past-21-4',
-    name: 'Comr. Aniekwu Princess',
-    role: 'Ass. Secretary General',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569268/nacos/executives/asg_chinecherem.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 3
-  },
-  {
-    id: 'past-21-5',
-    name: 'Comr. Isidore Chidinma',
-    role: 'Financial Secretary',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569269/nacos/executives/daniel_chukwuka.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 4
-  },
-  {
-    id: 'past-21-6',
-    name: 'Comr. Okopowas Iboyem',
-    role: 'Treasurer',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569278/nacos/executives/treasurer_chikamso.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 5
-  },
-  {
-    id: 'past-21-7',
-    name: 'Comr. Chinoke Charles',
-    role: 'P.R.O',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569276/nacos/executives/pro_john.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 6
-  },
-  {
-    id: 'past-21-8',
-    name: 'Comr. Nduziem Ugochukwu',
-    role: 'Director of Welfare',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569280/nacos/executives/welfare_onyoiza.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 7
-  },
-  {
-    id: 'past-21-9',
-    name: 'Comr. Ogbuefi Praise',
-    role: 'Director of Sports',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569274/nacos/executives/sports_dir_ifeanyi.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 8
-  },
-  {
-    id: 'past-21-10',
-    name: 'Comr. Eni Samson',
-    role: 'Director of Socials',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569273/nacos/executives/socials_dir_munachimso.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 9
-  },
-  {
-    id: 'past-21-11',
-    name: 'Comr. Nnobuka John',
-    role: 'ICT Director 1',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569272/nacos/executives/ict_dir_ifeanyi.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 10
-  },
-  {
-    id: 'past-21-12',
-    name: 'Comr. Nnanyerelugo Emmanuel',
-    role: 'ICT Director 2',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569271/nacos/executives/ict_asst_victory.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 11
-  },
-  {
-    id: 'past-21-13',
-    name: 'Dr. (Mrs) Juliet N. Odii',
-    role: 'Head of Department (CSC)',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569300/nacos/administration/hod_stanley.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 12
-  },
-  {
-    id: 'past-21-14',
-    name: 'Dr. (Mrs) E. C. Nwokorie',
-    role: 'Staff Adviser',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569301/nacos/administration/staff_adviser_nwokorie.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 13
-  },
-  {
-    id: 'past-21-15',
-    name: 'Comr. Onuoha Godfirst',
-    role: 'Chairman Electoral Commission',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569325/nacos/alumni/alumni_godfirst.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 14
-  },
-  {
-    id: 'past-21-16',
-    name: 'Hon. Onwunna Chimere',
-    role: 'MSRC CSC (Parliamentary)',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569276/nacos/executives/provost2_chidera.jpg',
-    category: 'past',
-    session: '2021/2022',
-    order_index: 15
-  },
-
-  // 2020/2021 Tenure - TECHI-Q EXECUTIVES - Led by ONYEKACHI FRANKLIN
-  {
-    id: 'past-20-1',
-    name: 'Comr. Onyekachi Franklin',
-    role: 'President',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569281/nacos/executives/nacos1.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 0
-  },
-  {
-    id: 'past-20-2',
-    name: 'Comr. Agim Amaka',
-    role: 'Vice President',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569282/nacos/executives/nacos2.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 1
-  },
-  {
-    id: 'past-20-3',
-    name: 'Rotr. Comr. Nwonumara Elochukwu',
-    role: 'Secretary General',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569283/nacos/executives/nacos3.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 2
-  },
-  {
-    id: 'past-20-4',
-    name: 'Comr. Emmanuel Gift',
-    role: 'Ass. Secretary General',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569284/nacos/executives/nacos4.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 3
-  },
-  {
-    id: 'past-20-5',
-    name: 'Comr. Sunday Beauty',
-    role: 'Financial Secretary',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569285/nacos/executives/nacos5.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 4
-  },
-  {
-    id: 'past-20-6',
-    name: 'Comr. Uwakwe Gloria',
-    role: 'Treasurer',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569286/nacos/executives/nacos6.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 5
-  },
-  {
-    id: 'past-20-7',
-    name: 'Comr. Ughonu Hector',
-    role: 'P.R.O',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569287/nacos/executives/nacos7.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 6
-  },
-  {
-    id: 'past-20-8',
-    name: 'Comr. Mkpa James',
-    role: 'Director of Welfare',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569288/nacos/executives/nacos8.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 7
-  },
-  {
-    id: 'past-20-9',
-    name: 'Comr. Nwanyanwu Jeffery',
-    role: 'Director of Sports',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569289/nacos/executives/nacos9.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 8
-  },
-  {
-    id: 'past-20-10',
-    name: 'Comr. Oparah Charles',
-    role: 'Director of Socials',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569290/nacos/executives/nacos10.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 9
-  },
-  {
-    id: 'past-20-11',
-    name: 'Comr. Onuoha Godfirst',
-    role: 'ICT Director 1',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569325/nacos/alumni/alumni_godfirst.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 10
-  },
-  {
-    id: 'past-20-12',
-    name: 'Comr. Okoli Chidimma',
-    role: 'ICT Director 2',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569291/nacos/executives/nacos11.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 11
-  },
-  {
-    id: 'past-20-13',
-    name: 'Comr. Chidera Uchechukwu',
-    role: 'Provost 1',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569292/nacos/executives/nacos12.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 12
-  },
-  {
-    id: 'past-20-14',
-    name: 'Comr. Owunna Chimere',
-    role: 'Provost 2',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569276/nacos/executives/provost2_chidera.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 13
-  },
-  {
-    id: 'past-20-15',
-    name: 'Prof. Aloy Onyeka PhD',
-    role: 'Head of Department (CSC)',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569300/nacos/administration/hod_stanley.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 14
-  },
-  {
-    id: 'past-20-16',
-    name: 'Mr. Njoku Obilor',
-    role: 'Staff Adviser',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569301/nacos/administration/staff_adviser_nwokorie.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 15
-  },
-  {
-    id: 'past-20-17',
-    name: 'Rotr. Comr. Ibingha Favour',
-    role: 'ICT Director Imo State',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569272/nacos/executives/ict_dir_ifeanyi.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 16
-  },
-  {
-    id: 'past-20-18',
-    name: 'Hon. Rotr. Amaechi Sixtus',
-    role: 'MSRC CSC (Parliamentary)',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569274/nacos/executives/msrc_ruby.jpg',
-    category: 'past',
-    session: '2020/2021',
-    order_index: 17
-  }
-];
+// Initial Seeded Past Executives (Dynamic - only populated from Admin Dashboard)
+export const INITIAL_PAST_EXECUTIVES = [];
 
 // Helper to get all seeded items initially
 function getAllInitialExecutives() {
@@ -828,6 +355,24 @@ export async function updateExecutivesSettings(newSettings) {
     console.warn('Supabase sync warning for executives settings:', err);
   }
 
+  try {
+    if (supabase) {
+      await supabase.from('media_assets').upsert({
+        cloudinary_public_id: 'nacos/executives/page_settings',
+        image_url: updated.heroImage || DEFAULT_EXECUTIVES_PAGE_SETTINGS.heroImage,
+        image_alt: JSON.stringify(updated),
+        media_type: 'image',
+        folder: 'nacos/executives',
+        category: 'executives',
+        entity_type: 'executives_settings',
+        entity_id: 'settings_default',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'cloudinary_public_id' });
+    }
+  } catch (e) {
+    console.warn('Universal settings live sync notice:', e);
+  }
+
   return updated;
 }
 
@@ -859,6 +404,7 @@ export function getExecutives(category = 'all') {
       }
     }
 
+    list = list.filter(e => !e.id?.startsWith('past-2'));
     // Sort by order_index ascending
     list.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
 
@@ -928,6 +474,24 @@ export async function saveExecutive(execData) {
     console.warn('Supabase sync warning for saveExecutive:', err);
   }
 
+  try {
+    if (supabase) {
+      await supabase.from('media_assets').upsert({
+        cloudinary_public_id: savedItem.cloudinary_public_id || ('nacos/executives/' + savedItem.id),
+        image_url: savedItem.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569275/nacos/executives/president_irechukwu.jpg',
+        image_alt: JSON.stringify(savedItem),
+        media_type: 'image',
+        folder: 'nacos/executives',
+        category: 'executives',
+        entity_type: 'executive',
+        entity_id: savedItem.id,
+        updated_at: now
+      }, { onConflict: 'cloudinary_public_id' });
+    }
+  } catch (e) {
+    console.warn('Universal executive live sync notice:', e);
+  }
+
   // Admin Notification
   addAdminNotification({
     type: 'executives',
@@ -956,6 +520,14 @@ export async function deleteExecutive(id) {
     }
   } catch (err) {
     console.warn('Supabase sync warning for deleteExecutive:', err);
+  }
+
+  try {
+    if (supabase) {
+      await supabase.from('media_assets').delete().eq('entity_id', id);
+    }
+  } catch (e) {
+    console.warn('Universal executive live delete notice:', e);
   }
 
   if (target) {
@@ -1010,6 +582,11 @@ export async function moveExecutiveToPast(id, pastSessionLabel = '2024/2025') {
     console.warn('Supabase sync error on moveExecutiveToPast:', err);
   }
 
+  const movedItem = updatedList.find(e => e.id === id);
+  if (movedItem) {
+    saveExecutive(movedItem).catch(() => {});
+  }
+
   return updatedList;
 }
 
@@ -1050,6 +627,11 @@ export async function moveExecutiveToCurrent(id, currentSessionLabel = '2025/202
     }
   } catch (err) {
     console.warn('Supabase sync error on moveExecutiveToCurrent:', err);
+  }
+
+  const movedItem = updatedList.find(e => e.id === id);
+  if (movedItem) {
+    saveExecutive(movedItem).catch(() => {});
   }
 
   return updatedList;
@@ -1109,6 +691,13 @@ export async function archiveCurrentTenure(archiveSession = '2024/2025', newTenu
   } catch (err) {
     console.warn('Supabase sync error on archiveCurrentTenure:', err);
   }
+
+  // Sync all archived records to media_assets for universal multi-device live sync
+  try {
+    for (const item of updatedList) {
+      saveExecutive(item).catch(() => {});
+    }
+  } catch (e) {}
 
   addAdminNotification({
     type: 'executives',

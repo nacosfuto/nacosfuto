@@ -349,7 +349,7 @@ const NacosSection = () => {
 
             <ScrollToTopLink
               to="/about/nacos-executives"
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer group"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-sm rounded shadow-sm transition-colors cursor-pointer group min-h-[42px]"
             >
               <span>Meet All NACOS Executives</span>
               <FiArrowRight className="text-xs transition-transform duration-200 group-hover:translate-x-1" />

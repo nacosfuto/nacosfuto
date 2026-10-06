@@ -72,12 +72,13 @@ Ensure the following variables are configured in your root `.env` (and Vercel en
 
 ```env
 # -----------------------------------------------------------------------------
-# Bachs Payment Gateway (ID Card Issuance)
+# Bachs Payment Gateway (ID Card Issuance) - Live Production
 # -----------------------------------------------------------------------------
-BACHS_ENVIRONMENT=sandbox                        # Use 'production' for live payments
-BACHS_API_KEY=your_bachs_api_key_here            # Private server-side API key (Never expose in frontend)
-BACHS_WEBHOOK_SECRET=your_bachs_webhook_secret_here # HMAC-SHA256 secret for webhook verification
-BACHS_ID_CARD_PRODUCT_ID=nacos_id_card_2026      # Dedicated product identifier
+BACHS_ENVIRONMENT=production                    # Live production payments
+BACHS_BASE_URL=https://api.bachs.io              # Live Bachs API endpoint
+BACHS_API_KEY=your_live_bachs_api_key            # Private server-side live API key (Never expose in frontend)
+BACHS_WEBHOOK_SECRET=your_live_webhook_secret    # HMAC-SHA256 secret for live webhook verification
+BACHS_ID_CARD_PRODUCT_ID=prod_nacos_id_card      # Dedicated product identifier
 NACOS_ID_CARD_AMOUNT=5000                        # Authoritative fee in NGN
 NACOS_ID_CARD_CURRENCY=NGN                       # Authoritative currency
 ```

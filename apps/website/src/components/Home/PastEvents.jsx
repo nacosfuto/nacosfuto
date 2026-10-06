@@ -39,10 +39,6 @@ const UpcomingEvents = () => {
     <section className="py-20 bg-white dark:bg-[#041801] transition-colors duration-300">
       <div className="site-container">
         <div className="text-center mb-12 max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs uppercase tracking-wider mb-3 border border-amber-500/20">
-            <FaStar className="text-xs" />
-            <span>Spotlight & Highlights</span>
-          </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-black dark:text-white tracking-tight mb-3">
             Featured <span className="text-[#138601] dark:text-[#4bd043]">Events</span>
           </h2>

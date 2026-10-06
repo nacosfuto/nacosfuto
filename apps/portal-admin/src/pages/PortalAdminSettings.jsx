@@ -14,7 +14,7 @@ import {
   ShieldAlert,
   UserCheck
 } from 'lucide-react';
-import { getIdCardSettings, updateIdCardFee } from '@nacos/supabase/idCard';
+import { getIdCardSettings, updateIdCardFee, getDuesSettings, updateDuesFee } from '@nacos/supabase';
 import { CURRENT_ACADEMIC_YEAR_START, getAcademicSession } from '@nacos/config/academic';
 import { useTheme } from '../context/ThemeContext';
 import { getLocalPortalAdmins, updateAdminAssignedLevel, getPortalAdminSession } from '@nacos/auth';
@@ -23,7 +23,8 @@ export const PortalAdminSettings = () => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  const [idCardFee, setIdCardFee] = useState(2500);
+  const [idCardFee, setIdCardFee] = useState(5000);
+  const [duesFee, setDuesFee] = useState(2500);
   const [academicSession, setAcademicSession] = useState('2026/2027');
   const [allowRegistration, setAllowRegistration] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -35,9 +36,14 @@ export const PortalAdminSettings = () => {
 
   useEffect(() => {
     try {
-      const s = getIdCardSettings();
-      if (s?.id_card_fee) setIdCardFee(s.id_card_fee);
-      if (s?.academic_session) setAcademicSession(s.academic_session);
+      getIdCardSettings().then(s => {
+        if (s?.id_card_fee) setIdCardFee(s.id_card_fee);
+        if (s?.academic_session) setAcademicSession(s.academic_session);
+      });
+
+      getDuesSettings().then(ds => {
+        if (ds?.dues_amount) setDuesFee(ds.dues_amount);
+      });
 
       const session = getPortalAdminSession();
       setCurrentAdmin(session);
@@ -62,6 +68,7 @@ export const PortalAdminSettings = () => {
     e.preventDefault();
     try {
       updateIdCardFee(Number(idCardFee));
+      updateDuesFee(Number(duesFee), academicSession);
     } catch (e) {}
 
     setSavedSuccess(true);
@@ -187,10 +194,30 @@ export const PortalAdminSettings = () => {
                       ? 'bg-black/30 border-white/10 text-white focus:border-emerald-500/60' 
                       : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-emerald-500'
                   }`}
+                  placeholder="e.g. 5000"
                 />
+                <span className="text-[10px] text-slate-400 mt-1 block">Live Bachs ID Card fee charged to students</span>
               </div>
 
-              <div className="flex items-center pt-6">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Departmental Dues Fee (₦)
+                </label>
+                <input
+                  type="number"
+                  value={duesFee}
+                  onChange={(e) => setDuesFee(e.target.value)}
+                  className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-colors ${
+                    isDark 
+                      ? 'bg-black/30 border-white/10 text-white focus:border-emerald-500/60' 
+                      : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-emerald-500'
+                  }`}
+                  placeholder="e.g. 2500"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">Live Bachs Dues clearance fee charged to students</span>
+              </div>
+
+              <div className="sm:col-span-2 pt-2">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -200,6 +227,17 @@ export const PortalAdminSettings = () => {
                   />
                   <span className="text-xs font-semibold">Enable Student Portal Self-Registration</span>
                 </label>
+              </div>
+
+              {/* Bachs Live Gateway Banner */}
+              <div className="sm:col-span-2 mt-2 p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-800/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2.5 text-emerald-300">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="font-bold">Bachs Universal Payment Gateway Active (Live Production)</span>
+                </div>
+                <div className="text-[11px] text-emerald-400/80 font-mono">
+                  All channels: ID Card, Dues, Events &amp; Custom Fees
+                </div>
               </div>
             </div>
           </div>

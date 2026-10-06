@@ -381,3 +381,37 @@ CREATE POLICY "Admins full manage yellow pages" ON public.yellow_pages FOR ALL U
 
 DROP POLICY IF EXISTS "Admins full manage department administration" ON public.department_administration;
 CREATE POLICY "Admins full manage department administration" ON public.department_administration FOR ALL USING (true);
+
+-- =========================================================================
+-- 8. UNIVERSAL PAYMENT FEES CATALOG (For Admin-configurable fees across the platform)
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.payment_fees (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  fee_key VARCHAR(50) UNIQUE NOT NULL, -- 'id_card', 'departmental_dues', 'event_ticket', 'merchandise'
+  title TEXT NOT NULL,
+  amount NUMERIC(10, 2) NOT NULL DEFAULT 5000.00,
+  currency VARCHAR(10) NOT NULL DEFAULT 'NGN',
+  description TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+INSERT INTO public.payment_fees (fee_key, title, amount, description)
+VALUES 
+  ('id_card', 'NACOS Student ID Card', 5000.00, 'Biometric digital & physical student identification card issuance'),
+  ('departmental_dues', 'Departmental Association Dues', 2500.00, 'Annual NACOS FUTO departmental dues and clearance'),
+  ('event_ticket', 'NACOS Event / Hackathon Ticket', 0.00, 'Departmental event registration ticket')
+ON CONFLICT (fee_key) DO UPDATE
+SET amount = EXCLUDED.amount,
+    title = EXCLUDED.title,
+    updated_at = NOW();
+
+ALTER TABLE public.payment_fees ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read payment fees" ON public.payment_fees;
+CREATE POLICY "Public read payment fees" ON public.payment_fees FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Admin manage payment fees" ON public.payment_fees;
+CREATE POLICY "Admin manage payment fees" ON public.payment_fees FOR ALL USING (true);
+

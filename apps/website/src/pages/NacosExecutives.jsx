@@ -25,20 +25,13 @@ const NacosExecutives = () => {
   const [selectedTenure, setSelectedTenure] = useState('');
 
   const tenureList = useMemo(() => {
-    const leaderMap = {
-      '2024/2025': 'AKINNUBI PETER',
-      '2023/2024': 'IHEKWOBA SUCCESS',
-      '2022/2023': 'CHIKEZIE GREAT EME',
-      '2021/2022': 'UGHONU HECTOR',
-      '2020/2021': 'ONYEKACHI FRANKLIN'
-    };
-    const set = new Set(['2024/2025', '2023/2024', '2022/2023', '2021/2022', '2020/2021']);
+    const set = new Set();
     pastExecutives.forEach(e => {
       if (e.session) set.add(e.session);
     });
     return Array.from(set).sort().reverse().map(session => {
       const pres = pastExecutives.find(e => (e.session === session) && (e.role?.toLowerCase().includes('president') && !e.role?.toLowerCase().includes('vice')));
-      const leader = pres?.name ? pres.name.replace(/^comr\.?\s+/i, '').replace(/^high comrade\s+/i, '') : (leaderMap[session] || 'NACOS President');
+      const leader = pres?.name ? pres.name.replace(/^comr\.?\s+/i, '').replace(/^high comrade\s+/i, '') : 'Past Executives';
       return { session, leader };
     });
   }, [pastExecutives]);
@@ -208,28 +201,35 @@ const NacosExecutives = () => {
               </p>
             </div>
 
-            {/* Simple Tenure Dropdown Selector */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-xl mx-auto mb-10 px-4">
-              <label htmlFor="tenure-dropdown-select" className="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                Select Past Tenure:
-              </label>
-              <div className="relative w-full max-w-sm">
-                <select
-                  id="tenure-dropdown-select"
-                  value={selectedTenure}
-                  onChange={(e) => setSelectedTenure(e.target.value)}
-                  className="w-full appearance-none px-4 py-3 pr-10 rounded-xl border font-semibold text-sm bg-white dark:bg-[#083002] border-gray-300 dark:border-[#138601]/50 text-gray-900 dark:text-white shadow-sm hover:border-[#138601] focus:outline-none focus:ring-2 focus:ring-[#138601] cursor-pointer transition-all"
-                >
-                  <option value="">-- Choose Past Tenure --</option>
-                  {availableTenures.map((session) => (
-                    <option key={session} value={session} className="text-gray-900 dark:text-white dark:bg-gray-900">
-                      {session} Academic Session
-                    </option>
-                  ))}
-                </select>
-                <FiChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-green-600 dark:text-green-400 text-lg" />
+            {availableTenures.length === 0 ? (
+              <div className="text-center py-8 px-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No past executive tenures archived yet. Past councils will appear here once published or archived from the dashboard.
+                </p>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-xl mx-auto mb-10 px-4">
+                <label htmlFor="tenure-dropdown-select" className="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  Select Past Tenure:
+                </label>
+                <div className="relative w-full max-w-sm">
+                  <select
+                    id="tenure-dropdown-select"
+                    value={selectedTenure}
+                    onChange={(e) => setSelectedTenure(e.target.value)}
+                    className="w-full appearance-none px-4 py-3 pr-10 rounded-xl border font-semibold text-sm bg-white dark:bg-[#083002] border-gray-300 dark:border-[#138601]/50 text-gray-900 dark:text-white shadow-sm hover:border-[#138601] focus:outline-none focus:ring-2 focus:ring-[#138601] cursor-pointer transition-all"
+                  >
+                    <option value="">-- Choose Past Tenure --</option>
+                    {availableTenures.map((session) => (
+                      <option key={session} value={session} className="text-gray-900 dark:text-white dark:bg-gray-900">
+                        {session} Academic Session
+                      </option>
+                    ))}
+                  </select>
+                  <FiChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-green-600 dark:text-green-400 text-lg" />
+                </div>
+              </div>
+            )}
 
             {/* Display Executives for Selected Tenure - Hidden except when a tenure is chosen */}
             {selectedTenure && (
