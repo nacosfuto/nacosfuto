@@ -240,8 +240,8 @@ const News = () => {
 
         {/* Modal for Full Article View - Full Screen */}
         {activeArticleModal && (
-          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md overflow-y-auto flex flex-col">
-            <div className="bg-white dark:bg-[#083002] w-full min-h-screen flex flex-col">
+          <div className="fixed inset-0 z-50 bg-white dark:bg-[#083002] overflow-y-auto">
+            <div className="w-full min-h-screen flex flex-col bg-white dark:bg-[#083002]">
               {/* Header Cover Banner */}
               <div className="relative h-72 sm:h-96 md:h-[420px] w-full bg-gray-950 shrink-0">
                 <img
@@ -252,7 +252,7 @@ const News = () => {
                 <button
                   type="button"
                   onClick={() => setActiveArticleModal(null)}
-                  className="fixed sm:absolute top-4 right-4 sm:top-6 sm:right-6 z-50 w-10 h-10 rounded-full bg-black/75 hover:bg-black text-white flex items-center justify-center text-2xl font-bold transition-all shadow-xl cursor-pointer hover:scale-105"
+                  className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50 w-11 h-11 rounded-full bg-black/75 hover:bg-black text-white flex items-center justify-center text-2xl font-bold transition-all shadow-xl cursor-pointer hover:scale-105"
                   title="Close"
                   aria-label="Close"
                 >
@@ -264,7 +264,7 @@ const News = () => {
               </div>
 
               {/* Formal Article Details & Body Content */}
-              <div className="p-6 sm:p-10 md:p-12 max-w-4xl w-full mx-auto space-y-4 flex-grow">
+              <div className="p-6 sm:p-10 md:p-12 max-w-4xl w-full mx-auto space-y-4 flex-grow pb-24">
                 <div className="flex items-center gap-4 text-xs sm:text-sm text-black/60 dark:text-green-200/60 flex-wrap">
                   <span>{activeArticleModal.date}</span>
                   <span>&bull;</span>
@@ -284,16 +284,6 @@ const News = () => {
                   <p className="whitespace-pre-line leading-relaxed">
                     {activeArticleModal.content || activeArticleModal.summary || activeArticleModal.excerpt}
                   </p>
-                </div>
-
-                <div className="pt-6 pb-12 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setActiveArticleModal(null)}
-                    className="px-6 py-2.5 bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-sm rounded-xl transition-colors cursor-pointer shadow-md"
-                  >
-                    Close Article
-                  </button>
                 </div>
               </div>
             </div>
