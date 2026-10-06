@@ -1349,32 +1349,69 @@ CREATE POLICY "Admins manage id_card_settings" ON public.id_card_settings FOR AL
 -- 15i. Bachs Payments & Webhooks Table
 CREATE TABLE IF NOT EXISTS public.payments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  tx_ref TEXT UNIQUE NOT NULL,
-  amount NUMERIC(10,2) NOT NULL,
-  currency TEXT DEFAULT 'NGN' NOT NULL,
+  student_id TEXT,
+  registration_number VARCHAR(30),
+  payment_type VARCHAR(50) DEFAULT 'ID_CARD',
+  provider VARCHAR(50) DEFAULT 'BACHS',
+  provider_payment_id TEXT,
+  provider_checkout_id TEXT,
+  amount NUMERIC(10, 2) DEFAULT 5000.00,
+  currency VARCHAR(10) DEFAULT 'NGN',
+  status VARCHAR(30) DEFAULT 'pending',
+  reference TEXT,
+  tx_ref TEXT,
   student_name TEXT,
   matric_number TEXT,
   email TEXT,
-  payment_type TEXT DEFAULT 'id_card',
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'successful', 'failed', 'abandoned')),
   bachs_reference TEXT,
   gateway_response JSONB,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  paid_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS student_id TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS registration_number VARCHAR(30);
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS payment_type VARCHAR(50) DEFAULT 'ID_CARD';
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS provider VARCHAR(50) DEFAULT 'BACHS';
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS provider_payment_id TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS provider_checkout_id TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS amount NUMERIC(10, 2) DEFAULT 5000.00;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'NGN';
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'pending';
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS reference TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS tx_ref TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS student_name TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS matric_number TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS bachs_reference TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS gateway_response JSONB;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS public.webhook_events (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  event_id TEXT UNIQUE NOT NULL,
-  event_type TEXT NOT NULL,
-  payload JSONB NOT NULL,
+  provider VARCHAR(50) DEFAULT 'BACHS',
+  event_id TEXT,
+  event_type TEXT,
+  payload JSONB,
   processed BOOLEAN DEFAULT false,
   processed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS provider VARCHAR(50) DEFAULT 'BACHS';
+ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS event_id TEXT;
+ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS event_type TEXT;
+ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS payload JSONB;
+ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS processed BOOLEAN DEFAULT false;
+ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_payments_reference ON public.payments (reference);
 CREATE INDEX IF NOT EXISTS idx_payments_tx_ref ON public.payments (tx_ref);
-CREATE INDEX IF NOT EXISTS idx_payments_matric ON public.payments (matric_number);
+CREATE INDEX IF NOT EXISTS idx_payments_student ON public.payments (student_id);
+CREATE INDEX IF NOT EXISTS idx_payments_reg ON public.payments (registration_number);
 CREATE INDEX IF NOT EXISTS idx_webhook_event_id ON public.webhook_events (event_id);
 
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
