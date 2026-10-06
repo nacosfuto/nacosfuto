@@ -132,25 +132,15 @@ const DUES_SETTINGS_KEY = 'nacos_dues_settings_db';
  */
 export async function getDuesSettings() {
   const defaultSettings = {
-    id: 'default',
+    id: 'dues',
     dues_amount: 2500,
     academic_session: '2026/2027',
     is_open: true,
     updated_at: new Date().toISOString()
   };
 
-  try {
-    const cached = localStorage.getItem(DUES_SETTINGS_KEY);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (parsed?.dues_amount) defaultSettings.dues_amount = Number(parsed.dues_amount);
-      if (parsed?.academic_session) defaultSettings.academic_session = parsed.academic_session;
-    }
-  } catch (e) {}
-
-  try {
-    if (supabase) {
-      // 1. Authoritative check on live Supabase id_card_settings table (id: 'dues')
+  if (supabase) {
+    try {
       const { data: duesRow, error } = await supabase
         .from('id_card_settings')
         .select('*')
@@ -158,43 +148,17 @@ export async function getDuesSettings() {
         .maybeSingle();
 
       if (!error && duesRow && duesRow.id_card_fee && !isNaN(Number(duesRow.id_card_fee))) {
-        const result = {
-          ...defaultSettings,
+        return {
+          id: 'dues',
           dues_amount: Number(duesRow.id_card_fee),
           academic_session: duesRow.academic_session || defaultSettings.academic_session,
           is_open: duesRow.is_application_open ?? true,
           updated_at: duesRow.updated_at
         };
-        try { localStorage.setItem(DUES_SETTINGS_KEY, JSON.stringify(result)); } catch (_) {}
-        return result;
       }
-
-      // 2. Check media_assets fallback
-      const { data: mediaRow } = await supabase
-        .from('media_assets')
-        .select('image_alt')
-        .eq('category', 'general')
-        .eq('entity_type', 'dues_settings')
-        .maybeSingle();
-
-      if (mediaRow?.image_alt) {
-        try {
-          const parsed = JSON.parse(mediaRow.image_alt);
-          if (parsed?.dues_amount && !isNaN(Number(parsed.dues_amount))) {
-            const result = {
-              ...defaultSettings,
-              dues_amount: Number(parsed.dues_amount),
-              academic_session: parsed.academic_session || defaultSettings.academic_session,
-              updated_at: parsed.updated_at || mediaRow.updated_at
-            };
-            try { localStorage.setItem(DUES_SETTINGS_KEY, JSON.stringify(result)); } catch (_) {}
-            return result;
-          }
-        } catch (_) {}
-      }
+    } catch (err) {
+      console.warn('[Dues Settings Fetch Warning]:', err.message);
     }
-  } catch (err) {
-    console.warn('[Dues Settings Fetch Warning]:', err.message);
   }
 
   return defaultSettings;

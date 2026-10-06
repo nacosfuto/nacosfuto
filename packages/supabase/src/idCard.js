@@ -38,8 +38,8 @@ export function getLocalIdSettingsDatabase() {
 }
 
 export async function getIdCardSettings() {
-  try {
-    if (supabase) {
+  if (supabase) {
+    try {
       const { data, error } = await supabase
         .from('id_card_settings')
         .select('*')
@@ -47,33 +47,67 @@ export async function getIdCardSettings() {
         .maybeSingle();
 
       if (!error && data && data.id_card_fee) {
-        try {
-          localStorage.setItem(ID_SETTINGS_STORAGE_KEY, JSON.stringify(data));
-        } catch (_) {}
-        return data;
+        return {
+          id: 'default',
+          id_card_fee: Number(data.id_card_fee),
+          academic_session: data.academic_session || '2026/2027',
+          is_application_open: data.is_application_open ?? true,
+          updated_at: data.updated_at
+        };
       }
-
-      // Check media_assets fallback
-      const { data: mediaData } = await supabase
-        .from('media_assets')
-        .select('metadata')
-        .eq('asset_type', 'id_card_settings')
-        .eq('title', 'default')
-        .maybeSingle();
-
-      if (mediaData?.metadata?.id_card_fee) {
-        const merged = { ...getLocalIdSettingsDatabase(), ...mediaData.metadata };
-        try {
-          localStorage.setItem(ID_SETTINGS_STORAGE_KEY, JSON.stringify(merged));
-        } catch (_) {}
-        return merged;
-      }
+    } catch (e) {
+      console.warn('Supabase ID settings notice:', e);
     }
-  } catch (e) {
-    // Offline fallback
   }
 
   return getLocalIdSettingsDatabase();
+}
+
+export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicSession, allowRegistration }) {
+  const feeNum = Number(idCardFee);
+  const duesNum = Number(duesFee);
+  const session = String(academicSession || '2026/2027').trim();
+  const isOpen = Boolean(allowRegistration);
+  const now = new Date().toISOString();
+
+  if (isNaN(feeNum) || feeNum < 0) {
+    return { error: 'Please enter a valid positive ID Card fee amount.' };
+  }
+  if (isNaN(duesNum) || duesNum < 0) {
+    return { error: 'Please enter a valid positive Dues fee amount.' };
+  }
+
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('id_card_settings')
+        .upsert([
+          {
+            id: 'default',
+            id_card_fee: feeNum,
+            academic_session: session,
+            is_application_open: isOpen,
+            updated_at: now
+          },
+          {
+            id: 'dues',
+            id_card_fee: duesNum,
+            academic_session: session,
+            is_application_open: true,
+            updated_at: now
+          }
+        ], { onConflict: 'id' });
+
+      if (error) {
+        console.error('[Portal Settings Database Save Error]:', error);
+        return { error: `Database error: ${error.message}` };
+      }
+    } catch (e) {
+      return { error: e.message || 'Failed to save settings to database' };
+    }
+  }
+
+  return { success: true };
 }
 
 export async function updateIdCardFee(newFee, session = null, allowRegistration = null) {
@@ -89,7 +123,6 @@ export async function updateIdCardFee(newFee, session = null, allowRegistration 
     settings.is_application_open = Boolean(allowRegistration);
   }
   settings.updated_at = new Date().toISOString();
-  localStorage.setItem(ID_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
 
   try {
     if (supabase) {
@@ -101,7 +134,6 @@ export async function updateIdCardFee(newFee, session = null, allowRegistration 
         updated_at: new Date().toISOString()
       };
 
-      // 1. Direct authoritative database update
       const { error: dbError } = await supabase
         .from('id_card_settings')
         .upsert(payload);
@@ -110,27 +142,11 @@ export async function updateIdCardFee(newFee, session = null, allowRegistration 
         console.error('[ID Settings Database Error]:', dbError);
         return { error: `Database error: ${dbError.message}` };
       }
-
-      // 2. Open media_assets sync pipeline for cross-device resilience
-      try {
-        await supabase
-          .from('media_assets')
-          .upsert({
-            asset_type: 'id_card_settings',
-            title: 'default',
-            caption: `ID Card Configured Fee: ₦${feeNumber.toLocaleString()}`,
-            metadata: payload
-          }, { onConflict: 'asset_type,title' });
-      } catch (_) {}
     }
   } catch (e) {
     console.error('[ID Settings Sync Error]:', e);
     return { error: e.message || 'Failed to update database' };
   }
-
-  try {
-    window.dispatchEvent(new CustomEvent('nacos_id_card_settings_updated', { detail: settings }));
-  } catch (e) {}
 
   return { success: true, settings };
 }

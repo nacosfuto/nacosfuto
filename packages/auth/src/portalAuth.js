@@ -273,41 +273,35 @@ export async function fetchPortalAdminsFromSupabase() {
  * @param {string} level 'all' | '100' | '200' | '300' | '400' | '500'
  */
 export async function updateAdminAssignedLevel(adminId, level) {
-  let admins = await fetchPortalAdminsFromSupabase();
   const cleanLevel = String(level || 'all').toLowerCase().replace(' level', '');
-  const updated = admins.map(a => {
-    if (a.id === adminId || a.user_id === adminId) {
-      return { ...a, assigned_level: cleanLevel };
+
+  // 1. Update directly in Supabase admin_scopes table
+  if (supabase) {
+    try {
+      const { error: dbError } = await supabase
+        .from('admin_scopes')
+        .update({ assigned_level: cleanLevel, updated_at: new Date().toISOString() })
+        .or(`id.eq.${adminId},user_id.eq.${adminId}`);
+
+      if (dbError) {
+        console.error('[Admin Level Update DB Error]:', dbError);
+        return { error: `Database error: ${dbError.message}` };
+      }
+    } catch (err) {
+      return { error: err.message };
     }
-    return a;
-  });
+  }
+
+  // 2. Fetch fresh live admins directly from Supabase
+  const liveAdmins = await fetchPortalAdminsFromSupabase();
 
   if (typeof window !== 'undefined') {
-    localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(updated));
-    // If the currently logged in admin had their level updated, update active session
     const current = getPortalAdminSession();
     if (current && (current.id === adminId || current.user_id === adminId)) {
       current.assigned_level = cleanLevel;
       localStorage.setItem(PORTAL_ADMIN_SESSION_KEY, JSON.stringify(current));
     }
-    window.dispatchEvent(new Event('nacos_portal_admin_updated'));
   }
 
-  // Sync to Supabase id_card_settings store_portal_admins row & admin_scopes table
-  try {
-    if (supabase) {
-      await supabase.from('id_card_settings').upsert({
-        id: 'store_portal_admins',
-        academic_session: JSON.stringify(updated),
-        updated_at: new Date().toISOString()
-      });
-
-      await supabase
-        .from('admin_scopes')
-        .update({ assigned_level: cleanLevel })
-        .or(`id.eq.${adminId},user_id.eq.${adminId}`);
-    }
-  } catch (e) {}
-
-  return { success: true, admins: updated };
+  return { success: true, admins: liveAdmins };
 }

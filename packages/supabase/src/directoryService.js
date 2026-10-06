@@ -336,36 +336,43 @@ export async function submitYellowPageBusiness(businessData) {
     window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
   }
 
-  // Authoritative live sync to Supabase store_yellow_pages
-  try {
-    if (supabase) {
+  // 1. Direct fast write to Supabase yellow_pages table
+  if (supabase) {
+    try {
+      await supabase.from('yellow_pages').upsert({
+        id: newBusiness.id,
+        name: newBusiness.name,
+        category: newBusiness.category,
+        secondary_categories: newBusiness.secondaryCategories || [],
+        owner_name: newBusiness.ownerName,
+        owner_level: newBusiness.ownerLevel,
+        description: newBusiness.description,
+        location: newBusiness.location,
+        phone: newBusiness.phone,
+        whatsapp: newBusiness.whatsapp,
+        email: newBusiness.email,
+        rating: newBusiness.rating || 5.0,
+        reviews_count: newBusiness.reviewsCount || 0,
+        image: newBusiness.image,
+        cloudinary_public_id: newBusiness.cloudinary_public_id,
+        image_position: newBusiness.imagePosition || 'top center',
+        status: newBusiness.status || 'pending',
+        updated_at: now
+      });
+    } catch (err) {
+      console.warn('yellow_pages direct save error:', err);
+    }
+  }
+
+  // 2. Authoritative sync to Supabase store_yellow_pages
+  if (supabase) {
+    try {
       await supabase.from('id_card_settings').upsert({
         id: 'store_yellow_pages',
         academic_session: JSON.stringify(updated),
         updated_at: now
       });
-    }
-  } catch (err) {
-    console.warn('Supabase store_yellow_pages save error:', err);
-  }
-
-  // Real-time universal live sync to media_assets
-  try {
-    if (supabase) {
-      await supabase.from('media_assets').upsert({
-        cloudinary_public_id: newBusiness.cloudinary_public_id || ('nacos/yellow_pages/' + newBusiness.id),
-        image_url: newBusiness.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569313/nacos/yellow_pages/flyer_peacemaker.jpg',
-        image_alt: JSON.stringify(newBusiness),
-        media_type: 'image',
-        folder: 'nacos/yellow_pages',
-        category: 'yellow_pages',
-        entity_type: 'yellow_pages',
-        entity_id: newBusiness.id,
-        updated_at: now
-      }, { onConflict: 'cloudinary_public_id' });
-    }
-  } catch (e) {
-    console.warn('Live sync yellow pages notice:', e);
+    } catch (_) {}
   }
 
   // Trigger real-time Admin notification
@@ -405,36 +412,43 @@ export async function updateYellowPageBusiness(id, updates) {
     window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
   }
 
-  // Authoritative live sync to Supabase store_yellow_pages
-  try {
-    if (supabase) {
+  // 1. Direct fast write to Supabase yellow_pages table
+  if (supabase) {
+    try {
+      await supabase.from('yellow_pages').upsert({
+        id: updatedItem.id,
+        name: updatedItem.name,
+        category: updatedItem.category,
+        secondary_categories: updatedItem.secondaryCategories || [],
+        owner_name: updatedItem.ownerName,
+        owner_level: updatedItem.ownerLevel,
+        description: updatedItem.description,
+        location: updatedItem.location,
+        phone: updatedItem.phone,
+        whatsapp: updatedItem.whatsapp,
+        email: updatedItem.email,
+        rating: updatedItem.rating || 5.0,
+        reviews_count: updatedItem.reviewsCount || 0,
+        image: updatedItem.image,
+        cloudinary_public_id: updatedItem.cloudinary_public_id,
+        image_position: updatedItem.imagePosition || 'top center',
+        status: updatedItem.status || 'approved',
+        updated_at: now
+      });
+    } catch (err) {
+      console.warn('yellow_pages direct update error:', err);
+    }
+  }
+
+  // 2. Authoritative sync to Supabase store_yellow_pages
+  if (supabase) {
+    try {
       await supabase.from('id_card_settings').upsert({
         id: 'store_yellow_pages',
         academic_session: JSON.stringify(updatedList),
         updated_at: now
       });
-    }
-  } catch (err) {
-    console.warn('Supabase store_yellow_pages update error:', err);
-  }
-
-  // Real-time universal live sync to media_assets
-  try {
-    if (supabase) {
-      await supabase.from('media_assets').upsert({
-        cloudinary_public_id: updatedItem.cloudinary_public_id || ('nacos/yellow_pages/' + updatedItem.id),
-        image_url: updatedItem.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569313/nacos/yellow_pages/flyer_peacemaker.jpg',
-        image_alt: JSON.stringify(updatedItem),
-        media_type: 'image',
-        folder: 'nacos/yellow_pages',
-        category: 'yellow_pages',
-        entity_type: 'yellow_pages',
-        entity_id: updatedItem.id,
-        updated_at: now
-      }, { onConflict: 'cloudinary_public_id' });
-    }
-  } catch (e) {
-    console.warn('Live sync yellow pages update notice:', e);
+    } catch (_) {}
   }
 
   return updatedItem;
@@ -456,26 +470,19 @@ export async function deleteYellowPageBusiness(id) {
     window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
   }
 
-  // Authoritative live sync to Supabase store_yellow_pages
-  try {
-    if (supabase) {
+  // Direct fast delete from Supabase yellow_pages table
+  if (supabase) {
+    try {
+      await supabase.from('yellow_pages').delete().eq('id', id);
+    } catch (e) {}
+
+    try {
       await supabase.from('id_card_settings').upsert({
         id: 'store_yellow_pages',
         academic_session: JSON.stringify(updated),
         updated_at: new Date().toISOString()
       });
-    }
-  } catch (err) {
-    console.warn('Supabase store_yellow_pages delete error:', err);
-  }
-
-  try {
-    if (supabase) {
-      await supabase.from('media_assets').delete().eq('entity_id', id);
-      await supabase.from('yellow_pages').delete().eq('id', id);
-    }
-  } catch (e) {
-    console.warn('Supabase delete error:', e);
+    } catch (_) {}
   }
   return updated;
 }
@@ -593,23 +600,6 @@ export async function submitCampusClub(clubData) {
     console.warn('Supabase store_campus_clubs sync error:', err);
   }
 
-  // Real-time universal live sync to media_assets
-  try {
-    if (supabase) {
-      await supabase.from('media_assets').upsert({
-        cloudinary_public_id: newClub.cloudinary_public_id || ('nacos/campus_clubs/' + newClub.id),
-        image_url: newClub.image || 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=800&q=80',
-        image_alt: JSON.stringify(newClub),
-        media_type: 'image',
-        folder: 'nacos/campus_clubs',
-        category: 'campus_clubs',
-        entity_type: 'campus_club',
-        entity_id: newClub.id,
-        updated_at: now
-      }, { onConflict: 'cloudinary_public_id' });
-    }
-  } catch (_) {}
-
   // Trigger Admin notification
   addAdminNotification({
     type: 'campus_club',
@@ -658,23 +648,6 @@ export async function updateCampusClub(id, updates) {
   } catch (err) {
     console.warn('Supabase store_campus_clubs update error:', err);
   }
-
-  // Real-time universal live sync to media_assets
-  try {
-    if (supabase) {
-      await supabase.from('media_assets').upsert({
-        cloudinary_public_id: updatedClub.cloudinary_public_id || ('nacos/campus_clubs/' + updatedClub.id),
-        image_url: updatedClub.image || 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=800&q=80',
-        image_alt: JSON.stringify(updatedClub),
-        media_type: 'image',
-        folder: 'nacos/campus_clubs',
-        category: 'campus_clubs',
-        entity_type: 'campus_club',
-        entity_id: updatedClub.id,
-        updated_at: now
-      }, { onConflict: 'cloudinary_public_id' });
-    }
-  } catch (_) {}
 
   return updatedClub;
 }
@@ -830,25 +803,6 @@ export async function submitAlumnus(alumnusData) {
     console.warn('Supabase store_alumni sync error:', err);
   }
 
-  // Real-time universal live sync to media_assets
-  try {
-    if (supabase) {
-      await supabase.from('media_assets').upsert({
-        cloudinary_public_id: newAlumnus.cloudinary_public_id || ('nacos/alumni/' + newAlumnus.id),
-        image_url: newAlumnus.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569300/nacos/alumni/alumni_godfirst.jpg',
-        image_alt: JSON.stringify(newAlumnus),
-        media_type: 'image',
-        folder: 'nacos/alumni',
-        category: 'alumni',
-        entity_type: 'alumni',
-        entity_id: newAlumnus.id,
-        updated_at: now
-      }, { onConflict: 'cloudinary_public_id' });
-    }
-  } catch (e) {
-    console.warn('Live sync alumni notice:', e);
-  }
-
   // Trigger Admin notification
   addAdminNotification({
     type: 'alumni',
@@ -902,23 +856,6 @@ export async function updateAlumnus(id, updates) {
   } catch (err) {
     console.warn('Supabase store_alumni update error:', err);
   }
-
-  // Real-time universal live sync to media_assets
-  try {
-    if (supabase) {
-      await supabase.from('media_assets').upsert({
-        cloudinary_public_id: updatedAlm.cloudinary_public_id || ('nacos/alumni/' + updatedAlm.id),
-        image_url: updatedAlm.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569300/nacos/alumni/alumni_godfirst.jpg',
-        image_alt: JSON.stringify(updatedAlm),
-        media_type: 'image',
-        folder: 'nacos/alumni',
-        category: 'alumni',
-        entity_type: 'alumni',
-        entity_id: updatedAlm.id,
-        updated_at: now
-      }, { onConflict: 'cloudinary_public_id' });
-    }
-  } catch (_) {}
 
   return updatedAlm;
 }

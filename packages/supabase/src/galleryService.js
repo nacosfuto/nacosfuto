@@ -361,51 +361,35 @@ export async function saveGalleryItem(itemData) {
 
   saveLocalGalleryItems(updated);
 
-  // Authoritative live sync to Supabase store_gallery
-  try {
-    if (supabase) {
+  // 1. Authoritative fast live sync to Supabase website_gallery table
+  if (supabase) {
+    try {
+      const payload = {
+        image_url: normalized.image_url,
+        title: normalized.title,
+        caption: normalized.caption,
+        category: normalized.category || 'campus-life',
+        featured: Boolean(normalized.is_featured),
+        updated_at: now
+      };
+      if (normalized.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalized.id)) {
+        payload.id = normalized.id;
+      }
+      await supabase.from('website_gallery').upsert(payload);
+    } catch (err) {
+      console.warn('website_gallery direct save warning:', err);
+    }
+  }
+
+  // 2. Fallback key-value sync for multi-device compatibility
+  if (supabase) {
+    try {
       await supabase.from('id_card_settings').upsert({
         id: 'store_gallery',
         academic_session: JSON.stringify(updated),
         updated_at: now
       });
-    }
-  } catch (err) {
-    console.warn('Supabase store_gallery save error:', err);
-  }
-
-  // Sync to Supabase `website_gallery` & `media_assets`
-  try {
-    if (normalized.cloudinary_public_id && normalized.image_url) {
-      await syncMediaAsset({
-        publicId: normalized.cloudinary_public_id,
-        url: normalized.image_url,
-        folder: CLOUDINARY_FOLDERS.GALLERY,
-        category: 'gallery',
-        image_alt: JSON.stringify(normalized),
-        entity_type: 'gallery',
-        entity_id: normalized.cloudinary_public_id.split('/').pop()
-      });
-    }
-
-    if (supabase) {
-      try {
-        await supabase
-          .from('website_gallery')
-          .upsert({
-            id: normalized.id.startsWith('gal-') ? undefined : normalized.id,
-            title: normalized.title,
-            caption: normalized.caption,
-            image_url: normalized.image_url,
-            cloudinary_public_id: normalized.cloudinary_public_id,
-            category: normalized.category || 'Campus Life',
-            is_featured: Boolean(normalized.is_featured),
-            created_at: normalized.created_at
-          });
-      } catch (err) {}
-    }
-  } catch (err) {
-    console.warn('Remote sync notice for gallery item:', err);
+    } catch (_) {}
   }
 
   return normalized;

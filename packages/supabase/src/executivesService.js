@@ -672,31 +672,34 @@ export async function saveExecutive(execData) {
     window.dispatchEvent(new Event('nacos_executives_updated'));
   }
 
-  // 1. Authoritative persistent save to Supabase store_executives
-  try {
-    if (supabase) {
+  // 1. Direct fast write to Supabase nacos_executives table
+  if (supabase) {
+    try {
+      await supabase.from('nacos_executives').upsert({
+        id: savedItem.id,
+        name: savedItem.name,
+        role: savedItem.role,
+        image: savedItem.image || null,
+        cloudinary_public_id: savedItem.cloudinary_public_id || null,
+        category: savedItem.category || 'current',
+        session: savedItem.session || '2025/2026',
+        order_index: savedItem.order_index ?? 0,
+        updated_at: now
+      });
+    } catch (err) {
+      console.warn('Supabase nacos_executives save error:', err);
+    }
+  }
+
+  // 2. Authoritative persistent save to Supabase store_executives
+  if (supabase) {
+    try {
       await supabase.from('id_card_settings').upsert({
         id: 'store_executives',
         academic_session: JSON.stringify(updatedList),
         updated_at: now
       });
-
-      if (savedItem.image) {
-        await supabase.from('media_assets').upsert({
-          cloudinary_public_id: savedItem.cloudinary_public_id || `nacos/executives/${savedItem.id}`,
-          image_url: savedItem.image,
-          image_alt: JSON.stringify(savedItem),
-          media_type: 'image',
-          folder: 'nacos/executives',
-          category: 'executives',
-          entity_type: 'executive',
-          entity_id: savedItem.id,
-          updated_at: now
-        }, { onConflict: 'cloudinary_public_id' });
-      }
-    }
-  } catch (err) {
-    console.warn('Supabase store_executives save error:', err);
+    } catch (_) {}
   }
 
   // Admin Notification
@@ -737,21 +740,19 @@ export async function deleteExecutive(id) {
     window.dispatchEvent(new Event('nacos_executives_updated'));
   }
 
-  // 1. Authoritative persistent save to Supabase store_executives
-  try {
-    if (supabase) {
+  // Direct fast delete from Supabase nacos_executives table
+  if (supabase) {
+    try {
+      await supabase.from('nacos_executives').delete().eq('id', id);
+    } catch (e) {}
+
+    try {
       await supabase.from('id_card_settings').upsert({
         id: 'store_executives',
         academic_session: JSON.stringify(updatedList),
         updated_at: new Date().toISOString()
       });
-
-      if (target?.cloudinary_public_id) {
-        await supabase.from('media_assets').delete().eq('cloudinary_public_id', target.cloudinary_public_id);
-      }
-    }
-  } catch (err) {
-    console.warn('Supabase store_executives delete sync error:', err);
+    } catch (_) {}
   }
 
   if (target) {

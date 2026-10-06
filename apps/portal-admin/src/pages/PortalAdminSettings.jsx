@@ -14,7 +14,7 @@ import {
   ShieldAlert,
   UserCheck
 } from 'lucide-react';
-import { getIdCardSettings, updateIdCardFee, getDuesSettings, updateDuesFee } from '@nacos/supabase';
+import { getIdCardSettings, getDuesSettings, savePortalSettingsDirectly } from '@nacos/supabase';
 import { CURRENT_ACADEMIC_YEAR_START, getAcademicSession } from '@nacos/config/academic';
 import { useTheme } from '../context/ThemeContext';
 import { getLocalPortalAdmins, fetchPortalAdminsFromSupabase, updateAdminAssignedLevel, getPortalAdminSession } from '@nacos/auth';
@@ -36,7 +36,7 @@ export const PortalAdminSettings = () => {
   const [adminUpdateMsg, setAdminUpdateMsg] = useState('');
 
   useEffect(() => {
-    // 1. Authoritative fetch from Supabase database
+    // 1. Authoritative fetch directly from Supabase database
     getIdCardSettings().then(s => {
       if (s?.id_card_fee) setIdCardFee(s.id_card_fee);
       if (s?.academic_session) setAcademicSession(s.academic_session);
@@ -57,19 +57,6 @@ export const PortalAdminSettings = () => {
         setPortalAdmins(getLocalPortalAdmins());
       }
     });
-
-    const handleAdminsUpdate = () => {
-      fetchPortalAdminsFromSupabase().then(liveAdmins => {
-        if (liveAdmins && liveAdmins.length > 0) setPortalAdmins(liveAdmins);
-      });
-    };
-
-    window.addEventListener('nacos_portal_admin_updated', handleAdminsUpdate);
-    window.addEventListener('storage', handleAdminsUpdate);
-    return () => {
-      window.removeEventListener('nacos_portal_admin_updated', handleAdminsUpdate);
-      window.removeEventListener('storage', handleAdminsUpdate);
-    };
   }, []);
 
   const handleLevelChange = async (adminId, newLevel) => {
@@ -96,15 +83,20 @@ export const PortalAdminSettings = () => {
     setSavedSuccess(false);
     setSaveError('');
     try {
-      // Direct write to Supabase database
-      const idRes = await updateIdCardFee(Number(idCardFee), academicSession, allowRegistration);
-      if (idRes?.error) throw new Error(idRes.error);
+      // Single fast atomic database write directly to Supabase
+      const res = await savePortalSettingsDirectly({
+        idCardFee: Number(idCardFee),
+        duesFee: Number(duesFee),
+        academicSession,
+        allowRegistration
+      });
 
-      const duesRes = await updateDuesFee(Number(duesFee), academicSession);
-      if (duesRes?.error) throw new Error(duesRes.error);
-
-      setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 3500);
+      if (res?.error) {
+        setSaveError(res.error);
+      } else {
+        setSavedSuccess(true);
+        setTimeout(() => setSavedSuccess(false), 3500);
+      }
     } catch (err) {
       console.error('Failed to save settings to database:', err);
       setSaveError(err.message || 'Failed to update settings in Supabase database.');
