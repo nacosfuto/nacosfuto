@@ -1103,4 +1103,255 @@ CREATE POLICY "Public read tag links" ON public.resource_tag_links FOR SELECT US
 DROP POLICY IF EXISTS "Admins manage tag links" ON public.resource_tag_links;
 CREATE POLICY "Admins manage tag links" ON public.resource_tag_links FOR ALL USING (true);
 
+-- =========================================================================
+-- 15. CMS ENTITIES, LIVE EVENT REGISTRIES, AND BACHS PAYMENTS (ENTERPRISE STANDARDS)
+-- =========================================================================
+
+-- 15a. Yellow Pages (Student Businesses Directory)
+CREATE TABLE IF NOT EXISTS public.yellow_pages (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  secondary_categories TEXT[],
+  owner_name TEXT NOT NULL,
+  owner_level TEXT NOT NULL,
+  description TEXT NOT NULL,
+  location TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  whatsapp TEXT,
+  email TEXT,
+  rating NUMERIC(2,1) DEFAULT 5.0,
+  reviews_count INTEGER DEFAULT 0,
+  image TEXT,
+  cloudinary_public_id TEXT,
+  image_position TEXT DEFAULT 'top center',
+  status TEXT DEFAULT 'pending' CHECK (status IN ('approved', 'pending', 'rejected', 'suspended')),
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+ALTER TABLE public.yellow_pages ADD COLUMN IF NOT EXISTS secondary_categories TEXT[];
+ALTER TABLE public.yellow_pages ADD COLUMN IF NOT EXISTS cloudinary_public_id TEXT;
+ALTER TABLE public.yellow_pages ADD COLUMN IF NOT EXISTS image_position TEXT DEFAULT 'top center';
+ALTER TABLE public.yellow_pages ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
+
+CREATE INDEX IF NOT EXISTS idx_yellow_pages_status ON public.yellow_pages (status);
+CREATE INDEX IF NOT EXISTS idx_yellow_pages_category ON public.yellow_pages (category);
+
+ALTER TABLE public.yellow_pages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read approved yellow pages" ON public.yellow_pages;
+CREATE POLICY "Public read approved yellow pages" ON public.yellow_pages FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins manage yellow pages" ON public.yellow_pages;
+CREATE POLICY "Admins manage yellow pages" ON public.yellow_pages FOR ALL USING (true);
+
+-- 15b. Website Events
+CREATE TABLE IF NOT EXISTS public.website_events (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  event_date TEXT NOT NULL,
+  event_time TEXT NOT NULL,
+  location TEXT NOT NULL,
+  description TEXT NOT NULL,
+  image_url TEXT,
+  cloudinary_public_id TEXT,
+  category TEXT DEFAULT 'Workshop' NOT NULL,
+  registration_link TEXT,
+  is_published BOOLEAN DEFAULT true NOT NULL,
+  is_featured BOOLEAN DEFAULT false NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+ALTER TABLE public.website_events ADD COLUMN IF NOT EXISTS registration_link TEXT;
+ALTER TABLE public.website_events ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT false;
+ALTER TABLE public.website_events ADD COLUMN IF NOT EXISTS cloudinary_public_id TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_website_events_slug ON public.website_events (slug);
+CREATE INDEX IF NOT EXISTS idx_website_events_published ON public.website_events (is_published);
+
+ALTER TABLE public.website_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read published website events" ON public.website_events;
+CREATE POLICY "Public read published website events" ON public.website_events FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins manage website events" ON public.website_events;
+CREATE POLICY "Admins manage website events" ON public.website_events FOR ALL USING (true);
+
+-- 15c. Website Gallery
+CREATE TABLE IF NOT EXISTS public.website_gallery (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  caption TEXT NOT NULL,
+  image_url TEXT NOT NULL,
+  cloudinary_public_id TEXT,
+  category TEXT DEFAULT 'Campus Life' NOT NULL,
+  is_featured BOOLEAN DEFAULT false NOT NULL,
+  sort_order INTEGER DEFAULT 0 NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+ALTER TABLE public.website_gallery ADD COLUMN IF NOT EXISTS cloudinary_public_id TEXT;
+ALTER TABLE public.website_gallery ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+
+ALTER TABLE public.website_gallery ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read website gallery" ON public.website_gallery;
+CREATE POLICY "Public read website gallery" ON public.website_gallery FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins manage website gallery" ON public.website_gallery;
+CREATE POLICY "Admins manage website gallery" ON public.website_gallery FOR ALL USING (true);
+
+-- 15d. NACOS Executives & Settings
+CREATE TABLE IF NOT EXISTS public.nacos_executives (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  portfolio TEXT NOT NULL,
+  level TEXT NOT NULL,
+  bio TEXT,
+  photo_url TEXT,
+  cloudinary_public_id TEXT,
+  linkedin TEXT,
+  github TEXT,
+  twitter TEXT,
+  sort_order INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  academic_session TEXT DEFAULT '2026/2027',
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.nacos_executives_settings (
+  id VARCHAR(50) PRIMARY KEY DEFAULT 'default',
+  hero_badge TEXT DEFAULT 'Leadership & Governance',
+  hero_title TEXT DEFAULT 'Meet the 2026/2027 Executive Council',
+  hero_description TEXT DEFAULT 'Elected student servant-leaders steering digital innovation and welfare for NACOS FUTO.',
+  president_quote TEXT,
+  academic_session TEXT DEFAULT '2026/2027',
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+ALTER TABLE public.nacos_executives ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read executives" ON public.nacos_executives;
+CREATE POLICY "Public read executives" ON public.nacos_executives FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins manage executives" ON public.nacos_executives;
+CREATE POLICY "Admins manage executives" ON public.nacos_executives FOR ALL USING (true);
+
+ALTER TABLE public.nacos_executives_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read executives settings" ON public.nacos_executives_settings;
+CREATE POLICY "Public read executives settings" ON public.nacos_executives_settings FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins manage executives settings" ON public.nacos_executives_settings;
+CREATE POLICY "Admins manage executives settings" ON public.nacos_executives_settings FOR ALL USING (true);
+
+-- 15e. News & Articles
+CREATE TABLE IF NOT EXISTS public.news_articles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  summary TEXT,
+  content TEXT,
+  cover_image_url TEXT,
+  cloudinary_public_id TEXT,
+  author TEXT DEFAULT 'NACOS Press Desk',
+  category TEXT DEFAULT 'Tech & Academics',
+  is_published BOOLEAN DEFAULT true,
+  views_count INTEGER DEFAULT 0,
+  published_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()),
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+ALTER TABLE public.news_articles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read news articles" ON public.news_articles;
+CREATE POLICY "Public read news articles" ON public.news_articles FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins manage news articles" ON public.news_articles;
+CREATE POLICY "Admins manage news articles" ON public.news_articles FOR ALL USING (true);
+
+-- 15f. Student Results Catalog
+CREATE TABLE IF NOT EXISTS public.student_results (
+  id TEXT PRIMARY KEY,
+  matric_number VARCHAR(30) NOT NULL,
+  student_name TEXT NOT NULL,
+  course_code VARCHAR(20) NOT NULL,
+  course_title TEXT NOT NULL,
+  units INTEGER DEFAULT 3 NOT NULL,
+  level INTEGER DEFAULT 100 NOT NULL,
+  semester TEXT NOT NULL,
+  session TEXT NOT NULL,
+  test NUMERIC(5,2) DEFAULT 0,
+  exam NUMERIC(5,2) DEFAULT 0,
+  score NUMERIC(5,2) DEFAULT 0,
+  grade VARCHAR(5) DEFAULT 'F',
+  gp NUMERIC(4,2) DEFAULT 0,
+  status TEXT DEFAULT 'Passed',
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_student_results_matric ON public.student_results (matric_number);
+CREATE INDEX IF NOT EXISTS idx_student_results_level ON public.student_results (level);
+CREATE INDEX IF NOT EXISTS idx_student_results_course ON public.student_results (course_code);
+
+ALTER TABLE public.student_results ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read student results" ON public.student_results;
+CREATE POLICY "Public read student results" ON public.student_results FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins manage student results" ON public.student_results;
+CREATE POLICY "Admins manage student results" ON public.student_results FOR ALL USING (true);
+
+-- 15g. Announcements Table Synchronization
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS target_audience TEXT DEFAULT 'ALL STUDENTS';
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS author_unit TEXT DEFAULT 'Admissions Unit';
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS is_popup BOOLEAN DEFAULT false;
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS is_urgent BOOLEAN DEFAULT false;
+
+-- 15h. Bachs Payments & Webhooks Table
+CREATE TABLE IF NOT EXISTS public.payments (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  tx_ref TEXT UNIQUE NOT NULL,
+  amount NUMERIC(10,2) NOT NULL,
+  currency TEXT DEFAULT 'NGN' NOT NULL,
+  student_name TEXT,
+  matric_number TEXT,
+  email TEXT,
+  payment_type TEXT DEFAULT 'id_card',
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'successful', 'failed', 'abandoned')),
+  bachs_reference TEXT,
+  gateway_response JSONB,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.webhook_events (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  event_id TEXT UNIQUE NOT NULL,
+  event_type TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  processed BOOLEAN DEFAULT false,
+  processed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_payments_tx_ref ON public.payments (tx_ref);
+CREATE INDEX IF NOT EXISTS idx_payments_matric ON public.payments (matric_number);
+CREATE INDEX IF NOT EXISTS idx_webhook_event_id ON public.webhook_events (event_id);
+
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read payments" ON public.payments;
+CREATE POLICY "Public read payments" ON public.payments FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins manage payments" ON public.payments;
+CREATE POLICY "Admins manage payments" ON public.payments FOR ALL USING (true);
+
+ALTER TABLE public.webhook_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admins manage webhooks" ON public.webhook_events;
+CREATE POLICY "Admins manage webhooks" ON public.webhook_events FOR ALL USING (true);
+
+-- 15i. Media Assets Registry Unique Constraints
+ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS cloudinary_public_id TEXT;
+ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS image_alt TEXT;
+ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'general';
+ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS entity_type TEXT;
+ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS entity_id TEXT;
+ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW());
+CREATE UNIQUE INDEX IF NOT EXISTS idx_media_assets_cloudinary_pub_id ON public.media_assets (cloudinary_public_id) WHERE cloudinary_public_id IS NOT NULL;
+
+
 

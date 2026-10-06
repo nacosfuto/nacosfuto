@@ -2,17 +2,23 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 
-import PortalAdminLogin from './pages/PortalAdminLogin';
-import PortalAdminDashboard from './pages/PortalAdminDashboard';
-import PortalAdminStudents from './pages/PortalAdminStudents';
-import PortalAdminIdCards from './pages/PortalAdminIdCards';
-import PortalAdminResources from './pages/PortalAdminResources';
-import PortalAdminCourses from './pages/PortalAdminCourses';
-import PortalAdminResults from './pages/PortalAdminResults';
-import PortalAdminMedia from './pages/PortalAdminMedia';
-import PortalAdminNotices from './pages/PortalAdminNotices';
-import PortalAdminSettings from './pages/PortalAdminSettings';
+const PortalAdminLogin = React.lazy(() => import('./pages/PortalAdminLogin'));
+const PortalAdminDashboard = React.lazy(() => import('./pages/PortalAdminDashboard'));
+const PortalAdminStudents = React.lazy(() => import('./pages/PortalAdminStudents'));
+const PortalAdminIdCards = React.lazy(() => import('./pages/PortalAdminIdCards'));
+const PortalAdminResources = React.lazy(() => import('./pages/PortalAdminResources'));
+const PortalAdminCourses = React.lazy(() => import('./pages/PortalAdminCourses'));
+const PortalAdminResults = React.lazy(() => import('./pages/PortalAdminResults'));
+const PortalAdminMedia = React.lazy(() => import('./pages/PortalAdminMedia'));
+const PortalAdminNotices = React.lazy(() => import('./pages/PortalAdminNotices'));
+const PortalAdminSettings = React.lazy(() => import('./pages/PortalAdminSettings'));
 import PortalAdminProtectedRoute from './components/PortalAdminProtectedRoute';
+
+const LoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-[#041801]">
+    <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+  </div>
+);
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -76,6 +82,7 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <BrowserRouter basename={isNestedUnderPortalAdmin ? '/portal-admin' : '/'}>
+          <React.Suspense fallback={<LoadingFallback />}>
           <Routes>
           {/* Public Administrative Authentication */}
           <Route path="/login" element={<PortalAdminLogin />} />
@@ -170,6 +177,7 @@ function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </React.Suspense>
       </BrowserRouter>
     </ThemeProvider>
     </ErrorBoundary>

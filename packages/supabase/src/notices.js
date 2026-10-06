@@ -119,9 +119,44 @@ function saveLocalNotices(notices) {
 export async function fetchNotices(options = {}) {
   const { level = null, activeOnly = true, search = '' } = options;
 
-  // 1. Try Supabase if table exists
+  // 1. Try Supabase authoritative stores
   try {
     if (supabase) {
+      // Check store_notices in id_card_settings
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_notices')
+        .maybeSingle();
+
+      if (storeRow?.academic_session) {
+        try {
+          const parsed = JSON.parse(storeRow.academic_session);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            saveLocalNotices(parsed);
+            let filtered = parsed;
+            if (activeOnly) filtered = filtered.filter(n => n.is_published !== false);
+            if (level) {
+              const cleanLvl = String(level).toUpperCase();
+              filtered = filtered.filter(n => {
+                const aud = (n.target_audience || '').toUpperCase();
+                return aud === 'ALL STUDENTS' || aud === 'ALL' || aud.includes(cleanLvl);
+              });
+            }
+            if (search && search.trim()) {
+              const q = search.toLowerCase();
+              filtered = filtered.filter(n => 
+                (n.title || '').toLowerCase().includes(q) ||
+                (n.content || '').toLowerCase().includes(q) ||
+                (n.author_unit || '').toLowerCase().includes(q)
+              );
+            }
+            return { data: filtered, error: null };
+          }
+        } catch (_) {}
+      }
+
+      // Check announcements table
       let query = supabase
         .from('announcements')
         .select('*')
@@ -258,7 +293,7 @@ export function markNoticeDismissed(noticeId) {
  * Admin: Create a new notice
  */
 export async function adminCreateNotice(noticeData) {
-  const id = 'notice-' + Date.now();
+  const id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('notice-' + Date.now());
   const createdDate = new Date().toLocaleDateString('en-GB', {
     weekday: 'short',
     day: 'numeric',
@@ -294,9 +329,17 @@ export async function adminCreateNotice(noticeData) {
   current.unshift(newNotice);
   saveLocalNotices(current);
 
-  // Sync to Supabase if possible
+  // Sync to Supabase
   try {
     if (supabase) {
+      // 1. Authoritative store_notices sync
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_notices',
+        academic_session: JSON.stringify(current),
+        updated_at: new Date().toISOString()
+      });
+
+      // 2. Announcements table sync
       if (newNotice.is_popup || newNotice.is_urgent) {
         await supabase
           .from('announcements')
@@ -346,9 +389,15 @@ export async function adminUpdateNotice(id, updates = {}) {
 
   saveLocalNotices(current);
 
-  // Sync to Supabase if possible
+  // Sync to Supabase
   try {
     if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_notices',
+        academic_session: JSON.stringify(current),
+        updated_at: new Date().toISOString()
+      });
+
       if (updates.is_popup || updates.is_urgent) {
         await supabase
           .from('announcements')
@@ -372,6 +421,11 @@ export async function adminDeleteNotice(id) {
 
   try {
     if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_notices',
+        academic_session: JSON.stringify(filtered),
+        updated_at: new Date().toISOString()
+      });
       await supabase.from('announcements').delete().eq('id', id);
     }
   } catch (_) {}

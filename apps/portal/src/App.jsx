@@ -1,21 +1,31 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
+
+// Core entry routes (loaded eagerly for instant authentication)
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
-import Dashboard from './pages/Dashboard';
-import Results from './pages/Results';
-import Dues from './pages/Dues';
-import Courses from './pages/Courses';
-import Profile from './pages/Profile';
-import IdCard from './pages/IdCard';
-import IdVerification from './pages/IdVerification';
-import PaymentSuccess from './pages/PaymentSuccess';
-import Notices from './pages/Notices';
-import HackathonDetail from './pages/HackathonDetail';
-import HackathonApply from './pages/HackathonApply';
-import AdminHub from './pages/AdminHub';
+
+// On-demand code-split routes
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Results = lazy(() => import('./pages/Results'));
+const Dues = lazy(() => import('./pages/Dues'));
+const Courses = lazy(() => import('./pages/Courses'));
+const Profile = lazy(() => import('./pages/Profile'));
+const IdCard = lazy(() => import('./pages/IdCard'));
+const IdVerification = lazy(() => import('./pages/IdVerification'));
+const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
+const Notices = lazy(() => import('./pages/Notices'));
+const HackathonDetail = lazy(() => import('./pages/HackathonDetail'));
+const HackathonApply = lazy(() => import('./pages/HackathonApply'));
+const AdminHub = lazy(() => import('./pages/AdminHub'));
+
+const PortalPageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-[#041801]">
+    <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+  </div>
+);
 
 function PortalSEOHandler() {
   const location = useLocation();
@@ -53,46 +63,48 @@ function App() {
     <ThemeProvider>
       <BrowserRouter basename={isNestedUnderPortal ? '/portal' : '/'}>
         <PortalSEOHandler />
-        <Routes>
-          {/* Authentication & Student Entry */}
-          <Route path="/" element={<Login />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Suspense fallback={<PortalPageLoader />}>
+          <Routes>
+            {/* Authentication & Student Entry */}
+            <Route path="/" element={<Login />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
 
-          {/* Core Student Academic Portal */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/notices" element={<Notices />} />
-          <Route path="/bulletin" element={<Notices />} />
-          <Route path="/results" element={<Results />} />
-          <Route path="/dues" element={<Dues />} />
-          <Route path="/courses" element={<Courses />} />
-          <Route path="/resources" element={<Courses />} />
-          <Route path="/resource-hub" element={<Courses />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/id-card" element={<IdCard />} />
-          <Route path="/payment/success" element={<PaymentSuccess />} />
-          <Route path="/payment/verify" element={<PaymentSuccess />} />
+            {/* Core Student Academic Portal */}
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/notices" element={<Notices />} />
+            <Route path="/bulletin" element={<Notices />} />
+            <Route path="/results" element={<Results />} />
+            <Route path="/dues" element={<Dues />} />
+            <Route path="/courses" element={<Courses />} />
+            <Route path="/resources" element={<Courses />} />
+            <Route path="/resource-hub" element={<Courses />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/id-card" element={<IdCard />} />
+            <Route path="/payment/success" element={<PaymentSuccess />} />
+            <Route path="/payment/verify" element={<PaymentSuccess />} />
 
-          {/* Dedicated Administrative Gateway & Control Center */}
-          <Route path="/admin-hub" element={<AdminHub />} />
-          <Route path="/admin-portal" element={<AdminHub />} />
-          <Route path="/admin-gateway" element={<AdminHub />} />
-          <Route path="/admin-access" element={<AdminHub />} />
-          <Route path="/admin-login" element={<AdminHub />} />
-          <Route path="/admin" element={<AdminHub />} />
+            {/* Dedicated Administrative Gateway & Control Center */}
+            <Route path="/admin-hub" element={<AdminHub />} />
+            <Route path="/admin-portal" element={<AdminHub />} />
+            <Route path="/admin-gateway" element={<AdminHub />} />
+            <Route path="/admin-access" element={<AdminHub />} />
+            <Route path="/admin-login" element={<AdminHub />} />
+            <Route path="/admin" element={<AdminHub />} />
 
-          {/* Public Verification Route */}
-          <Route path="/verify/id/:id" element={<IdVerification />} />
+            {/* Public Verification Route */}
+            <Route path="/verify/id/:id" element={<IdVerification />} />
 
-          {/* Dedicated National Hackathon Module (Accessible via button/link without cluttering student portal) */}
-          <Route path="/hackathons" element={<Navigate to="/hackathons/BuildXNACOS" replace />} />
-          <Route path="/hackathons/BuildXNACOS" element={<HackathonDetail />} />
-          <Route path="/hackathons/BuildXNACOS/apply" element={<HackathonApply />} />
+            {/* Dedicated National Hackathon Module (Accessible via button/link without cluttering student portal) */}
+            <Route path="/hackathons" element={<Navigate to="/hackathons/BuildXNACOS" replace />} />
+            <Route path="/hackathons/BuildXNACOS" element={<HackathonDetail />} />
+            <Route path="/hackathons/BuildXNACOS/apply" element={<HackathonApply />} />
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </ThemeProvider>
   );

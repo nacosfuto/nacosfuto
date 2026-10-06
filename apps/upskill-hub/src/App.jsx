@@ -1,21 +1,29 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "./context/ThemeContext";
 
 import Layout from "./components/layout/Layout";
 import HomePage from "./pages/HomePage";
-import CoursesPage from "./pages/CoursesPage";
-import CourseDetailPage from "./pages/CourseDetailPage";
-import CoursePreviewPage from "./pages/CoursePreviewPage";
-import ResourcesPage from "./pages/ResourcesPage";
-import MyLearningPage from "./pages/MyLearningPage";
-import CreateCoursePage from "./pages/CreateCoursePage";
-import WorkshopsPage from "./pages/WorkshopsPage";
-import MyWorkshopsPage from "./pages/MyWorkshopsPage";
-import ProfilePage from "./pages/ProfilePage";
-import LoginPage from "./pages/LoginPage";
-import SignUpPage from "./pages/SignUpPage";
-import InstructorProfilePage from "./pages/InstructorProfilePage";
+
+// Lazy-loaded routes for optimal bundle chunking
+const CoursesPage = lazy(() => import("./pages/CoursesPage"));
+const CourseDetailPage = lazy(() => import("./pages/CourseDetailPage"));
+const CoursePreviewPage = lazy(() => import("./pages/CoursePreviewPage"));
+const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
+const MyLearningPage = lazy(() => import("./pages/MyLearningPage"));
+const CreateCoursePage = lazy(() => import("./pages/CreateCoursePage"));
+const WorkshopsPage = lazy(() => import("./pages/WorkshopsPage"));
+const MyWorkshopsPage = lazy(() => import("./pages/MyWorkshopsPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const SignUpPage = lazy(() => import("./pages/SignUpPage"));
+const InstructorProfilePage = lazy(() => import("./pages/InstructorProfilePage"));
+
+const UpskillPageLoader = () => (
+  <div className="min-h-[60vh] flex items-center justify-center">
+    <div className="w-8 h-8 rounded-full border-2 border-[#0056D2] border-t-transparent animate-spin" />
+  </div>
+);
 
 function UpskillSEOHandler() {
   const location = useLocation();
@@ -92,29 +100,31 @@ export function App() {
       <ThemeProvider>
         <BrowserRouter basename={isNestedUnderUpskill ? "/upskill-hub" : "/"}>
           <UpskillSEOHandler />
-          <Routes>
-            <Route element={<Layout />}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/courses" element={<CoursesPage />} />
-              <Route path="/courses/:id" element={<CoursePreviewPage />} />
-              <Route path="/courses/:id/preview" element={<CoursePreviewPage />} />
-              <Route path="/courses/:id/learn" element={<CourseDetailPage />} />
-              <Route path="/resources" element={<ResourcesPage />} />
-              <Route path="/my-learning" element={<MyLearningPage />} />
-              <Route path="/my-courses" element={<Navigate to="/my-learning" replace />} />
-              <Route path="/workshops" element={<WorkshopsPage />} />
-              <Route path="/create-course" element={<CreateCoursePage />} />
-              <Route path="/my-workshops" element={<MyWorkshopsPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/instructors/:id" element={<InstructorProfilePage />} />
-            </Route>
+          <Suspense fallback={<UpskillPageLoader />}>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/courses" element={<CoursesPage />} />
+                <Route path="/courses/:id" element={<CoursePreviewPage />} />
+                <Route path="/courses/:id/preview" element={<CoursePreviewPage />} />
+                <Route path="/courses/:id/learn" element={<CourseDetailPage />} />
+                <Route path="/resources" element={<ResourcesPage />} />
+                <Route path="/my-learning" element={<MyLearningPage />} />
+                <Route path="/my-courses" element={<Navigate to="/my-learning" replace />} />
+                <Route path="/workshops" element={<WorkshopsPage />} />
+                <Route path="/create-course" element={<CreateCoursePage />} />
+                <Route path="/my-workshops" element={<MyWorkshopsPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/instructors/:id" element={<InstructorProfilePage />} />
+              </Route>
 
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/sign-up" element={<SignUpPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/sign-up" element={<SignUpPage />} />
 
-            {/* Catch-all */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              {/* Catch-all */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </ThemeProvider>
     </ErrorBoundary>

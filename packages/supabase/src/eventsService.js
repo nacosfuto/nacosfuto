@@ -524,25 +524,6 @@ export async function saveEvent(eventData) {
     console.warn('Supabase store_events save error:', err);
   }
 
-  // 1. Sync with media_assets for universal multi-device live sync
-  try {
-    if (supabase) {
-      const pubId = normalized.cloudinary_public_id || `nacos/events/${normalized.slug}`;
-      await supabase.from('media_assets').upsert({
-        cloudinary_public_id: pubId,
-        image_url: normalized.image_url || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569305/nacos/events/event_masked_affairs.jpg',
-        image_alt: JSON.stringify(normalized),
-        media_type: 'image',
-        folder: CLOUDINARY_FOLDERS.EVENTS || 'nacos/events',
-        category: 'events',
-        entity_type: 'event',
-        entity_id: normalized.slug,
-        updated_at: now
-      }, { onConflict: 'cloudinary_public_id' });
-    }
-  } catch (err) {
-    console.warn('Universal media_assets event sync notice:', err);
-  }
 
   // 2. Also attempt website_events table
   try {

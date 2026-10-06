@@ -351,25 +351,7 @@ export async function saveNewsArticle(articleData) {
     console.warn('Supabase store_news save error:', err);
   }
 
-  // 1. Sync to Supabase `media_assets` for universal multi-device live sync
-  try {
-    if (supabase) {
-      const pubId = record.cloudinary_public_id || `nacos/news/${record.slug || record.id}`;
-      await supabase.from('media_assets').upsert({
-        cloudinary_public_id: pubId,
-        image_url: record.cover_image_url || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569301/nacos/news/research.jpg',
-        image_alt: JSON.stringify(record),
-        media_type: 'image',
-        folder: CLOUDINARY_FOLDERS.NEWS || 'nacos/news',
-        category: 'news',
-        entity_type: 'news',
-        entity_id: record.slug || record.id,
-        updated_at: now
-      }, { onConflict: 'cloudinary_public_id' });
-    }
-  } catch (e) {
-    console.warn('Live sync news to media_assets notice:', e);
-  }
+
 
   // 2. Also attempt Supabase news_articles table
   try {

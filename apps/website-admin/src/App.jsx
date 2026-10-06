@@ -4,22 +4,28 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { ThemeProvider } from './context/ThemeContext';
 
-import AdminLogin from './pages/AdminLogin';
-import AdminDashboard from './pages/AdminDashboard';
-import AdminMedia from './pages/AdminMedia';
-import AdminGallery from './pages/AdminGallery';
-import AdminNews from './pages/AdminNews';
-import AdminEvents from './pages/AdminEvents';
-import AdminHomepage from './pages/AdminHomepage';
-import AdminAuditLogs from './pages/AdminAuditLogs';
-import AdminUsers from './pages/AdminUsers';
-import AdminYellowPages from './pages/AdminYellowPages';
-import AdminClubs from './pages/AdminClubs';
-import AdminSpiritualLife from './pages/AdminSpiritualLife';
-import AdminAlumni from './pages/AdminAlumni';
-import AdminExecutives from './pages/AdminExecutives';
-import AdminAdministration from './pages/AdminAdministration';
+const AdminLogin = React.lazy(() => import('./pages/AdminLogin'));
+const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
+const AdminMedia = React.lazy(() => import('./pages/AdminMedia'));
+const AdminGallery = React.lazy(() => import('./pages/AdminGallery'));
+const AdminNews = React.lazy(() => import('./pages/AdminNews'));
+const AdminEvents = React.lazy(() => import('./pages/AdminEvents'));
+const AdminHomepage = React.lazy(() => import('./pages/AdminHomepage'));
+const AdminAuditLogs = React.lazy(() => import('./pages/AdminAuditLogs'));
+const AdminUsers = React.lazy(() => import('./pages/AdminUsers'));
+const AdminYellowPages = React.lazy(() => import('./pages/AdminYellowPages'));
+const AdminClubs = React.lazy(() => import('./pages/AdminClubs'));
+const AdminSpiritualLife = React.lazy(() => import('./pages/AdminSpiritualLife'));
+const AdminAlumni = React.lazy(() => import('./pages/AdminAlumni'));
+const AdminExecutives = React.lazy(() => import('./pages/AdminExecutives'));
+const AdminAdministration = React.lazy(() => import('./pages/AdminAdministration'));
 import { AdminProtectedRoute } from './components/AdminProtectedRoute';
+
+const LoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#031201]">
+    <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+  </div>
+);
 
 function App() {
   const isNestedUnderAdmin = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
@@ -39,64 +45,66 @@ function App() {
         theme="colored"
       />
       <BrowserRouter basename={isNestedUnderAdmin ? '/admin' : '/'}>
-        <Routes>
-          {/* Authentication */}
-          <Route path="/login" element={<AdminLogin />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
+        <React.Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            {/* Authentication */}
+            <Route path="/login" element={<AdminLogin />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
 
-          {/* Core Dashboard */}
-          <Route path="/" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
-          <Route path="/admin" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
-          <Route path="/dashboard" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
+            {/* Core Dashboard */}
+            <Route path="/" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
+            <Route path="/admin" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
+            <Route path="/dashboard" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
 
-          {/* CMS Content Modules */}
-          <Route path="/media" element={<AdminProtectedRoute requiredPermission="main_website.media"><AdminMedia /></AdminProtectedRoute>} />
-          <Route path="/admin/media" element={<AdminProtectedRoute requiredPermission="main_website.media"><AdminMedia /></AdminProtectedRoute>} />
+            {/* CMS Content Modules */}
+            <Route path="/media" element={<AdminProtectedRoute requiredPermission="main_website.media"><AdminMedia /></AdminProtectedRoute>} />
+            <Route path="/admin/media" element={<AdminProtectedRoute requiredPermission="main_website.media"><AdminMedia /></AdminProtectedRoute>} />
 
-          <Route path="/gallery" element={<AdminProtectedRoute requiredPermission="main_website.gallery"><AdminGallery /></AdminProtectedRoute>} />
-          <Route path="/admin/gallery" element={<AdminProtectedRoute requiredPermission="main_website.gallery"><AdminGallery /></AdminProtectedRoute>} />
+            <Route path="/gallery" element={<AdminProtectedRoute requiredPermission="main_website.gallery"><AdminGallery /></AdminProtectedRoute>} />
+            <Route path="/admin/gallery" element={<AdminProtectedRoute requiredPermission="main_website.gallery"><AdminGallery /></AdminProtectedRoute>} />
 
-          <Route path="/news" element={<AdminProtectedRoute requiredPermission="main_website.news"><AdminNews /></AdminProtectedRoute>} />
-          <Route path="/admin/news" element={<AdminProtectedRoute requiredPermission="main_website.news"><AdminNews /></AdminProtectedRoute>} />
+            <Route path="/news" element={<AdminProtectedRoute requiredPermission="main_website.news"><AdminNews /></AdminProtectedRoute>} />
+            <Route path="/admin/news" element={<AdminProtectedRoute requiredPermission="main_website.news"><AdminNews /></AdminProtectedRoute>} />
 
-          <Route path="/events" element={<AdminProtectedRoute requiredPermission="main_website.events"><AdminEvents /></AdminProtectedRoute>} />
-          <Route path="/admin/events" element={<AdminProtectedRoute requiredPermission="main_website.events"><AdminEvents /></AdminProtectedRoute>} />
+            <Route path="/events" element={<AdminProtectedRoute requiredPermission="main_website.events"><AdminEvents /></AdminProtectedRoute>} />
+            <Route path="/admin/events" element={<AdminProtectedRoute requiredPermission="main_website.events"><AdminEvents /></AdminProtectedRoute>} />
 
-          <Route path="/homepage" element={<AdminProtectedRoute requiredPermission="main_website.homepage"><AdminHomepage /></AdminProtectedRoute>} />
-          <Route path="/admin/homepage" element={<AdminProtectedRoute requiredPermission="main_website.homepage"><AdminHomepage /></AdminProtectedRoute>} />
+            <Route path="/homepage" element={<AdminProtectedRoute requiredPermission="main_website.homepage"><AdminHomepage /></AdminProtectedRoute>} />
+            <Route path="/admin/homepage" element={<AdminProtectedRoute requiredPermission="main_website.homepage"><AdminHomepage /></AdminProtectedRoute>} />
 
-          {/* Yellow Pages, Clubs, Alumni Directories */}
-          <Route path="/yellow-pages" element={<AdminProtectedRoute><AdminYellowPages /></AdminProtectedRoute>} />
-          <Route path="/admin/yellow-pages" element={<AdminProtectedRoute><AdminYellowPages /></AdminProtectedRoute>} />
+            {/* Yellow Pages, Clubs, Alumni Directories */}
+            <Route path="/yellow-pages" element={<AdminProtectedRoute><AdminYellowPages /></AdminProtectedRoute>} />
+            <Route path="/admin/yellow-pages" element={<AdminProtectedRoute><AdminYellowPages /></AdminProtectedRoute>} />
 
-          <Route path="/clubs" element={<AdminProtectedRoute><AdminClubs /></AdminProtectedRoute>} />
-          <Route path="/admin/clubs" element={<AdminProtectedRoute><AdminClubs /></AdminProtectedRoute>} />
+            <Route path="/clubs" element={<AdminProtectedRoute><AdminClubs /></AdminProtectedRoute>} />
+            <Route path="/admin/clubs" element={<AdminProtectedRoute><AdminClubs /></AdminProtectedRoute>} />
 
-          <Route path="/spiritual-life" element={<AdminProtectedRoute><AdminSpiritualLife /></AdminProtectedRoute>} />
-          <Route path="/admin/spiritual-life" element={<AdminProtectedRoute><AdminSpiritualLife /></AdminProtectedRoute>} />
+            <Route path="/spiritual-life" element={<AdminProtectedRoute><AdminSpiritualLife /></AdminProtectedRoute>} />
+            <Route path="/admin/spiritual-life" element={<AdminProtectedRoute><AdminSpiritualLife /></AdminProtectedRoute>} />
 
-          <Route path="/alumni" element={<AdminProtectedRoute><AdminAlumni /></AdminProtectedRoute>} />
-          <Route path="/admin/alumni" element={<AdminProtectedRoute><AdminAlumni /></AdminProtectedRoute>} />
+            <Route path="/alumni" element={<AdminProtectedRoute><AdminAlumni /></AdminProtectedRoute>} />
+            <Route path="/admin/alumni" element={<AdminProtectedRoute><AdminAlumni /></AdminProtectedRoute>} />
 
-          <Route path="/executives" element={<AdminProtectedRoute><AdminExecutives /></AdminProtectedRoute>} />
-          <Route path="/admin/executives" element={<AdminProtectedRoute><AdminExecutives /></AdminProtectedRoute>} />
+            <Route path="/executives" element={<AdminProtectedRoute><AdminExecutives /></AdminProtectedRoute>} />
+            <Route path="/admin/executives" element={<AdminProtectedRoute><AdminExecutives /></AdminProtectedRoute>} />
 
-          <Route path="/administration" element={<AdminProtectedRoute><AdminAdministration /></AdminProtectedRoute>} />
-          <Route path="/admin/administration" element={<AdminProtectedRoute><AdminAdministration /></AdminProtectedRoute>} />
+            <Route path="/administration" element={<AdminProtectedRoute><AdminAdministration /></AdminProtectedRoute>} />
+            <Route path="/admin/administration" element={<AdminProtectedRoute><AdminAdministration /></AdminProtectedRoute>} />
 
-          <Route path="/audit-logs" element={<AdminProtectedRoute requiredPermission="main_website.view"><AdminAuditLogs /></AdminProtectedRoute>} />
-          <Route path="/admin/audit-logs" element={<AdminProtectedRoute requiredPermission="main_website.view"><AdminAuditLogs /></AdminProtectedRoute>} />
+            <Route path="/audit-logs" element={<AdminProtectedRoute requiredPermission="main_website.view"><AdminAuditLogs /></AdminProtectedRoute>} />
+            <Route path="/admin/audit-logs" element={<AdminProtectedRoute requiredPermission="main_website.view"><AdminAuditLogs /></AdminProtectedRoute>} />
 
-          {/* User & Access Management (Super Admin) */}
-          <Route path="/admins" element={<AdminProtectedRoute requiredPermission="super_admin"><AdminUsers /></AdminProtectedRoute>} />
-          <Route path="/admin/admins" element={<AdminProtectedRoute requiredPermission="super_admin"><AdminUsers /></AdminProtectedRoute>} />
+            {/* User & Access Management (Super Admin) */}
+            <Route path="/admins" element={<AdminProtectedRoute requiredPermission="super_admin"><AdminUsers /></AdminProtectedRoute>} />
+            <Route path="/admin/admins" element={<AdminProtectedRoute requiredPermission="super_admin"><AdminUsers /></AdminProtectedRoute>} />
 
-          <Route path="/settings" element={<AdminProtectedRoute requiredPermission="main_website.settings"><AdminHomepage /></AdminProtectedRoute>} />
-          <Route path="/admin/settings" element={<AdminProtectedRoute requiredPermission="main_website.settings"><AdminHomepage /></AdminProtectedRoute>} />
+            <Route path="/settings" element={<AdminProtectedRoute requiredPermission="main_website.settings"><AdminHomepage /></AdminProtectedRoute>} />
+            <Route path="/admin/settings" element={<AdminProtectedRoute requiredPermission="main_website.settings"><AdminHomepage /></AdminProtectedRoute>} />
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </React.Suspense>
       </BrowserRouter>
     </ThemeProvider>
   );

@@ -235,8 +235,11 @@ export function getOptimizedImageUrl(publicIdOrUrl, options = {}) {
 
   // Case 1: Already a full Cloudinary URL
   if (typeof publicIdOrUrl === 'string' && publicIdOrUrl.includes('res.cloudinary.com')) {
-    // If no custom dimensions or crops are requested, preserve the original URL directly
+    // If no custom dimensions or crops are requested, ensure automatic web format and quality compression
     if (!options.width && !options.height && !options.crop && !options.gravity && !options.preset) {
+      if (!publicIdOrUrl.includes('f_auto') && !publicIdOrUrl.includes('q_auto')) {
+        return publicIdOrUrl.replace('/upload/', '/upload/f_auto,q_auto/');
+      }
       return publicIdOrUrl;
     }
     const regex = /res\.cloudinary\.com\/([^/]+)\/image\/upload\/(?:[^\/]+\/)?(.+)$/;

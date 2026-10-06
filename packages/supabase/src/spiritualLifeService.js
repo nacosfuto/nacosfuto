@@ -264,23 +264,6 @@ export async function submitSpiritualFellowship(fellowshipData) {
     console.warn('Supabase store_spiritual_life sync error:', err);
   }
 
-  // Real-time universal live sync to media_assets
-  try {
-    if (supabase) {
-      await supabase.from('media_assets').upsert({
-        cloudinary_public_id: newFellowship.cloudinary_public_id || ('nacos/spiritual_life/' + newFellowship.id),
-        image_url: newFellowship.image || 'https://images.unsplash.com/photo-1519791883288-dc8bd696e667?auto=format&fit=crop&w=800&q=80',
-        image_alt: JSON.stringify(newFellowship),
-        media_type: 'image',
-        folder: 'nacos/spiritual_life',
-        category: 'spiritual_life',
-        entity_type: 'fellowship',
-        entity_id: newFellowship.id,
-        updated_at: now
-      }, { onConflict: 'cloudinary_public_id' });
-    }
-  } catch (_) {}
-
   addAdminNotification({
     type: 'spiritual_life',
     title: 'New Campus Fellowship Registration Submitted',
@@ -326,23 +309,6 @@ export async function updateSpiritualFellowship(id, updates) {
     console.warn('Supabase store_spiritual_life update error:', err);
   }
 
-  // Real-time universal live sync to media_assets
-  try {
-    if (supabase) {
-      await supabase.from('media_assets').upsert({
-        cloudinary_public_id: updatedItem.cloudinary_public_id || ('nacos/spiritual_life/' + updatedItem.id),
-        image_url: updatedItem.image || 'https://images.unsplash.com/photo-1519791883288-dc8bd696e667?auto=format&fit=crop&w=800&q=80',
-        image_alt: JSON.stringify(updatedItem),
-        media_type: 'image',
-        folder: 'nacos/spiritual_life',
-        category: 'spiritual_life',
-        entity_type: 'fellowship',
-        entity_id: updatedItem.id,
-        updated_at: now
-      }, { onConflict: 'cloudinary_public_id' });
-    }
-  } catch (_) {}
-
   return updatedItem;
 }
 
@@ -366,9 +332,10 @@ export async function deleteSpiritualFellowship(id) {
         academic_session: JSON.stringify(updated),
         updated_at: new Date().toISOString()
       });
-      await supabase.from('media_assets').delete().eq('entity_id', id);
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn('Supabase store_spiritual_life delete error:', err);
+  }
 
   return updated;
 }

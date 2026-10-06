@@ -1,8 +1,4 @@
-/**
- * notificationService.js
- * Admin Notifications & Real-Time Alert Center for NACOS FUTO
- * Alerts administrators when new businesses, courses, resources, clubs, or alumni register.
- */
+import { supabase } from './client.js';
 
 const NOTIFICATIONS_STORAGE_KEY = 'nacos_admin_notifications_db';
 
@@ -49,6 +45,29 @@ const INITIAL_NOTIFICATIONS = [
   }
 ];
 
+export async function fetchAdminNotificationsFromSupabase() {
+  try {
+    if (supabase) {
+      const { data: row } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_admin_notifications')
+        .maybeSingle();
+
+      if (row?.academic_session) {
+        const parsed = JSON.parse(row.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(parsed));
+          }
+          return parsed;
+        }
+      }
+    }
+  } catch (_) {}
+  return getAdminNotifications();
+}
+
 export function getAdminNotifications() {
   if (typeof window === 'undefined') return INITIAL_NOTIFICATIONS;
   try {
@@ -82,6 +101,18 @@ export function addAdminNotification({ type, title, message, entityId = null, li
     localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('nacos_notification_added', { detail: newNotif }));
   }
+
+  // Non-blocking background sync to Supabase
+  try {
+    if (supabase) {
+      supabase.from('id_card_settings').upsert({
+        id: 'store_admin_notifications',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      }).then(() => {}).catch(() => {});
+    }
+  } catch (_) {}
+
   return newNotif;
 }
 
@@ -92,6 +123,18 @@ export function markNotificationRead(id) {
     localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_notifications_updated'));
   }
+
+  // Non-blocking background sync to Supabase
+  try {
+    if (supabase) {
+      supabase.from('id_card_settings').upsert({
+        id: 'store_admin_notifications',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      }).then(() => {}).catch(() => {});
+    }
+  } catch (_) {}
+
   return updated;
 }
 
@@ -102,6 +145,18 @@ export function markAllNotificationsRead() {
     localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_notifications_updated'));
   }
+
+  // Non-blocking background sync to Supabase
+  try {
+    if (supabase) {
+      supabase.from('id_card_settings').upsert({
+        id: 'store_admin_notifications',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      }).then(() => {}).catch(() => {});
+    }
+  } catch (_) {}
+
   return updated;
 }
 

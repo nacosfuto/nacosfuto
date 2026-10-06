@@ -323,27 +323,66 @@ export async function fetchResultsForStudent(matricOrRegNo) {
 export async function adminFetchResultsCatalog(options = {}) {
   const { level = null, semester = null, courseCode = null, session = null, search = '' } = options;
 
-  let list = getLocalResults();
+  let list = [];
 
-  if (level) {
-    const cleanLevel = parseInt(String(level).replace(/[^0-9]/g, ''), 10);
-    if (!isNaN(cleanLevel)) {
-      list = list.filter(r => Number(r.level) === cleanLevel);
+  // 1. Authoritative query from Supabase
+  try {
+    if (supabase) {
+      let query = supabase.from('student_results').select('*').order('created_at', { ascending: false });
+
+      if (level) {
+        const cleanLevel = parseInt(String(level).replace(/[^0-9]/g, ''), 10);
+        if (!isNaN(cleanLevel)) {
+          query = query.eq('level', cleanLevel);
+        }
+      }
+
+      if (semester && semester !== 'All') {
+        query = query.ilike('semester', `%${semester}%`);
+      }
+
+      if (courseCode && courseCode !== 'All') {
+        query = query.eq('course_code', courseCode.toUpperCase().trim());
+      }
+
+      if (session && session !== 'All') {
+        query = query.eq('session', session);
+      }
+
+      const { data, error } = await query;
+      if (!error && Array.isArray(data) && data.length > 0) {
+        list = data;
+        saveLocalResults(list);
+      }
     }
+  } catch (err) {
+    console.warn('Supabase student_results query warning:', err);
   }
 
-  if (semester && semester !== 'All') {
-    const cleanSem = semester.toLowerCase();
-    list = list.filter(r => (r.semester || '').toLowerCase().includes(cleanSem));
-  }
+  // 2. Fallback to local storage if database returned empty
+  if (list.length === 0) {
+    list = getLocalResults();
 
-  if (courseCode && courseCode !== 'All') {
-    const cleanCode = courseCode.toUpperCase().trim();
-    list = list.filter(r => (r.course_code || '').toUpperCase() === cleanCode);
-  }
+    if (level) {
+      const cleanLevel = parseInt(String(level).replace(/[^0-9]/g, ''), 10);
+      if (!isNaN(cleanLevel)) {
+        list = list.filter(r => Number(r.level) === cleanLevel);
+      }
+    }
 
-  if (session && session !== 'All') {
-    list = list.filter(r => (r.session || '').toLowerCase() === session.toLowerCase());
+    if (semester && semester !== 'All') {
+      const cleanSem = semester.toLowerCase();
+      list = list.filter(r => (r.semester || '').toLowerCase().includes(cleanSem));
+    }
+
+    if (courseCode && courseCode !== 'All') {
+      const cleanCode = courseCode.toUpperCase().trim();
+      list = list.filter(r => (r.course_code || '').toUpperCase() === cleanCode);
+    }
+
+    if (session && session !== 'All') {
+      list = list.filter(r => (r.session || '').toLowerCase() === session.toLowerCase());
+    }
   }
 
   if (search && search.trim()) {
