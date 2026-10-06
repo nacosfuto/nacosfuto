@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { FaUserTie } from 'react-icons/fa';
 import { FiChevronLeft, FiChevronRight, FiArrowRight } from 'react-icons/fi';
 import ScrollToTopLink from '../ScrollToTopLink';
+import { getExecutives, fetchExecutivesFromSupabase } from '@nacos/supabase';
 import presidentImg from '../../assets/executives/president_irechukwu.jpg';
 import vpImg from '../../assets/executives/vp_chinaemerem.jpg';
 import secGenImg from '../../assets/executives/sec_gen_makuochukwu.jpg';
@@ -17,35 +18,79 @@ import sportsImg from '../../assets/executives/sports_dir_ifeanyi.jpg';
 import provost1Img from '../../assets/executives/provost1_rosemary.jpg';
 import provost2Img from '../../assets/executives/provost2_chidera.jpg';
 
+const DEFAULT_EXECUTIVES = [
+  { id: 'def-1', name: "High Comrade Irechukwu Emmanuel S.", role: "President", position: "President", image: presidentImg },
+  { id: 'def-2', name: "Comrade Okolie Chinaemereme E.", role: "Vice President", position: "Vice President", image: vpImg },
+  { id: 'def-3', name: "High Comrade Egwuonwu Makuochukwu V.", role: "Secretary General", position: "Secretary General", image: secGenImg },
+  { id: 'def-4', name: "Comrade Jibulu Chinecherem Favour", role: "Ass. Secretary General", position: "Ass. Secretary General", image: asgImg },
+  { id: 'def-5', name: "Comrade Nzeh Daniel Chukwuka", role: "Financial Secretary", position: "Financial Secretary", image: danielImg },
+  { id: 'def-6', name: "Comrade Pedro Dennis Chikamso", role: "Treasurer", position: "Treasurer", image: treasurerImg },
+  { id: 'def-7', name: "Journalist Comrade Balogun John M.", role: "P.R.O", position: "P.R.O", image: proImg },
+  { id: 'def-8', name: "Comrade Jonathan Faith Onyoiza", role: "Director of Welfare", position: "Director of Welfare", image: welfareImg },
+  { id: 'def-9', name: "Comrade Anyanwu Nestor Ifeanyi", role: "Director of ICT", position: "Director of ICT", image: ictImg },
+  { id: 'def-10', name: "Comrade Okere Kelechukwu Victory", role: "Asst. Director of ICT", position: "Asst. Director of ICT", image: ictAsstImg },
+  { id: 'def-11', name: "Comrade Ikenna Elvis Munachimso", role: "Director of Socials", position: "Director of Socials", image: socialsImg },
+  { id: 'def-12', name: "Comrade Azubuike Ebenezer Ifeanyi", role: "Director of Sports", position: "Director of Sports", image: sportsImg },
+  { id: 'def-13', name: "Comrade Emeka Mmesoma Rosemary", role: "Provost 1", position: "Provost 1", image: provost1Img },
+  { id: 'def-14', name: "Comrade Nduka Anselem Chidera", role: "Provost 2", position: "Provost 2", image: provost2Img },
+];
 
 const NacosSection = () => {
-  const executives = [
-    { name: "High Comrade Irechukwu Emmanuel S.", position: "President", image: presidentImg },
-    { name: "Comrade Okolie Chinaemereme E.", position: "Vice President", image: vpImg },
-    { name: "High Comrade Egwuonwu Makuochukwu V.", position: "Secretary General", image: secGenImg },
-    { name: "Comrade Jibulu Chinecherem Favour", position: "Ass. Secretary General", image: asgImg },
-    { name: "Comrade Nzeh Daniel Chukwuka", position: "Financial Secretary", image: danielImg },
-    { name: "Comrade Pedro Dennis Chikamso", position: "Treasurer", image: treasurerImg },
-    { name: "Journalist Comrade Balogun John M.", position: "P.R.O", image: proImg },
-    { name: "Comrade Jonathan Faith Onyoiza", position: "Director of Welfare", image: welfareImg },
-    { name: "Comrade Anyanwu Nestor Ifeanyi", position: "Director of ICT", image: ictImg },
-    { name: "Comrade Okere Kelechukwu Victory", position: "Asst. Director of ICT", image: ictAsstImg },
-    { name: "Comrade Ikenna Elvis Munachimso", position: "Director of Socials", image: socialsImg },
-    { name: "Comrade Azubuike Ebenezer Ifeanyi", position: "Director of Sports", image: sportsImg },
-    { name: "Comrade Emeka Mmesoma Rosemary", position: "Provost 1", image: provost1Img },
-    { name: "Comrade Nduka Anselem Chidera", position: "Provost 2", image: provost2Img },
-  ];
+  const [executivesList, setExecutivesList] = useState(() => {
+    try {
+      const cur = getExecutives('current');
+      if (Array.isArray(cur) && cur.length > 0) return cur;
+    } catch (e) {}
+    return DEFAULT_EXECUTIVES;
+  });
+
+  useEffect(() => {
+    const loadCurrentExecutives = () => {
+      try {
+        const cur = getExecutives('current');
+        if (Array.isArray(cur) && cur.length > 0) {
+          setExecutivesList(cur);
+        }
+      } catch (e) {
+        console.warn('Error loading executives in NacosSection:', e);
+      }
+    };
+
+    loadCurrentExecutives();
+    fetchExecutivesFromSupabase().then(() => loadCurrentExecutives()).catch(() => {});
+
+    const handleUpdate = () => loadCurrentExecutives();
+    window.addEventListener('nacos_executives_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener('nacos_executives_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  const rawList = executivesList && executivesList.length > 0 ? executivesList : DEFAULT_EXECUTIVES;
 
   // Carousel Items structure mapping
-  const items = executives.map((exec, idx) => ({
-    id: idx,
-    title: exec.name,
-    subtitle: exec.position,
-    image: exec.image,
-    link: "/about/nacos-executives",
-    accentColor: "#10b981", // Green theme accent
-    badge: exec.position === "President" ? "President" : undefined
-  }));
+  const items = useMemo(() => {
+    return rawList.map((exec, idx) => {
+      const roleStr = exec.role || exec.position || 'Executive';
+      const isPresident = roleStr.toLowerCase().includes('president') && !roleStr.toLowerCase().includes('vice');
+      const fallbackImg = DEFAULT_EXECUTIVES[idx % DEFAULT_EXECUTIVES.length]?.image || presidentImg;
+      const displayImg = exec.image || exec.image_url || fallbackImg;
+
+      return {
+        id: exec.id || `exec-${idx}`,
+        title: exec.name,
+        subtitle: roleStr,
+        image: displayImg,
+        fallbackImage: fallbackImg,
+        link: "/about/nacos-executives",
+        accentColor: "#10b981", // Green theme accent
+        badge: isPresident ? "President" : undefined
+      };
+    });
+  }, [rawList]);
 
   const autoplaySpeed = 0.0068; // Increased continuous carousel speed
 
@@ -75,8 +120,8 @@ const NacosSection = () => {
   }, []);
 
   // Calculate active index based on center proximity
-  const activeIndex = Math.round(scrollPosition + items.length * 4) % items.length;
-  const activeItem = items[activeIndex];
+  const activeIndex = Math.round(scrollPosition + (items.length || 1) * 4) % (items.length || 1);
+  const activeItem = items[activeIndex] || items[0];
 
   // Next and Prev handlers
   const handleNext = useCallback(() => {
@@ -279,6 +324,11 @@ const NacosSection = () => {
                     <img
                       src={item.image}
                       alt={item.title}
+                      onError={(e) => {
+                        if (item.fallbackImage && e.currentTarget.src !== item.fallbackImage) {
+                          e.currentTarget.src = item.fallbackImage;
+                        }
+                      }}
                       className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
