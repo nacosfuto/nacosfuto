@@ -23,7 +23,8 @@ import {
   denySpiritualFellowship, 
   deleteSpiritualFellowship, 
   submitSpiritualFellowship,
-  updateSpiritualFellowship 
+  updateSpiritualFellowship,
+  fetchSpiritualFellowshipsFromSupabase
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
@@ -60,9 +61,15 @@ const AdminSpiritualLife = () => {
     };
   }, []);
 
-  const loadFellowships = () => {
+  const loadFellowships = async () => {
     setLoading(true);
     setFellowships(getSpiritualFellowships('all'));
+    try {
+      const live = await fetchSpiritualFellowshipsFromSupabase('all');
+      if (live && live.length > 0) {
+        setFellowships(live);
+      }
+    } catch (e) {}
     setLoading(false);
   };
 

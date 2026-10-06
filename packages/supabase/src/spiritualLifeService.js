@@ -129,6 +129,32 @@ export const INITIAL_FELLOWSHIPS = [
   }
 ];
 
+export async function fetchSpiritualFellowshipsFromSupabase(statusFilter = 'all') {
+  try {
+    if (supabase) {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_spiritual_life')
+        .maybeSingle();
+
+      if (storeRow?.academic_session) {
+        try {
+          const parsed = JSON.parse(storeRow.academic_session);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            saveLocalSpiritualFellowships(parsed);
+            if (statusFilter === 'all') return parsed;
+            return parsed.filter(f => f.status === statusFilter);
+          }
+        } catch (e) {}
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase fetchSpiritualFellowships error:', err);
+  }
+  return getSpiritualFellowships(statusFilter);
+}
+
 export function getSpiritualFellowships(statusFilter = 'all') {
   if (typeof window === 'undefined') {
     return statusFilter === 'all' ? INITIAL_FELLOWSHIPS : INITIAL_FELLOWSHIPS.filter(f => f.status === statusFilter);
@@ -157,7 +183,7 @@ export function saveLocalSpiritualFellowships(list) {
   window.dispatchEvent(new Event('nacos_spiritual_life_updated'));
 }
 
-export function submitSpiritualFellowship(fellowshipData) {
+export async function submitSpiritualFellowship(fellowshipData) {
   const list = getSpiritualFellowships('all');
   const newFellowship = {
     id: `fel-${Date.now()}`,
@@ -168,6 +194,19 @@ export function submitSpiritualFellowship(fellowshipData) {
 
   const updated = [newFellowship, ...list];
   saveLocalSpiritualFellowships(updated);
+
+  // Authoritative live sync to Supabase store_spiritual_life
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_spiritual_life',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_spiritual_life sync error:', err);
+  }
 
   addAdminNotification({
     type: 'spiritual_life',
@@ -180,17 +219,39 @@ export function submitSpiritualFellowship(fellowshipData) {
   return newFellowship;
 }
 
-export function approveSpiritualFellowship(id) {
+export async function approveSpiritualFellowship(id) {
   const list = getSpiritualFellowships('all');
   const updated = list.map(f => f.id === id ? { ...f, status: 'approved' } : f);
   saveLocalSpiritualFellowships(updated);
+
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_spiritual_life',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {}
+
   return updated;
 }
 
-export function denySpiritualFellowship(id) {
+export async function denySpiritualFellowship(id) {
   const list = getSpiritualFellowships('all');
   const updated = list.map(f => f.id === id ? { ...f, status: 'denied' } : f);
   saveLocalSpiritualFellowships(updated);
+
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_spiritual_life',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {}
+
   return updated;
 }
 
@@ -215,41 +276,36 @@ export async function updateSpiritualFellowship(id, updates) {
 
   saveLocalSpiritualFellowships(updatedList);
 
+  // Authoritative live sync to Supabase store_spiritual_life
   try {
     if (supabase) {
-      await supabase.from('spiritual_fellowships').upsert({
-        id: updatedItem.id,
-        name: updatedItem.name,
-        category: updatedItem.category,
-        venue: updatedItem.venue,
-        meeting_times: updatedItem.meetingTimes,
-        lead_name: updatedItem.leadName,
-        description: updatedItem.description,
-        image: updatedItem.image,
-        link: updatedItem.link,
-        status: updatedItem.status || 'approved',
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_spiritual_life',
+        academic_session: JSON.stringify(updatedList),
         updated_at: now
-      }, { onConflict: 'id' });
+      });
     }
   } catch (err) {
-    console.warn('Could not sync spiritual fellowship to Supabase:', err);
+    console.warn('Could not sync spiritual fellowship to Supabase store:', err);
   }
 
   return updatedItem;
 }
 
-export function deleteSpiritualFellowship(id) {
+export async function deleteSpiritualFellowship(id) {
   const list = getSpiritualFellowships('all');
   const updated = list.filter(f => f.id !== id);
   saveLocalSpiritualFellowships(updated);
 
   try {
     if (supabase) {
-      supabase.from('spiritual_fellowships').delete().eq('id', id).then(() => {});
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_spiritual_life',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
     }
-  } catch (err) {
-    console.warn('Could not delete spiritual fellowship from Supabase:', err);
-  }
+  } catch (err) {}
 
   return updated;
 }

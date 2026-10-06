@@ -374,7 +374,24 @@ export function saveLocalEvents(events) {
 export async function fetchEventsFromSupabase() {
   try {
     if (supabase) {
-      // 1. Fetch live events from media_assets where category = 'events'
+      // 1. Authoritative check on live Supabase store_events row
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_events')
+        .maybeSingle();
+
+      if (storeRow?.academic_session) {
+        try {
+          const parsed = JSON.parse(storeRow.academic_session);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            saveLocalEvents(parsed);
+            return parsed;
+          }
+        } catch (e) {}
+      }
+
+      // 2. Fetch live events from media_assets where category = 'events'
       const { data: mediaEvents, error: mediaError } = await supabase
         .from('media_assets')
         .select('*')
@@ -407,7 +424,7 @@ export async function fetchEventsFromSupabase() {
         }
       }
 
-      // 2. Fallback to website_events table
+      // 3. Fallback to website_events table
       const { data, error } = await supabase
         .from('website_events')
         .select('*')
@@ -470,6 +487,19 @@ export async function saveEvent(eventData) {
   }
 
   saveLocalEvents(updated);
+
+  // Authoritative live sync to Supabase store_events
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_events',
+        academic_session: JSON.stringify(updated),
+        updated_at: now
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_events save error:', err);
+  }
 
   // 1. Sync with media_assets for universal multi-device live sync
   try {
@@ -534,6 +564,19 @@ export async function deleteEvent(eventItem) {
 
   saveLocalEvents(updated);
 
+  // Authoritative live sync to Supabase store_events
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_events',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_events delete sync error:', err);
+  }
+
   // Delete from media_assets
   try {
     if (supabase) {
@@ -590,6 +633,19 @@ export async function toggleEventPublish(id) {
 
   saveLocalEvents(updated);
 
+  // Authoritative live sync to Supabase store_events
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_events',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_events toggle sync error:', err);
+  }
+
   if (targetSlug && supabase) {
     try {
       await supabase.from('website_events').update({ is_published: nextPublished }).eq('slug', targetSlug);
@@ -619,6 +675,19 @@ export async function toggleEventFeatured(id) {
   });
 
   saveLocalEvents(updated);
+
+  // Authoritative live sync to Supabase store_events
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_events',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_events toggle featured error:', err);
+  }
 
   if (targetSlug && supabase) {
     try {

@@ -21,7 +21,8 @@ import {
   denyAlumnus, 
   deleteAlumnus, 
   submitAlumnus,
-  updateAlumnus 
+  updateAlumnus,
+  fetchAlumniFromSupabase
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
@@ -53,9 +54,15 @@ const AdminAlumni = () => {
     return () => window.removeEventListener('nacos_alumni_updated', handleUpdate);
   }, []);
 
-  const loadAlumni = () => {
+  const loadAlumni = async () => {
     setLoading(true);
     setAlumni(getAlumni('all'));
+    try {
+      const live = await fetchAlumniFromSupabase('all');
+      if (live && live.length > 0) {
+        setAlumni(live);
+      }
+    } catch (e) {}
     setLoading(false);
   };
 

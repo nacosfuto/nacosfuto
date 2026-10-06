@@ -20,7 +20,8 @@ import {
   denyCampusClub, 
   deleteCampusClub, 
   submitCampusClub,
-  updateCampusClub 
+  updateCampusClub,
+  fetchCampusClubsFromSupabase
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
@@ -51,9 +52,15 @@ const AdminClubs = () => {
     return () => window.removeEventListener('nacos_campus_clubs_updated', handleUpdate);
   }, []);
 
-  const loadClubs = () => {
+  const loadClubs = async () => {
     setLoading(true);
     setClubs(getCampusClubs('all'));
+    try {
+      const live = await fetchCampusClubsFromSupabase('all');
+      if (live && live.length > 0) {
+        setClubs(live);
+      }
+    } catch (e) {}
     setLoading(false);
   };
 

@@ -86,7 +86,24 @@ export function saveLocalDepartmentStaff(staff) {
 export async function fetchDepartmentStaff({ activeOnly = true } = {}) {
   try {
     if (supabase) {
-      // 1. Live query from media_assets where category = 'general' and entity_type = 'staff'
+      // 1. Authoritative check on live Supabase store_administration row
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_administration')
+        .maybeSingle();
+
+      if (storeRow?.academic_session) {
+        try {
+          const parsed = JSON.parse(storeRow.academic_session);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            saveLocalDepartmentStaff(parsed);
+            return activeOnly ? parsed.filter(s => s.is_active) : parsed;
+          }
+        } catch (e) {}
+      }
+
+      // 2. Live query from media_assets where category = 'general' and entity_type = 'staff'
       const { data: mediaStaff, error: mediaErr } = await supabase
         .from('media_assets')
         .select('*')
@@ -121,7 +138,7 @@ export async function fetchDepartmentStaff({ activeOnly = true } = {}) {
         }
       }
 
-      // 2. Fallback to department_administration table
+      // 3. Fallback to department_administration table
       let query = supabase.from('department_administration').select('*').order('order_index', { ascending: true });
       if (activeOnly) {
         query = query.eq('is_active', true);
@@ -164,6 +181,19 @@ export async function saveDepartmentStaffMember(memberData) {
 
   saveLocalDepartmentStaff(updated);
 
+  // Authoritative live sync to Supabase store_administration
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_administration',
+        academic_session: JSON.stringify(updated),
+        updated_at: now
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_administration save error:', err);
+  }
+
   // 1. Sync to media_assets for universal multi-device live sync
   try {
     if (supabase) {
@@ -199,6 +229,19 @@ export async function deleteDepartmentStaffMember(id) {
   const current = getLocalDepartmentStaff();
   const updated = current.filter(s => s.id !== id);
   saveLocalDepartmentStaff(updated);
+
+  // Authoritative live sync to Supabase store_administration
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_administration',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_administration delete error:', err);
+  }
 
   try {
     if (supabase) {

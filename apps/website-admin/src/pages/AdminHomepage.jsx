@@ -32,14 +32,33 @@ const AdminHomepage = () => {
       if (stored) {
         setFormData(JSON.parse(stored));
       }
-      const { data, error } = await supabase
-        .from('website_homepage_content')
-        .select('*')
-        .eq('id', 'default')
+
+      // 1. Authoritative check on live Supabase store_homepage_content row
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_homepage_content')
         .maybeSingle();
 
-      if (!error && data?.content) {
-        setFormData(data.content);
+      if (storeRow?.academic_session) {
+        try {
+          const parsed = JSON.parse(storeRow.academic_session);
+          if (parsed && typeof parsed === 'object') {
+            setFormData(parsed);
+            localStorage.setItem('nacos_homepage_cms_db', JSON.stringify(parsed));
+          }
+        } catch (_) {}
+      } else {
+        // 2. Fallback to website_homepage_content if available
+        const { data, error } = await supabase
+          .from('website_homepage_content')
+          .select('*')
+          .eq('id', 'default')
+          .maybeSingle();
+
+        if (!error && data?.content) {
+          setFormData(data.content);
+        }
       }
     } catch (e) {}
     setLoading(false);
@@ -50,6 +69,17 @@ const AdminHomepage = () => {
     setSaving(true);
 
     localStorage.setItem('nacos_homepage_cms_db', JSON.stringify(formData));
+
+    // Authoritative live sync to Supabase store_homepage_content
+    try {
+      await supabase
+        .from('id_card_settings')
+        .upsert({
+          id: 'store_homepage_content',
+          academic_session: JSON.stringify(formData),
+          updated_at: new Date().toISOString()
+        });
+    } catch (e) {}
 
     try {
       await supabase

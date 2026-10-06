@@ -197,7 +197,28 @@ export const getYellowPagesBusinesses = getYellowPages;
 export async function fetchYellowPagesFromSupabase(statusFilter = 'all') {
   try {
     if (supabase) {
-      // 1. Live query from media_assets for universal multi-device sync
+      // 1. Authoritative check on live Supabase store_yellow_pages row
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_yellow_pages')
+        .maybeSingle();
+
+      if (storeRow?.academic_session) {
+        try {
+          const parsed = JSON.parse(storeRow.academic_session);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(YELLOW_PAGES_STORAGE_KEY, JSON.stringify(parsed));
+              window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
+            }
+            if (statusFilter === 'all') return parsed;
+            return parsed.filter(b => b.status === statusFilter);
+          }
+        } catch (e) {}
+      }
+
+      // 2. Live query from media_assets for universal multi-device sync
       const { data: mediaYP, error: mediaErr } = await supabase
         .from('media_assets')
         .select('*')
@@ -235,7 +256,7 @@ export async function fetchYellowPagesFromSupabase(statusFilter = 'all') {
         }
       }
 
-      // 2. Fallback to yellow_pages table
+      // 3. Fallback to yellow_pages table
       let query = supabase.from('yellow_pages').select('*').order('created_at', { ascending: false });
       if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
@@ -291,6 +312,19 @@ export async function submitYellowPageBusiness(businessData) {
   if (typeof window !== 'undefined') {
     localStorage.setItem(YELLOW_PAGES_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
+  }
+
+  // Authoritative live sync to Supabase store_yellow_pages
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_yellow_pages',
+        academic_session: JSON.stringify(updated),
+        updated_at: now
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_yellow_pages save error:', err);
   }
 
   // Real-time universal live sync to media_assets
@@ -349,6 +383,19 @@ export async function updateYellowPageBusiness(id, updates) {
     window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
   }
 
+  // Authoritative live sync to Supabase store_yellow_pages
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_yellow_pages',
+        academic_session: JSON.stringify(updatedList),
+        updated_at: now
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_yellow_pages update error:', err);
+  }
+
   // Real-time universal live sync to media_assets
   try {
     if (supabase) {
@@ -386,6 +433,20 @@ export async function deleteYellowPageBusiness(id) {
     localStorage.setItem(YELLOW_PAGES_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
   }
+
+  // Authoritative live sync to Supabase store_yellow_pages
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_yellow_pages',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_yellow_pages delete error:', err);
+  }
+
   try {
     if (supabase) {
       await supabase.from('media_assets').delete().eq('entity_id', id);
@@ -400,6 +461,35 @@ export async function deleteYellowPageBusiness(id) {
 // ═══════════════════════════════════════════════════════════════
 // 2. CAMPUS CLUBS DIRECTORY METHODS
 // ═══════════════════════════════════════════════════════════════
+
+export async function fetchCampusClubsFromSupabase(statusFilter = 'all') {
+  try {
+    if (supabase) {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_campus_clubs')
+        .maybeSingle();
+
+      if (storeRow?.academic_session) {
+        try {
+          const parsed = JSON.parse(storeRow.academic_session);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(CAMPUS_CLUBS_STORAGE_KEY, JSON.stringify(parsed));
+              window.dispatchEvent(new Event('nacos_campus_clubs_updated'));
+            }
+            if (statusFilter === 'all') return parsed;
+            return parsed.filter(c => c.status === statusFilter);
+          }
+        } catch (e) {}
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase fetchCampusClubs error:', err);
+  }
+  return getCampusClubs(statusFilter);
+}
 
 export function getCampusClubs(statusFilter = 'all') {
   if (typeof window === 'undefined') return INITIAL_CAMPUS_CLUBS;
@@ -417,7 +507,7 @@ export function getCampusClubs(statusFilter = 'all') {
   }
 }
 
-export function submitCampusClub(clubData) {
+export async function submitCampusClub(clubData) {
   const list = getCampusClubs('all');
   const newClub = {
     id: `club-${Date.now()}`,
@@ -432,6 +522,19 @@ export function submitCampusClub(clubData) {
     window.dispatchEvent(new Event('nacos_campus_clubs_updated'));
   }
 
+  // Authoritative live sync to Supabase store_campus_clubs
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_campus_clubs',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_campus_clubs sync error:', err);
+  }
+
   // Trigger Admin notification
   addAdminNotification({
     type: 'campus_club',
@@ -444,23 +547,45 @@ export function submitCampusClub(clubData) {
   return newClub;
 }
 
-export function approveCampusClub(id) {
+export async function approveCampusClub(id) {
   const list = getCampusClubs('all');
   const updated = list.map(c => c.id === id ? { ...c, status: 'approved' } : c);
   if (typeof window !== 'undefined') {
     localStorage.setItem(CAMPUS_CLUBS_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_campus_clubs_updated'));
   }
+
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_campus_clubs',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {}
+
   return updated;
 }
 
-export function denyCampusClub(id) {
+export async function denyCampusClub(id) {
   const list = getCampusClubs('all');
   const updated = list.map(c => c.id === id ? { ...c, status: 'denied' } : c);
   if (typeof window !== 'undefined') {
     localStorage.setItem(CAMPUS_CLUBS_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_campus_clubs_updated'));
   }
+
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_campus_clubs',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {}
+
   return updated;
 }
 
@@ -488,40 +613,76 @@ export async function updateCampusClub(id, updates) {
     window.dispatchEvent(new Event('nacos_campus_clubs_updated'));
   }
 
+  // Authoritative live sync to Supabase store_campus_clubs
   try {
     if (supabase) {
-      await supabase.from('campus_clubs').upsert({
-        id: updatedClub.id,
-        name: updatedClub.name,
-        category: updatedClub.category,
-        description: updatedClub.description,
-        image: updatedClub.image,
-        lead_name: updatedClub.leadName,
-        link: updatedClub.link,
-        status: updatedClub.status || 'approved',
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_campus_clubs',
+        academic_session: JSON.stringify(updatedList),
         updated_at: now
-      }, { onConflict: 'id' });
+      });
     }
   } catch (err) {
-    console.warn('Could not sync club to Supabase:', err);
+    console.warn('Supabase store_campus_clubs update error:', err);
   }
 
   return updatedClub;
 }
 
-export function deleteCampusClub(id) {
+export async function deleteCampusClub(id) {
   const list = getCampusClubs('all');
   const updated = list.filter(c => c.id !== id);
   if (typeof window !== 'undefined') {
     localStorage.setItem(CAMPUS_CLUBS_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_campus_clubs_updated'));
   }
+
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_campus_clubs',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {}
+
   return updated;
 }
 
 // ═══════════════════════════════════════════════════════════════
 // 3. ALUMNI DIRECTORY METHODS
 // ═══════════════════════════════════════════════════════════════
+
+export async function fetchAlumniFromSupabase(statusFilter = 'all') {
+  try {
+    if (supabase) {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_alumni')
+        .maybeSingle();
+
+      if (storeRow?.academic_session) {
+        try {
+          const parsed = JSON.parse(storeRow.academic_session);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(ALUMNI_STORAGE_KEY, JSON.stringify(parsed));
+              window.dispatchEvent(new Event('nacos_alumni_updated'));
+              window.dispatchEvent(new Event('nacos_alumni_directory_updated'));
+            }
+            if (statusFilter === 'all') return parsed;
+            return parsed.filter(a => a.status === statusFilter);
+          }
+        } catch (e) {}
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase fetchAlumni error:', err);
+  }
+  return getAlumni(statusFilter);
+}
 
 export function getAlumni(statusFilter = 'all') {
   if (typeof window === 'undefined') return INITIAL_ALUMNI;
@@ -539,7 +700,7 @@ export function getAlumni(statusFilter = 'all') {
   }
 }
 
-export function submitAlumnus(alumnusData) {
+export async function submitAlumnus(alumnusData) {
   const list = getAlumni('all');
   const newAlumnus = {
     id: `alm-${Date.now()}`,
@@ -553,6 +714,19 @@ export function submitAlumnus(alumnusData) {
     localStorage.setItem(ALUMNI_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_alumni_updated'));
     window.dispatchEvent(new Event('nacos_alumni_directory_updated'));
+  }
+
+  // Authoritative live sync to Supabase store_alumni
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_alumni',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_alumni sync error:', err);
   }
 
   // Trigger Admin notification
@@ -571,23 +745,47 @@ export const getAlumniDirectory = getAlumni;
 export const submitAlumniRequest = submitAlumnus;
 export const submitAlumni = submitAlumnus;
 
-export function approveAlumnus(id) {
+export async function approveAlumnus(id) {
   const list = getAlumni('all');
   const updated = list.map(a => a.id === id ? { ...a, status: 'approved' } : a);
   if (typeof window !== 'undefined') {
     localStorage.setItem(ALUMNI_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_alumni_updated'));
+    window.dispatchEvent(new Event('nacos_alumni_directory_updated'));
   }
+
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_alumni',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {}
+
   return updated;
 }
 
-export function denyAlumnus(id) {
+export async function denyAlumnus(id) {
   const list = getAlumni('all');
   const updated = list.map(a => a.id === id ? { ...a, status: 'denied' } : a);
   if (typeof window !== 'undefined') {
     localStorage.setItem(ALUMNI_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_alumni_updated'));
+    window.dispatchEvent(new Event('nacos_alumni_directory_updated'));
   }
+
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_alumni',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {}
+
   return updated;
 }
 
@@ -616,34 +814,40 @@ export async function updateAlumnus(id, updates) {
     window.dispatchEvent(new Event('nacos_alumni_directory_updated'));
   }
 
+  // Authoritative live sync to Supabase store_alumni
   try {
     if (supabase) {
-      await supabase.from('alumni_directory').upsert({
-        id: updatedAlm.id,
-        name: updatedAlm.name,
-        grad_year: updatedAlm.gradYear,
-        position: updatedAlm.position,
-        company: updatedAlm.company,
-        linkedin: updatedAlm.linkedin,
-        bio: updatedAlm.bio,
-        image: updatedAlm.image,
-        status: updatedAlm.status || 'approved',
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_alumni',
+        academic_session: JSON.stringify(updatedList),
         updated_at: now
-      }, { onConflict: 'id' });
+      });
     }
   } catch (err) {
-    console.warn('Could not sync alumnus to Supabase:', err);
+    console.warn('Supabase store_alumni update error:', err);
   }
 
   return updatedAlm;
 }
 
-export function deleteAlumnus(id) {
+export async function deleteAlumnus(id) {
   const list = getAlumni('all');
   const updated = list.filter(a => a.id !== id);
   if (typeof window !== 'undefined') {
     localStorage.setItem(ALUMNI_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('nacos_alumni_updated'));
+    window.dispatchEvent(new Event('nacos_alumni_directory_updated'));
   }
+
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_alumni',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {}
+
   return updated;
 }

@@ -226,7 +226,24 @@ export function saveLocalGalleryItems(items) {
 export async function fetchGalleryFromSupabase() {
   try {
     if (supabase) {
-      // 1. Fetch from media_assets where category = 'gallery' (universal multi-device sync)
+      // 1. Authoritative check on live Supabase store_gallery row
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_gallery')
+        .maybeSingle();
+
+      if (storeRow?.academic_session) {
+        try {
+          const parsed = JSON.parse(storeRow.academic_session);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            saveLocalGalleryItems(parsed);
+            return parsed;
+          }
+        } catch (e) {}
+      }
+
+      // 2. Fetch from media_assets where category = 'gallery' (universal multi-device sync)
       const { data: mediaItems, error: mediaError } = await supabase
         .from('media_assets')
         .select('*')
@@ -270,7 +287,7 @@ export async function fetchGalleryFromSupabase() {
         }
       }
 
-      // 2. Fallback to website_gallery table
+      // 3. Fallback to website_gallery table
       const { data, error } = await supabase
         .from('website_gallery')
         .select('*')
@@ -327,6 +344,19 @@ export async function saveGalleryItem(itemData) {
 
   saveLocalGalleryItems(updated);
 
+  // Authoritative live sync to Supabase store_gallery
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_gallery',
+        academic_session: JSON.stringify(updated),
+        updated_at: now
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_gallery save error:', err);
+  }
+
   // Sync to Supabase `website_gallery` & `media_assets`
   try {
     if (normalized.cloudinary_public_id && normalized.image_url) {
@@ -377,6 +407,19 @@ export async function deleteGalleryItem(item) {
   });
 
   saveLocalGalleryItems(updated);
+
+  // Authoritative live sync to Supabase store_gallery
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_gallery',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_gallery delete sync error:', err);
+  }
 
   // Remote delete
   const pubId = targetPublicId || (current.find(i => i.id === targetId)?.cloudinary_public_id);
@@ -431,6 +474,19 @@ export async function toggleGalleryFeatured(id) {
   });
 
   saveLocalGalleryItems(updated);
+
+  // Authoritative live sync to Supabase store_gallery
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_gallery',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    console.warn('Supabase store_gallery toggle featured error:', err);
+  }
 
   if (targetPublicId) {
     try {

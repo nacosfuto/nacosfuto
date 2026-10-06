@@ -75,6 +75,44 @@ export async function fetchExecutivesFromSupabase() {
   if (!supabase) return getExecutives('all');
 
   try {
+    // 1. Authoritative check on live Supabase store_executives row
+    const { data: storeRow } = await supabase
+      .from('id_card_settings')
+      .select('academic_session')
+      .eq('id', 'store_executives')
+      .maybeSingle();
+
+    if (storeRow?.academic_session) {
+      try {
+        const parsed = JSON.parse(storeRow.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(parsed));
+            window.dispatchEvent(new Event('nacos_executives_updated'));
+          }
+
+          // Check settings store
+          const { data: setRow } = await supabase
+            .from('id_card_settings')
+            .select('academic_session')
+            .eq('id', 'store_executives_settings')
+            .maybeSingle();
+          if (setRow?.academic_session) {
+            try {
+              const parsedSet = JSON.parse(setRow.academic_session);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(parsedSet));
+                window.dispatchEvent(new Event('nacos_executives_settings_updated'));
+              }
+            } catch (_) {}
+          }
+
+          return parsed;
+        }
+      } catch (e) {}
+    }
+
+    // 2. Fallback check on media_assets
     const { data, error } = await supabase
       .from('media_assets')
       .select('*')
@@ -82,7 +120,7 @@ export async function fetchExecutivesFromSupabase() {
       .order('created_at', { ascending: false });
 
     if (!error && data && Array.isArray(data)) {
-      const execAssets = data.filter(d => d.entity_type === 'executive');
+      const execAssets = data.filter(d => d.entity_type === 'executives' || d.entity_type === 'executive');
       const settingsAsset = data.find(d => d.entity_type === 'executives_settings');
 
       if (settingsAsset && settingsAsset.image_alt) {
@@ -126,7 +164,7 @@ export async function fetchExecutivesFromSupabase() {
       }
     }
   } catch (err) {
-    console.warn('Supabase fetch executives from media_assets notice:', err);
+    console.warn('Supabase fetch executives notice:', err);
   }
 
   return getExecutives('all');
@@ -355,23 +393,16 @@ export async function updateExecutivesSettings(newSettings) {
     console.warn('Supabase sync warning for executives settings:', err);
   }
 
+  // Authoritative live store sync to Supabase
   try {
     if (supabase) {
-      await supabase.from('media_assets').upsert({
-        cloudinary_public_id: 'nacos/executives/page_settings',
-        image_url: updated.heroImage || DEFAULT_EXECUTIVES_PAGE_SETTINGS.heroImage,
-        image_alt: JSON.stringify(updated),
-        media_type: 'image',
-        folder: 'nacos/executives',
-        category: 'executives',
-        entity_type: 'executives_settings',
-        entity_id: 'settings_default',
+      supabase.from('id_card_settings').upsert({
+        id: 'store_executives_settings',
+        academic_session: JSON.stringify(updated),
         updated_at: new Date().toISOString()
-      }, { onConflict: 'cloudinary_public_id' });
+      }).then(() => {}).catch(() => {});
     }
-  } catch (e) {
-    console.warn('Universal settings live sync notice:', e);
-  }
+  } catch (e) {}
 
   return updated;
 }
@@ -455,41 +486,17 @@ export async function saveExecutive(execData) {
     window.dispatchEvent(new Event('nacos_executives_updated'));
   }
 
-  // Attempt Supabase synchronization
+  // 1. Authoritative persistent save to Supabase store_executives
   try {
     if (supabase) {
-      await supabase.from('nacos_executives').upsert({
-        id: savedItem.id,
-        name: savedItem.name,
-        role: savedItem.role,
-        image: savedItem.image,
-        cloudinary_public_id: savedItem.cloudinary_public_id,
-        category: savedItem.category,
-        session: savedItem.session,
-        order_index: savedItem.order_index,
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_executives',
+        academic_session: JSON.stringify(updatedList),
         updated_at: now
       });
     }
   } catch (err) {
-    console.warn('Supabase sync warning for saveExecutive:', err);
-  }
-
-  try {
-    if (supabase) {
-      await supabase.from('media_assets').upsert({
-        cloudinary_public_id: savedItem.cloudinary_public_id || ('nacos/executives/' + savedItem.id),
-        image_url: savedItem.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569275/nacos/executives/president_irechukwu.jpg',
-        image_alt: JSON.stringify(savedItem),
-        media_type: 'image',
-        folder: 'nacos/executives',
-        category: 'executives',
-        entity_type: 'executive',
-        entity_id: savedItem.id,
-        updated_at: now
-      }, { onConflict: 'cloudinary_public_id' });
-    }
-  } catch (e) {
-    console.warn('Universal executive live sync notice:', e);
+    console.warn('Supabase store_executives save error:', err);
   }
 
   // Admin Notification
@@ -514,20 +521,17 @@ export async function deleteExecutive(id) {
     window.dispatchEvent(new Event('nacos_executives_updated'));
   }
 
+  // 1. Authoritative persistent save to Supabase store_executives
   try {
     if (supabase) {
-      await supabase.from('nacos_executives').delete().eq('id', id);
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_executives',
+        academic_session: JSON.stringify(updatedList),
+        updated_at: new Date().toISOString()
+      });
     }
   } catch (err) {
-    console.warn('Supabase sync warning for deleteExecutive:', err);
-  }
-
-  try {
-    if (supabase) {
-      await supabase.from('media_assets').delete().eq('entity_id', id);
-    }
-  } catch (e) {
-    console.warn('Universal executive live delete notice:', e);
+    console.warn('Supabase store_executives delete sync error:', err);
   }
 
   if (target) {
@@ -571,21 +575,13 @@ export async function moveExecutiveToPast(id, pastSessionLabel = '2024/2025') {
 
   try {
     if (supabase) {
-      await supabase.from('nacos_executives').update({
-        category: 'past',
-        session: pastSessionLabel,
-        order_index: nextOrder,
+      supabase.from('id_card_settings').upsert({
+        id: 'store_executives',
+        academic_session: JSON.stringify(updatedList),
         updated_at: new Date().toISOString()
-      }).eq('id', id);
+      }).then(() => {}).catch(() => {});
     }
-  } catch (err) {
-    console.warn('Supabase sync error on moveExecutiveToPast:', err);
-  }
-
-  const movedItem = updatedList.find(e => e.id === id);
-  if (movedItem) {
-    saveExecutive(movedItem).catch(() => {});
-  }
+  } catch (err) {}
 
   return updatedList;
 }
@@ -618,21 +614,13 @@ export async function moveExecutiveToCurrent(id, currentSessionLabel = '2025/202
 
   try {
     if (supabase) {
-      await supabase.from('nacos_executives').update({
-        category: 'current',
-        session: currentSessionLabel,
-        order_index: nextOrder,
+      supabase.from('id_card_settings').upsert({
+        id: 'store_executives',
+        academic_session: JSON.stringify(updatedList),
         updated_at: new Date().toISOString()
-      }).eq('id', id);
+      }).then(() => {}).catch(() => {});
     }
-  } catch (err) {
-    console.warn('Supabase sync error on moveExecutiveToCurrent:', err);
-  }
-
-  const movedItem = updatedList.find(e => e.id === id);
-  if (movedItem) {
-    saveExecutive(movedItem).catch(() => {});
-  }
+  } catch (err) {}
 
   return updatedList;
 }
@@ -674,30 +662,16 @@ export async function archiveCurrentTenure(archiveSession = '2024/2025', newTenu
     heroYear: newTenureSession.split('/')[1] || newTenureSession
   });
 
-  // Attempt Supabase batch update
+  // Persistent save to Supabase store_executives
   try {
     if (supabase) {
-      const currentIds = list.filter(e => e.category === 'current').map(e => e.id);
-      if (currentIds.length > 0) {
-        await supabase.from('nacos_executives')
-          .update({
-            category: 'past',
-            session: archiveSession,
-            updated_at: now
-          })
-          .in('id', currentIds);
-      }
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_executives',
+        academic_session: JSON.stringify(updatedList),
+        updated_at: now
+      });
     }
-  } catch (err) {
-    console.warn('Supabase sync error on archiveCurrentTenure:', err);
-  }
-
-  // Sync all archived records to media_assets for universal multi-device live sync
-  try {
-    for (const item of updatedList) {
-      saveExecutive(item).catch(() => {});
-    }
-  } catch (e) {}
+  } catch (err) {}
 
   addAdminNotification({
     type: 'executives',
@@ -729,6 +703,16 @@ export async function reorderExecutives(category, orderedIds) {
     localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(updatedList));
     window.dispatchEvent(new Event('nacos_executives_updated'));
   }
+
+  try {
+    if (supabase) {
+      supabase.from('id_card_settings').upsert({
+        id: 'store_executives',
+        academic_session: JSON.stringify(updatedList),
+        updated_at: new Date().toISOString()
+      }).then(() => {}).catch(() => {});
+    }
+  } catch (err) {}
 
   return updatedList;
 }

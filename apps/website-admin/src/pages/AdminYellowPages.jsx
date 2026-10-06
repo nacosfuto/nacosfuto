@@ -24,7 +24,8 @@ import {
   denyYellowPageBusiness, 
   deleteYellowPageBusiness, 
   submitYellowPageBusiness,
-  updateYellowPageBusiness 
+  updateYellowPageBusiness,
+  fetchYellowPagesFromSupabase
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
@@ -72,10 +73,15 @@ const AdminYellowPages = () => {
     return () => window.removeEventListener('nacos_yellow_pages_updated', handleUpdate);
   }, []);
 
-  const loadBusinesses = () => {
+  const loadBusinesses = async () => {
     setLoading(true);
-    const data = getYellowPages('all');
-    setBusinesses(data);
+    setBusinesses(getYellowPages('all'));
+    try {
+      const live = await fetchYellowPagesFromSupabase('all');
+      if (live && live.length > 0) {
+        setBusinesses(live);
+      }
+    } catch (e) {}
     setLoading(false);
   };
 
