@@ -2,94 +2,26 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Nav/Navbar';
 import Footer from '../components/Footer';
 import { useTheme } from '../context/ThemeContext';
-import { FaCalendarAlt, FaClock, FaNewspaper, FaTag, FaSearch, FaArrowRight, FaShareAlt, FaUserEdit } from 'react-icons/fa';
-import { supabase } from '@nacos/supabase';
+import { FaCalendarAlt, FaClock, FaNewspaper, FaTag, FaSearch, FaArrowRight, FaBookOpen } from 'react-icons/fa';
+import { getLocalNewsArticles, fetchNewsArticles } from '@nacos/supabase';
 import { getCloudinaryAssetUrl } from '@nacos/media';
-import newsImg1 from '../assets/research.jpg';
-import newsImg2 from '../assets/academics.jpg';
-import newsImg3 from '../assets/gallery_dept_front.jpg';
-import headerImg from '../assets/header.jpg';
 
 const HERO_IMAGE_URL = "https://res.cloudinary.com/z3wgqisj/image/upload/v1789824604/20250304_223205_Destiny_Eke_ce1a4da154_hxay39.jpg";
 
-const CANONICAL_ARTICLES = [
-  {
-    id: 1,
-    slug: 'futo-csc-nuc-accreditation-2026',
-    title: 'Department of Computer Science Achieves Full 5-Year NUC Accreditation Status',
-    category: 'Academics',
-    author: 'Office of the HOD',
-    date: 'August 28, 2026',
-    readTime: '3 min read',
-    image: getCloudinaryAssetUrl('academics') || newsImg2,
-    excerpt: 'Following comprehensive infrastructure audits and academic curriculum assessments, the National Universities Commission (NUC) has certified FUTO Computer Science with highest tier accreditation.',
-    content: 'The National Universities Commission (NUC) has officially granted full accreditation status to the Department of Computer Science, Federal University of Technology, Owerri (FUTO). The accreditation panel commended the department for its modernized software engineering syllabus, state-of-the-art computational laboratories in the TETFUND complex, and highly distinguished faculty.'
-  },
-  {
-    id: 2,
-    slug: 'ai-research-cluster-grant-expansion',
-    title: 'SICT Research Cluster Secures Multi-Million Compute Grant for Applied AI',
-    category: 'Research',
-    author: 'Directorate of Research',
-    date: 'August 14, 2026',
-    readTime: '4 min read',
-    image: getCloudinaryAssetUrl('research') || newsImg1,
-    excerpt: 'Department faculty and student researchers expand high-performance compute clusters focused on African healthcare and natural language processing solutions.',
-    content: 'In collaboration with international research partners, the Department of Computer Science has secured compute hardware funding to deploy GPU-accelerated clusters. The infrastructure will accelerate doctoral, postgraduate, and final-year student investigations into low-resource language models, medical image classification, and precision agriculture.'
-  },
-  {
-    id: 3,
-    slug: 'nacos-tech-summit-hackathon-champions',
-    title: 'FUTO Computing Students Clinch Top Honours at National Hackathon Challenge',
-    category: 'Innovation',
-    author: 'NACOS Press & PRO Office',
-    date: 'July 29, 2026',
-    readTime: '3 min read',
-    image: getCloudinaryAssetUrl('gallery_dept_front') || newsImg3,
-    excerpt: 'Undergraduate student innovators develop distributed fintech and agricultural supply chain models, winning accolades across regional and national computing leagues.',
-    content: 'A delegation of undergraduate computing students representing NACOS FUTO emerged champions at the 2026 National Inter-University Software Innovation Hackathon. Their winning prototype featured an offline-first distributed ledger system enabling rural farmers to verify decentralized payments and track logistics.'
-  },
-  {
-    id: 4,
-    slug: 'departmental-curriculum-modernization-2026',
-    title: 'Senate Approves New Curricula in Cloud Architecture, AI Systems, and Cyber Security',
-    category: 'Academics',
-    author: 'Departmental Academic Board',
-    date: 'July 10, 2026',
-    readTime: '5 min read',
-    image: getCloudinaryAssetUrl('header') || headerImg,
-    excerpt: 'The university senate has approved revised undergraduate course modules emphasizing industry readiness, microservices architecture, and modern cryptographic defenses.',
-    content: 'Starting in the current academic session, CSC undergraduate students will benefit from hands-on practical labs spanning DevOps pipelines, modern full-stack web architectures, container orchestration, and practical machine learning engineering.'
-  },
-  {
-    id: 5,
-    slug: 'alumni-mentorship-fellowship-announcement',
-    title: 'Global Alumni Chapter Launches Annual Computing Mentorship Fellowship',
-    category: 'Alumni',
-    author: 'NACOS Alumni Relations',
-    date: 'June 22, 2026',
-    readTime: '4 min read',
-    image: getCloudinaryAssetUrl('research') || newsImg1,
-    excerpt: 'FUTO CSC alumni working across global tech leaders launch direct mentorship pairing, career advisory webinars, and resume clinics for 300L and 400L students.',
-    content: 'The NACOS FUTO Alumni Network has formally initiated its 2026 Industry Fellowship. Selected students receive 1-on-1 mentorship from software engineers, tech founders, and data scientists stationed across Silicon Valley, Europe, and Nigeria.'
-  },
-  {
-    id: 6,
-    slug: 'annual-cybersecurity-awareness-week-highlights',
-    title: 'Cybersecurity Week: Department Partners with Industry Experts on Digital Safety',
-    category: 'Campus Press',
-    author: 'Office of the Director of ICT',
-    date: 'May 18, 2026',
-    readTime: '3 min read',
-    image: getCloudinaryAssetUrl('academics') || newsImg2,
-    excerpt: 'Students and staff participate in ethical hacking demonstrations, identity defense workshops, and credential protection seminars.',
-    content: 'Organized by the Office of the Director of ICT in partnership with cybersecurity analysts, the event empowered hundreds of undergraduates with skills in penetration testing, multi-factor authentication setup, and digital footprint management.'
-  }
+const CATEGORIES = [
+  { id: 'all', label: 'All Articles' },
+  { id: 'Research & Journal', label: 'Research & Journal' },
+  { id: 'Academics', label: 'Academics' },
+  { id: 'Innovation', label: 'Innovation' },
+  { id: 'Hackathon', label: 'Hackathons' },
+  { id: 'Campus Life', label: 'Campus Life' },
+  { id: 'Alumni', label: 'Alumni' }
 ];
 
 const News = () => {
   const { theme } = useTheme();
-  const [articles, setArticles] = useState(CANONICAL_ARTICLES);
+  const [articles, setArticles] = useState(() => getLocalNewsArticles({ publishedOnly: true }));
+  const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeArticleModal, setActiveArticleModal] = useState(null);
 
@@ -97,47 +29,38 @@ const News = () => {
     window.scrollTo(0, 0);
     document.body.style.overflow = 'auto';
 
-    async function fetchLiveNews() {
-      try {
-        if (!supabase) return;
-        const { data, error } = await supabase
-          .from('news_articles')
-          .select('*')
-          .eq('is_published', true)
-          .order('published_at', { ascending: false });
-
-        if (!error && data && data.length > 0) {
-          const live = data.map(d => ({
-            id: d.id,
-            slug: d.slug,
-            title: d.title,
-            category: d.category || 'Department News',
-            author: d.author || 'NACOS Editorial',
-            date: d.published_at ? new Date(d.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Recent',
-            readTime: `${d.read_time_minutes || 3} min read`,
-            image: d.cover_image_url || getCloudinaryAssetUrl('research') || newsImg1,
-            excerpt: d.summary || d.excerpt || '',
-            content: d.content || d.excerpt || ''
-          }));
-
-          const liveSlugs = new Set(live.map(l => l.slug));
-          setArticles([...live, ...CANONICAL_ARTICLES.filter(c => !liveSlugs.has(c.slug))]);
-        }
-      } catch (err) {
-        // fallback to canonical
+    // Fetch latest news & journal articles from Supabase in background
+    fetchNewsArticles({ publishedOnly: true }).then(fetched => {
+      if (fetched && fetched.length > 0) {
+        setArticles(fetched);
       }
-    }
-    fetchLiveNews();
+    });
+
+    // Real-time listener for dashboard updates & multi-tab storage
+    const handleSync = () => {
+      setArticles(getLocalNewsArticles({ publishedOnly: true }));
+    };
+
+    window.addEventListener('nacos_website_articles_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+
+    return () => {
+      window.removeEventListener('nacos_website_articles_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, []);
 
   const filtered = articles.filter(article => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
+    const matchesCategory = activeCategory === 'all' || article.category === activeCategory;
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch = !q || (
       article.title.toLowerCase().includes(q) ||
       (article.excerpt && article.excerpt.toLowerCase().includes(q)) ||
-      (article.content && article.content.toLowerCase().includes(q))
+      (article.summary && article.summary.toLowerCase().includes(q)) ||
+      (article.content && article.content.toLowerCase().includes(q)) ||
+      (article.author && article.author.toLowerCase().includes(q))
     );
+    return matchesCategory && matchesSearch;
   });
 
   return (
@@ -170,21 +93,36 @@ const News = () => {
           </div>
         </section>
 
-        {/* Clean Search Bar (Without Tags) */}
+        {/* Category Filter and Search Toolbar */}
         <section className="py-6 bg-[#f8f9fa] dark:bg-[#083002]/50 border-b border-[#138601]/20 dark:border-[#138601]/30">
-          <div className="site-container flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300">
-              Showing <span className="font-bold text-black dark:text-white">{filtered.length}</span> {filtered.length === 1 ? 'article' : 'articles'}
-            </p>
+          <div className="site-container flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            
+            {/* Category Tabs */}
+            <div className="flex flex-wrap items-center gap-1.5 p-1 bg-white dark:bg-[#041801] rounded-xl border border-gray-200 dark:border-[#138601]/30">
+              {CATEGORIES.map(cat => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setActiveCategory(cat.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    activeCategory === cat.id
+                      ? 'bg-[#138601] text-white shadow-sm'
+                      : 'text-gray-600 dark:text-green-200/70 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
 
             {/* Search Input */}
-            <div className="relative w-full sm:w-80">
+            <div className="relative w-full md:w-80">
               <input
                 type="text"
-                placeholder="Search articles..."
+                placeholder="Search articles & journals..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm rounded bg-white dark:bg-[#083002] text-black dark:text-white border border-[#138601]/25 focus:outline-none focus:ring-1 focus:ring-[#138601]"
+                className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm rounded-xl bg-white dark:bg-[#041801] text-black dark:text-white border border-[#138601]/25 focus:outline-none focus:ring-1 focus:ring-[#138601]"
               />
               <FaSearch className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-3 pointer-events-none" />
             </div>
@@ -195,12 +133,12 @@ const News = () => {
         <section className="py-16 site-container">
           {filtered.length === 0 ? (
             <div className="py-16 text-center text-gray-500 dark:text-gray-400">
-              <p className="text-base font-semibold">No news articles found matching your criteria.</p>
+              <p className="text-base font-semibold">No news or journal articles found matching your criteria.</p>
               <button
-                onClick={() => setSearchQuery('')}
-                className="mt-4 px-5 py-2 text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] rounded cursor-pointer"
+                onClick={() => { setSearchQuery(''); setActiveCategory('all'); }}
+                className="mt-4 px-5 py-2 text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl cursor-pointer"
               >
-                Clear Search
+                Reset Filters
               </button>
             </div>
           ) : (
@@ -208,14 +146,17 @@ const News = () => {
               {filtered.map((item) => (
                 <article
                   key={item.id || item.slug}
-                  className="group bg-white dark:bg-[#083002] rounded overflow-hidden border border-[#138601]/20 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full transform hover:-translate-y-1.5"
+                  className="group bg-white dark:bg-[#083002] rounded-2xl overflow-hidden border border-[#138601]/20 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full transform hover:-translate-y-1.5"
                 >
                   <div className="relative h-52 w-full overflow-hidden bg-gray-900">
                     <img
-                      src={item.image}
+                      src={item.cover_image_url || item.image}
                       alt={item.title}
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
                     />
+                    <div className="absolute top-3 left-3 bg-[#138601] text-white px-2.5 py-0.5 rounded-lg font-bold text-[10px] uppercase tracking-wider shadow">
+                      {item.category}
+                    </div>
                   </div>
 
                   <div className="p-6 flex flex-col flex-grow justify-between">
@@ -228,7 +169,7 @@ const News = () => {
                         <span>&bull;</span>
                         <span className="inline-flex items-center gap-1.5">
                           <FaClock className="text-[#138601] dark:text-[#4bd043]" />
-                          {item.readTime}
+                          {item.readTime || `${item.read_time_minutes || 3} min read`}
                         </span>
                       </div>
 
@@ -237,7 +178,7 @@ const News = () => {
                       </h2>
 
                       <p className="text-sm text-black/75 dark:text-green-100/75 line-clamp-3 leading-relaxed mb-6">
-                        {item.excerpt}
+                        {item.summary || item.excerpt}
                       </p>
                     </div>
 
@@ -264,10 +205,10 @@ const News = () => {
         {/* Modal for Full Article View */}
         {activeArticleModal && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-            <div className="bg-white dark:bg-[#083002] max-w-2xl w-full rounded-2xl overflow-hidden shadow-2xl border border-[#138601]/30 my-8">
+            <div className="bg-white dark:bg-[#083002] max-w-2xl w-full rounded-3xl overflow-hidden shadow-2xl border border-[#138601]/30 my-8">
               <div className="relative h-64 w-full bg-gray-950">
                 <img
-                  src={activeArticleModal.image}
+                  src={activeArticleModal.cover_image_url || activeArticleModal.image}
                   alt={activeArticleModal.title}
                   className="w-full h-full object-cover"
                 />
@@ -278,13 +219,16 @@ const News = () => {
                 >
                   &times;
                 </button>
+                <div className="absolute bottom-3 left-4 bg-[#138601] text-white px-3 py-1 rounded-lg text-xs font-bold shadow">
+                  {activeArticleModal.category}
+                </div>
               </div>
 
               <div className="p-6 sm:p-8 space-y-4">
-                <div className="flex items-center gap-4 text-xs text-black/60 dark:text-green-200/60">
+                <div className="flex items-center gap-4 text-xs text-black/60 dark:text-green-200/60 flex-wrap">
                   <span>{activeArticleModal.date}</span>
                   <span>&bull;</span>
-                  <span>{activeArticleModal.readTime}</span>
+                  <span>{activeArticleModal.readTime || `${activeArticleModal.read_time_minutes || 3} min read`}</span>
                   <span>&bull;</span>
                   <span>By {activeArticleModal.author}</span>
                 </div>
@@ -293,10 +237,15 @@ const News = () => {
                   {activeArticleModal.title}
                 </h2>
 
-                <div className="text-sm leading-relaxed text-black/85 dark:text-green-100/85 space-y-3 pt-2 border-t border-[#138601]/15 dark:border-white/10">
-                  <p>{activeArticleModal.content || activeArticleModal.excerpt}</p>
-                  <p>
-                    For official press inquiries, contact the Department of Computer Science or the NACOS Public Relations Directorate via <strong>hod.csc@futo.edu.ng</strong>.
+                <div className="text-sm leading-relaxed text-black/85 dark:text-green-100/85 space-y-3 pt-3 border-t border-[#138601]/15 dark:border-white/10 max-h-96 overflow-y-auto">
+                  <p className="font-medium text-black dark:text-white">
+                    {activeArticleModal.summary || activeArticleModal.excerpt}
+                  </p>
+                  <p className="whitespace-pre-line">
+                    {activeArticleModal.content || activeArticleModal.summary || activeArticleModal.excerpt}
+                  </p>
+                  <p className="pt-2 text-xs text-gray-500 dark:text-gray-400">
+                    For official press inquiries and editorial publications, contact the Department of Computer Science or the NACOS Editorial Board at <strong>hod.csc@futo.edu.ng</strong>.
                   </p>
                 </div>
 
@@ -304,7 +253,7 @@ const News = () => {
                   <button
                     type="button"
                     onClick={() => setActiveArticleModal(null)}
-                    className="px-6 py-2.5 bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-xs rounded transition-colors cursor-pointer"
+                    className="px-6 py-2.5 bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer"
                   >
                     Close Article
                   </button>

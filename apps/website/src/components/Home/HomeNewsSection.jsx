@@ -1,77 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { FaArrowRight, FaCalendarAlt, FaClock, FaNewspaper } from 'react-icons/fa';
 import ScrollToTopLink from '../ScrollToTopLink';
-import { supabase } from '@nacos/supabase';
-import { getCloudinaryAssetUrl } from '@nacos/media';
-import newsImg1 from '../../assets/research.jpg';
-import newsImg2 from '../../assets/academics.jpg';
-import newsImg3 from '../../assets/gallery_dept_front.jpg';
-
-export const CANONICAL_NEWS = [
-  {
-    id: 1,
-    slug: 'futo-csc-nuc-accreditation-2026',
-    title: 'Department of Computer Science Achieves Full 5-Year NUC Accreditation Status',
-    category: 'Academics',
-    date: 'Aug 28, 2026',
-    readTime: '3 min read',
-    image: getCloudinaryAssetUrl('academics') || newsImg2,
-    excerpt: 'Following comprehensive infrastructure audits and academic curriculum assessments, the National Universities Commission (NUC) has certified FUTO Computer Science with highest tier accreditation.'
-  },
-  {
-    id: 2,
-    slug: 'ai-research-cluster-grant-expansion',
-    title: 'SICT Research Cluster Secures Multi-Million Compute Grant for Applied AI',
-    category: 'Research',
-    date: 'Aug 14, 2026',
-    readTime: '4 min read',
-    image: getCloudinaryAssetUrl('research') || newsImg1,
-    excerpt: 'Department faculty and student researchers expand high-performance compute clusters focused on African healthcare and natural language processing solutions.'
-  },
-  {
-    id: 3,
-    slug: 'nacos-tech-summit-hackathon-champions',
-    title: 'FUTO Computing Students Clinch Top Honours at National Hackathon Challenge',
-    category: 'Innovation',
-    date: 'July 29, 2026',
-    readTime: '3 min read',
-    image: getCloudinaryAssetUrl('gallery_dept_front') || newsImg3,
-    excerpt: 'Undergraduate student innovators develop distributed fintech and agricultural supply chain models, winning accolades across regional and national computing leagues.'
-  }
-];
+import { getLocalNewsArticles, fetchNewsArticles } from '@nacos/supabase';
 
 const HomeNewsSection = () => {
-  const [articles, setArticles] = useState(CANONICAL_NEWS);
+  const [articles, setArticles] = useState(() => {
+    return getLocalNewsArticles({ publishedOnly: true }).slice(0, 3);
+  });
 
   useEffect(() => {
-    async function loadLiveNews() {
-      try {
-        if (!supabase) return;
-        const { data, error } = await supabase
-          .from('website_news')
-          .select('*')
-          .eq('is_published', true)
-          .order('published_at', { ascending: false })
-          .limit(3);
+    const syncArticles = () => {
+      const all = getLocalNewsArticles({ publishedOnly: true });
+      setArticles(all.slice(0, 3));
+    };
 
-        if (!error && data && data.length > 0) {
-          const live = data.map(d => ({
-            id: d.id,
-            slug: d.slug,
-            title: d.title,
-            category: d.category || 'Department News',
-            date: d.published_at ? new Date(d.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent',
-            readTime: `${d.read_time_minutes || 3} min read`,
-            image: d.cover_image_url || getCloudinaryAssetUrl('research') || newsImg1,
-            excerpt: d.excerpt || d.summary || ''
-          }));
-          setArticles(live);
-        }
-      } catch (err) {
-        // use canonical fallback
-      }
-    }
-    loadLiveNews();
+    fetchNewsArticles({ publishedOnly: true })
+      .then(() => syncArticles())
+      .catch(() => {});
+
+    window.addEventListener('nacos_website_articles_updated', syncArticles);
+    window.addEventListener('storage', syncArticles);
+
+    return () => {
+      window.removeEventListener('nacos_website_articles_updated', syncArticles);
+      window.removeEventListener('storage', syncArticles);
+    };
   }, []);
 
   return (
@@ -106,15 +59,18 @@ const HomeNewsSection = () => {
           {articles.map((item) => (
             <article
               key={item.id || item.slug}
-              className="group bg-white dark:bg-[#083002] rounded overflow-hidden border border-gray-200 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full transform hover:-translate-y-1.5"
+              className="group bg-white dark:bg-[#083002] rounded-2xl overflow-hidden border border-gray-200 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full transform hover:-translate-y-1.5"
             >
               {/* Image Banner */}
               <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-gray-900">
                 <img
-                  src={item.image}
+                  src={item.cover_image_url || item.image}
                   alt={item.title}
                   className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
                 />
+                <div className="absolute top-3 left-3 bg-[#138601] text-white px-2.5 py-0.5 rounded-lg font-bold text-[10px] uppercase tracking-wider shadow">
+                  {item.category}
+                </div>
               </div>
 
               {/* Body */}
@@ -128,7 +84,7 @@ const HomeNewsSection = () => {
                     <span>&bull;</span>
                     <span className="inline-flex items-center gap-1.5">
                       <FaClock className="text-[#138601] dark:text-[#4bd043]" />
-                      {item.readTime}
+                      {item.readTime || `${item.read_time_minutes || 3} min read`}
                     </span>
                   </div>
 
@@ -137,7 +93,7 @@ const HomeNewsSection = () => {
                   </h3>
 
                   <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 leading-relaxed mb-6">
-                    {item.excerpt}
+                    {item.summary || item.excerpt}
                   </p>
                 </div>
 
