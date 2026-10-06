@@ -23,8 +23,8 @@ export const PortalAdminSettings = () => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  const [idCardFee, setIdCardFee] = useState(5000);
-  const [duesFee, setDuesFee] = useState(2500);
+  const [idCardFee, setIdCardFee] = useState('');
+  const [duesFee, setDuesFee] = useState('');
   const [academicSession, setAcademicSession] = useState('2026/2027');
   const [allowRegistration, setAllowRegistration] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState(false);

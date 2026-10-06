@@ -40,13 +40,13 @@ const AdminIdCards = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
-  const [settings, setSettings] = useState({ id_card_fee: 2500, academic_session: '2026/2027' });
+  const [settings, setSettings] = useState({ id_card_fee: null, academic_session: '2026/2027' });
 
   // Modals & Selection
   const [selectedApp, setSelectedApp] = useState(null);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
-  const [newFeeInput, setNewFeeInput] = useState(2500);
+  const [newFeeInput, setNewFeeInput] = useState('');
   const [rejectReasonInput, setRejectReasonInput] = useState('');
   const [revokeReasonInput, setRevokeReasonInput] = useState('');
   const [isRejecting, setIsRejecting] = useState(false);
@@ -77,7 +77,7 @@ const AdminIdCards = () => {
     setApplications(apps || []);
     if (cfg) {
       setSettings(cfg);
-      setNewFeeInput(cfg.id_card_fee || 2500);
+      setNewFeeInput(cfg.id_card_fee ? String(cfg.id_card_fee) : '');
     }
     setLoading(false);
   };
@@ -252,7 +252,7 @@ const AdminIdCards = () => {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded text-xs font-semibold text-gray-800 dark:text-white bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 border border-gray-200 dark:border-[#138601]/30 transition-colors cursor-pointer"
             >
               <DollarSign className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
-              <span>Config Fee (₦{settings.id_card_fee?.toLocaleString()})</span>
+              <span>Config Fee ({settings.id_card_fee ? `₦${Number(settings.id_card_fee).toLocaleString()}` : 'Loading...'})</span>
             </button>
           </div>
         </div>

@@ -271,8 +271,17 @@ export async function createPaymentCheckout({
   }
 
   // 3. Dynamically Resolve Authoritative Fee Set by Admin on Dashboard (Never Hardcoded)
-  let chargeAmount = Number(amountOverride);
-  if (isNaN(chargeAmount) || chargeAmount <= 0) {
+  // Protected system fees (ID Card, Departmental Dues) can never be overridden by client requests
+  let chargeAmount = null;
+  const isProtectedFee = (
+    normalizedType === 'ID_CARD' || 
+    normalizedType === 'DEPARTMENTAL_DUES' || 
+    normalizedType === 'DUES'
+  );
+
+  if (!isProtectedFee && amountOverride && !isNaN(Number(amountOverride)) && Number(amountOverride) > 0) {
+    chargeAmount = Number(amountOverride);
+  } else {
     chargeAmount = await resolveDynamicFee({ paymentType: normalizedType, metadata, defaultAmount: config.amount });
   }
 

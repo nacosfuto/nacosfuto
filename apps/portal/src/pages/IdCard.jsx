@@ -49,7 +49,7 @@ const IdCard = () => {
 
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState({ id_card_fee: 5000, academic_session: '2026/2027' });
+  const [settings, setSettings] = useState({ id_card_fee: null, academic_session: '2026/2027' });
   const [application, setApplication] = useState(null);
   const [currentSide, setCurrentSide] = useState('front'); // 'front' | 'back'
 
@@ -156,7 +156,7 @@ const IdCard = () => {
     } else if (paymentAction === 'simulated_checkout' && ref) {
       setSimulatedModal({
         reference: ref,
-        amount: searchParams.get('amount') || settings.id_card_fee || 5000
+        amount: searchParams.get('amount') || settings.id_card_fee || ''
       });
     } else if (paymentAction === 'cancelled') {
       showNotification('Payment was cancelled. You can retry checkout when you are ready.', 'error');
@@ -246,7 +246,7 @@ const IdCard = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reference: targetRef,
-          amount: settings.id_card_fee || 5000
+          amount: settings.id_card_fee
         })
       });
       const data = await res.json();
@@ -518,7 +518,7 @@ const IdCard = () => {
                   <span>ID Card Fee</span>
                 </div>
                 <p className="text-[11px] text-gray-500 dark:text-green-200/70">
-                  Current fee: <strong className="text-[#138601] dark:text-[#4bd043]">₦{settings.id_card_fee?.toLocaleString() || '2,500'}</strong> for session {settings.academic_session}.
+                  Current fee: <strong className="text-[#138601] dark:text-[#4bd043]">{settings.id_card_fee ? `₦${Number(settings.id_card_fee).toLocaleString()}` : 'Configured via Admin'}</strong> for session {settings.academic_session}.
                 </p>
               </div>
 
@@ -638,7 +638,7 @@ const IdCard = () => {
                   </div>
                   <div className="flex justify-between pt-2 border-t border-gray-200/60 dark:border-[#138601]/20 text-sm">
                     <span className="font-bold text-gray-700 dark:text-gray-300">Amount Payable:</span>
-                    <span className="font-bold text-[#138601] dark:text-[#4bd043]">₦{(settings.id_card_fee || 5000).toLocaleString()}.00</span>
+                    <span className="font-bold text-[#138601] dark:text-[#4bd043]">{settings.id_card_fee ? `₦${Number(settings.id_card_fee).toLocaleString()}.00` : 'Fetching fee...'}</span>
                   </div>
                 </div>
 
@@ -646,11 +646,11 @@ const IdCard = () => {
                   <button
                     type="button"
                     onClick={handlePayment}
-                    disabled={isPaying}
-                    className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
+                    disabled={isPaying || !settings.id_card_fee}
+                    className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-                    <span>{isPaying ? 'Connecting to Bachs...' : `Pay ₦${(settings.id_card_fee || 5000).toLocaleString()} with Bachs`}</span>
+                    <span>{isPaying ? 'Connecting to Bachs...' : (settings.id_card_fee ? `Pay ₦${Number(settings.id_card_fee).toLocaleString()} with Bachs` : 'Loading fee...')}</span>
                   </button>
 
                   <div className="flex items-center justify-center gap-2 text-[11px] text-gray-400 dark:text-green-200/50">

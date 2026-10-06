@@ -23,7 +23,7 @@ const Dues = () => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  const [duesFee, setDuesFee] = useState(2500);
+  const [duesFee, setDuesFee] = useState(null);
 
   const [user, setUser] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -279,8 +279,7 @@ const Dues = () => {
         body: JSON.stringify({
           student: user,
           academicSession: user?.academic_session || '2026/2027',
-          level: selectedLevel,
-          amountOverride: duesFee
+          level: selectedLevel
         })
       });
 
@@ -404,11 +403,11 @@ const Dues = () => {
                 <button
                   type="button"
                   onClick={handlePayDues}
-                  disabled={isProcessing}
-                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                  disabled={isProcessing || !duesFee}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] transition-colors cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <CreditCard className="w-4 h-4" />
-                  <span>{isProcessing ? 'Processing...' : `Pay Dues (₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })})`}</span>
+                  <span>{isProcessing ? 'Processing...' : (duesFee ? `Pay Dues (₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })})` : 'Loading fee...')}</span>
                 </button>
               )}
 
@@ -467,7 +466,7 @@ const Dues = () => {
           {/* Card 2: Current Session Amount */}
           <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 space-y-1 shadow-xs">
             <span className="text-xs font-medium text-gray-500 dark:text-green-200/80">Current Session Amount</span>
-            <div className="text-xl font-bold text-gray-900 dark:text-white">₦{Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })}</div>
+            <div className="text-xl font-bold text-gray-900 dark:text-white">{duesFee ? `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '...'}</div>
             <p className="text-xs text-gray-500 dark:text-green-200/70 font-normal">
               {session} {isPaid ? '• Paid in Full' : '• Outstanding Balance'}
             </p>
@@ -617,7 +616,7 @@ const Dues = () => {
                   Annual Departmental Dues Required — {levelLabel}
                 </h4>
                 <p className="text-xs text-amber-700 dark:text-amber-300/80">
-                  Pay your ₦{Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })} departmental dues for <strong>{levelLabel}</strong> to complete academic clearance and unlock your verified electronic receipt.
+                  Pay your {duesFee ? `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })} ` : ''}departmental dues for <strong>{levelLabel}</strong> to complete academic clearance and unlock your verified electronic receipt.
                 </p>
               </div>
 

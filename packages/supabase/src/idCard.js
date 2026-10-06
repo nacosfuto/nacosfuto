@@ -107,6 +107,20 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
     }
   }
 
+  // Update local cache & dispatch real-time sync events for open tabs
+  try {
+    const localSettings = getLocalIdSettingsDatabase();
+    localSettings.id_card_fee = feeNum;
+    localSettings.academic_session = session;
+    localSettings.is_application_open = isOpen;
+    localSettings.updated_at = now;
+    localStorage.setItem(ID_SETTINGS_STORAGE_KEY, JSON.stringify(localSettings));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('nacos_id_card_settings_updated', { detail: localSettings }));
+      window.dispatchEvent(new CustomEvent('nacos_dues_settings_updated', { detail: { dues_amount: duesNum } }));
+    }
+  } catch (_) {}
+
   return { success: true };
 }
 
@@ -346,15 +360,17 @@ export async function checkStudentPaymentStatus(matricNumber) {
 /**
  * Record a verified payment for a student (simulating gateway callback or manual clearance)
  */
-export async function recordStudentPayment(matricNumber, amount = 2500) {
+export async function recordStudentPayment(matricNumber, amount = null) {
   const cleanMatric = matricNumber.trim().toUpperCase();
+  const settings = await getIdCardSettings();
+  const resolvedAmount = amount !== null ? amount : Number(settings?.id_card_fee || 5000);
   const payments = getLocalPaymentsDatabase();
 
   const newPayment = {
     id: 'pay-' + Date.now(),
     student_matric: cleanMatric,
-    session: '2026/2027',
-    amount,
+    session: settings?.academic_session || '2026/2027',
+    amount: resolvedAmount,
     payment_reference: `NACOS-FUTO-2026-PAY-${Math.floor(10000 + Math.random() * 90000)}`,
     status: 'verified',
     purpose: 'Departmental Dues & Digital Student ID Card',
@@ -476,9 +492,9 @@ export async function createIdCardApplication(student) {
     return { success: true, application: existingApp, alreadyExisted: true };
   }
 
-  // 2. Retrieve configurable fee
+  // 2. Retrieve configurable fee from database settings
   const settings = await getIdCardSettings();
-  const fee = settings.id_card_fee || 2500;
+  const fee = Number(settings?.id_card_fee || 5000);
 
   // 3. Check if student already has a verified payment in the database
   const paymentCheck = await checkStudentPaymentStatus(cleanMatric);
