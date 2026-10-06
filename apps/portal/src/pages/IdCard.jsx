@@ -69,6 +69,16 @@ const IdCard = () => {
 
   useEffect(() => {
     loadStudentAndApplication();
+
+    const handleSettingsUpdated = (e) => {
+      if (e.detail) setSettings(e.detail);
+      else {
+        getIdCardSettings().then(cfg => { if (cfg) setSettings(cfg); });
+      }
+    };
+
+    window.addEventListener('nacos_id_card_settings_updated', handleSettingsUpdated);
+    return () => window.removeEventListener('nacos_id_card_settings_updated', handleSettingsUpdated);
   }, []);
 
   const loadStudentAndApplication = async () => {

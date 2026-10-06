@@ -1,0 +1,343 @@
+/**
+ * @file api/index.js
+ * Consolidated Universal Serverless Function for NACOS FUTO
+ * 
+ * Packs ALL API endpoints into a single, high-performance Serverless Function using web standards:
+ * 1. ID Card Payments (/api/payments/id-card/*)
+ * 2. Departmental Dues Payments (/api/payments/dues/*)
+ * 3. Universal Bachs Payments Engine & Webhooks (/api/payments/*, /api/webhooks/*)
+ * 4. Backblaze B2 Secure Resource Storage (/api/download, /api/preview, /api/resource-storage)
+ * 
+ * Result: Total Serverless Functions deployed to Vercel = 1 (Vastly below Hobby plan limit of 12).
+ */
+
+import crypto from 'crypto';
+import { supabase } from '../packages/supabase/src/client.js';
+import {
+  createPaymentCheckout,
+  createIdCardCheckout,
+  createDuesCheckout,
+  getPaymentStatus,
+  verifyBachsWebhookSignature,
+  processBachsWebhook,
+  resolveDynamicFee,
+  getBachsConfig
+} from '../packages/supabase/src/server/bachs.js';
+
+// --- Backblaze B2 Helper State ---
+let cachedB2Auth = null;
+
+async function getB2AuthTokens() {
+  if (cachedB2Auth && cachedB2Auth.expiresAt > Date.now() + 300000) {
+    return cachedB2Auth;
+  }
+
+  const keyId = process.env.VITE_B2_KEY_ID || process.env.B2_KEY_ID || '00504e4d4912f750000000001';
+  const appKey = process.env.VITE_B2_APPLICATION_KEY || process.env.B2_APPLICATION_KEY || 'K005IgcedfJWsbGIXMn6tQlFhUchfNo';
+  const bucketId = process.env.VITE_B2_BUCKET_ID || process.env.B2_BUCKET_ID || '50149e04ad14c911a20f0715';
+  const bucketName = process.env.VITE_B2_BUCKET_NAME || process.env.B2_BUCKET_NAME || 'nacos-resources';
+
+  const creds = Buffer.from(`${keyId}:${appKey}`).toString('base64');
+  const res = await fetch('https://api.backblazeb2.com/b2api/v3/b2_authorize_account', {
+    headers: { Authorization: `Basic ${creds}` }
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to authorize with B2: ${res.status}`);
+  }
+
+  const data = await res.json();
+  cachedB2Auth = {
+    apiUrl: data.apiInfo?.storageApi?.apiUrl || 'https://api005.backblazeb2.com',
+    downloadUrl: data.apiInfo?.storageApi?.downloadUrl || 'https://f005.backblazeb2.com',
+    bucketName: data.apiInfo?.storageApi?.bucketName || bucketName,
+    bucketId: bucketId,
+    authorizationToken: data.authorizationToken,
+    expiresAt: Date.now() + 23 * 60 * 60 * 1000
+  };
+
+  return cachedB2Auth;
+}
+
+// --- Body Parser Helper ---
+async function parseRequestBody(req) {
+  if (req.body && typeof req.body === 'object') {
+    return req.body;
+  }
+  if (typeof req.body === 'string') {
+    try { return JSON.parse(req.body); } catch (_) { return {}; }
+  }
+  return new Promise((resolve) => {
+    let raw = '';
+    req.on('data', chunk => { raw += chunk; });
+    req.on('end', () => {
+      try {
+        resolve(raw ? JSON.parse(raw) : {});
+      } catch (_) {
+        resolve({});
+      }
+    });
+    req.on('error', () => resolve({}));
+  });
+}
+
+export default async function handler(req, res) {
+  // 1. Standard Global CORS Headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Bachs-Signature, x-student-session');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // 2. Resolve Incoming Path
+  const fullUrl = new URL(req.url, 'http://localhost');
+  let pathname = fullUrl.pathname;
+  
+  // If rewritten via ?_apiPath= or ?route=
+  const rewritePath = fullUrl.searchParams.get('_apiPath') || fullUrl.searchParams.get('route');
+  if (rewritePath) {
+    pathname = rewritePath.startsWith('/') ? rewritePath : `/${rewritePath}`;
+    if (!pathname.startsWith('/api')) {
+      pathname = `/api${pathname}`;
+    }
+  }
+
+  // Clean trailing slash
+  const route = pathname.replace(/\/+$/, '');
+  const method = req.method;
+
+  try {
+    // =========================================================================
+    // 3. BACHS UNIVERSAL PAYMENTS ENGINE (ID Card, Departmental Dues, Custom)
+    // =========================================================================
+
+    // Dues Checkout
+    if (route === '/api/payments/dues/create-checkout' && method === 'POST') {
+      const body = await parseRequestBody(req);
+      const origin = body.returnBaseUrl || req.headers.origin || `http://${req.headers.host || 'localhost:5174'}`;
+      const result = await createDuesCheckout({
+        student: body.student,
+        returnBaseUrl: origin,
+        academicSession: body.academicSession,
+        level: body.level
+      });
+      return res.status(result.statusCode || (result.error ? 400 : 200)).json(result);
+    }
+
+    // ID Card Checkout
+    if (route === '/api/payments/id-card/create-checkout' && method === 'POST') {
+      const body = await parseRequestBody(req);
+      const origin = body.returnBaseUrl || req.headers.origin || `http://${req.headers.host || 'localhost:5174'}`;
+      const result = await createIdCardCheckout({
+        student: body.student,
+        returnBaseUrl: origin
+      });
+      return res.status(result.statusCode || (result.error ? 400 : 200)).json(result);
+    }
+
+    // Universal Checkout
+    if (route === '/api/payments/create-checkout' && method === 'POST') {
+      const body = await parseRequestBody(req);
+      const origin = body.returnBaseUrl || req.headers.origin || `http://${req.headers.host || 'localhost:5174'}`;
+      const result = await createPaymentCheckout({
+        paymentType: body.paymentType,
+        title: body.title,
+        student: body.student,
+        customer: body.customer,
+        metadata: body.metadata,
+        returnBaseUrl: origin,
+        redirectPath: body.redirectPath,
+        cancelPath: body.cancelPath,
+        amountOverride: body.amountOverride
+      });
+      return res.status(result.statusCode || (result.error ? 400 : 200)).json(result);
+    }
+
+    // Payment Status Checks (Dues, ID Card, Universal)
+    if (
+      (route === '/api/payments/status' ||
+       route === '/api/payments/dues/status' ||
+       route === '/api/payments/id-card/status') &&
+      method === 'GET'
+    ) {
+      const reference = fullUrl.searchParams.get('reference');
+      let paymentType = fullUrl.searchParams.get('paymentType');
+      if (route.includes('/dues/')) paymentType = 'DEPARTMENTAL_DUES';
+      if (route.includes('/id-card/')) paymentType = 'ID_CARD';
+      const registrationNumber = fullUrl.searchParams.get('registrationNumber') || fullUrl.searchParams.get('matricNumber');
+      const studentId = fullUrl.searchParams.get('studentId');
+
+      const result = await getPaymentStatus({ reference, paymentType, registrationNumber, studentId });
+      return res.status(result.statusCode || 200).json(result);
+    }
+
+    // Dynamic Fees Getter & Setter
+    if (route === '/api/payments/fees') {
+      if (method === 'GET') {
+        const feeKey = fullUrl.searchParams.get('feeKey') || fullUrl.searchParams.get('paymentType');
+        if (feeKey) {
+          const key = feeKey.toLowerCase();
+          const amount = await resolveDynamicFee({ paymentType: key });
+          return res.status(200).json({ feeKey: key, amount, currency: 'NGN' });
+        }
+        // Fetch all active fees from Supabase id_card_settings
+        let fees = [];
+        if (supabase) {
+          const { data } = await supabase.from('id_card_settings').select('*');
+          if (data) {
+            fees = data.map(r => ({
+              fee_key: r.id === 'default' ? 'id_card' : r.id,
+              amount: r.id_card_fee,
+              academic_session: r.academic_session,
+              is_active: r.is_application_open
+            }));
+          }
+        }
+        return res.status(200).json({ fees });
+      }
+
+      if (method === 'POST') {
+        const body = await parseRequestBody(req);
+        const key = String(body.feeKey || '').trim().toLowerCase();
+        const num = Number(body.amount);
+        if (!key || isNaN(num) || num <= 0) {
+          return res.status(400).json({ error: 'Valid feeKey and positive amount required.' });
+        }
+        const rowId = key === 'id_card' ? 'default' : key;
+        const now = new Date().toISOString();
+        if (supabase) {
+          await supabase.from('id_card_settings').upsert({
+            id: rowId,
+            id_card_fee: num,
+            academic_session: body.academicSession || '2026/2027',
+            updated_at: now
+          });
+        }
+        return res.status(200).json({ success: true, feeKey: key, amount: num });
+      }
+    }
+
+    // Bachs Authoritative Webhooks
+    if ((route === '/api/payments/webhook' || route === '/api/webhooks/bachs') && method === 'POST') {
+      let rawBody = '';
+      if (typeof req.body === 'string') {
+        rawBody = req.body;
+      } else if (req.body && typeof req.body === 'object') {
+        rawBody = JSON.stringify(req.body);
+      } else {
+        rawBody = await new Promise((resolve) => {
+          let b = '';
+          req.on('data', c => { b += c; });
+          req.on('end', () => resolve(b));
+        });
+      }
+
+      const signature = req.headers['x-bachs-signature'] || req.headers['x-signature'];
+      const signatureValid = verifyBachsWebhookSignature(rawBody, signature);
+      if (!signatureValid) {
+        return res.status(401).json({ error: 'Invalid HMAC signature.' });
+      }
+
+      let payload = {};
+      try { payload = JSON.parse(rawBody); } catch (_) {}
+      const result = await processBachsWebhook(payload);
+      return res.status(result.statusCode || 200).json(result);
+    }
+
+    // Sandbox / Local Simulation Endpoint
+    if (route === '/api/payments/simulate-success' && method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { reference, amount = 5000, paymentType = 'ID_CARD' } = body;
+      if (!reference) {
+        return res.status(400).json({ error: 'Missing payment reference.' });
+      }
+      const simEvent = {
+        event_type: 'payment.successful',
+        id: `sim_evt_${Date.now()}`,
+        data: {
+          reference,
+          amount: Number(amount) || 5000,
+          currency: 'NGN',
+          status: 'successful',
+          payment_id: `bachs_tx_${Date.now()}`
+        }
+      };
+      const result = await processBachsWebhook(simEvent);
+      return res.status(result.statusCode || 200).json(result);
+    }
+
+    // =========================================================================
+    // 4. RESOURCE HUB BACKBLAZE B2 STORAGE (Token & Secure File Proxy)
+    // =========================================================================
+
+    if ((route === '/api/b2-download-token' || route === '/api/resource-storage') && method === 'GET') {
+      const auth = await getB2AuthTokens();
+      const dlRes = await fetch(`${auth.apiUrl}/b2api/v3/b2_get_download_authorization`, {
+        method: 'POST',
+        headers: { Authorization: auth.authorizationToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bucketId: auth.bucketId, fileNamePrefix: '', validDurationInSeconds: 86400 })
+      });
+      const dlData = await dlRes.json();
+      return res.status(200).json({
+        authorizationToken: dlData.authorizationToken,
+        downloadUrl: auth.downloadUrl,
+        bucketName: auth.bucketName,
+        expiresAt: Date.now() + 23 * 60 * 60 * 1000
+      });
+    }
+
+    if (route === '/api/download' && method === 'GET') {
+      const storageKey = fullUrl.searchParams.get('key') || fullUrl.searchParams.get('storageKey');
+      const fileName = fullUrl.searchParams.get('name') || fullUrl.searchParams.get('fileName') || 'document.pdf';
+      if (!storageKey) return res.status(400).json({ error: 'Missing storage key' });
+
+      const cleanKey = String(storageKey).replace(/^\/+/, '');
+      const auth = await getB2AuthTokens();
+      const b2FileUrl = `${auth.downloadUrl}/file/${auth.bucketName}/${cleanKey}`;
+      const b2Res = await fetch(b2FileUrl, { headers: { Authorization: auth.authorizationToken } });
+      if (!b2Res.ok) return res.status(b2Res.status).json({ error: `Storage provider status ${b2Res.status}` });
+
+      const contentType = b2Res.headers.get('content-type') || 'application/octet-stream';
+      const contentLength = b2Res.headers.get('content-length');
+      const safeName = String(fileName).replace(/[^a-zA-Z0-9._-]/g, '_');
+
+      res.setHeader('Content-Type', contentType);
+      if (contentLength) res.setHeader('Content-Length', contentLength);
+      res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+
+      const arrayBuffer = await b2Res.arrayBuffer();
+      return res.send(Buffer.from(arrayBuffer));
+    }
+
+    if (route === '/api/preview' && method === 'GET') {
+      const storageKey = fullUrl.searchParams.get('key') || fullUrl.searchParams.get('storageKey');
+      if (!storageKey) return res.status(400).json({ error: 'Missing storage key' });
+
+      const cleanKey = String(storageKey).replace(/^\/+/, '');
+      const auth = await getB2AuthTokens();
+      const b2FileUrl = `${auth.downloadUrl}/file/${auth.bucketName}/${cleanKey}`;
+      const b2Res = await fetch(b2FileUrl, { headers: { Authorization: auth.authorizationToken } });
+      if (!b2Res.ok) return res.status(b2Res.status).json({ error: `Storage provider status ${b2Res.status}` });
+
+      const contentType = b2Res.headers.get('content-type') || 'application/pdf';
+      const contentLength = b2Res.headers.get('content-length');
+
+      res.setHeader('Content-Type', contentType);
+      if (contentLength) res.setHeader('Content-Length', contentLength);
+      res.setHeader('Content-Disposition', 'inline');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+
+      const arrayBuffer = await b2Res.arrayBuffer();
+      return res.send(Buffer.from(arrayBuffer));
+    }
+
+    // Default 404 for unmapped API routes
+    return res.status(404).json({ error: `Endpoint not found: ${method} ${route}` });
+  } catch (err) {
+    console.error(`[API Serverless Router Error] ${method} ${route}:`, err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+}

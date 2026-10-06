@@ -97,10 +97,12 @@ function cloudinaryDevPlugin() {
           return;
         }
 
-        if ((req.url?.startsWith('/api/payments/status') || req.url?.startsWith('/api/payments/id-card/status')) && req.method === 'GET') {
+        if ((req.url?.startsWith('/api/payments/status') || req.url?.startsWith('/api/payments/id-card/status') || req.url?.startsWith('/api/payments/dues/status')) && req.method === 'GET') {
           const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost:5174'}`);
           const reference = urlObj.searchParams.get('reference');
-          const paymentType = urlObj.searchParams.get('paymentType');
+          let paymentType = urlObj.searchParams.get('paymentType');
+          if (req.url.startsWith('/api/payments/dues/status')) paymentType = 'DEPARTMENTAL_DUES';
+          if (req.url.startsWith('/api/payments/id-card/status')) paymentType = 'ID_CARD';
           const registrationNumber = urlObj.searchParams.get('registrationNumber') || urlObj.searchParams.get('regNo');
           const studentId = urlObj.searchParams.get('studentId');
 
@@ -437,6 +439,7 @@ function cloudinaryDevPlugin() {
 
 // https://vite.dev/config/
 export default defineConfig({
+  envDir: path.resolve(__dirname, '../../'),
   base: process.env.VITE_BASE_PATH || (process.env.NODE_ENV === 'production' ? '/portal/' : '/'),
   plugins: [react(), cloudinaryDevPlugin()],
   resolve: {

@@ -150,59 +150,47 @@ export async function getDuesSettings() {
 
   try {
     if (supabase) {
-      // 1. Check payment_fees table
-      const { data: feeRow } = await supabase
-        .from('payment_fees')
+      // 1. Authoritative check on live Supabase id_card_settings table (id: 'dues')
+      const { data: duesRow, error } = await supabase
+        .from('id_card_settings')
         .select('*')
-        .eq('fee_key', 'dues')
-        .eq('is_active', true)
+        .eq('id', 'dues')
         .maybeSingle();
 
-      if (feeRow?.amount && !isNaN(Number(feeRow.amount)) && Number(feeRow.amount) > 0) {
+      if (!error && duesRow && duesRow.id_card_fee && !isNaN(Number(duesRow.id_card_fee))) {
         const result = {
           ...defaultSettings,
-          dues_amount: Number(feeRow.amount),
-          updated_at: feeRow.updated_at
-        };
-        localStorage.setItem(DUES_SETTINGS_KEY, JSON.stringify(result));
-        return result;
-      }
-
-      // 2. Check dues_settings table
-      const { data: duesRow } = await supabase
-        .from('dues_settings')
-        .select('*')
-        .eq('id', 'default')
-        .maybeSingle();
-
-      const val = duesRow?.dues_amount || duesRow?.amount;
-      if (val && !isNaN(Number(val)) && Number(val) > 0) {
-        const result = {
-          ...defaultSettings,
-          dues_amount: Number(val),
+          dues_amount: Number(duesRow.id_card_fee),
           academic_session: duesRow.academic_session || defaultSettings.academic_session,
+          is_open: duesRow.is_application_open ?? true,
           updated_at: duesRow.updated_at
         };
-        localStorage.setItem(DUES_SETTINGS_KEY, JSON.stringify(result));
+        try { localStorage.setItem(DUES_SETTINGS_KEY, JSON.stringify(result)); } catch (_) {}
         return result;
       }
 
-      // 3. Check media_assets sync pipeline
+      // 2. Check media_assets fallback
       const { data: mediaRow } = await supabase
         .from('media_assets')
-        .select('metadata')
-        .eq('asset_type', 'dues_settings')
-        .eq('title', 'default')
+        .select('image_alt')
+        .eq('category', 'general')
+        .eq('entity_type', 'dues_settings')
         .maybeSingle();
 
-      if (mediaRow?.metadata?.dues_amount) {
-        const result = {
-          ...defaultSettings,
-          dues_amount: Number(mediaRow.metadata.dues_amount),
-          updated_at: mediaRow.metadata.updated_at
-        };
-        localStorage.setItem(DUES_SETTINGS_KEY, JSON.stringify(result));
-        return result;
+      if (mediaRow?.image_alt) {
+        try {
+          const parsed = JSON.parse(mediaRow.image_alt);
+          if (parsed?.dues_amount && !isNaN(Number(parsed.dues_amount))) {
+            const result = {
+              ...defaultSettings,
+              dues_amount: Number(parsed.dues_amount),
+              academic_session: parsed.academic_session || defaultSettings.academic_session,
+              updated_at: parsed.updated_at || mediaRow.updated_at
+            };
+            try { localStorage.setItem(DUES_SETTINGS_KEY, JSON.stringify(result)); } catch (_) {}
+            return result;
+          }
+        } catch (_) {}
       }
     }
   } catch (err) {
@@ -236,38 +224,22 @@ export async function updateDuesFee(amount, academicSession = '2026/2027') {
 
   try {
     if (supabase) {
-      // 1. payment_fees universal table
+      // 1. Live Supabase id_card_settings table (id: 'dues')
       await supabase
-        .from('payment_fees')
+        .from('id_card_settings')
         .upsert({
-          fee_key: 'dues',
-          label: 'Departmental Dues',
-          amount: num,
-          currency: 'NGN',
-          is_active: true,
-          updated_at: now
-        }, { onConflict: 'fee_key' });
-
-      // 2. dues_settings table
-      await supabase
-        .from('dues_settings')
-        .upsert({
-          id: 'default',
-          dues_amount: num,
-          amount: num,
+          id: 'dues',
+          id_card_fee: num,
           academic_session: academicSession,
+          is_application_open: true,
           updated_at: now
         });
 
-      // 3. media_assets cross-device resilience pipeline
+      // 2. Also keep academic session synchronized on default settings row
       await supabase
-        .from('media_assets')
-        .upsert({
-          asset_type: 'dues_settings',
-          title: 'default',
-          caption: `Configured Departmental Dues: ₦${num.toLocaleString()}`,
-          metadata: { dues_amount: num, academic_session: academicSession, updated_at: now }
-        }, { onConflict: 'asset_type,title' });
+        .from('id_card_settings')
+        .update({ academic_session: academicSession, updated_at: now })
+        .eq('id', 'default');
     }
   } catch (err) {
     console.warn('[Dues Settings Sync Error]:', err);
@@ -286,17 +258,18 @@ export async function updateDuesFee(amount, academicSession = '2026/2027') {
 export async function getPaymentFee(feeKey) {
   const key = String(feeKey || 'id_card').trim().toLowerCase();
 
+  const rowId = (key === 'id_card' || key === 'idcard') ? 'default' : key;
+
   try {
     if (supabase) {
       const { data } = await supabase
-        .from('payment_fees')
+        .from('id_card_settings')
         .select('*')
-        .eq('fee_key', key)
-        .eq('is_active', true)
+        .eq('id', rowId)
         .maybeSingle();
 
-      if (data?.amount) {
-        return Number(data.amount);
+      if (data?.id_card_fee && !isNaN(Number(data.id_card_fee))) {
+        return Number(data.id_card_fee);
       }
     }
   } catch (e) {}
@@ -314,23 +287,23 @@ export async function updatePaymentFee(feeKey, amount, label = '') {
     return { error: 'Invalid fee key or amount.' };
   }
 
+  const rowId = (key === 'id_card' || key === 'idcard') ? 'default' : key;
   const now = new Date().toISOString();
   try {
     if (supabase) {
       await supabase
-        .from('payment_fees')
+        .from('id_card_settings')
         .upsert({
-          fee_key: key,
-          label: label || key.toUpperCase(),
-          amount: num,
-          currency: 'NGN',
-          is_active: true,
+          id: rowId,
+          id_card_fee: num,
+          is_application_open: true,
           updated_at: now
-        }, { onConflict: 'fee_key' });
+        });
     }
     return { success: true, feeKey: key, amount: num };
   } catch (err) {
     return { error: err.message };
   }
 }
+
 

@@ -58,6 +58,7 @@ function cloudinaryDevPlugin() {
 }
 
 export default defineConfig({
+  envDir: path.resolve(__dirname, '../../'),
   base: process.env.VITE_BASE_PATH || (process.env.NODE_ENV === 'production' ? '/admin/' : '/'),
   plugins: [
     tailwindcss(),

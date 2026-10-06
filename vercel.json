@@ -3,6 +3,10 @@
   "cleanUrls": false,
   "rewrites": [
     {
+      "source": "/api/(.*)",
+      "destination": "/api?_apiPath=$1"
+    },
+    {
       "source": "/portal-admin",
       "destination": "/portal-admin/index.html"
     },

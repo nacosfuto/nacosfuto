@@ -64,15 +64,21 @@ export const PortalAdminSettings = () => {
     }
   };
 
-  const handleSave = (e) => {
-    e.preventDefault();
-    try {
-      updateIdCardFee(Number(idCardFee));
-      updateDuesFee(Number(duesFee), academicSession);
-    } catch (e) {}
+  const [isSaving, setIsSaving] = useState(false);
 
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      await updateIdCardFee(Number(idCardFee));
+      await updateDuesFee(Number(duesFee), academicSession);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err) {
+      console.error('Failed to save settings:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -245,10 +251,11 @@ export const PortalAdminSettings = () => {
           <div className="flex justify-end">
             <button
               type="submit"
-              className="flex items-center gap-2 py-2.5 px-6 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 hover:to-emerald-500 transition-all shadow-md cursor-pointer"
+              disabled={isSaving}
+              className="flex items-center gap-2 py-2.5 px-6 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 hover:to-emerald-500 transition-all shadow-md cursor-pointer disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              <span>Save Portal Settings</span>
+              <span>{isSaving ? 'Syncing to Live Database...' : 'Save Portal Settings'}</span>
             </button>
           </div>
         </form>

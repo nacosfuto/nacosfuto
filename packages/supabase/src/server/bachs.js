@@ -86,7 +86,7 @@ export async function resolveDynamicFee({ paymentType = 'ID_CARD', metadata = {}
         return Number(feeRow.amount);
       }
 
-      // 2. Type-specific authoritative tables
+      // 1. Authoritative check on Supabase id_card_settings table
       if (pType === 'ID_CARD') {
         const { data: idCardRow } = await supabase
           .from('id_card_settings')
@@ -99,14 +99,13 @@ export async function resolveDynamicFee({ paymentType = 'ID_CARD', metadata = {}
         }
       } else if (pType === 'DEPARTMENTAL_DUES' || pType === 'DUES') {
         const { data: duesRow } = await supabase
-          .from('dues_settings')
-          .select('amount, dues_amount')
-          .eq('id', 'default')
+          .from('id_card_settings')
+          .select('id_card_fee')
+          .eq('id', 'dues')
           .maybeSingle();
 
-        const duesVal = duesRow?.dues_amount || duesRow?.amount;
-        if (duesVal && !isNaN(Number(duesVal)) && Number(duesVal) > 0) {
-          return Number(duesVal);
+        if (duesRow?.id_card_fee && !isNaN(Number(duesRow.id_card_fee)) && Number(duesRow.id_card_fee) > 0) {
+          return Number(duesRow.id_card_fee);
         }
       } else if (pType === 'EVENT' || pType === 'EVENT_TICKET') {
         if (metadata?.eventId) {
