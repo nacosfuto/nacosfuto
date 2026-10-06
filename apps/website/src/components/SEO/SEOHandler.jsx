@@ -78,6 +78,10 @@ const ROUTE_SEO_MAP = {
     title: 'Student Communities & Tech Ecosystem | NACOS FUTO',
     description: 'Explore peer communities, open-source cohorts, and innovation societies across FUTO.'
   },
+  '/spiritual-life': {
+    title: 'Spiritual Life & Campus Fellowships | NACOS FUTO',
+    description: 'Discover campus chaplaincies, Christian fellowships, and Muslim community meetings fostering spiritual growth and moral character at FUTO.'
+  },
   '/yellow-pages': {
     title: 'NACOS Yellow Pages | Student Tech, Freelance & Business Directory',
     description: 'Directory of verified student-led tech enterprises, software developers, UI/UX designers, gadget technicians, and campus vendors.'

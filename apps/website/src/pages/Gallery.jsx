@@ -4,7 +4,7 @@ import Footer from '../components/Footer';
 import { useTheme } from '../context/ThemeContext';
 import { FiCamera, FiMaximize2, FiX, FiFilter } from 'react-icons/fi';
 import { CloudinaryImage, getCloudinaryAssetUrl } from '@nacos/media';
-import { supabase } from '@nacos/supabase';
+import { supabase, getGalleryItems, fetchGalleryFromSupabase } from '@nacos/supabase';
 
 // Local fallbacks
 import galleryDeptFront from '../assets/gallery_dept_front.jpg';
@@ -125,35 +125,26 @@ const CANONICAL_GALLERY = [
 
 const Gallery = () => {
     const { theme } = useTheme();
-    const [images, setImages] = useState(CANONICAL_GALLERY);
+    const [images, setImages] = useState(() => getGalleryItems());
     const [activeFilter, setActiveFilter] = useState('All');
 
-    // Fetch dynamic gallery items from Supabase if added via admin dashboard
+    const loadGallery = () => {
+        setImages(getGalleryItems());
+    };
+
+    // Live sync with galleryService, Supabase, and admin changes
     useEffect(() => {
-        async function fetchLiveGallery() {
-            try {
-                const { data, error } = await supabase
-                    .from('website_gallery')
-                    .select('*')
-                    .order('created_at', { ascending: false });
+        loadGallery();
+        fetchGalleryFromSupabase().then(() => loadGallery()).catch(() => {});
 
-                if (!error && data && data.length > 0) {
-                    const dynamicItems = data.map(d => ({
-                        publicId: d.cloudinary_public_id,
-                        src: d.image_url,
-                        caption: d.caption || d.title,
-                        category: d.category || 'Campus Life'
-                    }));
+        const handleUpdate = () => loadGallery();
+        window.addEventListener('nacos_website_gallery_updated', handleUpdate);
+        window.addEventListener('storage', handleUpdate);
 
-                    // Deduplicate with canonical
-                    const dynamicIds = new Set(dynamicItems.map(d => d.publicId));
-                    setImages([...dynamicItems, ...CANONICAL_GALLERY.filter(c => !dynamicIds.has(c.publicId))]);
-                }
-            } catch (err) {
-                console.warn('Could not query Supabase gallery:', err);
-            }
-        }
-        fetchLiveGallery();
+        return () => {
+            window.removeEventListener('nacos_website_gallery_updated', handleUpdate);
+            window.removeEventListener('storage', handleUpdate);
+        };
     }, []);
 
     const categories = ['All', 'Academics', 'Tech', 'Culture', 'Socials', 'Campus Life', 'Sports'];

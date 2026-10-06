@@ -26,6 +26,7 @@ import AdmissionRequirements from "./pages/AdmissionRequirements";
 import TuitionFees from "./pages/TuitionFees";
 import CampusTour from "./pages/CampusTour";
 import CampusClubs from "./pages/CampusClubs";
+import SpiritualLife from "./pages/SpiritualLife";
 import FAQsPage from "./pages/FAQsPage";
 import ReportIssue from "./pages/ReportIssue";
 import News from "./pages/News";
@@ -159,7 +160,7 @@ function App() {
             <Route path="/clubs" element={<Clubs />} />
             <Route path="/events" element={<Suspense fallback={<PageLoader />}><Events /></Suspense>} />
             <Route path="/yellow-pages" element={<Suspense fallback={<PageLoader />}><YellowPages /></Suspense>} />
-            <Route path="/spiritual-life" element={<PlaceholderPage title="Spiritual Life" />} />
+            <Route path="/spiritual-life" element={<SpiritualLife />} />
 
             {/* Research */}
             <Route path="/research" element={<Research />} />

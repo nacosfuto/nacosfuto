@@ -17,4 +17,7 @@ export * from './notificationService.js';
 export * from './executivesService.js';
 export * from './newsService.js';
 export * from './administrationService.js';
+export * from './galleryService.js';
+export * from './spiritualLifeService.js';
+export * from './eventsService.js';
 export { default } from './client.js';

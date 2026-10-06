@@ -15,6 +15,7 @@ import AdminAuditLogs from './pages/AdminAuditLogs';
 import AdminUsers from './pages/AdminUsers';
 import AdminYellowPages from './pages/AdminYellowPages';
 import AdminClubs from './pages/AdminClubs';
+import AdminSpiritualLife from './pages/AdminSpiritualLife';
 import AdminAlumni from './pages/AdminAlumni';
 import AdminExecutives from './pages/AdminExecutives';
 import { AdminProtectedRoute } from './components/AdminProtectedRoute';
@@ -69,6 +70,9 @@ function App() {
 
           <Route path="/clubs" element={<AdminProtectedRoute><AdminClubs /></AdminProtectedRoute>} />
           <Route path="/admin/clubs" element={<AdminProtectedRoute><AdminClubs /></AdminProtectedRoute>} />
+
+          <Route path="/spiritual-life" element={<AdminProtectedRoute><AdminSpiritualLife /></AdminProtectedRoute>} />
+          <Route path="/admin/spiritual-life" element={<AdminProtectedRoute><AdminSpiritualLife /></AdminProtectedRoute>} />
 
           <Route path="/alumni" element={<AdminProtectedRoute><AdminAlumni /></AdminProtectedRoute>} />
           <Route path="/admin/alumni" element={<AdminProtectedRoute><AdminAlumni /></AdminProtectedRoute>} />

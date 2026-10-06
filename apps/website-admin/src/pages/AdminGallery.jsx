@@ -14,8 +14,14 @@ import {
 } from 'lucide-react';
 import { MediaUpload, CloudinaryImage, CLOUDINARY_FOLDERS, deleteMedia } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
-import { syncWebsiteGalleryItem } from '@nacos/supabase/media';
-import { supabase } from '@nacos/supabase';
+import { 
+  supabase, 
+  getGalleryItems, 
+  saveGalleryItem, 
+  deleteGalleryItem, 
+  toggleGalleryFeatured, 
+  fetchGalleryFromSupabase
+} from '@nacos/supabase';
 
 const INITIAL_GALLERY = [
   {
@@ -141,7 +147,7 @@ const INITIAL_GALLERY = [
 ];
 
 const AdminGallery = () => {
-  const [items, setItems] = useState(INITIAL_GALLERY);
+  const [items, setItems] = useState([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -161,43 +167,22 @@ const AdminGallery = () => {
   const [editImageUrl, setEditImageUrl] = useState('');
   const [editPublicId, setEditPublicId] = useState('');
 
+  const loadGallery = () => {
+    setItems(getGalleryItems());
+  };
+
   useEffect(() => {
-    async function loadGallery() {
-       try {
-         const { data, error } = await supabase
-           .from('website_gallery')
-           .select('*')
-           .order('sort_order', { ascending: true });
-
-         if (!error && data && data.length > 0) {
-           const mapped = data.map(d => ({
-             id: d.id,
-             title: d.title,
-             caption: d.caption,
-             image_url: d.image_url,
-             cloudinary_public_id: d.cloudinary_public_id,
-             category: d.category,
-             is_featured: d.is_featured,
-             created_at: d.created_at
-           }));
-           const dbIds = new Set(mapped.map(m => m.cloudinary_public_id));
-           setItems([...mapped, ...INITIAL_GALLERY.filter(i => !dbIds.has(i.cloudinary_public_id))]);
-           return;
-         }
-       } catch (err) {
-         console.warn('Supabase gallery query bypassed:', err);
-       }
-
-       const stored = localStorage.getItem('nacos_website_gallery_store');
-       if (stored) {
-         try {
-           setItems(JSON.parse(stored));
-         } catch (e) {
-           console.error(e);
-         }
-       }
-    }
     loadGallery();
+    fetchGalleryFromSupabase().then(() => loadGallery()).catch(() => {});
+
+    const handleUpdate = () => loadGallery();
+    window.addEventListener('nacos_website_gallery_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener('nacos_website_gallery_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, []);
 
   const showFeedback = (text, type = 'success') => {
@@ -206,40 +191,14 @@ const AdminGallery = () => {
   };
 
   const handleToggleFeatured = async (id) => {
-    const updated = items.map(item => {
-      if (item.id === id) {
-        const next = !item.is_featured;
-        recordAdminAction('gallery_feature_toggle', 'gallery', item.cloudinary_public_id, {
-          is_featured: next
-        });
-        if (item.cloudinary_public_id) {
-          supabase.from('website_gallery').update({ is_featured: next }).eq('cloudinary_public_id', item.cloudinary_public_id).then(() => {});
-        }
-        return { ...item, is_featured: next };
-      }
-      return item;
-    });
-
-    setItems(updated);
-    localStorage.setItem('nacos_website_gallery_store', JSON.stringify(updated));
+    await toggleGalleryFeatured(id);
     showFeedback('Gallery featured status updated in database.');
   };
 
   const handleDelete = async (item) => {
-    if (!window.confirm(`Delete "${item.caption}" from the website gallery?`)) return;
+    if (!window.confirm(`Delete "${item.caption || item.title}" from the website gallery?`)) return;
 
-    if (item.cloudinary_public_id) {
-      await deleteMedia(item.cloudinary_public_id);
-      try {
-        await supabase.from('website_gallery').delete().eq('cloudinary_public_id', item.cloudinary_public_id);
-      } catch (e) {
-        console.warn('Supabase gallery delete bypassed', e);
-      }
-    }
-
-    const updated = items.filter(i => i.id !== item.id);
-    setItems(updated);
-    localStorage.setItem('nacos_website_gallery_store', JSON.stringify(updated));
+    await deleteGalleryItem(item);
 
     await recordAdminAction('gallery_delete', 'gallery', item.cloudinary_public_id, {
       title: item.title
@@ -260,12 +219,7 @@ const AdminGallery = () => {
       created_at: new Date().toISOString()
     };
 
-    // Two-way sync to Cloudinary + Supabase
-    await syncWebsiteGalleryItem(newItem);
-
-    const updated = [newItem, ...items.filter(i => i.cloudinary_public_id !== publicId)];
-    setItems(updated);
-    localStorage.setItem('nacos_website_gallery_store', JSON.stringify(updated));
+    await saveGalleryItem(newItem);
 
     await recordAdminAction('gallery_create', 'gallery', publicId, {
       caption: newItem.caption,
@@ -275,7 +229,7 @@ const AdminGallery = () => {
     setIsAddOpen(false);
     setNewItemTitle('');
     setNewItemCaption('');
-    showFeedback('Photo published & synced with database & Cloudinary!');
+    showFeedback('Photo published & synced with website gallery & Cloudinary!');
   };
 
   const handleOpenEdit = (item) => {
@@ -284,8 +238,8 @@ const AdminGallery = () => {
     setEditCaption(item.caption || '');
     setEditCategory(item.category || 'Campus Life');
     setEditFeatured(Boolean(item.is_featured));
-    setEditImageUrl(item.image_url || '');
-    setEditPublicId(item.cloudinary_public_id || '');
+    setEditImageUrl(item.image_url || item.src || '');
+    setEditPublicId(item.cloudinary_public_id || item.publicId || '');
     setIsEditOpen(true);
   };
 
@@ -304,27 +258,7 @@ const AdminGallery = () => {
       updated_at: new Date().toISOString()
     };
 
-    const updated = items.map(it => it.id === editItem.id ? updatedItem : it);
-    setItems(updated);
-    localStorage.setItem('nacos_website_gallery_store', JSON.stringify(updated));
-
-    try {
-      if (editItem.cloudinary_public_id) {
-        await supabase
-          .from('website_gallery')
-          .update({
-            title: updatedItem.title,
-            caption: updatedItem.caption,
-            category: updatedItem.category,
-            is_featured: updatedItem.is_featured,
-            image_url: updatedItem.image_url,
-            cloudinary_public_id: updatedItem.cloudinary_public_id
-          })
-          .eq('cloudinary_public_id', editItem.cloudinary_public_id);
-      }
-    } catch (err) {
-      console.warn('Supabase gallery update error:', err);
-    }
+    await saveGalleryItem(updatedItem);
 
     await recordAdminAction('gallery_update', 'gallery', updatedItem.cloudinary_public_id, {
       title: updatedItem.title,
@@ -333,7 +267,7 @@ const AdminGallery = () => {
 
     setIsEditOpen(false);
     setEditItem(null);
-    showFeedback('Gallery photo details updated successfully!');
+    showFeedback('Gallery photo details updated and synced across website!');
   };
 
   return (
