@@ -1,3 +1,4 @@
+import '../../packages/supabase/src/server/loadEnv.js';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
@@ -12,6 +13,19 @@ import {
   processBachsWebhook,
   getBachsConfig
 } from '../../packages/supabase/src/server/bachs.js';
+import {
+  handleSignupStep1,
+  handleSignupStep2,
+  handleSendOtp,
+  handleVerifyOtp,
+  handleCompleteSignup,
+  handleForgotPasswordStep1,
+  handleForgotPasswordStep2,
+  handleCompleteResetPassword,
+  handleSensitiveActionRequest,
+  handleSensitiveActionVerify,
+  handleSensitiveActionVerifyPassword
+} from '../../packages/supabase/src/server/studentAuthApi.js';
 
 function cloudinaryDevPlugin() {
   return {
@@ -431,6 +445,75 @@ function cloudinaryDevPlugin() {
             return;
           }
         }
+
+        // --- STUDENT AUTHENTICATION & IDENTITY VERIFICATION DEV ENDPOINTS ---
+        if (req.url?.startsWith('/api/auth/student/') && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const url = new URL(req.url, 'http://localhost');
+              const pathname = url.pathname.replace(/\/+$/, '');
+              const data = JSON.parse(body || '{}');
+              let result = null;
+
+              if (pathname === '/api/auth/student/signup-step1') {
+                result = await handleSignupStep1(data);
+              } else if (pathname === '/api/auth/student/signup-step2') {
+                result = await handleSignupStep2(data);
+              } else if (pathname === '/api/auth/student/send-otp') {
+                result = await handleSendOtp({ ...data, ipAddress: req.socket?.remoteAddress });
+              } else if (pathname === '/api/auth/student/verify-otp') {
+                result = await handleVerifyOtp(data);
+              } else if (pathname === '/api/auth/student/complete-signup') {
+                result = await handleCompleteSignup(data);
+              } else if (pathname === '/api/auth/student/forgot-password-step1') {
+                result = await handleForgotPasswordStep1(data);
+              } else if (pathname === '/api/auth/student/forgot-password-step2') {
+                result = await handleForgotPasswordStep2(data);
+              } else if (pathname === '/api/auth/student/complete-reset-password') {
+                result = await handleCompleteResetPassword(data);
+              } else if (pathname === '/api/auth/student/sensitive-action/request') {
+                result = await handleSensitiveActionRequest(data);
+              } else if (pathname === '/api/auth/student/sensitive-action/verify') {
+                result = await handleSensitiveActionVerify(data);
+              } else if (pathname === '/api/auth/student/sensitive-action/verify-password') {
+                result = await handleSensitiveActionVerifyPassword(data);
+              } else {
+                res.statusCode = 404;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: `Not found: ${pathname}` }));
+                return;
+              }
+
+              let statusCode = 200;
+              if (result.success) {
+                statusCode = (pathname.endsWith('complete-signup') || pathname.endsWith('send-otp')) ? 201 : 200;
+              } else if (result.registered) {
+                statusCode = 409;
+              } else if (result.noVerifiedContact || result.invalidName) {
+                statusCode = 422;
+              } else if (result.invalidCredentials || result.invalidOtp) {
+                statusCode = 401;
+              } else {
+                statusCode = result.statusCode || 400;
+              }
+
+              res.setHeader('Content-Type', 'application/json');
+              res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+              res.setHeader('X-Content-Type-Options', 'nosniff');
+              res.statusCode = statusCode;
+              res.end(JSON.stringify(result));
+            } catch (err) {
+              console.error('[Dev Student Auth Error]:', err);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          });
+          return;
+        }
+
         next();
       });
     }

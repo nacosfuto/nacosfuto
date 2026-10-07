@@ -193,17 +193,21 @@ const Login = () => {
 
           {/* Error Message with Context Actions */}
           {error && (
-            <div className="p-3.5 rounded bg-red-50 border border-red-200 text-xs sm:text-sm text-red-700 font-medium flex items-start gap-2.5">
+            <div 
+              role="alert" 
+              aria-live="polite" 
+              className="p-3.5 rounded bg-red-50 border border-red-200 text-xs sm:text-sm text-red-700 font-medium flex items-start gap-2.5"
+            >
               <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
               <div className="leading-relaxed flex-1">
                 <p>{error}</p>
-                {error.toLowerCase().includes('create an account') && (
+                {(error.toLowerCase().includes('create an account') || error.toLowerCase().includes('activated')) && (
                   <div className="mt-2 pt-2 border-t border-red-200/80">
                     <Link 
-                      to={getRedirectTarget() ? `/register?redirect=${encodeURIComponent(getRedirectTarget())}` : "/register"} 
+                      to={getRedirectTarget() ? `/register?redirect=${encodeURIComponent(getRedirectTarget())}&reg=${encodeURIComponent(identifier.trim())}` : `/register?reg=${encodeURIComponent(identifier.trim())}`} 
                       className="inline-flex items-center gap-1 font-bold text-[#138601] hover:underline"
                     >
-                      <span>Go to Student Registration</span>
+                      <span>Complete Account Registration</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                   </div>
@@ -226,12 +230,16 @@ const Login = () => {
           {/* Clean Input Form Box */}
           <form onSubmit={handleContinue} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+              <label htmlFor="identifier" className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
                 Registration Number or Email
               </label>
               <input
+                id="identifier"
+                name="identifier"
                 type="text"
                 required
+                autoComplete="username"
+                aria-required="true"
                 placeholder="e.g. 20241450682 or name@futo.edu.ng"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
@@ -240,13 +248,17 @@ const Login = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+              <label htmlFor="password" className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
                 Password
               </label>
               <div className="relative">
                 <input
+                  id="password"
+                  name="password"
                   type={showPassword ? 'text' : 'password'}
                   required
+                  autoComplete="current-password"
+                  aria-required="true"
                   placeholder="Your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

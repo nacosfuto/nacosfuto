@@ -12,10 +12,29 @@ class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+
+    // Auto-recover from stale deployment chunk errors (e.g. after new build deployment)
+    const isChunkLoadError = 
+      error?.message?.includes('Failed to fetch dynamically imported module') ||
+      error?.message?.includes('dynamically imported module') ||
+      error?.message?.includes('Loading chunk') ||
+      error?.message?.includes('Importing a module script failed');
+
+    if (isChunkLoadError && typeof window !== 'undefined') {
+      const lastReload = sessionStorage.getItem('nacos_chunk_reload_attempt');
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload, 10) > 15000) {
+        sessionStorage.setItem('nacos_chunk_reload_attempt', now.toString());
+        window.location.reload();
+      }
+    }
   }
 
   handleRefresh = () => {
-    window.location.reload();
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('nacos_chunk_reload_attempt');
+      window.location.reload();
+    }
   };
 
   render() {

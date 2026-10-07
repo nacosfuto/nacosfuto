@@ -13,13 +13,17 @@ const supabaseAnonKey =
 const dummyUrl = 'https://unconfigured-project.supabase.co';
 const dummyKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.unconfigured';
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey && supabaseUrl !== dummyUrl);
+const isServer = typeof window === 'undefined' && typeof process !== 'undefined';
+const serverKey = isServer ? (process.env?.SUPABASE_SERVICE_ROLE_KEY || process.env?.VITE_SUPABASE_ANON_KEY) : '';
+const effectiveKey = (isServer && serverKey) ? serverKey : (supabaseAnonKey || dummyKey);
 
-export const supabase = createClient(supabaseUrl || dummyUrl, supabaseAnonKey || dummyKey, {
+export const isSupabaseConfigured = Boolean(supabaseUrl && (serverKey || supabaseAnonKey) && supabaseUrl !== dummyUrl);
+
+export const supabase = createClient(supabaseUrl || dummyUrl, effectiveKey, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
+    persistSession: !isServer,
+    autoRefreshToken: !isServer,
+    detectSessionInUrl: !isServer
   }
 });
 

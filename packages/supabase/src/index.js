@@ -22,5 +22,6 @@ export * from './spiritualLifeService.js';
 export * from './eventsService.js';
 export * from './electraService.js';
 export * from './payments.js';
+export * from './studentAuth.js';
 export { default } from './client.js';
 

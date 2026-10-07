@@ -38,6 +38,7 @@ import {
 } from '@nacos/supabase/idCard';
 import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
 import { MediaUpload, CLOUDINARY_FOLDERS, getOptimizedImageUrl, idTemplateMaster, idTemplateBack, idTemplateFrame } from '@nacos/media';
+import StepUpAuthModal from '../components/StepUpAuthModal';
 
 const masterTemplateAsset = idTemplateMaster;
 const frameAsset = idTemplateFrame;
@@ -67,6 +68,7 @@ const IdCard = () => {
   const [verifyingReference, setVerifyingReference] = useState('');
   const [simulatedModal, setSimulatedModal] = useState(null);
   const [isSimulatingSuccess, setIsSimulatingSuccess] = useState(false);
+  const [isStepUpOpen, setIsStepUpOpen] = useState(false);
 
   useEffect(() => {
     loadStudentAndApplication();
@@ -289,16 +291,24 @@ const IdCard = () => {
   };
 
   // State 2 -> State 3: Bachs Payment Checkout Session
-  const handlePayment = async () => {
+  const handlePayment = () => {
+    setIsStepUpOpen(true);
+  };
+
+  const executeIdCardCheckout = async (actionToken) => {
     setIsPaying(true);
 
     try {
       const resp = await fetch('/api/payments/id-card/create-checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': actionToken ? `Bearer ${actionToken}` : ''
+        },
         body: JSON.stringify({
           student,
-          returnBaseUrl: window.location.origin
+          returnBaseUrl: window.location.origin,
+          stepUpToken: actionToken
         })
       });
 
@@ -1173,6 +1183,17 @@ const IdCard = () => {
         )}
 
       </div>
+
+      {/* Step-Up Authentication Modal */}
+      <StepUpAuthModal
+        isOpen={isStepUpOpen}
+        onClose={() => setIsStepUpOpen(false)}
+        onSuccess={(token) => executeIdCardCheckout(token)}
+        purpose="PAYMENT_CONFIRMATION"
+        title="Confirm NACOS ID Card Payment"
+        description="Verify your identity before proceeding to Bachs checkout."
+        user={student}
+      />
     </PortalLayout>
   );
 };

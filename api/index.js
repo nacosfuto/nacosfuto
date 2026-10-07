@@ -11,6 +11,7 @@
  * Result: Total Serverless Functions deployed to Vercel = 1 (Vastly below Hobby plan limit of 12).
  */
 
+import '../packages/supabase/src/server/loadEnv.js';
 import crypto from 'crypto';
 import { supabase } from '../packages/supabase/src/client.js';
 import {
@@ -29,6 +30,19 @@ import {
   checkServerEmailRateLimit,
   recordServerEmailRequest
 } from '../packages/supabase/src/server/emailDispatcher.js';
+import {
+  handleSignupStep1,
+  handleSignupStep2,
+  handleSendOtp,
+  handleVerifyOtp,
+  handleCompleteSignup,
+  handleForgotPasswordStep1,
+  handleForgotPasswordStep2,
+  handleCompleteResetPassword,
+  handleSensitiveActionRequest,
+  handleSensitiveActionVerify,
+  handleSensitiveActionVerifyPassword
+} from '../packages/supabase/src/server/studentAuthApi.js';
 
 // --- Backblaze B2 Helper State ---
 let cachedB2Auth = null;
@@ -483,6 +497,90 @@ export default async function handler(req, res) {
       } else {
         const statusCode = result.code === 'RESEND_DELIVERY_FAILED' ? 502 : 400;
         return res.status(statusCode).json(result);
+      }
+    }
+
+    // =========================================================================
+    // 6. STUDENT AUTH & IDENTITY VERIFICATION SYSTEM (/api/auth/student/*)
+    // =========================================================================
+    if (route.startsWith('/api/auth/student/')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+
+      // Signup Step 1: Check registration number against official records
+      if (route === '/api/auth/student/signup-step1' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleSignupStep1(body);
+        return res.status(result.success ? 200 : (result.registered ? 409 : 400)).json(result);
+      }
+
+      // Signup Step 2: Name verification & contact channel lookup
+      if (route === '/api/auth/student/signup-step2' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleSignupStep2(body);
+        return res.status(result.success ? 200 : (result.noVerifiedContact || result.invalidName ? 422 : 400)).json(result);
+      }
+
+      // Purpose-Bound OTP Dispatch (Signup, Forgot Password, Step-Up Auth)
+      if (route === '/api/auth/student/send-otp' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
+        const result = await handleSendOtp({ ...body, ipAddress: clientIp });
+        return res.status(result.success ? 201 : 400).json(result);
+      }
+
+      // Purpose-Bound OTP Verification (Issues short-lived action token)
+      if (route === '/api/auth/student/verify-otp' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleVerifyOtp(body);
+        return res.status(result.success ? 200 : 401).json(result);
+      }
+
+      // Signup Step 4: Password creation & account activation
+      if (route === '/api/auth/student/complete-signup' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleCompleteSignup(body);
+        return res.status(result.success ? 201 : 400).json(result);
+      }
+
+      // Forgot Password Step 1: Registration check
+      if (route === '/api/auth/student/forgot-password-step1' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleForgotPasswordStep1(body);
+        return res.status(result.success ? 200 : 400).json(result);
+      }
+
+      // Forgot Password Step 2: Name & contact verification
+      if (route === '/api/auth/student/forgot-password-step2' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleForgotPasswordStep2(body);
+        return res.status(result.success ? 200 : (result.noVerifiedContact || result.invalidName ? 422 : 400)).json(result);
+      }
+
+      // Forgot Password Step 4: Set new password
+      if (route === '/api/auth/student/complete-reset-password' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleCompleteResetPassword(body);
+        return res.status(result.success ? 200 : 400).json(result);
+      }
+
+      // Sensitive Action Verification (Step-Up Authentication)
+      if (route === '/api/auth/student/sensitive-action/request' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleSensitiveActionRequest(body);
+        return res.status(result.success ? 200 : 400).json(result);
+      }
+
+      if (route === '/api/auth/student/sensitive-action/verify' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleSensitiveActionVerify(body);
+        return res.status(result.success ? 200 : 401).json(result);
+      }
+
+      if (route === '/api/auth/student/sensitive-action/verify-password' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleSensitiveActionVerifyPassword(body);
+        return res.status(result.success ? 200 : 401).json(result);
       }
     }
 

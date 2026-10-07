@@ -5,7 +5,7 @@
  * ============================================================================
  */
 
-import cloudinaryAssetsData from './cloudinaryAssets.json';
+import cloudinaryAssetsData from './cloudinaryAssets.json' with { type: 'json' };
 
 export const CLOUDINARY_MANIFEST = cloudinaryAssetsData?.assets || {};
 

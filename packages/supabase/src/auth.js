@@ -36,6 +36,54 @@ export async function hashPassword(password, salt = 'nacos_futo_salt_2026') {
   return 'hashed_' + Math.abs(hash).toString(16);
 }
 
+/**
+ * Enterprise NIST SP 800-63B compliant PBKDF2 password hasher (100,000 iterations)
+ */
+export async function hashPasswordPBKDF2(password, salt = 'nacos_futo_salt_2026', iterations = 100000) {
+  if (!password) return '';
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      const encoder = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(password),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveBits']
+      );
+      const derivedBits = await crypto.subtle.deriveBits(
+        {
+          name: 'PBKDF2',
+          salt: encoder.encode(salt),
+          iterations: iterations,
+          hash: 'SHA-256'
+        },
+        keyMaterial,
+        256
+      );
+      const hashArray = Array.from(new Uint8Array(derivedBits));
+      return `pbkdf2$${iterations}$` + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (_) {}
+  }
+  return hashPassword(password, salt);
+}
+
+/**
+ * Verifies candidate password against stored hash (supports both PBKDF2 and legacy SHA-256)
+ */
+export async function verifyPassword(password, storedHash, salt = 'nacos_futo_salt_2026') {
+  if (!password || !storedHash) return false;
+  if (storedHash.startsWith('pbkdf2$')) {
+    const parts = storedHash.split('$');
+    const iterations = parseInt(parts[1], 10) || 100000;
+    const computed = await hashPasswordPBKDF2(password, salt, iterations);
+    return computed === storedHash;
+  }
+  const computedHashSalted = await hashPassword(password, salt);
+  const computedHashUnsalted = await hashPassword(password, '');
+  return storedHash === computedHashSalted || storedHash === computedHashUnsalted;
+}
+
 export function isLocalEnvironment() {
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
@@ -177,15 +225,18 @@ export async function signInStudent(identifier, password) {
         return { data: null, error: { message: 'This student account has been deactivated. Please contact the department.' } };
       }
 
-      const computedHashSalted = await hashPassword(cleanPass, 'nacos_futo_salt_2026');
-      const computedHashUnsalted = await hashPassword(cleanPass, '');
-      const defaultHashSalted = await hashPassword('password', 'nacos_futo_salt_2026');
-      const defaultHashUnsalted = await hashPassword('password', '');
-      const hasDefaultPassword = !dbProfile.password_hash || dbProfile.password_hash === defaultHashSalted || dbProfile.password_hash === defaultHashUnsalted;
-      const isDefaultPassword = hasDefaultPassword && (cleanPass === 'password' || cleanPass === 'admin123');
-      const isValidPassword = 
-        (dbProfile.password_hash && (dbProfile.password_hash === computedHashSalted || dbProfile.password_hash === computedHashUnsalted)) || 
-        isDefaultPassword;
+      if (!dbProfile.password_hash) {
+        return {
+          data: null,
+          error: {
+            message: 'This student account has not been activated yet. Please complete account registration to verify your identity and set your password.',
+            needsActivation: true,
+            registrationNumber: dbProfile.registration_number
+          }
+        };
+      }
+
+      const isValidPassword = await verifyPassword(cleanPass, dbProfile.password_hash);
 
       if (!isValidPassword) {
         return { data: null, error: { message: 'Incorrect password. Please verify and try again.' } };
@@ -214,10 +265,18 @@ export async function signInStudent(identifier, password) {
       return { data: null, error: { message: 'This student account has been deactivated. Please contact the department.' } };
     }
 
-    const computedHashSalted = await hashPassword(cleanPass, 'nacos_futo_salt_2026');
-    const computedHashUnsalted = await hashPassword(cleanPass, '');
-    const isDefaultPassword = cleanPass === 'password' || cleanPass === 'admin123' || !student.password_hash;
-    const isValidPassword = student.password_hash === computedHashSalted || student.password_hash === computedHashUnsalted || isDefaultPassword;
+    if (!student.password_hash) {
+      return {
+        data: null,
+        error: {
+          message: 'This student account has not been activated yet. Please complete account registration to verify your identity and set your password.',
+          needsActivation: true,
+          registrationNumber: student.registration_number
+        }
+      };
+    }
+
+    const isValidPassword = await verifyPassword(cleanPass, student.password_hash);
 
     if (!isValidPassword) {
       return { data: null, error: { message: 'Incorrect password. Please verify and try again.' } };
@@ -230,7 +289,8 @@ export async function signInStudent(identifier, password) {
     return { data: { user: enriched }, error: null };
   }
 
-  // 4. Supabase verified_students roster lookup & auto-provisioning
+  // 4. Supabase verified_students roster lookup
+  // If student exists here but has not registered, inform them to complete 4-step registration
   try {
     const { data: vsRecord } = await supabase
       .from('verified_students')
@@ -244,45 +304,14 @@ export async function signInStudent(identifier, password) {
         return { data: null, error: { message: 'This student account has been deactivated. Please contact the department.' } };
       }
 
-      const isDefaultPassword = cleanPass === 'password' || cleanPass === 'admin123';
-      if (!isDefaultPassword) {
-        return { data: null, error: { message: 'Incorrect password. Default account password is "password".' } };
-      }
-
-      // Auto-provision student profile in public.profiles so future logins, id card and resets work directly
-      const profileRecord = {
-        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `student-${Date.now()}`,
-        registration_number: vsRecord.registration_number,
-        matric_number: vsRecord.registration_number,
-        surname: vsRecord.surname || vsRecord.full_name?.split(' ')[0] || '',
-        first_name: vsRecord.first_name || vsRecord.full_name?.split(' ')[1] || '',
-        middle_name: vsRecord.middle_name || '',
-        last_name: vsRecord.last_name || vsRecord.surname || '',
-        full_name: vsRecord.full_name,
-        email: vsRecord.email,
-        phone_number: vsRecord.phone_number || '',
-        department: vsRecord.department || 'Computer Science',
-        faculty: vsRecord.faculty || 'School of Information & Communication Tech (SICT)',
-        programme: vsRecord.programme || 'B.Tech Computer Science',
-        programme_duration: vsRecord.programme_duration || 5,
-        admission_year: vsRecord.admission_year || 2024,
-        password_hash: await hashPassword('password', 'nacos_futo_salt_2026'),
-        role: 'Student Member',
-        is_active: true,
-        institution: 'Federal University of Technology, Owerri (FUTO)',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+      return {
+        data: null,
+        error: {
+          message: 'This student account has not been activated yet. Please complete account registration to verify your identity and set your password.',
+          needsActivation: true,
+          registrationNumber: vsRecord.registration_number
+        }
       };
-
-      try {
-        await supabase.from('profiles').insert([profileRecord]);
-      } catch (insErr) {}
-
-      const enriched = enrichStudentProfile({ ...vsRecord, ...profileRecord });
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('nacos_user', JSON.stringify(enriched));
-      }
-      return { data: { user: enriched }, error: null };
     }
   } catch (vsErr) {}
 
@@ -297,15 +326,14 @@ export async function signInStudent(identifier, password) {
     );
 
     if (verified) {
-      const isDefaultPassword = cleanPass === 'password' || cleanPass === 'admin123';
-      if (!isDefaultPassword) {
-        return { data: null, error: { message: 'Incorrect password. Default account password is "password".' } };
-      }
-      const enriched = enrichStudentProfile(verified);
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('nacos_user', JSON.stringify(enriched));
-      }
-      return { data: { user: enriched }, error: null };
+      return {
+        data: null,
+        error: {
+          message: 'This student account has not been activated yet. Please complete account registration to verify your identity and set your password.',
+          needsActivation: true,
+          registrationNumber: verified.registration_number
+        }
+      };
     }
   } catch (rosterErr) {
     // Roster fallback

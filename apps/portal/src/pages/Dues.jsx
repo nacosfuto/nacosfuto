@@ -16,6 +16,7 @@ import logoDark from '../assets/full-logo-dark.png';
 import logoLight from '../assets/full-logo-light.png';
 import { useTheme } from '../context/ThemeContext';
 import { supabase, getLocalPaymentsDatabase, recordStudentPayment, getDuesSettings } from '@nacos/supabase';
+import StepUpAuthModal from '../components/StepUpAuthModal';
 
 const Dues = () => {
   const [isPrinting, setIsPrinting] = useState(false);
@@ -24,6 +25,7 @@ const Dues = () => {
   const isDark = theme === 'dark';
 
   const [duesFee, setDuesFee] = useState(null);
+  const [isStepUpOpen, setIsStepUpOpen] = useState(false);
 
   const [user, setUser] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -269,17 +271,26 @@ const Dues = () => {
     };
   }, []);
 
-  // Universal Bachs Dues Payment Handler
-  const handlePayDues = async () => {
+  // Open Step-Up Modal before proceeding to payment
+  const handlePayDues = () => {
+    setIsStepUpOpen(true);
+  };
+
+  // Authoritative Checkout Handler after Step-Up Identity Verification
+  const executeCheckout = async (actionToken) => {
     setIsProcessing(true);
     try {
       const resp = await fetch('/api/payments/dues/create-checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': actionToken ? `Bearer ${actionToken}` : ''
+        },
         body: JSON.stringify({
           student: user,
           academicSession: user?.academic_session || '2026/2027',
-          level: selectedLevel
+          level: selectedLevel,
+          stepUpToken: actionToken
         })
       });
 
@@ -650,6 +661,17 @@ const Dues = () => {
         )}
 
       </div>
+
+      {/* Step-Up Authentication Modal */}
+      <StepUpAuthModal
+        isOpen={isStepUpOpen}
+        onClose={() => setIsStepUpOpen(false)}
+        onSuccess={(token) => executeCheckout(token)}
+        purpose="PAYMENT_CONFIRMATION"
+        title="Confirm Departmental Dues Payment"
+        description="Verify your identity before proceeding to Bachs payment checkout."
+        user={user}
+      />
     </PortalLayout>
   );
 };
