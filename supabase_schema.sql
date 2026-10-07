@@ -728,8 +728,8 @@ CREATE POLICY "Public read gallery" ON public.gallery_items FOR SELECT USING (tr
 DROP POLICY IF EXISTS "Public read media assets" ON public.media_assets;
 CREATE POLICY "Public read media assets" ON public.media_assets FOR SELECT USING (true);
 
+-- Ensure admin scopes are never publicly readable
 DROP POLICY IF EXISTS "Public read admin scopes" ON public.admin_scopes;
-CREATE POLICY "Public read admin scopes" ON public.admin_scopes FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Public write audit logs" ON public.audit_logs;
 CREATE POLICY "Public write audit logs" ON public.audit_logs FOR INSERT WITH CHECK (true);
@@ -796,41 +796,24 @@ EXCEPTION
   WHEN duplicate_table OR duplicate_object OR duplicate_column THEN NULL;
 END $$;
 
--- 1. Default Admin Accounts (Password for all three: "password")
--- SHA-256('password') = 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
+-- 1. Default Super Administrator Account (Password set via self-service verification OTP flow)
 INSERT INTO public.admin_scopes (id, email, full_name, password_hash, scope, role, permissions, is_active)
 VALUES
   (
-    'admin-seed-super',
-    'superadmin@nacos.org.ng',
-    'Executive System Administrator',
-    '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
+    'admin-super-ict',
+    'ict.nacosfuto@gmail.com',
+    'NACOS FUTO ICT / Super Administrator',
+    NULL,
     'super_admin',
     'super_admin',
-    '["super_admin", "student_portal.all", "main_website.all"]'::jsonb,
-    true
-  ),
-  (
-    'admin-seed-portal',
-    'portaladmin@nacos.org.ng',
-    'Portal Examination & Verification Officer',
-    '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
-    'student_portal',
-    'portal_admin',
-    '["student_portal.view", "student_portal.students", "student_portal.verification", "student_portal.id_cards", "student_portal.results", "student_portal.dues", "student_portal.settings"]'::jsonb,
-    true
-  ),
-  (
-    'admin-seed-website',
-    'webadmin@nacos.org.ng',
-    'NACOS Director of Software & Public Relations',
-    '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
-    'main_website',
-    'website_admin',
-    '["main_website.view", "main_website.media", "main_website.gallery", "main_website.news", "main_website.events", "main_website.homepage", "main_website.settings"]'::jsonb,
+    '["*"]'::jsonb,
     true
   )
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (email) DO UPDATE SET
+  scope = 'super_admin',
+  role = 'super_admin',
+  permissions = '["*"]'::jsonb,
+  is_active = true;
 
 -- 2. Pre-Seeded Verified Students (Institutional Ground Truth)
 INSERT INTO public.verified_students 

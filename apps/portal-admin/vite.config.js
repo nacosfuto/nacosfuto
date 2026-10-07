@@ -3,12 +3,35 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import crypto from 'crypto';
+import { dispatchEmail } from '../../packages/supabase/src/server/emailDispatcher.js';
 
 function cloudinaryDevPlugin() {
   return {
     name: 'cloudinary-dev-server',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
+        if (req.url === '/api/email/send' && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const rootEnv = loadEnv('development', path.resolve(__dirname, '../../'), '');
+              const localEnv = loadEnv('development', process.cwd(), '');
+              const env = { ...process.env, ...rootEnv, ...localEnv };
+
+              const data = JSON.parse(body || '{}');
+              const result = await dispatchEmail(data, env);
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify(result));
+            } catch (e) {
+              console.error('[Portal Admin Dev Email Error]:', e);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: e.message }));
+            }
+          });
+          return;
+        }
         if (req.url === '/api/cloudinary/sign' && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });

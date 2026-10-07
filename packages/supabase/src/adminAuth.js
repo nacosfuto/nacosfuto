@@ -1,5 +1,7 @@
 import { supabase } from './client.js';
 import { hashPassword, isLocalEnvironment } from './auth.js';
+import { createOTPVerification, verifyOTP, maskEmail } from './otpService.js';
+import { sendPasswordResetEmail } from './emailService.js';
 
 const ADMIN_SESSION_STORAGE_KEY = 'nacos_website_admin_session';
 const ADMIN_SCOPES_STORAGE_KEY = 'nacos_admin_scopes_db';
@@ -21,85 +23,16 @@ export function getLocalAdminScopesDatabase() {
 
   const seeded = [
     {
-      id: 'admin-seed-1',
-      user_id: 'usr-webadmin-1',
-      email: 'webadmin@nacos.org.ng',
-      full_name: 'Chief Web Administrator',
-      scope: 'main_website',
-      role: 'website_admin',
-      permissions: [
-        'main_website.view',
-        'main_website.media',
-        'main_website.gallery',
-        'main_website.news',
-        'main_website.events',
-        'main_website.homepage',
-        'main_website.settings'
-      ],
-      is_active: true,
-      password_hash: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', // 'password'
-      created_at: '2026-08-01T09:00:00Z'
-    },
-    {
-      id: 'admin-seed-2',
-      user_id: 'usr-editor-1',
-      email: 'editor@nacos.org.ng',
-      full_name: 'Content & Press Editor',
-      scope: 'main_website',
-      role: 'website_editor',
-      permissions: [
-        'main_website.view',
-        'main_website.media',
-        'main_website.gallery',
-        'main_website.news',
-        'main_website.events'
-      ],
-      is_active: true,
-      password_hash: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
-      created_at: '2026-08-10T11:30:00Z'
-    },
-    {
-      id: 'admin-seed-3',
-      user_id: 'usr-portaladmin-1',
-      email: 'portaladmin@nacos.org.ng',
-      full_name: 'Portal Examination Officer',
-      scope: 'student_portal', // NOT authorized for main_website!
-      role: 'portal_admin',
-      permissions: ['student_portal.students', 'student_portal.results', 'student_portal.dues'],
-      is_active: true,
-      password_hash: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
-      created_at: '2026-08-12T14:00:00Z'
-    },
-    {
-      id: 'admin-seed-4',
-      user_id: 'usr-superadmin-1',
-      email: 'superadmin@nacos.org.ng',
-      full_name: 'Staff Adviser / Super Admin',
-      scope: 'super_admin', // Full universal oversight
+      id: 'admin-super-ict',
+      user_id: 'usr-superadmin-ict',
+      email: 'ict.nacosfuto@gmail.com',
+      full_name: 'NACOS FUTO ICT / Super Administrator',
+      scope: 'super_admin',
       role: 'super_admin',
       permissions: ['*'],
       is_active: true,
-      password_hash: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
-      created_at: '2026-07-01T08:00:00Z'
-    },
-    {
-      id: 'admin-seed-course-adviser',
-      user_id: 'usr-adviser-1',
-      email: 'adviser200l@nacos.org.ng',
-      full_name: 'Dr. Ibe (200L Course Adviser)',
-      scope: 'student_portal',
-      role: 'course_adviser',
-      assigned_level: '200',
-      permissions: [
-        'student_portal.results',
-        'student_portal.students',
-        'feature:results_management',
-        'feature:student_registry',
-        'feature:course_management'
-      ],
-      is_active: true,
-      password_hash: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
-      created_at: '2026-08-15T10:00:00Z'
+      password_hash: null,
+      created_at: '2026-10-07T12:00:00Z'
     }
   ];
 
@@ -592,3 +525,152 @@ export async function superAdminUpdatePermissions(email, permissions) {
 
   return { success: true };
 }
+
+/**
+ * Request Password Reset for Administrators
+ * Validates the administrator exists, issues a secure 6-digit OTP,
+ * and delivers it to their inbox via Resend.
+ */
+export async function requestAdminPasswordReset(adminEmail) {
+  if (!adminEmail || !adminEmail.trim()) {
+    return { success: false, error: 'Please enter your administrator email address.' };
+  }
+
+  const cleanEmail = adminEmail.trim().toLowerCase();
+
+  // 1. Look up administrator in Supabase admin_scopes
+  let adminRecord = null;
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('admin_scopes')
+        .select('*')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (!error && data) {
+        adminRecord = data;
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase admin lookup error during reset request:', err);
+  }
+
+  // 2. Fallback to local admin database if offline/unreachable
+  if (!adminRecord) {
+    const localAdmins = getLocalAdminScopesDatabase();
+    adminRecord = localAdmins.find(a => a.email && a.email.toLowerCase() === cleanEmail);
+  }
+
+  if (!adminRecord) {
+    return {
+      success: false,
+      error: 'No administrator account was found with that email address. Please contact the Super Admin.'
+    };
+  }
+
+  if (adminRecord.is_active === false) {
+    return {
+      success: false,
+      error: 'This administrative account is currently disabled. Please contact the department or Super Admin.'
+    };
+  }
+
+  const adminName = adminRecord.full_name || adminRecord.name || 'Administrator';
+  const roleTitle = adminRecord.role || adminRecord.scope || 'Admin Officer';
+  const maskedEmail = maskEmail(cleanEmail);
+
+  // 3. Generate secure OTP
+  const otpResult = await createOTPVerification(cleanEmail, 'email', maskedEmail, cleanEmail);
+  if (!otpResult.success) {
+    return {
+      success: false,
+      error: otpResult.error?.message || 'Could not generate reset code. Please try again.',
+      retryAfterSeconds: otpResult.retryAfterSeconds
+    };
+  }
+
+  // 4. Send transactional password reset email via Resend
+  const emailResult = await sendPasswordResetEmail(cleanEmail, otpResult.code, adminName, roleTitle);
+  if (!emailResult.success && emailResult.provider !== 'simulated') {
+    return {
+      success: false,
+      error: emailResult.error || 'Failed to dispatch password reset email. Please try again later.',
+      retryAfterSeconds: emailResult.retryAfterSeconds
+    };
+  }
+
+  return {
+    success: true,
+    email: cleanEmail,
+    maskedEmail,
+    expiresAt: otpResult.expiresAt
+  };
+}
+
+/**
+ * Confirm and Complete Admin Password Reset
+ * Validates the 6-digit OTP code, computes the secure SHA-256 password hash,
+ * and updates the administrator's credentials in Supabase.
+ */
+export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword) {
+  if (!adminEmail || !otpCode || !newPassword) {
+    return { success: false, error: 'All fields are required.' };
+  }
+
+  if (newPassword.length < 6) {
+    return { success: false, error: 'Password must be at least 6 characters long.' };
+  }
+
+  const cleanEmail = adminEmail.trim().toLowerCase();
+  const cleanCode = otpCode.trim();
+
+  // 1. Verify OTP code
+  const verifyResult = await verifyOTP(cleanEmail, 'email', cleanCode);
+  if (!verifyResult.success) {
+    return {
+      success: false,
+      error: verifyResult.error?.message || 'Invalid or expired verification code. Please request a new one.'
+    };
+  }
+
+  // 2. Hash new password
+  const newHash = await hashPassword(newPassword);
+  const now = new Date().toISOString();
+
+  // 3. Update Supabase admin_scopes table
+  let updatedInSupabase = false;
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('admin_scopes')
+        .update({
+          password_hash: newHash,
+          updated_at: now
+        })
+        .eq('email', cleanEmail)
+        .select();
+
+      if (!error && data && data.length > 0) {
+        updatedInSupabase = true;
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase admin password update notice:', err);
+  }
+
+  // 4. Update local admin storage cache
+  const localAdmins = getLocalAdminScopesDatabase();
+  const idx = localAdmins.findIndex(a => a.email && a.email.toLowerCase() === cleanEmail);
+  if (idx !== -1) {
+    localAdmins[idx].password_hash = newHash;
+    localAdmins[idx].updated_at = now;
+    localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(localAdmins));
+  }
+
+  return {
+    success: true,
+    message: 'Your administrator password has been updated successfully. You can now log in.'
+  };
+}
+

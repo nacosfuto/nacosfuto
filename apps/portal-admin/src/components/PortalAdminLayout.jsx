@@ -120,7 +120,7 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
   };
 
   const displayName = admin?.full_name || 'Portal Officer';
-  const displayEmail = admin?.email || 'portaladmin@nacos.org.ng';
+  const displayEmail = admin?.email || 'ict.nacosfuto@gmail.com';
   const displayInitials = displayName
     .split(/\s+/)
     .map(w => w[0])

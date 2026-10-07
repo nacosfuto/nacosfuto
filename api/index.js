@@ -340,6 +340,106 @@ export default async function handler(req, res) {
       return res.send(Buffer.from(arrayBuffer));
     }
 
+    // Backblaze B2 Upload Target Generation & Management
+    if (route === '/api/resource-storage' && method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { action, storageKey } = body;
+      const auth = await getB2AuthTokens();
+
+      if (action === 'get-upload-url' || action === 'presign-upload') {
+        const upRes = await fetch(`${auth.apiUrl}/b2api/v3/b2_get_upload_url`, {
+          method: 'POST',
+          headers: {
+            Authorization: auth.authorizationToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ bucketId: auth.bucketId })
+        });
+        if (!upRes.ok) {
+          const errData = await upRes.json().catch(() => ({}));
+          return res.status(upRes.status).json({ error: 'Failed to obtain B2 upload target', details: errData });
+        }
+        const upTarget = await upRes.json();
+        return res.status(200).json({
+          success: true,
+          uploadUrl: upTarget.uploadUrl,
+          authorizationToken: upTarget.authorizationToken,
+          storageKey,
+          bucket: auth.bucketName
+        });
+      }
+
+      if (action === 'delete') {
+        const cleanKey = String(storageKey || '').replace(/^\/+/, '');
+        if (!cleanKey) return res.status(400).json({ error: 'Missing storageKey' });
+        
+        const listRes = await fetch(`${auth.apiUrl}/b2api/v3/b2_list_file_names`, {
+          method: 'POST',
+          headers: {
+            Authorization: auth.authorizationToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            bucketId: auth.bucketId,
+            startFileName: cleanKey,
+            maxFileCount: 10
+          })
+        });
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          const matches = (listData.files || []).filter(f => f.fileName === cleanKey);
+          for (const f of matches) {
+            await fetch(`${auth.apiUrl}/b2api/v3/b2_delete_file_version`, {
+              method: 'POST',
+              headers: {
+                Authorization: auth.authorizationToken,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ fileId: f.fileId, fileName: f.fileName })
+            });
+          }
+        }
+        return res.status(200).json({ success: true, message: 'Backblaze B2 object deleted successfully' });
+      }
+
+      return res.status(400).json({ error: `Unsupported storage action: ${action}` });
+    }
+
+    if (route === '/api/delete' && method === 'POST') {
+      const body = await parseRequestBody(req);
+      const cleanKey = String(body.storageKey || '').replace(/^\/+/, '');
+      if (!cleanKey) return res.status(400).json({ error: 'Missing storageKey' });
+      const auth = await getB2AuthTokens();
+
+      const listRes = await fetch(`${auth.apiUrl}/b2api/v3/b2_list_file_names`, {
+        method: 'POST',
+        headers: {
+          Authorization: auth.authorizationToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          bucketId: auth.bucketId,
+          startFileName: cleanKey,
+          maxFileCount: 10
+        })
+      });
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const matches = (listData.files || []).filter(f => f.fileName === cleanKey);
+        for (const f of matches) {
+          await fetch(`${auth.apiUrl}/b2api/v3/b2_delete_file_version`, {
+            method: 'POST',
+            headers: {
+              Authorization: auth.authorizationToken,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ fileId: f.fileId, fileName: f.fileName })
+          });
+        }
+      }
+      return res.status(200).json({ success: true, message: 'Backblaze B2 object deleted successfully' });
+    }
+
     // =========================================================================
     // 5. RESEND TRANSACTIONAL EMAIL DELIVERY (/api/email/send, /api/email/health)
     // =========================================================================

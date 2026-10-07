@@ -1,16 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getCloudinaryAssetUrl } from '@nacos/media';
-import { signInStudent, isLocalEnvironment } from '@nacos/supabase/auth';
-const studentPhoto = '';
+import { signInStudent } from '@nacos/supabase/auth';
 import logoDark from '../assets/full-logo-dark.png';
-import { FaUserShield } from 'react-icons/fa';
-import { ShieldCheck, AlertCircle, Eye, EyeOff, RotateCw, ArrowRight } from 'lucide-react';
-import { getAppUrls } from '@nacos/config/urls';
+import { AlertCircle, Eye, EyeOff, RotateCw, ArrowRight } from 'lucide-react';
 
 const Login = () => {
   const navigate = useNavigate();
-  const urls = getAppUrls();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -143,24 +139,6 @@ const Login = () => {
       }
     } catch (err) {
       setError('A network or server error occurred during sign in. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleQuickLogin = async (role) => {
-    setIsLoading(true);
-    setError('');
-    const regNo = role === 'President' ? '20201012948' : '20241429481';
-    try {
-      const res = await signInStudent(regNo, 'password');
-      if (!res.error) {
-        handlePostLoginRedirect(res.data?.user || { regNo });
-      } else {
-        setError(res.error.message || 'Demo login failed.');
-      }
-    } catch (err) {
-      setError('Could not complete demo login.');
     } finally {
       setIsLoading(false);
     }
@@ -310,57 +288,6 @@ const Login = () => {
               )}
             </button>
           </form>
-
-          {/* Administrative Gateway Button */}
-          <div className="pt-2">
-            <div className="relative flex items-center justify-center py-2 mb-3">
-              <div className="w-full border-t border-gray-200"></div>
-              <span className="bg-white px-3 text-xs text-gray-500 uppercase tracking-wider font-semibold whitespace-nowrap">
-                Staff & Administrators
-              </span>
-              <div className="w-full border-t border-gray-200"></div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <a
-                href={`${urls.portalAdmin}/login`}
-                className="flex items-center justify-between p-3 text-xs font-semibold text-gray-800 bg-gray-50 hover:bg-green-50/60 rounded-lg transition-all duration-200 border border-gray-200 hover:border-[#138601]/50 shadow-xs cursor-pointer group"
-              >
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-[#138601] group-hover:scale-110 transition-transform shrink-0" />
-                  <div className="text-left">
-                    <div className="text-gray-900 font-bold leading-tight">Portal Admin</div>
-                    <div className="text-[10px] text-gray-500 font-normal">Student Clearance & IDs</div>
-                  </div>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-gray-400 group-hover:translate-x-1 group-hover:text-[#138601] transition-transform" />
-              </a>
-
-              <a
-                href={`${urls.websiteAdmin}/login`}
-                className="flex items-center justify-between p-3 text-xs font-semibold text-gray-800 bg-gray-50 hover:bg-green-50/60 rounded-lg transition-all duration-200 border border-gray-200 hover:border-[#138601]/50 shadow-xs cursor-pointer group"
-              >
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform shrink-0" />
-                  <div className="text-left">
-                    <div className="text-gray-900 font-bold leading-tight">Website CMS</div>
-                    <div className="text-[10px] text-gray-500 font-normal">Media & Content Manager</div>
-                  </div>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-gray-400 group-hover:translate-x-1 group-hover:text-purple-600 transition-transform" />
-              </a>
-            </div>
-
-            <div className="mt-2 text-center">
-              <a
-                href={urls.adminHub}
-                className="text-[11px] text-gray-500 hover:text-[#138601] transition-colors inline-flex items-center gap-1 font-medium hover:underline"
-              >
-                <span>Central Admin Command Hub & Roles</span>
-                <ArrowRight className="w-3 h-3" />
-              </a>
-            </div>
-          </div>
 
         </div>
       </div>

@@ -322,45 +322,43 @@ export const storageService = {
       }
     } catch (e) {}
 
-    // 3. Direct B2 upload for Node.js / non-browser server environments
-    if (typeof window === 'undefined') {
-      try {
-        const auth = await getB2Auth();
-        if (auth) {
-          const uploadUrlRes = await fetch(`${auth.apiUrl}/b2api/v3/b2_get_upload_url`, {
-            method: 'POST',
-            headers: {
-              Authorization: auth.authorizationToken,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ bucketId: auth.bucketId })
+    // 3. Direct B2 upload fallback (works in both browser & server environments)
+    try {
+      const auth = await getB2Auth();
+      if (auth) {
+        const uploadUrlRes = await fetch(`${auth.apiUrl}/b2api/v3/b2_get_upload_url`, {
+          method: 'POST',
+          headers: {
+            Authorization: auth.authorizationToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ bucketId: auth.bucketId })
+        });
+
+        if (uploadUrlRes.ok) {
+          const uploadTarget = await uploadUrlRes.json();
+          await this._streamUpload(uploadTarget.uploadUrl, file, mimeType, options.onProgress, {
+            Authorization: uploadTarget.authorizationToken,
+            'X-Bz-File-Name': encodeURIComponent(storageKey),
+            'Content-Type': mimeType,
+            'Content-Length': file.size.toString(),
+            'X-Bz-Content-Sha1': 'do_not_verify'
           });
 
-          if (uploadUrlRes.ok) {
-            const uploadTarget = await uploadUrlRes.json();
-            await this._streamUpload(uploadTarget.uploadUrl, file, mimeType, options.onProgress, {
-              Authorization: uploadTarget.authorizationToken,
-              'X-Bz-File-Name': encodeURIComponent(storageKey),
-              'Content-Type': mimeType,
-              'Content-Length': file.size.toString(),
-              'X-Bz-Content-Sha1': 'do_not_verify'
-            });
-
-            return {
-              success: true,
-              storageKey,
-              storageProvider: 'backblaze_b2',
-              storageBucket: auth.bucketName,
-              publicUrl: `${auth.downloadUrl}/file/${auth.bucketName}/${storageKey}`,
-              fileSize: file.size,
-              fileName: sanitizeFilename(fileName),
-              mimeType
-            };
-          }
+          return {
+            success: true,
+            storageKey,
+            storageProvider: 'backblaze_b2',
+            storageBucket: auth.bucketName,
+            publicUrl: `${auth.downloadUrl}/file/${auth.bucketName}/${storageKey}`,
+            fileSize: file.size,
+            fileName: sanitizeFilename(fileName),
+            mimeType
+          };
         }
-      } catch (b2Err) {
-        console.warn('Direct B2 upload notice:', b2Err);
       }
+    } catch (b2Err) {
+      console.warn('Direct B2 upload notice:', b2Err);
     }
 
     // 4. Supabase Storage fallback bucket ('resources')

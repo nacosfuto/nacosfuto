@@ -19,36 +19,16 @@ export function getLocalPortalAdmins() {
 
   const defaultAdmins = [
     {
-      id: 'admin-seed-3',
-      user_id: 'usr-portaladmin-1',
-      email: 'portaladmin@nacos.org.ng',
-      full_name: 'Portal Examination & Verification Officer',
-      scope: ADMIN_SCOPES.STUDENT_PORTAL,
-      role: 'portal_admin',
-      permissions: [
-        'student_portal.view',
-        'student_portal.students',
-        'student_portal.verification',
-        'student_portal.id_cards',
-        'student_portal.results',
-        'student_portal.dues',
-        'student_portal.settings'
-      ],
-      is_active: true,
-      password_hash: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', // 'password'
-      created_at: '2026-08-12T14:00:00Z'
-    },
-    {
-      id: 'admin-seed-4',
-      user_id: 'usr-superadmin-1',
-      email: 'superadmin@nacos.org.ng',
-      full_name: 'Staff Adviser / Super Admin',
+      id: 'admin-super-ict',
+      user_id: 'usr-superadmin-ict',
+      email: 'ict.nacosfuto@gmail.com',
+      full_name: 'NACOS FUTO ICT / Super Administrator',
       scope: ADMIN_SCOPES.SUPER_ADMIN,
       role: 'super_admin',
       permissions: ['*'],
       is_active: true,
-      password_hash: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
-      created_at: '2026-07-01T08:00:00Z'
+      password_hash: null,
+      created_at: '2026-10-07T12:00:00Z'
     }
   ];
 
@@ -305,3 +285,6 @@ export async function updateAdminAssignedLevel(adminId, level) {
 
   return { success: true, admins: liveAdmins };
 }
+
+export { requestAdminPasswordReset, confirmAdminPasswordReset } from '@nacos/supabase';
+
