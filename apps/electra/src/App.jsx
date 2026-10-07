@@ -19,6 +19,68 @@ import { Vote, ShieldCheck, Heart } from 'lucide-react';
 
 const VOTER_SESSION_KEY = 'nacos_electra_voter_session';
 
+export class ElectraErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('ELECTRA ErrorBoundary caught:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#0a0b0d] text-white flex items-center justify-center p-6 font-sans">
+          <div className="max-w-md w-full bg-[#141518] border border-[#22252a] rounded-3xl p-8 text-center space-y-5 shadow-2xl">
+            <div className="w-14 h-14 rounded-2xl bg-[#c6ff00]/15 text-[#c6ff00] border border-[#c6ff00]/30 flex items-center justify-center mx-auto text-2xl font-black">
+              !
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-xl font-black text-white font-display">ELECTRA Ballot Engine</h2>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                {this.state.error?.message || 'A render issue occurred while loading election data.'}
+              </p>
+            </div>
+            <div className="pt-2 flex gap-3 justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  this.setState({ hasError: false, error: null });
+                  window.location.reload();
+                }}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#c6ff00] hover:bg-[#b2e600] text-black transition-colors cursor-pointer shadow-md shadow-[#c6ff00]/20"
+              >
+                Reload Polls
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    localStorage.removeItem('nacos_electra_elections_db');
+                    localStorage.removeItem('nacos_electra_posts_db');
+                    localStorage.removeItem('nacos_electra_contestants_db');
+                  } catch (_) {}
+                  window.location.href = '/electra';
+                }}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+              >
+                Reset Cache & Return
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const urls = getAppUrls();
   const [election, setElection] = useState(() => getActiveElection());
@@ -77,6 +139,29 @@ export default function App() {
     setIsBallotOpen(true);
   };
 
+  const renderHome = () => (
+    <ElectraHome
+      election={election}
+      onOpenBallot={handleOpenBallot}
+      onOpenManifesto={handleOpenManifesto}
+      onRequireConnect={() => setIsConnectOpen(true)}
+    />
+  );
+
+  const renderContestants = () => (
+    <ContestantsPage
+      onOpenBallot={handleOpenBallot}
+      onOpenManifesto={handleOpenManifesto}
+    />
+  );
+
+  const renderManifestos = () => (
+    <ManifestosPage
+      onOpenManifesto={handleOpenManifesto}
+      onOpenBallot={handleOpenBallot}
+    />
+  );
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#0a0b0d] text-gray-900 dark:text-white flex flex-col font-sans selection:bg-[#c6ff00] selection:text-black transition-colors duration-200">
       
@@ -90,43 +175,18 @@ export default function App() {
       {/* Main Page Content */}
       <main className="flex-1">
         <Routes>
-          <Route 
-            path="/" 
-            element={
-              <ElectraHome
-                election={election}
-                onOpenBallot={handleOpenBallot}
-                onOpenManifesto={handleOpenManifesto}
-                onRequireConnect={() => setIsConnectOpen(true)}
-              />
-            } 
-          />
-          <Route 
-            path="/contestants" 
-            element={
-              <ContestantsPage
-                onOpenBallot={handleOpenBallot}
-                onOpenManifesto={handleOpenManifesto}
-              />
-            } 
-          />
-          <Route 
-            path="/manifestos" 
-            element={
-              <ManifestosPage
-                onOpenManifesto={handleOpenManifesto}
-                onOpenBallot={handleOpenBallot}
-              />
-            } 
-          />
-          <Route 
-            path="/results" 
-            element={<LiveResultsPage />} 
-          />
-          <Route 
-            path="/guidelines" 
-            element={<GuidelinesPage />} 
-          />
+          {/* Dual Root & /electra route handling for 100% path coverage */}
+          <Route path="/" element={renderHome()} />
+          <Route path="/electra" element={renderHome()} />
+          <Route path="/contestants" element={renderContestants()} />
+          <Route path="/electra/contestants" element={renderContestants()} />
+          <Route path="/manifestos" element={renderManifestos()} />
+          <Route path="/electra/manifestos" element={renderManifestos()} />
+          <Route path="/results" element={<LiveResultsPage />} />
+          <Route path="/electra/results" element={<LiveResultsPage />} />
+          <Route path="/guidelines" element={<GuidelinesPage />} />
+          <Route path="/electra/guidelines" element={<GuidelinesPage />} />
+          <Route path="*" element={renderHome()} />
         </Routes>
       </main>
 

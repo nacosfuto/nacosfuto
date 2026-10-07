@@ -143,6 +143,27 @@ const PortalAdminRedirect = () => {
   );
 };
 
+const ElectraRedirect = () => {
+  const location = useLocation();
+  const { electra } = getAppUrls();
+
+  useEffect(() => {
+    const baseUrl = electra.replace(/\/+$/, '');
+    const cleanSearch = location.search || '';
+    const cleanPath = location.pathname.replace(/^\/electra/, '');
+    const destination = `${baseUrl}${cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`}${cleanSearch}`;
+    if (window.location.href !== destination) {
+      window.location.replace(destination);
+    }
+  }, [location, electra]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-8 bg-white dark:bg-[#0a0b0d]">
+      <div className="w-8 h-8 border-3 border-[#c6ff00] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+};
+
 import SEOHandler from "./components/SEO/SEOHandler";
 
 // Loading fallback component
@@ -255,6 +276,10 @@ function App() {
               <Route path="/login" element={<PortalLoginRedirect />} />
               <Route path="/portal/login" element={<PortalLoginRedirect />} />
               <Route path="/portal/*" element={<PortalLoginRedirect />} />
+
+              {/* ELECTRA Voting Portal Redirects */}
+              <Route path="/electra" element={<ElectraRedirect />} />
+              <Route path="/electra/*" element={<ElectraRedirect />} />
 
               {/* 404 Not Found */}
               <Route path="*" element={<NotFound />} />
