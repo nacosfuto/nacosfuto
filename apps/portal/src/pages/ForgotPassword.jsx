@@ -58,6 +58,9 @@ const ForgotPassword = () => {
         setResendCooldown(60);
         setStep(2);
       } else {
+        if (result.retryAfterSeconds) {
+          setResendCooldown(result.retryAfterSeconds);
+        }
         setError(result.error?.message || 'Failed to send reset code. Please verify your details.');
       }
     } catch (err) {
@@ -80,6 +83,9 @@ const ForgotPassword = () => {
         setSuccessMessage('A new reset code has been sent to your email.');
         setTimeout(() => setSuccessMessage(''), 4000);
       } else {
+        if (result.retryAfterSeconds) {
+          setResendCooldown(result.retryAfterSeconds);
+        }
         setError(result.error?.message || 'Failed to resend code.');
       }
     } catch (err) {

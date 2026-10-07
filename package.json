@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev:website",
+    "dev": "npm run dev:all",
     "dev:all": "concurrently \"npm run dev:website\" \"npm run dev:website-admin\" \"npm run dev:portal\" \"npm run dev:portal-admin\" \"npm run dev:upskill-hub\" \"npm run dev:electra\" \"npm run dev:electra-admin\"",
     "dev:website": "npm --prefix apps/website run dev",
     "dev:website-admin": "npm --prefix apps/website-admin run dev",
@@ -28,7 +28,8 @@
     "lint": "npm --prefix apps/website run lint"
   },
   "dependencies": {
-    "nodemailer": "^6.9.16"
+    "nodemailer": "^6.9.16",
+    "resend": "^6.32.1"
   },
   "devDependencies": {
     "cloudinary": "^2.11.0",

@@ -38,8 +38,20 @@ export function getAppUrls() {
     /^10\./.test(hostname) ||
     /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
 
+  const isMultiPortDev = (typeof import.meta !== 'undefined' && import.meta.env?.DEV) || (
+    isLocal && (
+      port === '5173' || 
+      port === '5174' || 
+      port === '5175' || 
+      port === '5176' || 
+      port === '5177' || 
+      port === '5178' || 
+      port === '5179'
+    )
+  );
+
   // If in local dev multi-service environment
-  if (isLocal) {
+  if (isMultiPortDev) {
     return {
       website: envWebsite || `${protocol}//${hostname}:5173`,
       portal: envPortal || `${protocol}//${hostname}:5174`,

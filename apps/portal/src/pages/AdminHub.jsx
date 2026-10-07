@@ -347,7 +347,7 @@ const AdminHub = () => {
 
                 <div className="pt-4 border-t border-[#138601]/20 space-y-2">
                   <a
-                    href={urls.portalAdmin}
+                    href={`${urls.portalAdmin}/login`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-bold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-md transition-all cursor-pointer"
@@ -398,7 +398,7 @@ const AdminHub = () => {
 
                 <div className="pt-4 border-t border-[#138601]/20 space-y-2">
                   <a
-                    href={urls.websiteAdmin}
+                    href={`${urls.websiteAdmin}/login`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-bold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-md transition-all cursor-pointer"

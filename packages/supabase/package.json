@@ -14,12 +14,14 @@
     "./verifiedStudents": "./src/verifiedStudents.js",
     "./otpService": "./src/otpService.js",
     "./emailService": "./src/emailService.js",
-    "./smsService": "./src/smsService.js"
+    "./smsService": "./src/smsService.js",
+    "./server/emailDispatcher": "./src/server/emailDispatcher.js"
   },
   "dependencies": {
     "@nacos/media": "*",
     "@supabase/supabase-js": "^2.49.1",
     "nodemailer": "^10.0.10",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "resend": "^6.32.1"
   }
 }

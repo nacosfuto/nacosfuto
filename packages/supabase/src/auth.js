@@ -498,10 +498,14 @@ export async function requestStudentPasswordReset(identifier) {
     return { success: false, error: otpResult.error };
   }
 
-  // Send real email via SMTP
-  const emailResult = await sendPasswordResetEmail(targetEmail, otpResult.code, studentName);
+  // Send transactional email via Resend
+  const emailResult = await sendPasswordResetEmail(targetEmail, otpResult.code, studentName, regNo);
   if (!emailResult.success && emailResult.provider !== 'simulated') {
-    return { success: false, error: { message: emailResult.error || "Could not send password reset email. Please try again later." } };
+    return {
+      success: false,
+      error: { message: emailResult.error || "Could not send password reset email. Please try again later." },
+      retryAfterSeconds: emailResult.retryAfterSeconds
+    };
   }
 
   return {

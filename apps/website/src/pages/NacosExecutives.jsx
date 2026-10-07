@@ -282,7 +282,7 @@ const NacosExecutives = () => {
                           </div>
                         )}
                         <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-[5px] bg-black/60 backdrop-blur-xs text-white text-[10px] font-mono font-bold">
-                          {exec.session || activeTenure}
+                          {exec.session || selectedTenure}
                         </div>
                       </div>
 
@@ -310,7 +310,7 @@ const NacosExecutives = () => {
 
                 {displayedPastExecutives.length === 0 && (
                   <p className="text-center text-gray-500 py-12 text-sm">
-                    No executives found for tenure {activeTenure}.
+                    No executives found for tenure {selectedTenure}.
                   </p>
                 )}
               </div>

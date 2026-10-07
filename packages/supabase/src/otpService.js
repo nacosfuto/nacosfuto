@@ -85,14 +85,20 @@ export function maskPhone(phone) {
 
 function getLocalData(key) {
   try {
-    const raw = localStorage.getItem(key);
-    if (raw) return JSON.parse(raw);
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(key);
+      if (raw) return JSON.parse(raw);
+    }
   } catch (e) {}
   return [];
 }
 
 function saveLocalData(key, data) {
-  localStorage.setItem(key, JSON.stringify(data));
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, JSON.stringify(data));
+    }
+  } catch (e) {}
 }
 
 // =========================================================================

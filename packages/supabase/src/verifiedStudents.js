@@ -500,9 +500,13 @@ export async function startRegistrationVerification(regNo, submittedEmail, submi
     }
 
     // 6. Send OTP via email
-    const emailResult = await sendVerificationEmail(cleanEmail, otpResult.code);
+    const emailResult = await sendVerificationEmail(cleanEmail, otpResult.code, student.full_name, cleanReg);
     if (!emailResult.success) {
-      return { success: false, error: { message: "We couldn't send your verification code right now. Please try again later." } };
+      return {
+        success: false,
+        error: { message: emailResult.error || "We couldn't send your verification code right now. Please try again later." },
+        retryAfterSeconds: emailResult.retryAfterSeconds
+      };
     }
 
     // 7. Set cooldown
@@ -597,9 +601,13 @@ export async function resendRegistrationOTP(regNo, channel) {
   }
 
   if (channel === 'email') {
-    const emailResult = await sendVerificationEmail(fullDestination, otpResult.code);
+    const emailResult = await sendVerificationEmail(fullDestination, otpResult.code, student.full_name, cleanReg);
     if (!emailResult.success) {
-      return { success: false, error: { message: "We couldn't send your verification code right now. Please try again later." } };
+      return {
+        success: false,
+        error: { message: emailResult.error || "We couldn't send your verification code right now. Please try again later." },
+        retryAfterSeconds: emailResult.retryAfterSeconds
+      };
     }
   } else {
     const smsResult = await sendVerificationSMS(fullDestination, otpResult.code);

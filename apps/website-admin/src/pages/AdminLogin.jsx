@@ -21,7 +21,7 @@ export const AdminLogin = () => {
   useEffect(() => {
     const existing = getWebsiteAdminSession();
     if (existing) {
-      navigate('/admin', { replace: true });
+      navigate('/', { replace: true });
     }
   }, [navigate]);
 
@@ -46,7 +46,8 @@ export const AdminLogin = () => {
       if (res?.error) {
         setError(res.error);
       } else {
-        const destination = location.state?.from?.pathname || '/admin';
+        const fromPath = location.state?.from?.pathname;
+        const destination = fromPath ? fromPath.replace(/^\/admin/, '') || '/' : '/';
         navigate(destination, { replace: true });
       }
     } catch (err) {

@@ -8,9 +8,6 @@ export function ThemeProvider({ children }) {
     if (storedTheme === 'dark' || storedTheme === 'light') {
       return storedTheme;
     }
-    if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
     return 'light';
   });
 

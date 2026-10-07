@@ -89,7 +89,7 @@ export const WebsiteAdminLayout = ({ children, title, subtitle }) => {
 
   const handleSignOut = async () => {
     await logoutWebsiteAdmin();
-    navigate('/admin/login');
+    navigate('/login');
   };
 
   const isDark = theme === 'dark';

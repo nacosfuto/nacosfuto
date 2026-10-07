@@ -368,9 +368,11 @@ const AdminHub = () => {
       accentColor: 'from-blue-600 to-indigo-700',
       badge: 'Portal Officers & HoD',
       badgeColor: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-      url: urls.portalAdmin,
+      url: `${urls.portalAdmin}/login`,
+      primaryLabel: 'Log in to Portal Admin',
       links: [
-        { label: 'Launch Admin Console', href: urls.portalAdmin, isExternal: true },
+        { label: 'Admin Login', href: `${urls.portalAdmin}/login`, isExternal: true },
+        { label: 'Launch Console', href: urls.portalAdmin, isExternal: true },
         { label: 'Manage ID Cards', href: `${urls.portalAdmin}/id-cards`, isExternal: true },
         { label: 'Student Whitelist', href: `${urls.portalAdmin}/students`, isExternal: true }
       ]
@@ -384,9 +386,11 @@ const AdminHub = () => {
       accentColor: 'from-purple-600 to-indigo-800',
       badge: 'Content Editors',
       badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-      url: urls.websiteAdmin,
+      url: `${urls.websiteAdmin}/login`,
+      primaryLabel: 'Log in to Website CMS',
       links: [
-        { label: 'Launch Website CMS', href: urls.websiteAdmin, isExternal: true },
+        { label: 'CMS Login', href: `${urls.websiteAdmin}/login`, isExternal: true },
+        { label: 'Launch CMS', href: urls.websiteAdmin, isExternal: true },
         { label: 'News & Announcements', href: `${urls.websiteAdmin}/news`, isExternal: true },
         { label: 'Media Library', href: `${urls.websiteAdmin}/media`, isExternal: true }
       ]
@@ -527,7 +531,7 @@ const AdminHub = () => {
                       href={card.url}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded bg-[#138601] hover:bg-[#0f6c01] text-white text-xs font-bold transition-all shadow-md cursor-pointer"
                     >
-                      <span>Open {card.title}</span>
+                      <span>{card.primaryLabel || `Open ${card.title}`}</span>
                       <ArrowRight className="w-4 h-4" />
                     </a>
 
@@ -628,17 +632,28 @@ const AdminHub = () => {
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleActive(adm)}
-                            className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer border ${
-                              adm.is_active !== false
-                                ? 'text-red-400 hover:text-white bg-red-950/40 hover:bg-red-900/60 border-red-900/40'
-                                : 'text-green-400 hover:text-white bg-green-950/40 hover:bg-green-900/60 border-green-900/40'
-                            }`}
-                          >
-                            {adm.is_active !== false ? 'Disable' : 'Enable'}
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <a
+                              href={adm.scope === 'student_portal' || adm.role === 'portal_admin' ? `${urls.portalAdmin}/login` : `${urls.websiteAdmin}/login`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold bg-[#138601]/30 hover:bg-[#138601] text-white border border-[#138601]/40 transition-colors"
+                            >
+                              <span>Login</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleActive(adm)}
+                              className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer border ${
+                                adm.is_active !== false
+                                  ? 'text-red-400 hover:text-white bg-red-950/40 hover:bg-red-900/60 border-red-900/40'
+                                  : 'text-green-400 hover:text-white bg-green-950/40 hover:bg-green-900/60 border-green-900/40'
+                              }`}
+                            >
+                              {adm.is_active !== false ? 'Disable' : 'Enable'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

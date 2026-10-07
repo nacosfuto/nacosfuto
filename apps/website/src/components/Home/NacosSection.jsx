@@ -8,7 +8,9 @@ const NacosSection = () => {
     try {
       const cur = getExecutives('current');
       if (Array.isArray(cur) && cur.length > 0) return cur;
-    } catch (e) {}
+    } catch (_) {
+      // Fallback gracefully to empty array
+    }
     return [];
   });
 

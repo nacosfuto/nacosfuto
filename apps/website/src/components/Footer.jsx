@@ -37,7 +37,7 @@ const Footer = () => {
               <a href="https://www.instagram.com/nacosfuto?igsh=MTJpcnk3Zzdqcmh6dA==" target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-[#138601] hover:text-white transition-all">
                 <FaInstagram size={16} />
               </a>
-              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-[#138601] hover:text-white transition-all">
+              <a href="https://www.linkedin.com/company/nigeria-association-of-computing-students-futo-chapter/" target="_blank" rel="noopener noreferrer" aria-label="NACOS FUTO LinkedIn" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-[#138601] hover:text-white transition-all">
                 <FaLinkedin size={16} />
               </a>
             </div>

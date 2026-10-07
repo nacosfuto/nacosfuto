@@ -99,6 +99,50 @@ const PortalLoginRedirect = () => {
   );
 };
 
+const WebsiteAdminRedirect = () => {
+  const location = useLocation();
+  const { websiteAdmin } = getAppUrls();
+
+  useEffect(() => {
+    const baseUrl = websiteAdmin.replace(/\/+$/, '');
+    const cleanSearch = location.search || '';
+    const cleanPath = location.pathname.replace(/^\/admin(-login)?/, '');
+    const targetPath = cleanPath || '/login';
+    const destination = `${baseUrl}${targetPath.startsWith('/') ? targetPath : `/${targetPath}`}${cleanSearch}`;
+    if (window.location.href !== destination) {
+      window.location.replace(destination);
+    }
+  }, [location, websiteAdmin]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-8 bg-white dark:bg-[#041801]">
+      <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+};
+
+const PortalAdminRedirect = () => {
+  const location = useLocation();
+  const { portalAdmin } = getAppUrls();
+
+  useEffect(() => {
+    const baseUrl = portalAdmin.replace(/\/+$/, '');
+    const cleanSearch = location.search || '';
+    const cleanPath = location.pathname.replace(/^\/portal-admin/, '');
+    const targetPath = cleanPath || '/login';
+    const destination = `${baseUrl}${targetPath.startsWith('/') ? targetPath : `/${targetPath}`}${cleanSearch}`;
+    if (window.location.href !== destination) {
+      window.location.replace(destination);
+    }
+  }, [location, portalAdmin]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-8 bg-white dark:bg-[#041801]">
+      <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+};
+
 import SEOHandler from "./components/SEO/SEOHandler";
 
 // Loading fallback component
@@ -197,6 +241,16 @@ function App() {
               <Route path="/admin-hub" element={<AdminHub />} />
               <Route path="/admin-portal" element={<AdminHub />} />
               <Route path="/admin-gateway" element={<AdminHub />} />
+
+              {/* Administrative Dashboards & Login Direct Routes */}
+              <Route path="/admin/login" element={<WebsiteAdminRedirect />} />
+              <Route path="/admin-login" element={<WebsiteAdminRedirect />} />
+              <Route path="/admin/*" element={<WebsiteAdminRedirect />} />
+              <Route path="/admin" element={<WebsiteAdminRedirect />} />
+              <Route path="/portal-admin/login" element={<PortalAdminRedirect />} />
+              <Route path="/portal-admin/*" element={<PortalAdminRedirect />} />
+              <Route path="/portal-admin" element={<PortalAdminRedirect />} />
+
               {/* Student Portal Login Redirects */}
               <Route path="/login" element={<PortalLoginRedirect />} />
               <Route path="/portal/login" element={<PortalLoginRedirect />} />

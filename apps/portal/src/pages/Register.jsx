@@ -193,6 +193,9 @@ const Register = () => {
         setResendCooldown(60);
         setStep(3);
       } else {
+        if (result.retryAfterSeconds) {
+          setResendCooldown(result.retryAfterSeconds);
+        }
         setError(result.error?.message || "We couldn't send your verification code right now. Please try again later.");
       }
     } catch (err) {
@@ -212,6 +215,9 @@ const Register = () => {
       if (result.success) {
         setResendCooldown(60);
       } else {
+        if (result.retryAfterSeconds) {
+          setResendCooldown(result.retryAfterSeconds);
+        }
         setError(result.error?.message || 'Failed to resend verification code. Please try again.');
       }
     } catch (err) {

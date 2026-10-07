@@ -76,12 +76,7 @@ class ErrorBoundary extends React.Component {
 }
 
 function App() {
-  const isLocal = typeof window !== 'undefined' && (
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1' ||
-    window.location.hostname.endsWith('.local')
-  );
-  const isNestedUnderPortalAdmin = !isLocal && typeof window !== 'undefined' && window.location.pathname.startsWith('/portal-admin');
+  const isNestedUnderPortalAdmin = typeof window !== 'undefined' && window.location.pathname.startsWith('/portal-admin');
 
   return (
     <ErrorBoundary>

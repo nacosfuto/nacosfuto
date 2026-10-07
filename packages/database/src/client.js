@@ -17,7 +17,10 @@ const supabaseAnonKey =
   (typeof process !== 'undefined' && (process.env?.VITE_SUPABASE_ANON_KEY || process.env?.SUPABASE_ANON_KEY)) ||
   '';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+const dummyUrl = 'https://unconfigured-project.supabase.co';
+const dummyKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.unconfigured';
+
+export const supabase = createClient(supabaseUrl || dummyUrl, supabaseAnonKey || dummyKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,

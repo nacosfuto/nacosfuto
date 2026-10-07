@@ -25,7 +25,7 @@ const Footer = () => {
               <a href="https://twitter.com/nacosnational" target="_blank" rel="noreferrer" className="w-8 h-8 rounded bg-[#083002] border border-[#138601]/30 hover:bg-[#138601] hover:text-white flex items-center justify-center transition-colors">
                 <FaTwitter className="w-3.5 h-3.5" />
               </a>
-              <a href="https://linkedin.com/company/nacosnational" target="_blank" rel="noreferrer" className="w-8 h-8 rounded bg-[#083002] border border-[#138601]/30 hover:bg-[#138601] hover:text-white flex items-center justify-center transition-colors">
+              <a href="https://www.linkedin.com/company/nigeria-association-of-computing-students-futo-chapter/" target="_blank" rel="noreferrer" aria-label="NACOS FUTO LinkedIn" className="w-8 h-8 rounded bg-[#083002] border border-[#138601]/30 hover:bg-[#138601] hover:text-white flex items-center justify-center transition-colors">
                 <FaLinkedinIn className="w-3.5 h-3.5" />
               </a>
               <a href="https://github.com/nacosnational" target="_blank" rel="noreferrer" className="w-8 h-8 rounded bg-[#083002] border border-[#138601]/30 hover:bg-[#138601] hover:text-white flex items-center justify-center transition-colors">

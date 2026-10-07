@@ -23,6 +23,12 @@ import {
   resolveDynamicFee,
   getBachsConfig
 } from '../packages/supabase/src/server/bachs.js';
+import {
+  dispatchEmail,
+  getEmailConfig,
+  checkServerEmailRateLimit,
+  recordServerEmailRequest
+} from '../packages/supabase/src/server/emailDispatcher.js';
 
 // --- Backblaze B2 Helper State ---
 let cachedB2Auth = null;
@@ -332,6 +338,52 @@ export default async function handler(req, res) {
 
       const arrayBuffer = await b2Res.arrayBuffer();
       return res.send(Buffer.from(arrayBuffer));
+    }
+
+    // =========================================================================
+    // 5. RESEND TRANSACTIONAL EMAIL DELIVERY (/api/email/send, /api/email/health)
+    // =========================================================================
+
+    if (route === '/api/email/health' && method === 'GET') {
+      const config = getEmailConfig();
+      return res.status(200).json({
+        status: 'healthy',
+        provider: config.activeProvider,
+        resendConfigured: config.resend.isConfigured,
+        senderEmail: config.resend.fromEmail,
+        senderName: config.resend.fromName,
+        replyTo: config.resend.replyTo || null,
+        replyToConfigured: config.resend.isReplyToConfigured
+      });
+    }
+
+    if (route === '/api/email/send' && method === 'POST') {
+      const body = await parseRequestBody(req);
+      const recipient = body.to || (Array.isArray(body.to) ? body.to[0] : '');
+      const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
+
+      // 1. Abuse prevention: rate limiting per recipient & IP
+      const rateLimitCheck = checkServerEmailRateLimit({ email: recipient, ip: clientIp });
+      if (!rateLimitCheck.allowed) {
+        return res.status(429).json({
+          success: false,
+          error: rateLimitCheck.error || 'Too many email requests. Please wait before retrying.',
+          retryAfterSeconds: rateLimitCheck.retryAfterSeconds
+        });
+      }
+
+      // 2. Dispatch email via Resend production layer
+      const result = await dispatchEmail(body);
+
+      // 3. Record rate limit tracker on send attempt
+      recordServerEmailRequest({ email: recipient, ip: clientIp });
+
+      if (result.success) {
+        return res.status(200).json(result);
+      } else {
+        const statusCode = result.code === 'RESEND_DELIVERY_FAILED' ? 502 : 400;
+        return res.status(statusCode).json(result);
+      }
     }
 
     // Default 404 for unmapped API routes

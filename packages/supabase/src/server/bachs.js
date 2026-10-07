@@ -14,6 +14,7 @@
 
 import crypto from 'crypto';
 import { supabase } from '../client.js';
+import { sendPaymentConfirmationEmail } from './emailDispatcher.js';
 
 // Central Configuration & Validation
 export function getBachsConfig() {
@@ -208,6 +209,20 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
           .eq('event_id', paymentRecord.metadata.event_id)
           .or(`registration_number.eq.${regNo},email.eq.${paymentRecord.metadata?.customer_email}`);
       }
+    }
+    
+    // Optionally trigger payment confirmation email via Resend if email is present (excluding ID card per requirements)
+    const recipientEmail = paymentRecord.metadata?.customer_email || paymentRecord.customer_email;
+    if (recipientEmail && pType !== 'ID_CARD') {
+      sendPaymentConfirmationEmail({
+        to: recipientEmail,
+        customerName: paymentRecord.metadata?.customer_name || 'Student',
+        reference: paymentRecord.reference,
+        paymentType: pType,
+        amount: paymentRecord.amount,
+        currency: paymentRecord.currency || 'NGN',
+        paidAt: now
+      }).catch(e => console.warn('[Bachs Email Receipt Warning]:', e.message));
     }
   } catch (err) {
     console.error(`[Bachs Fulfillment Error] Failed for ${pType}:`, err.message);

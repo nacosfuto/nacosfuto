@@ -114,7 +114,7 @@ Copy `.env.example` to `.env` in the root:
 ```bash
 cp .env.example .env
 ```
-Provide your Supabase URL, Anon Key, Cloudinary credentials, and communication API keys (Termii SMS and Nodemailer SMTP / Resend).
+Provide your Supabase URL, Anon Key, Cloudinary credentials, and communication API keys (Termii SMS and Resend Transactional Email). See [RESEND_EMAIL_SETUP.md](RESEND_EMAIL_SETUP.md) for full email setup and domain verification instructions.
 
 ### 3. Run Applications
 ```bash

@@ -20,12 +20,57 @@ const Notices = lazy(() => import('./pages/Notices'));
 const HackathonDetail = lazy(() => import('./pages/HackathonDetail'));
 const HackathonApply = lazy(() => import('./pages/HackathonApply'));
 const AdminHub = lazy(() => import('./pages/AdminHub'));
+import { getAppUrls } from '@nacos/config/urls';
 
 const PortalPageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-[#041801]">
     <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
   </div>
 );
+
+const WebsiteAdminRedirect = () => {
+  const location = useLocation();
+  const { websiteAdmin } = getAppUrls();
+
+  useEffect(() => {
+    const baseUrl = websiteAdmin.replace(/\/+$/, '');
+    const cleanSearch = location.search || '';
+    const cleanPath = location.pathname.replace(/^\/admin(-login)?/, '');
+    const targetPath = cleanPath || '/login';
+    const destination = `${baseUrl}${targetPath.startsWith('/') ? targetPath : `/${targetPath}`}${cleanSearch}`;
+    if (window.location.href !== destination) {
+      window.location.replace(destination);
+    }
+  }, [location, websiteAdmin]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-8 bg-[#041801]">
+      <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+};
+
+const PortalAdminRedirect = () => {
+  const location = useLocation();
+  const { portalAdmin } = getAppUrls();
+
+  useEffect(() => {
+    const baseUrl = portalAdmin.replace(/\/+$/, '');
+    const cleanSearch = location.search || '';
+    const cleanPath = location.pathname.replace(/^\/portal-admin/, '');
+    const targetPath = cleanPath || '/login';
+    const destination = `${baseUrl}${targetPath.startsWith('/') ? targetPath : `/${targetPath}`}${cleanSearch}`;
+    if (window.location.href !== destination) {
+      window.location.replace(destination);
+    }
+  }, [location, portalAdmin]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-8 bg-[#041801]">
+      <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+};
 
 function PortalSEOHandler() {
   const location = useLocation();
@@ -85,13 +130,20 @@ function App() {
             <Route path="/payment/success" element={<PaymentSuccess />} />
             <Route path="/payment/verify" element={<PaymentSuccess />} />
 
+            {/* Dedicated Administrative Direct Login & Dashboard Routes */}
+            <Route path="/admin/login" element={<WebsiteAdminRedirect />} />
+            <Route path="/admin/*" element={<WebsiteAdminRedirect />} />
+            <Route path="/portal-admin" element={<PortalAdminRedirect />} />
+            <Route path="/portal-admin/login" element={<PortalAdminRedirect />} />
+            <Route path="/portal-admin/*" element={<PortalAdminRedirect />} />
+
             {/* Dedicated Administrative Gateway & Control Center */}
             <Route path="/admin-hub" element={<AdminHub />} />
             <Route path="/admin-portal" element={<AdminHub />} />
             <Route path="/admin-gateway" element={<AdminHub />} />
             <Route path="/admin-access" element={<AdminHub />} />
-            <Route path="/admin-login" element={<AdminHub />} />
-            <Route path="/admin" element={<AdminHub />} />
+            <Route path="/admin-login" element={<WebsiteAdminRedirect />} />
+            <Route path="/admin" element={<WebsiteAdminRedirect />} />
 
             {/* Public Verification Route */}
             <Route path="/verify/id/:id" element={<IdVerification />} />

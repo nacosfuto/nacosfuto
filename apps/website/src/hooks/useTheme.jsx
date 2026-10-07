@@ -1,20 +1,10 @@
 import { useEffect, useState } from 'react';
 
 export default function useTheme() {
-  const [theme, setTheme] = useState('system'); // Start with system to prevent flash
-
-  useEffect(() => {
-    // This code runs only on client-side after hydration
-    const storedTheme = localStorage.getItem('theme');
-    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    // Initialize theme
-    const initialTheme = storedTheme === 'dark' || storedTheme === 'light' 
-      ? storedTheme 
-      : systemDark ? 'dark' : 'light';
-    
-    setTheme(initialTheme);
-  }, []);
+  const [theme, setTheme] = useState(() => {
+    const storedTheme = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
+    return (storedTheme === 'dark' || storedTheme === 'light') ? storedTheme : 'light';
+  });
 
   useEffect(() => {
     if (theme === 'system') {

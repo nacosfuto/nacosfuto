@@ -10,7 +10,7 @@ export const AdminProtectedRoute = ({ children, requiredPermission = 'main_websi
 
   // Step 1: Authentication & Scope Check
   if (!admin) {
-    return <Navigate to="/admin/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Step 2: Validate Scope is explicitly main_website or super_admin
@@ -31,7 +31,7 @@ export const AdminProtectedRoute = ({ children, requiredPermission = 'main_websi
               type="button"
               onClick={async () => {
                 await logoutWebsiteAdmin();
-                window.location.href = '/admin/login';
+                window.location.href = window.location.pathname.startsWith('/admin') ? '/admin/login' : '/login';
               }}
               className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-700 text-white transition-colors cursor-pointer"
             >
