@@ -31,6 +31,22 @@
       "destination": "/portal/index.html"
     },
     {
+      "source": "/id-card",
+      "destination": "/portal/index.html"
+    },
+    {
+      "source": "/id-card/((?!.*\\.).*)",
+      "destination": "/portal/index.html"
+    },
+    {
+      "source": "/dues",
+      "destination": "/portal/index.html"
+    },
+    {
+      "source": "/dues/((?!.*\\.).*)",
+      "destination": "/portal/index.html"
+    },
+    {
       "source": "/upskill-hub",
       "destination": "/upskill-hub/index.html"
     },

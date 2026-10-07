@@ -151,28 +151,115 @@ export async function resolveDynamicFee({ paymentType = 'ID_CARD', metadata = {}
   return Number(defaultAmount || 5000);
 }
 
+export function getDynamicAcademicSession(date = new Date()) {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1;
+  return month >= 9 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
+}
+
 /**
  * Universal Post-Payment Fulfillment Router for ANY Payment Type
  */
 async function fulfillSuccessfulPayment(paymentRecord, now) {
   if (!supabase || !paymentRecord) return;
   const pType = (paymentRecord.payment_type || 'ID_CARD').toUpperCase();
-  const regNo = paymentRecord.registration_number;
+  const regNo = (paymentRecord.registration_number || paymentRecord.matric_number || '').trim();
   const studentId = paymentRecord.student_id;
+
+  // 1-Year Expiry calculation (365 days from paid date)
+  const renewalDate = new Date(now);
+  renewalDate.setDate(renewalDate.getDate() + 365);
+  const renewalDateStr = renewalDate.toISOString().split('T')[0];
 
   try {
     if (pType === 'ID_CARD') {
-      await supabase
-        .from('id_card_applications')
-        .update({
-          payment_status: 'paid',
-          payment_reference: paymentRecord.reference,
-          amount: paymentRecord.amount,
-          paid_at: now,
-          updated_at: now
-        })
-        .or(`registration_number.eq.${regNo},matric_number.eq.${regNo}`);
+      // 1. Fetch student's profile to see if profile photo already exists
+      let existingPhoto = null;
+      let studentName = paymentRecord.metadata?.customer_name || 'Student Member';
+
+      try {
+        let profQuery = supabase.from('profiles').select('*');
+        if (regNo && studentId && studentId.length === 36) {
+          profQuery = profQuery.or(`registration_number.eq.${regNo},matric_number.eq.${regNo},id.eq.${studentId}`);
+        } else if (regNo) {
+          profQuery = profQuery.or(`registration_number.eq.${regNo},matric_number.eq.${regNo}`);
+        } else if (studentId) {
+          profQuery = profQuery.eq('id', studentId);
+        }
+        const { data: profData } = await profQuery.maybeSingle();
+        if (profData) {
+          existingPhoto = profData.profile_photo_url || profData.avatar_url || profData.photo_url || null;
+          studentName = profData.full_name || studentName;
+        }
+      } catch (profErr) {
+        console.warn('[Bachs Fulfillment] Profile lookup notice:', profErr.message);
+      }
+
+      // 2. Check for existing ID Card Application
+      let appQuery = supabase.from('id_card_applications').select('*');
+      if (regNo && studentId && studentId.length === 36) {
+        appQuery = appQuery.or(`registration_number.eq.${regNo},matric_number.eq.${regNo},student_id.eq.${studentId}`);
+      } else if (regNo) {
+        appQuery = appQuery.or(`registration_number.eq.${regNo},matric_number.eq.${regNo}`);
+      } else if (studentId) {
+        appQuery = appQuery.eq('student_id', studentId);
+      }
+      const { data: existingApp } = await appQuery.maybeSingle();
+
+      const resolvedPhoto = existingApp?.passport_url || existingPhoto || null;
+      const cleanDigits = String(regNo).replace(/\D/g, '') || String(regNo).trim() || `ID${Date.now().toString().slice(-6)}`;
+      
+      // ON THE SPOT: If student has photo, immediately mark status as 'generated'
+      // If student has no photo, prompt with 'photo_required'
+      const targetStatus = resolvedPhoto ? 'generated' : 'photo_required';
+
+      if (existingApp) {
+        await supabase
+          .from('id_card_applications')
+          .update({
+            payment_status: 'paid',
+            payment_reference: paymentRecord.reference,
+            amount: paymentRecord.amount,
+            paid_at: now,
+            card_expiry_date: renewalDateStr,
+            passport_url: resolvedPhoto,
+            passport_photo_url: resolvedPhoto,
+            full_name: studentName,
+            registration_number: regNo,
+            matric_number: regNo,
+            status: targetStatus,
+            id_card_number: existingApp.id_card_number || cleanDigits,
+            generated_at: resolvedPhoto ? (existingApp.generated_at || now) : existingApp.generated_at,
+            updated_at: now
+          })
+          .eq('id', existingApp.id);
+      } else {
+        // Create application row immediately
+        await supabase
+          .from('id_card_applications')
+          .insert({
+            student_id: studentId && studentId.length === 36 ? studentId : null,
+            matric_number: regNo,
+            registration_number: regNo,
+            full_name: studentName,
+            application_number: `APP-${Date.now().toString().slice(-6)}`,
+            id_card_number: cleanDigits,
+            status: targetStatus,
+            payment_status: 'paid',
+            payment_reference: paymentRecord.reference,
+            amount: paymentRecord.amount,
+            passport_url: resolvedPhoto,
+            passport_photo_url: resolvedPhoto,
+            paid_at: now,
+            card_expiry_date: renewalDateStr,
+            generated_at: resolvedPhoto ? now : null,
+            created_at: now,
+            updated_at: now
+          });
+      }
     } else if (pType === 'DEPARTMENTAL_DUES' || pType === 'DUES') {
+      const activeSession = paymentRecord.metadata?.academic_session || getDynamicAcademicSession(now);
       await supabase
         .from('dues_payments')
         .upsert({
@@ -182,7 +269,7 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
           payment_reference: paymentRecord.reference,
           payment_method: 'BACHS',
           status: 'cleared',
-          session: paymentRecord.metadata?.academic_session || '2026/2027',
+          session: activeSession,
           level: paymentRecord.metadata?.level || 'All',
           created_at: now,
           updated_at: now
@@ -196,7 +283,7 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
           dues_paid_at: now,
           updated_at: now
         })
-        .or(`registration_number.eq.${regNo},matric.eq.${regNo},id.eq.${studentId}`);
+        .or(`registration_number.eq.${regNo},matric_number.eq.${regNo},id.eq.${studentId}`);
     } else if (pType === 'EVENT' || pType === 'EVENT_TICKET') {
       if (paymentRecord.metadata?.event_id) {
         await supabase
@@ -375,13 +462,20 @@ export async function createPaymentCheckout({
     const isLocalReturn = returnUrl.includes('localhost') || returnUrl.includes('127.0.0.1');
     const isLocalCancel = cancelUrl.includes('localhost') || cancelUrl.includes('127.0.0.1');
 
-    const bachsSuccessUrl = isLocalReturn
+    let bachsSuccessUrl = isLocalReturn
       ? `${publicOrigin}${defRedirect.startsWith('/') ? '' : '/'}${defRedirect}`
       : returnUrl;
 
-    const bachsCancelUrl = isLocalCancel
+    let bachsCancelUrl = isLocalCancel
       ? `${publicOrigin}${defCancel.startsWith('/') ? '' : '/'}${defCancel}`
       : cancelUrl;
+
+    if (!bachsSuccessUrl.includes('reference=')) {
+      bachsSuccessUrl += (bachsSuccessUrl.includes('?') ? '&' : '?') + `reference=${encodeURIComponent(reference)}`;
+    }
+    if (!bachsCancelUrl.includes('reference=')) {
+      bachsCancelUrl += (bachsCancelUrl.includes('?') ? '&' : '?') + `reference=${encodeURIComponent(reference)}`;
+    }
 
     const response = await fetch(`${config.baseUrl}/v1/checkout-sessions`, {
       method: 'POST',
@@ -495,17 +589,19 @@ export async function createIdCardCheckout({ student, returnBaseUrl }) {
 /**
  * Creates an authoritative Bachs checkout session for Departmental Dues Clearance
  */
-export async function createDuesCheckout({ student, returnBaseUrl, academicSession = '2026/2027', level = 'All' }) {
+export async function createDuesCheckout({ student, returnBaseUrl, academicSession, level = 'All' }) {
   const eligibility = validateStudentEligibility(student);
   if (!eligibility.eligible) {
     return { error: eligibility.reason, statusCode: 400 };
   }
 
+  const sessionToUse = academicSession || getDynamicAcademicSession();
+
   return createPaymentCheckout({
     paymentType: 'DEPARTMENTAL_DUES',
-    title: `NACOS Departmental Dues (${academicSession})`,
+    title: `NACOS Departmental Dues (${sessionToUse})`,
     student,
-    metadata: { academicSession, level },
+    metadata: { academicSession: sessionToUse, level },
     returnBaseUrl,
     redirectPath: '/dues?payment=verifying',
     cancelPath: '/dues?payment=cancelled'
@@ -700,62 +796,83 @@ export async function processBachsWebhook(event) {
 /**
  * Universal Status Lookup for ANY Payment Reference or Student
  */
-export async function getPaymentStatus({ reference, paymentType, registrationNumber, studentId }) {
-  if (!reference && !registrationNumber && !studentId) {
-    return { error: 'Provide reference, registrationNumber, or studentId', statusCode: 400 };
+export async function getPaymentStatus({ reference, checkoutId, paymentType, registrationNumber, studentId }) {
+  const cleanCheckoutId = (checkoutId || '').trim();
+  const cleanRef = (reference || '').trim();
+  const cleanRegNo = (registrationNumber || '').trim().toUpperCase();
+  const cleanStudentId = (studentId || '').trim();
+
+  if (!cleanRef && !cleanCheckoutId && !cleanRegNo && !cleanStudentId) {
+    return { error: 'Provide reference, checkoutId, registrationNumber, or studentId', statusCode: 400 };
   }
 
   try {
     if (supabase) {
       let query = supabase.from('payments').select('*');
-      if (reference) {
-        query = query.eq('reference', reference);
-      } else if (registrationNumber) {
-        query = query.eq('registration_number', registrationNumber);
+      if (cleanRef) {
+        query = query.eq('reference', cleanRef);
+      } else if (cleanCheckoutId) {
+        query = query.eq('provider_checkout_id', cleanCheckoutId);
+      } else if (cleanRegNo) {
+        query = query.eq('registration_number', cleanRegNo);
         if (paymentType) query = query.eq('payment_type', paymentType.toUpperCase());
-      } else if (studentId) {
-        query = query.eq('student_id', studentId);
+      } else if (cleanStudentId) {
+        query = query.eq('student_id', cleanStudentId);
         if (paymentType) query = query.eq('payment_type', paymentType.toUpperCase());
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (!error && data) {
-        const config = getBachsConfig();
-        // If pending in live environment, query Bachs checkout-sessions endpoint as fallback if webhook had network lag
-        if (data.status === 'pending' && config.apiKey && !config.apiKey.includes('sample')) {
-          try {
-            const checkoutId = data.provider_checkout_id;
-            let verifyRes = null;
-            if (checkoutId && checkoutId.startsWith('chk_')) {
-              verifyRes = await fetch(`${config.baseUrl}/v1/checkout-sessions/${checkoutId}`, {
-                headers: { 'Authorization': `Bearer ${config.apiKey}` }
-              });
-            }
-            if (!verifyRes || !verifyRes.ok) {
-              verifyRes = await fetch(`${config.baseUrl}/v1/payments/verify/${data.reference}`, {
-                headers: { 'Authorization': `Bearer ${config.apiKey}` }
-              });
-            }
+      let { data, error } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
 
-            if (verifyRes && verifyRes.ok) {
-              const verifyData = await verifyRes.json();
-              const sessionStatus = (verifyData.status || '').toLowerCase();
-              const paymentStatus = (verifyData.payment_status || '').toLowerCase();
-              const chargeStatus = (verifyData.charge?.status || verifyData.data?.status || '').toLowerCase();
+      const config = getBachsConfig();
+      const isLiveKey = config.apiKey && !config.apiKey.includes('sample');
 
-              const isSuccess = 
-                paymentStatus === 'paid' || 
-                chargeStatus === 'paid' || 
-                chargeStatus === 'successful' || 
-                sessionStatus === 'completed' ||
-                sessionStatus === 'paid';
+      // Proactive lookup on Bachs API if not found or pending
+      const targetCheckoutId = cleanCheckoutId || data?.provider_checkout_id;
+      const targetRef = cleanRef || data?.reference;
 
-              if (isSuccess) {
-                const now = new Date().toISOString();
-                const providerPaymentId = verifyData.charge?.payment_id || verifyData.charge?.id || verifyData.payment_id || '';
+      if ((!data || data.status === 'pending') && isLiveKey && (targetCheckoutId || targetRef)) {
+        try {
+          let verifyRes = null;
+          if (targetCheckoutId && targetCheckoutId.startsWith('chk_')) {
+            verifyRes = await fetch(`${config.baseUrl}/v1/checkout-sessions/${targetCheckoutId}`, {
+              headers: { 'Authorization': `Bearer ${config.apiKey}` }
+            });
+          }
+
+          if ((!verifyRes || !verifyRes.ok) && targetRef) {
+            verifyRes = await fetch(`${config.baseUrl}/v1/payments/verify/${targetRef}`, {
+              headers: { 'Authorization': `Bearer ${config.apiKey}` }
+            });
+          }
+
+          if (verifyRes && verifyRes.ok) {
+            const verifyData = await verifyRes.json();
+            const sessionStatus = (verifyData.status || '').toLowerCase();
+            const paymentStatus = (verifyData.payment_status || '').toLowerCase();
+            const chargeStatus = (verifyData.charge?.status || verifyData.data?.status || '').toLowerCase();
+
+            const isSuccess = 
+              paymentStatus === 'paid' || 
+              paymentStatus === 'succeeded' || 
+              chargeStatus === 'paid' || 
+              chargeStatus === 'successful' || 
+              sessionStatus === 'completed' ||
+              sessionStatus === 'paid';
+
+            if (isSuccess) {
+              const now = new Date().toISOString();
+              const providerPaymentId = verifyData.charge?.payment_id || verifyData.charge?.id || verifyData.payment_id || '';
+              const verifiedRef = verifyData.reference || targetRef || `NACOS-${Date.now()}`;
+              const verifiedReg = verifyData.metadata?.registration_number || verifyData.metadata?.regNo || cleanRegNo || '';
+              const verifiedStudentId = verifyData.metadata?.student_id || cleanStudentId || verifiedReg;
+              const verifiedType = verifyData.metadata?.payment_type || paymentType || 'ID_CARD';
+              const verifiedAmt = Number(verifyData.pricing?.amount || verifyData.amount || data?.amount || 500);
+
+              if (data) {
                 await supabase.from('payments').update({
                   status: 'successful',
                   provider_payment_id: providerPaymentId || data.provider_payment_id,
+                  provider_checkout_id: targetCheckoutId || data.provider_checkout_id,
                   paid_at: now,
                   updated_at: now
                 }).eq('id', data.id);
@@ -763,20 +880,55 @@ export async function getPaymentStatus({ reference, paymentType, registrationNum
                 data.status = 'successful';
                 data.paid_at = now;
                 if (providerPaymentId) data.provider_payment_id = providerPaymentId;
+              } else {
+                // Insert newly discovered payment record
+                const newRow = {
+                  id: crypto.randomUUID(),
+                  student_id: verifiedStudentId,
+                  registration_number: verifiedReg,
+                  payment_type: verifiedType,
+                  provider: 'BACHS',
+                  provider_payment_id: providerPaymentId,
+                  provider_checkout_id: targetCheckoutId,
+                  amount: verifiedAmt,
+                  currency: verifyData.pricing?.currency || config.currency || 'NGN',
+                  status: 'successful',
+                  reference: verifiedRef,
+                  paid_at: now,
+                  created_at: now,
+                  updated_at: now,
+                  metadata: {
+                    customer_name: verifyData.customer?.name || verifyData.metadata?.customer_name,
+                    customer_email: verifyData.customer?.email || verifyData.metadata?.customer_email,
+                    verified_via: 'bachs_checkout_session'
+                  }
+                };
 
-                // Fulfill dynamically across student profile & modules
-                await fulfillSuccessfulPayment(data, now);
+                const { data: inserted } = await supabase.from('payments').insert(newRow).select().maybeSingle();
+                data = inserted || newRow;
               }
+
+              // Post-payment fulfillment router (immediate ID card generation if photo exists, 1-year validity)
+              await fulfillSuccessfulPayment(data, now);
             }
-          } catch (pollErr) {
-            console.warn('[Bachs Live] Fallback status check warning:', pollErr.message);
           }
+        } catch (pollErr) {
+          console.warn('[Bachs Live] Status verification error:', pollErr.message);
+        }
+      }
+
+      if (data) {
+        if (data.status === 'successful') {
+          // Guarantee post-payment fulfillment router (ensures ID card application is generated on the spot if photo exists)
+          const paidAtTime = data.paid_at || new Date().toISOString();
+          await fulfillSuccessfulPayment(data, paidAtTime);
         }
 
         return {
           status: data.status,
           isPaid: data.status === 'successful',
           reference: data.reference,
+          checkoutId: data.provider_checkout_id,
           amount: data.amount,
           currency: data.currency,
           paymentType: data.payment_type,

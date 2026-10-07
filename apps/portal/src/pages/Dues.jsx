@@ -76,8 +76,24 @@ const Dues = () => {
 
         const { data: bachsDues } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
         if (bachsDues) {
-          setIsPaid(true);
           const payDate = bachsDues.paid_at || bachsDues.created_at;
+          const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+          const isExpired = payDate ? (Date.now() - new Date(payDate).getTime() > ONE_YEAR_MS) : false;
+
+          if (isExpired) {
+            setIsPaid(false);
+            setPaymentData({
+              receiptNo: bachsDues.reference,
+              paymentDate: new Date(payDate).toLocaleDateString('en-GB') + ' (Expired - 1 Year Lapsed)',
+              amount: bachsDues.amount ? `₦${Number(bachsDues.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
+              paymentMethod: 'Bachs Payment Gateway',
+              status: 'Expired (Annual Clearance Lapsed)',
+              isExpired: true
+            });
+            return;
+          }
+
+          setIsPaid(true);
           const dateStr = payDate ? new Date(payDate).toLocaleDateString('en-GB', {
             day: 'numeric',
             month: 'long',
@@ -89,7 +105,8 @@ const Dues = () => {
             paymentDate: dateStr,
             amount: bachsDues.amount ? `₦${Number(bachsDues.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
             paymentMethod: 'Bachs Payment Gateway (Verified Live)',
-            status: 'Verified & Cleared'
+            status: 'Verified & Cleared',
+            isExpired: false
           });
           return;
         }
@@ -104,13 +121,30 @@ const Dues = () => {
       currentUser?.has_paid_dues === true ||
       ['cleared', 'successful', 'verified', 'paid'].includes(String(currentUser?.payment_status).toLowerCase())
     ) {
+      const pDate = currentUser.dues_paid_at || currentUser.payment_date;
+      const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+      const isExpired = pDate && !isNaN(new Date(pDate).getTime()) ? (Date.now() - new Date(pDate).getTime() > ONE_YEAR_MS) : false;
+
+      if (isExpired) {
+        setIsPaid(false);
+        setPaymentData({
+          receiptNo: currentUser.receipt_no || currentUser.payment_reference || `NACOS-FUTO-${cleanMatric || '2026'}-EXPIRED`,
+          paymentDate: new Date(pDate).toLocaleDateString('en-GB') + ' (Expired)',
+          amount: currentUser.dues_amount || '₦2,500.00',
+          status: 'Expired (Annual Clearance Lapsed)',
+          isExpired: true
+        });
+        return;
+      }
+
       setIsPaid(true);
       setPaymentData({
         receiptNo: currentUser.receipt_no || currentUser.payment_reference || `NACOS-FUTO-${cleanMatric || '2026'}-CLEARED`,
         paymentDate: currentUser.dues_paid_at || currentUser.payment_date || 'Current Session',
         amount: currentUser.dues_amount || '₦2,500.00',
         paymentMethod: currentUser.payment_method || 'Bachs Payment Gateway',
-        status: 'Verified & Cleared'
+        status: 'Verified & Cleared',
+        isExpired: false
       });
       return;
     }
@@ -189,13 +223,19 @@ const Dues = () => {
   useEffect(() => {
     const paymentAction = searchParams.get('payment');
     const ref = searchParams.get('reference');
+    const chkId = searchParams.get('checkout_id') || searchParams.get('checkoutId');
 
-    if (paymentAction === 'verifying' && ref) {
+    if (paymentAction === 'verifying' && (ref || chkId)) {
       let attempts = 0;
       const interval = setInterval(async () => {
         attempts++;
         try {
-          const resp = await fetch(`/api/payments/status?reference=${encodeURIComponent(ref)}&paymentType=DEPARTMENTAL_DUES`);
+          const queryParams = new URLSearchParams();
+          if (ref) queryParams.set('reference', ref);
+          if (chkId) queryParams.set('checkoutId', chkId);
+          queryParams.set('paymentType', 'DEPARTMENTAL_DUES');
+
+          const resp = await fetch(`/api/payments/status?${queryParams.toString()}`);
           if (resp.ok) {
             const data = await resp.json();
             if (data.isPaid || data.status === 'successful') {
@@ -206,21 +246,23 @@ const Dues = () => {
                 dues_cleared: true,
                 has_paid_dues: true,
                 payment_status: 'cleared',
-                receipt_no: ref,
-                dues_paid_at: new Date().toLocaleDateString('en-GB') + ' (' + new Date().toLocaleTimeString('en-GB') + ' GMT+1)'
+                receipt_no: data.reference || ref || chkId,
+                dues_paid_at: new Date().toISOString()
               };
               localStorage.setItem('nacos_user', JSON.stringify(updatedUser));
               setUser(updatedUser);
               window.dispatchEvent(new Event('nacos_user_updated'));
               searchParams.delete('payment');
               searchParams.delete('reference');
+              searchParams.delete('checkout_id');
+              searchParams.delete('checkoutId');
               setSearchParams(searchParams, { replace: true });
               await checkStatus(updatedUser);
             }
           }
         } catch (e) {}
 
-        if (attempts > 15) {
+        if (attempts > 20) {
           clearInterval(interval);
         }
       }, 2500);
@@ -229,6 +271,8 @@ const Dues = () => {
     } else if (paymentAction === 'cancelled') {
       searchParams.delete('payment');
       searchParams.delete('reference');
+      searchParams.delete('checkout_id');
+      searchParams.delete('checkoutId');
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams]);

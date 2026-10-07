@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import {
   getDuesSettings,
+  getDynamicAcademicSession,
   updateDuesFee,
   adminGetAllDuesPayments,
   adminManuallyClearDues,
@@ -43,7 +44,7 @@ export const DashboardDuesTracker = ({ onSettingsUpdated }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [duesSettings, setDuesSettings] = useState({
     dues_amount: 2500,
-    academic_session: '2026/2027',
+    academic_session: getDynamicAcademicSession(),
     is_open: true
   });
   const [duesPayments, setDuesPayments] = useState([]);
@@ -88,7 +89,7 @@ export const DashboardDuesTracker = ({ onSettingsUpdated }) => {
     setLoading(true);
     try {
       const [settingsRes, paymentsRes, accountsRes, verifiedRes] = await Promise.all([
-        getDuesSettings().catch(() => ({ dues_amount: 2500, academic_session: '2026/2027' })),
+        getDuesSettings().catch(() => ({ dues_amount: 2500, academic_session: getDynamicAcademicSession() })),
         adminGetAllDuesPayments().catch(() => []),
         adminGetAllStudents().catch(() => []),
         adminGetAllVerifiedStudents().catch(() => [])
@@ -97,7 +98,7 @@ export const DashboardDuesTracker = ({ onSettingsUpdated }) => {
       if (settingsRes) {
         setDuesSettings(settingsRes);
         setNewRate(settingsRes.dues_amount || 2500);
-        setNewSession(settingsRes.academic_session || '2026/2027');
+        setNewSession(settingsRes.academic_session || getDynamicAcademicSession());
       }
 
       setDuesPayments(paymentsRes || []);

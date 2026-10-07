@@ -22,7 +22,8 @@ import {
   verifyBachsWebhookSignature,
   processBachsWebhook,
   resolveDynamicFee,
-  getBachsConfig
+  getBachsConfig,
+  getDynamicAcademicSession
 } from '../packages/supabase/src/server/bachs.js';
 import {
   dispatchEmail,
@@ -183,13 +184,14 @@ export default async function handler(req, res) {
       method === 'GET'
     ) {
       const reference = fullUrl.searchParams.get('reference');
+      const checkoutId = fullUrl.searchParams.get('checkoutId') || fullUrl.searchParams.get('checkout_id');
       let paymentType = fullUrl.searchParams.get('paymentType');
       if (route.includes('/dues/')) paymentType = 'DEPARTMENTAL_DUES';
       if (route.includes('/id-card/')) paymentType = 'ID_CARD';
       const registrationNumber = fullUrl.searchParams.get('registrationNumber') || fullUrl.searchParams.get('matricNumber');
       const studentId = fullUrl.searchParams.get('studentId');
 
-      const result = await getPaymentStatus({ reference, paymentType, registrationNumber, studentId });
+      const result = await getPaymentStatus({ reference, checkoutId, paymentType, registrationNumber, studentId });
       return res.status(result.statusCode || 200).json(result);
     }
 
@@ -231,7 +233,7 @@ export default async function handler(req, res) {
           await supabase.from('id_card_settings').upsert({
             id: rowId,
             id_card_fee: num,
-            academic_session: body.academicSession || '2026/2027',
+            academic_session: body.academicSession || getDynamicAcademicSession(),
             updated_at: now
           });
         }

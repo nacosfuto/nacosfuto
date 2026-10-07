@@ -137,6 +137,7 @@ function cloudinaryDevPlugin() {
         if ((req.url?.startsWith('/api/payments/status') || req.url?.startsWith('/api/payments/id-card/status') || req.url?.startsWith('/api/payments/dues/status')) && req.method === 'GET') {
           const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost:5174'}`);
           const reference = urlObj.searchParams.get('reference');
+          const checkoutId = urlObj.searchParams.get('checkoutId') || urlObj.searchParams.get('checkout_id');
           let paymentType = urlObj.searchParams.get('paymentType');
           if (req.url.startsWith('/api/payments/dues/status')) paymentType = 'DEPARTMENTAL_DUES';
           if (req.url.startsWith('/api/payments/id-card/status')) paymentType = 'ID_CARD';
@@ -145,7 +146,7 @@ function cloudinaryDevPlugin() {
 
           (async () => {
             try {
-              const result = await getPaymentStatus({ reference, paymentType, registrationNumber, studentId });
+              const result = await getPaymentStatus({ reference, checkoutId, paymentType, registrationNumber, studentId });
               res.setHeader('Content-Type', 'application/json');
               res.statusCode = result.statusCode || (result.error ? 400 : 200);
               res.end(JSON.stringify(result));

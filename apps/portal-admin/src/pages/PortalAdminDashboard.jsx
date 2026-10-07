@@ -23,7 +23,7 @@ import PortalAdminLayout from '../components/PortalAdminLayout';
 import { adminGetAllVerifiedStudents } from '@nacos/supabase/verifiedStudents';
 import { adminGetAllStudents } from '@nacos/supabase/auth';
 import { portalAdminGetApplications } from '@nacos/supabase/idCard';
-import { getDuesSettings, supabase } from '@nacos/supabase';
+import { getDuesSettings, getDynamicAcademicSession, supabase } from '@nacos/supabase';
 import DashboardDuesTracker from '../components/DashboardDuesTracker';
 import { useTheme } from '../context/ThemeContext';
 
@@ -49,7 +49,7 @@ export const PortalAdminDashboard = () => {
 
   const [duesStats, setDuesStats] = useState({
     rate: 2500,
-    academicSession: '2026/2027',
+    academicSession: getDynamicAcademicSession(),
     clearedCount: 0,
     totalRevenue: 0
   });
@@ -65,7 +65,7 @@ export const PortalAdminDashboard = () => {
         adminGetAllVerifiedStudents(),
         adminGetAllStudents(),
         portalAdminGetApplications({ status: 'ALL' }),
-        getDuesSettings().catch(() => ({ dues_amount: 2500, academic_session: '2026/2027' }))
+        getDuesSettings().catch(() => ({ dues_amount: 2500, academic_session: getDynamicAcademicSession() }))
       ]);
 
       // Robust parsing: handles arrays or response objects
@@ -130,7 +130,7 @@ export const PortalAdminDashboard = () => {
 
       setDuesStats({
         rate: activeDuesRate,
-        academicSession: duesSettingsRes?.academic_session || '2026/2027',
+        academicSession: duesSettingsRes?.academic_session || getDynamicAcademicSession(),
         clearedCount: clearedDuesCount,
         totalRevenue: totalDuesRev
       });

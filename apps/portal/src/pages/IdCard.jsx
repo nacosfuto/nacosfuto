@@ -28,6 +28,7 @@ import {
   createIdCardApplication,
   verifyAndLinkPayment,
   recordStudentPayment,
+  checkStudentPaymentStatus,
   savePassportToApplication,
   linkPassportUrlToApplication,
   submitIdApplication,
@@ -36,6 +37,7 @@ import {
   downloadIdCardAsPdf,
   saveGeneratedIdCardAsset
 } from '@nacos/supabase/idCard';
+import { supabase } from '@nacos/supabase';
 import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
 import { MediaUpload, CLOUDINARY_FOLDERS, getOptimizedImageUrl, idTemplateMaster, idTemplateBack, idTemplateFrame } from '@nacos/media';
 import StepUpAuthModal from '../components/StepUpAuthModal';
@@ -91,16 +93,91 @@ const IdCard = () => {
     }
 
     try {
-      const parsed = JSON.parse(stored);
+      let parsed = JSON.parse(stored);
       setStudent(parsed);
 
-      // Load settings
+      // Load settings dynamically
       const cfg = await getIdCardSettings();
       if (cfg) setSettings(cfg);
 
-      // Load application
       const matric = parsed.matric || parsed.registration_number;
-      const app = await getStudentIdApplication(matric);
+      const cleanMatric = String(matric || '').trim().toUpperCase();
+
+      // Check authoritative Supabase profiles table for fresh photo & profile details
+      let resolvedPhoto = parsed.profile_photo_url || parsed.avatar_url || null;
+      if (supabase && cleanMatric) {
+        try {
+          const { data: profRow } = await supabase
+            .from('profiles')
+            .select('*')
+            .or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric},id.eq.${parsed.id || ''}`)
+            .maybeSingle();
+
+          if (profRow) {
+            const freshPhoto = profRow.profile_photo_url || profRow.avatar_url || profRow.photo_url;
+            if (freshPhoto) {
+              resolvedPhoto = freshPhoto;
+              parsed = {
+                ...parsed,
+                ...profRow,
+                profile_photo_url: freshPhoto,
+                avatar_url: freshPhoto
+              };
+              localStorage.setItem('nacos_user', JSON.stringify(parsed));
+              setStudent(parsed);
+            }
+          }
+        } catch (profErr) {
+          console.warn('Profile fetch warning:', profErr);
+        }
+      }
+
+      // Check payment status dynamically
+      const payStatus = await checkStudentPaymentStatus(cleanMatric);
+
+      // Load application
+      let app = await getStudentIdApplication(cleanMatric);
+
+      // ON THE SPOT GENERATION:
+      // If student has paid and is not expired:
+      if (payStatus.isPaid && !payStatus.isExpired) {
+        if (!app) {
+          const createRes = await createIdCardApplication(parsed);
+          app = createRes.application;
+        }
+
+        if (app && app.status !== 'revoked' && app.status !== 'rejected') {
+          const photoToUse = app.passport_url || resolvedPhoto;
+          const cleanDigits = String(cleanMatric).replace(/\D/g, '') || cleanMatric;
+
+          if (photoToUse) {
+            // Photo exists: auto-generate on the spot!
+            app.status = 'generated';
+            app.payment_status = 'verified';
+            app.passport_url = photoToUse;
+            if (!app.id_card_number) app.id_card_number = cleanDigits;
+            app.generated_at = app.generated_at || new Date().toISOString();
+
+            if (supabase && app.id) {
+              await supabase.from('id_card_applications').update({
+                status: 'generated',
+                payment_status: 'paid',
+                passport_url: photoToUse,
+                id_card_number: app.id_card_number,
+                generated_at: app.generated_at,
+                updated_at: new Date().toISOString()
+              }).eq('id', app.id);
+            }
+          } else {
+            // Payment verified, photo required
+            if (app.status === 'pending_payment' || app.status === 'draft') {
+              app.status = 'photo_required';
+              app.payment_status = 'verified';
+            }
+          }
+        }
+      }
+
       setApplication(app);
     } catch (err) {
       console.error(err);
@@ -149,15 +226,18 @@ const IdCard = () => {
   useEffect(() => {
     const paymentAction = searchParams.get('payment');
     const ref = searchParams.get('reference');
+    const chkId = searchParams.get('checkout_id') || searchParams.get('checkoutId');
 
-    if (paymentAction === 'verifying' && ref) {
+    if (paymentAction === 'verifying' && (ref || chkId)) {
       setIsVerifyingPayment(true);
-      setVerifyingReference(ref);
-      startPaymentVerificationPolling(ref);
+      setVerifyingReference(chkId || ref);
+      startPaymentVerificationPolling(ref, chkId);
     } else if (paymentAction === 'cancelled') {
       showNotification('Payment was cancelled. You can retry checkout when you are ready.', 'error');
       searchParams.delete('payment');
       searchParams.delete('reference');
+      searchParams.delete('checkout_id');
+      searchParams.delete('checkoutId');
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams]);
@@ -168,7 +248,7 @@ const IdCard = () => {
     };
   }, []);
 
-  const startPaymentVerificationPolling = (reference) => {
+  const startPaymentVerificationPolling = (reference, checkoutId) => {
     let attempts = 0;
     const maxAttempts = 24; // 24 * 2.5s = 60s max polling
 
@@ -177,16 +257,22 @@ const IdCard = () => {
     const checkStatus = async () => {
       attempts++;
       try {
-        const res = await fetch(`/api/payments/id-card/status?reference=${encodeURIComponent(reference)}`);
+        const queryParams = new URLSearchParams();
+        if (reference) queryParams.set('reference', reference);
+        if (checkoutId) queryParams.set('checkoutId', checkoutId);
+
+        const res = await fetch(`/api/payments/id-card/status?${queryParams.toString()}`);
         const data = await res.json();
 
         if (data.isPaid || data.status === 'successful') {
           clearInterval(pollIntervalRef.current);
           setIsVerifyingPayment(false);
-          showNotification('Payment confirmed! Your NACOS ID Card application has been unlocked.');
+          showNotification('Payment confirmed! Processing your official NACOS ID Card on the spot.');
           
           searchParams.delete('payment');
           searchParams.delete('reference');
+          searchParams.delete('checkout_id');
+          searchParams.delete('checkoutId');
           setSearchParams(searchParams, { replace: true });
           
           await loadStudentAndApplication();
@@ -208,23 +294,39 @@ const IdCard = () => {
   };
 
   const handleManualCheckStatus = async () => {
-    const targetRef = verifyingReference || searchParams.get('reference');
-    if (!targetRef) return;
+    const targetRef = verifyingReference || searchParams.get('reference') || searchParams.get('checkout_id') || searchParams.get('checkoutId');
     setIsPaying(true);
     try {
-      const res = await fetch(`/api/payments/id-card/status?reference=${encodeURIComponent(targetRef)}`);
+      const isChk = targetRef && targetRef.startsWith('chk_');
+      const queryParams = new URLSearchParams();
+      if (isChk) {
+        queryParams.set('checkoutId', targetRef);
+      } else if (targetRef) {
+        queryParams.set('reference', targetRef);
+      }
+      const regNo = student?.matric_number || student?.registration_number;
+      if (regNo) {
+        queryParams.set('registrationNumber', regNo);
+      }
+      if (student?.id) {
+        queryParams.set('studentId', student.id);
+      }
+
+      const res = await fetch(`/api/payments/id-card/status?${queryParams.toString()}`);
       const data = await res.json();
       setIsPaying(false);
 
       if (data.isPaid || data.status === 'successful') {
         setIsVerifyingPayment(false);
-        showNotification('Payment confirmed! Your NACOS ID Card application has been unlocked.');
+        showNotification('Payment confirmed! Processing your official NACOS ID Card on the spot.');
         searchParams.delete('payment');
         searchParams.delete('reference');
+        searchParams.delete('checkout_id');
+        searchParams.delete('checkoutId');
         setSearchParams(searchParams, { replace: true });
         await loadStudentAndApplication();
       } else {
-        showNotification(`Payment status: ${data.status || 'pending'}. We are waiting for gateway confirmation.`, 'error');
+        showNotification(`Payment status: ${data.status || 'pending'}. Waiting for gateway confirmation.`, 'error');
       }
     } catch (e) {
       setIsPaying(false);
@@ -300,23 +402,35 @@ const IdCard = () => {
     }
   };
 
-  // State 3 -> State 4: Photo Upload
+  // State 3 -> State 7: Photo Upload & Instant ID Generation
   const handlePhotoUploaded = async (media) => {
     const photoUrl = media?.secureUrl || media?.url;
     if (!photoUrl) return;
     const matric = student?.matric || student?.registration_number;
+    const cleanDigits = String(matric || '').replace(/\D/g, '') || matric;
 
-    // Persist photo directly to application and student profile
+    setIsUploadingPhoto(true);
+
+    // 1. Sync photo to student profile in Supabase
+    try {
+      if (supabase && matric) {
+        await supabase.from('profiles').update({
+          profile_photo_url: photoUrl,
+          avatar_url: photoUrl,
+          cloudinary_public_id: media?.publicId || null,
+          updated_at: new Date().toISOString()
+        }).or(`registration_number.eq.${matric},matric_number.eq.${matric}`);
+      }
+    } catch (e) {
+      console.warn('Profile photo update warning:', e);
+    }
+
+    // 2. Link photo to ID card application and auto-generate ON THE SPOT
     if (application?.id) {
       await linkPassportUrlToApplication(application.id, matric, photoUrl, media?.publicId || '');
     }
 
-    setApplication(prev => ({
-      ...prev,
-      passport_url: photoUrl,
-      cloudinary_public_id: media?.publicId || '',
-      status: 'ready_to_submit'
-    }));
+    const now = new Date().toISOString();
 
     setStudent(prev => ({
       ...prev,
@@ -325,8 +439,30 @@ const IdCard = () => {
       cloudinary_public_id: media?.publicId || ''
     }));
 
+    const stored = localStorage.getItem('nacos_user');
+    if (stored) {
+      try {
+        const u = JSON.parse(stored);
+        u.profile_photo_url = photoUrl;
+        u.avatar_url = photoUrl;
+        u.cloudinary_public_id = media?.publicId || '';
+        localStorage.setItem('nacos_user', JSON.stringify(u));
+      } catch (e) {}
+    }
+
+    // ON THE SPOT GENERATION:
+    setApplication(prev => ({
+      ...prev,
+      passport_url: photoUrl,
+      cloudinary_public_id: media?.publicId || '',
+      id_card_number: prev?.id_card_number || cleanDigits,
+      status: 'generated',
+      generated_at: now
+    }));
+
+    setIsUploadingPhoto(false);
     window.dispatchEvent(new Event('nacos_user_updated'));
-    showNotification('Passport photograph uploaded successfully!');
+    showNotification('Photograph uploaded and synced to your profile! ID Card generated on the spot.');
   };
 
   // State 4 -> State 5: Submit Application
@@ -394,26 +530,30 @@ const IdCard = () => {
   }
 
   // ---------------------------------------------------------------------------
-  // Determine Exact State (1 through 9)
+  // Determine Exact State (1 through 9 + Expired)
   // ---------------------------------------------------------------------------
-  // State 1: Not Applied (application is null)
-  // State 2: Payment Pending ('pending_payment')
-  // State 3: Payment Confirmed / Photo Required ('photo_required' or 'payment_confirmed' with no photo)
-  // State 4: Ready to Submit ('ready_to_submit' or payment verified + photo exists but not submitted)
-  // State 5: Processing / Submitted ('submitted' or 'processing')
-  // State 6: Approved / Preparing ('approved')
-  // State 7: Generated ('generated')
-  // State 8: Rejected ('rejected')
-  // State 9: Revoked ('revoked')
-
   const appStatus = application?.status;
+  const isPaid = application?.payment_status === 'verified' || application?.payment_status === 'paid';
+
+  // 1-Year Expiry calculation (365 days from paid_at / created_at)
+  const paidDate = application?.paid_at || application?.renewal_date || application?.created_at;
+  const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+  const isExpired = paidDate ? (Date.now() - new Date(paidDate).getTime() > ONE_YEAR_MS) : false;
+  const expiryDate = paidDate ? new Date(new Date(paidDate).getTime() + ONE_YEAR_MS) : null;
+  const expiryDateFormatted = expiryDate ? expiryDate.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  }) : '1 Year from Issue';
+
   const isState1 = !application;
-  const isState2 = application && (appStatus === 'pending_payment' || (application.payment_status !== 'verified' && appStatus !== 'rejected' && appStatus !== 'revoked'));
-  const isState3 = application && application.payment_status === 'verified' && (appStatus === 'photo_required' || !application.passport_url);
-  const isState4 = application && application.payment_status === 'verified' && application.passport_url && appStatus === 'ready_to_submit';
-  const isState5 = application && (appStatus === 'submitted' || appStatus === 'processing');
-  const isState6 = application && appStatus === 'approved';
-  const isState7 = application && appStatus === 'generated';
+  const isStateExpired = application && isExpired && appStatus !== 'rejected' && appStatus !== 'revoked';
+  const isState2 = !isStateExpired && application && (appStatus === 'pending_payment' || (!isPaid && appStatus !== 'rejected' && appStatus !== 'revoked'));
+  const isState3 = !isStateExpired && application && isPaid && (appStatus === 'photo_required' || !application.passport_url);
+  const isState4 = !isStateExpired && application && isPaid && application.passport_url && appStatus === 'ready_to_submit';
+  const isState5 = !isStateExpired && application && (appStatus === 'submitted' || appStatus === 'processing');
+  const isState6 = !isStateExpired && application && appStatus === 'approved';
+  const isState7 = !isStateExpired && application && (appStatus === 'generated' || (isPaid && application.passport_url && appStatus !== 'rejected' && appStatus !== 'revoked'));
   const isState8 = application && appStatus === 'rejected';
   const isState9 = application && appStatus === 'revoked';
 
@@ -437,20 +577,72 @@ const IdCard = () => {
 
           <div className="flex items-center gap-2">
             {application && (
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold ${isState7
-                  ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700/50'
-                  : isState8 || isState9
-                    ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-700/50'
-                    : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-700/50'
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold ${isStateExpired
+                  ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-700/50'
+                  : isState7
+                    ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700/50'
+                    : isState8 || isState9
+                      ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-700/50'
+                      : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-700/50'
                 }`}>
-                {isState7 ? <CheckCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                {isStateExpired ? <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> : isState7 ? <CheckCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
                 <span className="capitalize">
-                  {isState7 ? 'Active & Cleared' : (application.status || 'In Progress').replace(/_/g, ' ')}
+                  {isStateExpired ? 'Expired (1 Year Elapsed)' : isState7 ? 'Active & Cleared' : (application.status || 'In Progress').replace(/_/g, ' ')}
                 </span>
               </span>
             )}
           </div>
         </div>
+
+        {/* ====================================================================
+            STATE EXPIRED: 1-YEAR VALIDITY LAPSED (Requires Annual Renewal)
+            ==================================================================== */}
+        {isStateExpired && (
+          <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-amber-300 dark:border-amber-700/60 text-center space-y-6 shadow-xs">
+            <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800">
+              <Clock className="w-8 h-8" />
+            </div>
+
+            <div className="max-w-md mx-auto space-y-2">
+              <span className="inline-block px-3 py-1 rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 text-xs font-bold uppercase tracking-wider">
+                ID Card Expired
+              </span>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                1-Year Validity Period Has Elapsed
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
+                NACOS Student Identity Cards are valid for exactly 1 academic year (365 days). Your identity card expired on <strong>{expiryDateFormatted}</strong>. Renew your card now to continue enjoying departmental clearance, election voting rights, and lab access.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Student Reg No:</span>
+                <span className="font-mono font-bold text-gray-900 dark:text-white">{student.matric || student.registration_number}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Previous Expiry:</span>
+                <span className="font-semibold text-red-600 dark:text-red-400">{expiryDateFormatted}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Renewal Fee:</span>
+                <span className="font-bold text-[#138601] dark:text-[#4bd043]">{settings.id_card_fee ? `₦${Number(settings.id_card_fee).toLocaleString()}.00` : 'Standard Fee'}</span>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handlePayment}
+                disabled={isPaying}
+                className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
+              >
+                {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                <span>Renew ID Card for Session {settings.academic_session}</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Global Notification Banner */}
         {notification.message && (
@@ -971,6 +1163,7 @@ const IdCard = () => {
               <ul className="list-disc list-inside text-gray-600 dark:text-green-100/70 space-y-1">
                 <li>NACOS ID Number: <strong className="font-mono text-gray-900 dark:text-white">{application.id_card_number}</strong></li>
                 <li>Valid for Session: <strong className="text-gray-900 dark:text-white">{settings.academic_session}</strong></li>
+                <li>Expiration Date: <strong className="text-[#138601] dark:text-[#4bd043]">{expiryDateFormatted} (1-Year Validity)</strong></li>
                 <li>Present this digital or printed card for departmental verification, election voting, and lab access.</li>
               </ul>
             </div>

@@ -13,7 +13,14 @@ const AUDIT_LOGS_STORAGE_KEY = 'nacos_admin_audit_logs_db';
 /**
  * Seed and retrieve configurable ID Card Settings
  */
-export function getLocalIdSettingsDatabase() {
+export function getDynamicAcademicSession(date = new Date()) {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1;
+  return month >= 9 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
+}
+
+function getLocalIdSettingsDatabase() {
   const stored = localStorage.getItem(ID_SETTINGS_STORAGE_KEY);
   if (stored) {
     try {
@@ -27,7 +34,7 @@ export function getLocalIdSettingsDatabase() {
     id: 'default',
     id_card_fee: 5000,
     is_application_open: true,
-    academic_session: '2026/2027',
+    academic_session: getDynamicAcademicSession(),
     allow_reapplication_on_revoke: true,
     card_template_version: '2026.1',
     updated_at: new Date().toISOString()
@@ -50,7 +57,7 @@ export async function getIdCardSettings() {
         return {
           id: 'default',
           id_card_fee: Number(data.id_card_fee),
-          academic_session: data.academic_session || '2026/2027',
+          academic_session: data.academic_session || getDynamicAcademicSession(),
           is_application_open: data.is_application_open ?? true,
           updated_at: data.updated_at
         };
@@ -66,7 +73,7 @@ export async function getIdCardSettings() {
 export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicSession, allowRegistration }) {
   const feeNum = Number(idCardFee);
   const duesNum = Number(duesFee);
-  const session = String(academicSession || '2026/2027').trim();
+  const session = String(academicSession || getDynamicAcademicSession()).trim();
   const isOpen = Boolean(allowRegistration);
   const now = new Date().toISOString();
 
@@ -153,7 +160,7 @@ export async function updateIdCardFee(newFee, session = null, allowRegistration 
       const payload = {
         id: 'default',
         id_card_fee: feeNumber,
-        academic_session: session || settings.academic_session || '2026/2027',
+        academic_session: session || settings.academic_session || getDynamicAcademicSession(),
         is_application_open: settings.is_application_open ?? true,
         updated_at: new Date().toISOString()
       };
@@ -261,23 +268,55 @@ export async function checkStudentPaymentStatus(matricNumber) {
 
   // 1. Check Bachs payments table in Supabase (Authoritative)
   try {
-    const { data: bachsPayment, error: bachsErr } = await supabase
+    let studentUuid = null;
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanMatric)) {
+      studentUuid = cleanMatric;
+    } else if (supabase) {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('id')
+        .or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`)
+        .maybeSingle();
+      if (prof?.id) studentUuid = prof.id;
+    }
+
+    let pQuery = supabase
       .from('payments')
       .select('*')
       .eq('payment_type', 'ID_CARD')
-      .eq('status', 'successful')
-      .or(`registration_number.eq.${cleanMatric},student_id.eq.${cleanMatric}`)
+      .eq('status', 'successful');
+
+    if (studentUuid) {
+      pQuery = pQuery.or(`registration_number.eq.${cleanMatric},student_id.eq.${studentUuid},student_id.eq.${cleanMatric}`);
+    } else {
+      pQuery = pQuery.or(`registration_number.eq.${cleanMatric},student_id.eq.${cleanMatric}`);
+    }
+
+    const { data: bachsPayment, error: bachsErr } = await pQuery
       .order('paid_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (!bachsErr && bachsPayment) {
+      const paidDate = bachsPayment.paid_at || bachsPayment.created_at;
+      const isExpired = paidDate ? (today.getTime() - new Date(paidDate).getTime() > threeSixtyFiveDays) : false;
+      if (isExpired) {
+        return {
+          isPaid: false,
+          isExpired: true,
+          needsRenewal: true,
+          payment: bachsPayment,
+          paidDate
+        };
+      }
       return { 
         isPaid: true, 
+        isExpired: false,
         payment: bachsPayment, 
         provider: bachsPayment.provider || 'BACHS',
         reference: bachsPayment.reference,
-        amount: bachsPayment.amount 
+        amount: bachsPayment.amount,
+        paidDate
       };
     }
   } catch (err) {
@@ -294,10 +333,10 @@ export async function checkStudentPaymentStatus(matricNumber) {
       .maybeSingle();
 
     if (!error && data) {
-      // Check renewal date from id_card_applications
+      // Check renewal / expiry date from id_card_applications
       const { data: appData, error: appError } = await supabase
         .from('id_card_applications')
-        .select('renewal_date, status')
+        .select('card_expiry_date, status')
         .or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`)
         .maybeSingle();
 
@@ -307,17 +346,17 @@ export async function checkStudentPaymentStatus(matricNumber) {
           return { isPaid: false, payment: data };
         }
 
-        // If renewal_date is set and within 365 days, payment stays verified
-        if (appData.renewal_date) {
-          const renewalDate = new Date(appData.renewal_date);
-          const daysSinceRenewal = (today - renewalDate) / (1000 * 60 * 60 * 24);
-          if (daysSinceRenewal <= 365) {
-            return { isPaid: true, payment: data };
+        // If card_expiry_date is set and within 365 days, payment stays verified
+        if (appData.card_expiry_date) {
+          const expiryDate = new Date(appData.card_expiry_date);
+          if (today > expiryDate) {
+            return { isPaid: false, isExpired: true, needsRenewal: true, payment: data };
           }
+          return { isPaid: true, isExpired: false, payment: data };
         }
 
         // Renewal expired (> 365 days) - still paid if not revoked, but needs renewal
-        return { isPaid: true, payment: data, needsRenewal: true };
+        return { isPaid: true, payment: data, needsRenewal: false };
       }
 
       // No application record - payment from dues is still valid
@@ -379,9 +418,9 @@ export async function recordStudentPayment(matricNumber, amount = null) {
   const newPayment = {
     id: 'pay-' + Date.now(),
     student_matric: cleanMatric,
-    session: settings?.academic_session || '2026/2027',
+    session: settings?.academic_session || getDynamicAcademicSession(),
     amount: resolvedAmount,
-    payment_reference: `NACOS-FUTO-2026-PAY-${Math.floor(10000 + Math.random() * 90000)}`,
+    payment_reference: `NACOS-FUTO-${new Date().getFullYear()}-PAY-${Math.floor(10000 + Math.random() * 90000)}`,
     status: 'verified',
     purpose: 'Departmental Dues & Digital Student ID Card',
     created_at: new Date().toISOString()
@@ -421,7 +460,7 @@ export async function recordStudentPayment(matricNumber, amount = null) {
       // Update existing application with payment status and renewal date
       await supabase.from('id_card_applications').update({
         payment_status: 'verified',
-        renewal_date: renewalDate.toISOString().split('T')[0],
+        card_expiry_date: renewalDate.toISOString().split('T')[0],
         updated_at: new Date().toISOString()
       }).eq('id', existingApp.id);
     }
@@ -444,10 +483,27 @@ export async function getStudentIdApplication(matricOrId) {
 
   // 1. Try Supabase remote
   try {
+    let studentUuid = null;
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanMatric)) {
+      studentUuid = cleanMatric;
+    } else if (supabase) {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('id')
+        .or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`)
+        .maybeSingle();
+      if (prof?.id) studentUuid = prof.id;
+    }
+
+    let orFilter = `matric_number.eq.${cleanMatric},registration_number.eq.${cleanMatric}`;
+    if (studentUuid) {
+      orFilter += `,student_id.eq.${studentUuid}`;
+    }
+
     const { data, error } = await supabase
       .from('id_card_applications')
       .select('*')
-      .or(`matric_number.eq.${cleanMatric},matric_number.ilike.${cleanMatric}`)
+      .or(orFilter)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -456,9 +512,9 @@ export async function getStudentIdApplication(matricOrId) {
       return {
         ...data,
         matric_number: data.matric_number || cleanMatric,
-        registration_number: data.matric_number || cleanMatric,
-        passport_url: data.passport_url || null,
-        passport_photo_url: data.passport_url || null,
+        registration_number: data.registration_number || data.matric_number || cleanMatric,
+        passport_url: data.passport_url || data.passport_photo_url || null,
+        passport_photo_url: data.passport_photo_url || data.passport_url || null,
         full_name: data.full_name || 'Student Member'
       };
     }
@@ -777,10 +833,17 @@ export async function linkPassportUrlToApplication(applicationId, matric, photoU
   );
 
   let updatedApp = null;
+  const digitsOnly = String(cleanMatric).replace(/\D/g, '') || cleanMatric;
+
   if (index !== -1) {
     apps[index].passport_url = photoUrl;
     if (publicId) apps[index].cloudinary_public_id = publicId;
-    if (apps[index].payment_status === 'verified') {
+    const isPaid = apps[index].payment_status === 'verified' || apps[index].payment_status === 'paid';
+    if (isPaid) {
+      apps[index].status = 'generated'; // Generate immediately on the spot!
+      if (!apps[index].id_card_number) apps[index].id_card_number = digitsOnly;
+      apps[index].generated_at = new Date().toISOString();
+    } else {
       apps[index].status = 'ready_to_submit';
     }
     apps[index].updated_at = new Date().toISOString();
@@ -817,10 +880,13 @@ export async function linkPassportUrlToApplication(applicationId, matric, photoU
   // 3. Supabase sync
   try {
     if (applicationId) {
+      const isPaid = updatedApp?.payment_status === 'verified' || updatedApp?.payment_status === 'paid';
       await supabase.from('id_card_applications').update({
         passport_url: photoUrl,
         cloudinary_public_id: publicId || null,
-        status: updatedApp?.status || 'ready_to_submit',
+        status: isPaid ? 'generated' : (updatedApp?.status || 'ready_to_submit'),
+        id_card_number: updatedApp?.id_card_number || digitsOnly,
+        generated_at: isPaid ? (updatedApp?.generated_at || new Date().toISOString()) : null,
         updated_at: new Date().toISOString()
       }).eq('id', applicationId);
     }
@@ -828,8 +894,9 @@ export async function linkPassportUrlToApplication(applicationId, matric, photoU
       await supabase.from('profiles').update({
         profile_photo_url: photoUrl,
         avatar_url: photoUrl,
-        cloudinary_public_id: publicId || null
-      }).eq('registration_number', cleanMatric);
+        cloudinary_public_id: publicId || null,
+        updated_at: new Date().toISOString()
+      }).or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`);
     }
   } catch (e) {
     // Offline

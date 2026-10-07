@@ -79,6 +79,30 @@ const UpskillCourseRedirect = () => {
   );
 };
 
+const PortalPassThroughRedirect = () => {
+  const location = useLocation();
+  const { portal } = getAppUrls();
+
+  useEffect(() => {
+    const baseUrl = portal.replace(/\/+$/, '');
+    let cleanPath = location.pathname;
+    if (cleanPath.startsWith('/portal')) {
+      cleanPath = cleanPath.replace(/^\/portal/, '') || '/dashboard';
+    }
+    const cleanSearch = location.search || '';
+    const destination = `${baseUrl}${cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`}${cleanSearch}`;
+    if (window.location.href !== destination) {
+      window.location.replace(destination);
+    }
+  }, [location, portal]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-8 bg-white dark:bg-[#041801]">
+      <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+};
+
 const PortalLoginRedirect = () => {
   const location = useLocation();
   const { portal } = getAppUrls();
@@ -272,10 +296,18 @@ function App() {
               <Route path="/portal-admin/*" element={<PortalAdminRedirect />} />
               <Route path="/portal-admin" element={<PortalAdminRedirect />} />
 
-              {/* Student Portal Login Redirects */}
+              {/* Student Portal & Payment Redirects */}
+              <Route path="/id-card" element={<PortalPassThroughRedirect />} />
+              <Route path="/id-card/*" element={<PortalPassThroughRedirect />} />
+              <Route path="/dues" element={<PortalPassThroughRedirect />} />
+              <Route path="/dues/*" element={<PortalPassThroughRedirect />} />
+              <Route path="/dashboard" element={<PortalPassThroughRedirect />} />
+              <Route path="/results" element={<PortalPassThroughRedirect />} />
+              <Route path="/payment/*" element={<PortalPassThroughRedirect />} />
               <Route path="/login" element={<PortalLoginRedirect />} />
               <Route path="/portal/login" element={<PortalLoginRedirect />} />
-              <Route path="/portal/*" element={<PortalLoginRedirect />} />
+              <Route path="/portal" element={<PortalPassThroughRedirect />} />
+              <Route path="/portal/*" element={<PortalPassThroughRedirect />} />
 
               {/* ELECTRA Voting Portal Redirects */}
               <Route path="/electra" element={<ElectraRedirect />} />
