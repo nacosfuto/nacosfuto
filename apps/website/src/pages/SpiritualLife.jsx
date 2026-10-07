@@ -38,7 +38,7 @@ const SpiritualLife = () => {
       id: 2,
       title: "Faith, Fellowship, and Holistic Student Growth",
       subtitle: "Connect with campus spiritual families dedicated to prayer, deep scriptures, mutual love, and moral integrity.",
-      bgImage: 'https://images.unsplash.com/photo-1519791883288-dc8bd696e667?auto=format&fit=crop&w=1600&q=80'
+      bgImage: ''
     }
   ];
 
@@ -55,11 +55,9 @@ const SpiritualLife = () => {
   const loadFellowships = async () => {
     try {
       const local = getSpiritualFellowships('approved');
-      if (local && local.length > 0) {
-        setFellowships(local);
-      }
+      setFellowships(local || []);
       const remote = await fetchSpiritualFellowshipsFromSupabase('approved');
-      if (remote && remote.length > 0) {
+      if (Array.isArray(remote)) {
         setFellowships(remote);
       }
     } catch (e) {

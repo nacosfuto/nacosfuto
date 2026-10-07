@@ -4,142 +4,13 @@
  * Synchronizes with Supabase `public.news_articles` with local fallback & Cloudinary media integration
  */
 
-import { supabase } from './client.js';
+import { supabase, isSupabaseConfigured } from './client.js';
 import { syncMediaAsset, deleteMediaAsset } from './media.js';
 import { CLOUDINARY_FOLDERS } from '@nacos/media';
 
 export const NEWS_STORAGE_KEY = 'nacos_website_articles_store';
 
-export const INITIAL_NEWS_ARTICLES = [
-  {
-    id: 'art-1',
-    title: 'Department of Computer Science Achieves Full 5-Year NUC Accreditation Status',
-    slug: 'futo-csc-nuc-accreditation-2026',
-    category: 'Academics',
-    author: 'Office of the HOD',
-    summary: 'Following comprehensive infrastructure audits and academic curriculum assessments, the National Universities Commission (NUC) has certified FUTO Computer Science with highest tier accreditation.',
-    content: 'The National Universities Commission (NUC) has officially granted full accreditation status to the Department of Computer Science, Federal University of Technology, Owerri (FUTO). The accreditation panel commended the department for its modernized software engineering syllabus, state-of-the-art computational laboratories in the TETFUND complex, and highly distinguished faculty.',
-    cover_image_url: '',
-    cloudinary_public_id: 'nacos/news/academics',
-    read_time_minutes: 3,
-    is_published: true,
-    is_featured: true,
-    published_at: '2026-08-28T10:00:00Z',
-    created_at: '2026-08-28T10:00:00Z'
-  },
-  {
-    id: 'art-2',
-    title: 'SICT Research Cluster Secures Multi-Million Compute Grant for Applied AI',
-    slug: 'ai-research-cluster-grant-expansion',
-    category: 'Research & Journal',
-    author: 'Directorate of Research',
-    summary: 'Department faculty and student researchers expand high-performance compute clusters focused on African healthcare and natural language processing solutions.',
-    content: 'In collaboration with international research partners, the Department of Computer Science has secured compute hardware funding to deploy GPU-accelerated clusters. The infrastructure will accelerate doctoral, postgraduate, and final-year student investigations into low-resource language models, medical image classification, and precision agriculture.',
-    cover_image_url: '',
-    cloudinary_public_id: 'nacos/news/research',
-    read_time_minutes: 4,
-    is_published: true,
-    is_featured: true,
-    published_at: '2026-08-14T10:00:00Z',
-    created_at: '2026-08-14T10:00:00Z'
-  },
-  {
-    id: 'art-3',
-    title: 'NACOS FUTO Announces BuildX 2026 National Computing Hackathon',
-    slug: 'buildx-2026-hackathon-announcement',
-    category: 'Hackathon',
-    author: 'NACOS Press Bureau',
-    summary: 'Registration opens for undergraduate developers across Nigerian tertiary institutions with over ₦5M in startup grants.',
-    content: 'The Nigerian Association of Computer Science Students (NACOS), FUTO Chapter, is proud to announce the official launch of BuildX NACOS 2026. This premier hackathon brings together young software engineers, product designers, and AI researchers across Nigeria to build solutions for real-world national problems.',
-    cover_image_url: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&q=80&w=1200',
-    cloudinary_public_id: 'nacos/news/buildx_cover',
-    read_time_minutes: 3,
-    is_published: true,
-    is_featured: true,
-    published_at: '2026-09-01T10:00:00Z',
-    created_at: '2026-09-01T10:00:00Z'
-  },
-  {
-    id: 'art-4',
-    title: 'FUTO Computing Students Clinch Top Honours at National Hackathon Challenge',
-    slug: 'nacos-tech-summit-hackathon-champions',
-    category: 'Innovation',
-    author: 'NACOS Press & PRO Office',
-    summary: 'Undergraduate student innovators develop distributed fintech and agricultural supply chain models, winning accolades across regional and national computing leagues.',
-    content: 'A delegation of undergraduate computing students representing NACOS FUTO emerged champions at the 2026 National Inter-University Software Innovation Hackathon. Their winning prototype featured an offline-first distributed ledger system enabling rural farmers to verify decentralized payments and track logistics.',
-    cover_image_url: '',
-    cloudinary_public_id: 'nacos/news/gallery_dept_front',
-    read_time_minutes: 3,
-    is_published: true,
-    is_featured: false,
-    published_at: '2026-07-29T10:00:00Z',
-    created_at: '2026-07-29T10:00:00Z'
-  },
-  {
-    id: 'art-5',
-    title: 'Senate Approves New Curricula in Cloud Architecture, AI Systems, and Cyber Security',
-    slug: 'departmental-curriculum-modernization-2026',
-    category: 'Academics',
-    author: 'Departmental Academic Board',
-    summary: 'The university senate has approved revised undergraduate course modules emphasizing industry readiness, microservices architecture, and modern cryptographic defenses.',
-    content: 'Starting in the current academic session, CSC undergraduate students will benefit from hands-on practical labs spanning DevOps pipelines, modern full-stack web architectures, container orchestration, and practical machine learning engineering.',
-    cover_image_url: '',
-    cloudinary_public_id: 'nacos/news/header',
-    read_time_minutes: 5,
-    is_published: true,
-    is_featured: false,
-    published_at: '2026-07-10T10:00:00Z',
-    created_at: '2026-07-10T10:00:00Z'
-  },
-  {
-    id: 'art-6',
-    title: 'Department Welcomes 2026/2027 Freshmen at Orientation Week',
-    slug: 'freshmen-orientation-2026',
-    category: 'Campus Life',
-    author: 'PRO Desk',
-    summary: 'Staff advisers and departmental executive leaders address incoming 100 level students on curriculum excellence.',
-    content: 'Over 400 new students were formally inducted into the Department of Computer Science at the SOPS Theatre. The Head of Department, Dr. Stanley Okolie, charged students with high academic discipline and active participation in software clubs and research hubs.',
-    cover_image_url: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=1200',
-    cloudinary_public_id: 'nacos/news/orientation_cover',
-    read_time_minutes: 3,
-    is_published: true,
-    is_featured: false,
-    published_at: '2026-08-28T09:30:00Z',
-    created_at: '2026-08-28T09:30:00Z'
-  },
-  {
-    id: 'art-7',
-    title: 'Global Alumni Chapter Launches Annual Computing Mentorship Fellowship',
-    slug: 'alumni-mentorship-fellowship-announcement',
-    category: 'Alumni',
-    author: 'NACOS Alumni Relations',
-    summary: 'FUTO CSC alumni working across global tech leaders launch direct mentorship pairing, career advisory webinars, and resume clinics for 300L and 400L students.',
-    content: 'The NACOS FUTO Alumni Network has formally initiated its 2026 Industry Fellowship. Selected students receive 1-on-1 mentorship from software engineers, tech founders, and data scientists stationed across Silicon Valley, Europe, and Nigeria.',
-    cover_image_url: '',
-    cloudinary_public_id: 'nacos/news/alumni_mentorship',
-    read_time_minutes: 4,
-    is_published: true,
-    is_featured: false,
-    published_at: '2026-06-22T10:00:00Z',
-    created_at: '2026-06-22T10:00:00Z'
-  },
-  {
-    id: 'art-8',
-    title: 'Cybersecurity Week: Department Partners with Industry Experts on Digital Safety',
-    slug: 'annual-cybersecurity-awareness-week-highlights',
-    category: 'Research & Journal',
-    author: 'Office of the Director of ICT',
-    summary: 'Students and staff participate in ethical hacking demonstrations, identity defense workshops, and credential protection seminars.',
-    content: 'Organized by the Office of the Director of ICT in partnership with cybersecurity analysts, the event empowered hundreds of undergraduates with skills in penetration testing, multi-factor authentication setup, and digital footprint management.',
-    cover_image_url: '',
-    cloudinary_public_id: 'nacos/news/cybersecurity_week',
-    read_time_minutes: 3,
-    is_published: true,
-    is_featured: false,
-    published_at: '2026-05-18T10:00:00Z',
-    created_at: '2026-05-18T10:00:00Z'
-  }
-];
+export const INITIAL_NEWS_ARTICLES = [];
 
 export function normalizeArticle(a) {
   const publishedAt = a.published_at || a.created_at || new Date().toISOString();
@@ -172,17 +43,13 @@ export function normalizeArticle(a) {
 
 export function getLocalNewsArticles({ publishedOnly = false, category = 'all' } = {}) {
   if (typeof window === 'undefined') {
-    let list = INITIAL_NEWS_ARTICLES.map(normalizeArticle);
-    if (publishedOnly) list = list.filter(a => a.is_published);
-    if (category !== 'all') list = list.filter(a => a.category === category);
-    return list;
+    return [];
   }
   try {
     const raw = localStorage.getItem(NEWS_STORAGE_KEY);
-    let list = raw ? JSON.parse(raw) : null;
-    if (!list || !Array.isArray(list) || list.length === 0) {
-      list = INITIAL_NEWS_ARTICLES;
-      localStorage.setItem(NEWS_STORAGE_KEY, JSON.stringify(list));
+    let list = raw ? JSON.parse(raw) : [];
+    if (!list || !Array.isArray(list)) {
+      list = [];
     }
     let normalized = list.map(normalizeArticle);
     if (publishedOnly) normalized = normalized.filter(a => a.is_published);
@@ -190,10 +57,7 @@ export function getLocalNewsArticles({ publishedOnly = false, category = 'all' }
     return normalized;
   } catch (e) {
     console.warn('Error reading local news articles:', e);
-    let fallback = INITIAL_NEWS_ARTICLES.map(normalizeArticle);
-    if (publishedOnly) fallback = fallback.filter(a => a.is_published);
-    if (category !== 'all') fallback = fallback.filter(a => a.category === category);
-    return fallback;
+    return [];
   }
 }
 
@@ -205,6 +69,7 @@ export function saveLocalNewsArticles(articles) {
 }
 
 export async function fetchNewsArticles({ publishedOnly = true, category = 'all' } = {}) {
+  if (!isSupabaseConfigured || !supabase) return [];
   try {
     if (supabase) {
       // 1. Authoritative check on live Supabase store_news row

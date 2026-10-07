@@ -10,7 +10,7 @@
  * - Customization of page hero header, title, subtitle, and session titles
  */
 
-import { supabase } from './client.js';
+import { supabase, isSupabaseConfigured } from './client.js';
 import { addAdminNotification } from './notificationService.js';
 
 export const EXECUTIVES_STORAGE_KEY = 'nacos_executives_db';
@@ -73,7 +73,7 @@ export function addTenure(tenureSession) {
 }
 
 export async function fetchExecutivesFromSupabase() {
-  if (!supabase) return getExecutives('all');
+  if (!isSupabaseConfigured || !supabase) return [];
 
   try {
     // 1. Authoritative check on live Supabase store_executives row
@@ -181,328 +181,13 @@ export const DEFAULT_EXECUTIVES_PAGE_SETTINGS = {
 };
 
 // Initial Seeded Current Executives
-export const INITIAL_CURRENT_EXECUTIVES = [
-  {
-    id: 'exec-1',
-    name: 'High Comrade Irechukwu Emmanuel S.',
-    role: 'President',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/president_irechukwu',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 0
-  },
-  {
-    id: 'exec-2',
-    name: 'Comrade Okolie Chinaemereme E.',
-    role: 'Vice President',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/vp_chinaemerem',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 1
-  },
-  {
-    id: 'exec-3',
-    name: 'High Comrade Egwuonwu Makuochukwu V.',
-    role: 'Secretary General',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/sec_gen_makuochukwu',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 2
-  },
-  {
-    id: 'exec-4',
-    name: 'Comrade Jibulu Chinecherem Favour',
-    role: 'Ass. Secretary General',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/asg_chinecherem',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 3
-  },
-  {
-    id: 'exec-5',
-    name: 'Comrade Nzeh Daniel Chukwuka',
-    role: 'Financial Secretary',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/daniel_chukwuka',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 4
-  },
-  {
-    id: 'exec-6',
-    name: 'Comrade Pedro Dennis Chikamso',
-    role: 'Treasurer',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/treasurer_chikamso',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 5
-  },
-  {
-    id: 'exec-7',
-    name: 'Journalist Comrade Balogun John M.',
-    role: 'P.R.O',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/pro_john',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 6
-  },
-  {
-    id: 'exec-8',
-    name: 'Comrade Jonathan Faith Onyoiza',
-    role: 'Director of Welfare',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/welfare_onyoiza',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 7
-  },
-  {
-    id: 'exec-9',
-    name: 'Comrade Anyanwu Nestor Ifeanyi',
-    role: 'Director of ICT',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/ict_dir_ifeanyi',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 8
-  },
-  {
-    id: 'exec-10',
-    name: 'Comrade Okere Kelechukwu Victory',
-    role: 'Asst. Director of ICT',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/ict_asst_victory',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 9
-  },
-  {
-    id: 'exec-11',
-    name: 'Comrade Ikenna Elvis Munachimso',
-    role: 'Director of Socials',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/socials_dir_munachimso',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 10
-  },
-  {
-    id: 'exec-12',
-    name: 'Comrade Azubuike Ebenezer Ifeanyi',
-    role: 'Director of Sports',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/sports_dir_ifeanyi',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 11
-  },
-  {
-    id: 'exec-13',
-    name: 'Comrade Emeka Mmesoma Rosemary',
-    role: 'Provost 1',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/provost1_rosemary',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 12
-  },
-  {
-    id: 'exec-14',
-    name: 'Comrade Nduka Anselem Chidera',
-    role: 'Provost 2',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/provost2_chidera',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 13
-  },
-  {
-    id: 'exec-15',
-    name: 'HON. Ogbu Promise Ruby Ucha',
-    role: 'MSRC',
-    image: '',
-    cloudinary_public_id: 'nacos/executives/msrc_ruby',
-    category: 'current',
-    session: '2025/2026',
-    order_index: 14
-  }
-];
+export const INITIAL_CURRENT_EXECUTIVES = [];
 
-// Initial Seeded Past Executives (2019/2020 Sleek-Tech Executive)
-export const INITIAL_PAST_EXECUTIVES = [
-  {
-    id: 'exec-2019-1',
-    name: 'Rtr. Comr. Igwe Kingsley',
-    role: 'President',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 0,
-    image: ''
-  },
-  {
-    id: 'exec-2019-2',
-    name: 'Comr. Iwuono Obiamaka',
-    role: 'Vice President',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 1,
-    image: ''
-  },
-  {
-    id: 'exec-2019-3',
-    name: 'Rtr. Comr. Nwido Paul',
-    role: 'Secretary General',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 2,
-    image: ''
-  },
-  {
-    id: 'exec-2019-4',
-    name: 'Comr. Amaechi Prisca',
-    role: 'Asst. Secretary General',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 3,
-    image: ''
-  },
-  {
-    id: 'exec-2019-5',
-    name: 'Comr. Emezie Victor',
-    role: 'Financial Secretary',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 4,
-    image: ''
-  },
-  {
-    id: 'exec-2019-6',
-    name: 'Comr. Sunday Beauty',
-    role: 'Treasurer',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 5,
-    image: ''
-  },
-  {
-    id: 'exec-2019-7',
-    name: 'Comr. Onyekachi Franklin',
-    role: 'P.R.O',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 6,
-    image: ''
-  },
-  {
-    id: 'exec-2019-8',
-    name: 'Comr. Ibe Victor',
-    role: 'Director of Welfare',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 7,
-    image: ''
-  },
-  {
-    id: 'exec-2019-9',
-    name: 'Comr. Ohaja Wisdom',
-    role: 'Director of ICT',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 8,
-    image: ''
-  },
-  {
-    id: 'exec-2019-10',
-    name: 'Comr. Mozie Promise',
-    role: 'Director of Socials',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 9,
-    image: ''
-  },
-  {
-    id: 'exec-2019-11',
-    name: 'Comr. Eze Stanley',
-    role: 'Director of Sports',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 10,
-    image: ''
-  },
-  {
-    id: 'exec-2019-12',
-    name: 'Comr. Nwaonumara Elochukwu',
-    role: 'Provost 1',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 11,
-    image: ''
-  },
-  {
-    id: 'exec-2019-13',
-    name: 'Comr. Ofordieze Anthony',
-    role: 'Provost 2',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 12,
-    image: ''
-  },
-  {
-    id: 'exec-2019-14',
-    name: 'Hon. Izeuma Thankgod',
-    role: 'MSRC CSC',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 13,
-    image: ''
-  },
-  {
-    id: 'exec-2019-15',
-    name: 'Comr. Okoye Goodness',
-    role: 'Female Coordinator (Southeast)',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 14,
-    image: ''
-  },
-  {
-    id: 'exec-2019-16',
-    name: 'Rtr. Comr. Ekejuba Chinonso',
-    role: 'ICT Director (Imo State)',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 15,
-    image: ''
-  },
-  {
-    id: 'exec-2019-17',
-    name: 'Dr. (Mrs) E.C. Nwokorie',
-    role: 'Head of Department',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 16,
-    image: ''
-  },
-  {
-    id: 'exec-2019-18',
-    name: 'Mr. Njoku Obilor',
-    role: 'Staff Adviser',
-    category: 'past',
-    session: '2019/2020',
-    order_index: 17,
-    image: ''
-  }
-];
+// Initial Seeded Past Executives
+export const INITIAL_PAST_EXECUTIVES = [];
 
-// Helper to get all seeded items initially
 function getAllInitialExecutives() {
-  return [...INITIAL_CURRENT_EXECUTIVES, ...INITIAL_PAST_EXECUTIVES];
+  return [];
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -577,26 +262,15 @@ export async function updateExecutivesSettings(newSettings) {
 
 export function getExecutives(category = 'all') {
   if (typeof window === 'undefined') {
-    const all = getAllInitialExecutives();
-    if (category === 'all') return all;
-    return all.filter(e => e.category === category);
+    return [];
   }
 
   try {
     const raw = localStorage.getItem(EXECUTIVES_STORAGE_KEY);
-    let list = raw ? JSON.parse(raw) : null;
+    let list = raw ? JSON.parse(raw) : [];
 
-    if (!list || !Array.isArray(list) || list.length === 0) {
-      list = getAllInitialExecutives();
-      localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(list));
-    } else {
-      // Merge any newly introduced initial executives (e.g., archived historical sessions)
-      const existingIds = new Set(list.map(e => e.id));
-      const missingInitial = getAllInitialExecutives().filter(e => !existingIds.has(e.id));
-      if (missingInitial.length > 0) {
-        list = [...list, ...missingInitial];
-        localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(list));
-      }
+    if (!Array.isArray(list)) {
+      list = [];
     }
 
     list = list.filter(e => e.id !== 'test-123');
@@ -607,7 +281,7 @@ export function getExecutives(category = 'all') {
     return list.filter(e => e.category === category);
   } catch (err) {
     console.warn('Error reading executives list:', err);
-    return getAllInitialExecutives().filter(e => category === 'all' || e.category === category);
+    return [];
   }
 }
 

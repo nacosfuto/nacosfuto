@@ -1339,7 +1339,6 @@ function loadTemplateImage(primaryUrl, fallbackUrl) {
     const candidates = [
       primaryUrl,
       fallbackUrl,
-      '/nacos_id_template_master.jpg',
       ID_CARD_TEMPLATE.masterTemplateUrl
     ].filter(Boolean);
     const uniqueUrls = [...new Set(candidates)];
@@ -1407,10 +1406,7 @@ export async function drawIdCardOnCanvas(canvas, student, photoImg, cardInfo = n
 
   // 1. Load Master Template Image (Priority: options URL -> static asset -> Cloudinary URL)
   const templateSrc = options.templateImgUrl || options.templateUrl || t.masterTemplateUrl;
-  const templateImg = options.templateImg || await loadTemplateImage(
-    templateSrc,
-    '/nacos_id_template_master.jpg'
-  );
+  const templateImg = options.templateImg || await loadTemplateImage(templateSrc, '');
 
   const hasMasterTemplate = templateImg && templateImg.complete && templateImg.naturalWidth > 0;
 
@@ -1563,7 +1559,7 @@ export async function drawIdCardOnCanvas(canvas, student, photoImg, cardInfo = n
   }
 
   // 2b. Frame Overlay (Ensures authentic green and white border sits cleanly above the photo)
-  const frameSrc = options.frameImgUrl || options.frameUrl || '/nacos_id_template_frame.png';
+  const frameSrc = options.frameImgUrl || options.frameUrl || '';
   const frameImg = options.frameImg || await loadOptionalImage(frameSrc);
   if (frameImg && frameImg.complete && frameImg.naturalWidth > 0) {
     ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
@@ -1709,7 +1705,7 @@ export async function downloadIdCardAsImage(frontCanvasOrUrl, filename = 'NACOS-
     ? frontCanvasOrUrl
     : frontCanvasOrUrl?.toDataURL('image/png');
 
-  const backUrl = ID_CARD_TEMPLATE.masterBackUrl || '/nacos_id_template_back.jpg';
+  const backUrl = ID_CARD_TEMPLATE.masterBackUrl || '';
 
   if (side === 'front' || side === 'both') {
     if (frontDataUrl) {
@@ -1740,7 +1736,7 @@ export function downloadIdCardAsPdf(frontCanvasOrUrl, filename = 'NACOS-Student-
 
   if (!frontImgData) return;
 
-  const backImgData = backUrl || ID_CARD_TEMPLATE.masterBackUrl || '/nacos_id_template_back.jpg';
+  const backImgData = backUrl || ID_CARD_TEMPLATE.masterBackUrl || '';
 
   const printWindow = window.open('', '_blank');
   if (!printWindow) {

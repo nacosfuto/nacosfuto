@@ -45,7 +45,7 @@ const NacosExecutives = () => {
   const loadData = (liveList) => {
     try {
       setPageSettings(getExecutivesSettings());
-      if (Array.isArray(liveList) && liveList.length > 0) {
+      if (Array.isArray(liveList)) {
         setCurrentExecutives(liveList.filter(e => e.category === 'current'));
         setPastExecutives(liveList.filter(e => e.category === 'past'));
       } else {

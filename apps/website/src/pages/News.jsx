@@ -58,9 +58,7 @@ const News = () => {
 
     // Fetch latest news & journal articles from Supabase in background
     fetchNewsArticles({ publishedOnly: true }).then(fetched => {
-      if (fetched && fetched.length > 0) {
-        setArticles(fetched);
-      }
+      setArticles(fetched || []);
     });
 
     // Real-time listener for dashboard updates & multi-tab storage

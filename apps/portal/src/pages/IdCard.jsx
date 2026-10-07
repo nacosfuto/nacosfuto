@@ -38,8 +38,9 @@ import {
 } from '@nacos/supabase/idCard';
 import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
 import { MediaUpload, CLOUDINARY_FOLDERS, getOptimizedImageUrl } from '@nacos/media';
-import masterTemplateAsset from '../assets/nacos_id_template_master.jpg';
-import frameAsset from '../assets/nacos_id_template_frame.png';
+
+const masterTemplateAsset = getOptimizedImageUrl('nacos/ids/nacos_id_template_master');
+const frameAsset = getOptimizedImageUrl('nacos/ids/nacos_id_template_frame');
 
 const IdCard = () => {
   const navigate = useNavigate();
@@ -1015,7 +1016,7 @@ const IdCard = () => {
                   {/* BACK SIDE (Static Master Back Template) */}
                   <div className={`${currentSide === 'back' ? 'block' : 'hidden'}`}>
                     <img
-                      src={application.id_card_back_url || ID_CARD_TEMPLATE.masterBackUrl || '/nacos_id_template_back.jpg'}
+                      src={application.id_card_back_url || ID_CARD_TEMPLATE.masterBackUrl || ''}
                       alt="NACOS Student ID Card Back"
                       className="w-full h-auto block object-cover"
                       style={{ aspectRatio: `${ID_CARD_TEMPLATE.dimensions.aspectRatio}` }}

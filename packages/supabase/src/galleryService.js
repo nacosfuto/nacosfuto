@@ -4,175 +4,14 @@
  * Synchronizes between Supabase `website_gallery` table, local storage, and Cloudinary media assets.
  */
 
-import { supabase } from './client.js';
+import { supabase, isSupabaseConfigured } from './client.js';
 import { syncMediaAsset, deleteMediaAsset } from './media.js';
 import { recordAdminAction } from './adminAuth.js';
 import { CLOUDINARY_FOLDERS } from '@nacos/media';
 
 export const GALLERY_STORAGE_KEY = 'nacos_website_gallery_store';
 
-export const INITIAL_GALLERY = [
-  {
-    id: 'gal-1',
-    title: 'Department Front Entrance',
-    caption: 'NACOS Student Leaders at the Department of Computer Science (TETFUND Complex)',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/gallery_dept_front',
-    category: 'Academics',
-    is_featured: true,
-    created_at: '2026-08-10T12:00:00Z'
-  },
-  {
-    id: 'gal-2',
-    title: 'Student Group Mixer',
-    caption: 'FUTO Computing Students Outdoor Hangout & Mixer',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/gallery_student_group',
-    category: 'Socials',
-    is_featured: true,
-    created_at: '2026-08-12T14:30:00Z'
-  },
-  {
-    id: 'gal-3',
-    title: 'Cultural Day Celebrations',
-    caption: 'Traditional Attire Cultural Day Celebrations',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/gallery_traditional_day',
-    category: 'Culture',
-    is_featured: true,
-    created_at: '2026-08-15T16:00:00Z'
-  },
-  {
-    id: 'gal-4',
-    title: 'Community Nature Outing',
-    caption: 'Student Community Outing & Nature Meetup',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/gallery_nature_hangout',
-    category: 'Socials',
-    is_featured: false,
-    created_at: '2026-08-18T10:00:00Z'
-  },
-  {
-    id: 'gal-5',
-    title: 'Tech Symposium Panel',
-    caption: 'Tech Symposium Panel Discussion with Industry Guest Speakers',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos1',
-    category: 'Tech',
-    is_featured: false,
-    created_at: '2026-08-20T11:00:00Z'
-  },
-  {
-    id: 'gal-6',
-    title: 'Hackathon Sprint',
-    caption: 'Hackathon Sprint & Collaborative Coding Arena',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos2',
-    category: 'Tech',
-    is_featured: false,
-    created_at: '2026-08-22T09:00:00Z'
-  },
-  {
-    id: 'gal-7',
-    title: 'Software Project Demo Day',
-    caption: 'Departmental Software Project Demonstration Day',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos3',
-    category: 'Academics',
-    is_featured: false,
-    created_at: '2026-08-25T13:00:00Z'
-  },
-  {
-    id: 'gal-8',
-    title: 'Freshmen Induction Ceremony',
-    caption: 'Freshmen Orientation & Computing Induction Ceremony',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos4',
-    category: 'Campus Life',
-    is_featured: false,
-    created_at: '2026-08-28T10:00:00Z'
-  },
-  {
-    id: 'gal-9',
-    title: 'Annual NACOS Dinner & Awards',
-    caption: 'Annual NACOS Dinner & Outstanding Scholar Awards Gala',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos5',
-    category: 'Culture',
-    is_featured: false,
-    created_at: '2026-09-01T19:00:00Z'
-  },
-  {
-    id: 'gal-10',
-    title: 'Cybersecurity Workshop',
-    caption: 'Hands-on Cloud & Cyber Security Workshop Session',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos6',
-    category: 'Tech',
-    is_featured: false,
-    created_at: '2026-09-03T11:00:00Z'
-  },
-  {
-    id: 'gal-11',
-    title: 'Departmental Sports Championship',
-    caption: 'Departmental Sports Championship & Track Relay',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos7',
-    category: 'Sports',
-    is_featured: false,
-    created_at: '2026-09-05T15:00:00Z'
-  },
-  {
-    id: 'gal-12',
-    title: 'Alumni Career Talk',
-    caption: 'Alumni Tech Talk & Career Advisory Fireside Chat',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos8',
-    category: 'Academics',
-    is_featured: false,
-    created_at: '2026-09-08T12:00:00Z'
-  },
-  {
-    id: 'gal-13',
-    title: 'Women in Computing Roundtable',
-    caption: 'Women in Computing Roundtable & Mentorship Circle',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos9',
-    category: 'Socials',
-    is_featured: false,
-    created_at: '2026-09-10T14:00:00Z'
-  },
-  {
-    id: 'gal-14',
-    title: 'Open Source Code Sprint',
-    caption: 'Open Source Community Code Contribution Sprint',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos10',
-    category: 'Tech',
-    is_featured: false,
-    created_at: '2026-09-12T10:00:00Z'
-  },
-  {
-    id: 'gal-15',
-    title: 'Systems Programming Lab',
-    caption: 'TETFUND Laboratory Hardware & Systems Programming Class',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos11',
-    category: 'Academics',
-    is_featured: false,
-    created_at: '2026-09-15T13:00:00Z'
-  },
-  {
-    id: 'gal-16',
-    title: 'Final Year Project Showcase',
-    caption: 'Final Year Project Exhibition & Valedictory Showcase',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos12',
-    category: 'Campus Life',
-    is_featured: false,
-    created_at: '2026-09-18T11:00:00Z'
-  }
-];
+export const INITIAL_GALLERY = [];
 
 function normalizeItem(item) {
   return {
@@ -191,28 +30,24 @@ function normalizeItem(item) {
  */
 export function getGalleryItems() {
   if (typeof window === 'undefined') {
-    return INITIAL_GALLERY.map(normalizeItem);
+    return [];
   }
 
   try {
     const raw = localStorage.getItem(GALLERY_STORAGE_KEY);
-    let list = raw ? JSON.parse(raw) : null;
+    let list = raw ? JSON.parse(raw) : [];
 
-    if (!list || !Array.isArray(list) || list.length === 0) {
-      list = INITIAL_GALLERY;
-      localStorage.setItem(GALLERY_STORAGE_KEY, JSON.stringify(list));
+    if (!list || !Array.isArray(list)) {
+      list = [];
     }
 
     return list.map(normalizeItem);
   } catch (err) {
     console.warn('Error reading gallery storage:', err);
-    return INITIAL_GALLERY.map(normalizeItem);
+    return [];
   }
 }
 
-/**
- * Save gallery items array locally and dispatch update event for real-time reactivity
- */
 export function saveLocalGalleryItems(items) {
   if (typeof window === 'undefined') return;
   const normalized = items.map(normalizeItem);
@@ -224,6 +59,7 @@ export function saveLocalGalleryItems(items) {
  * Fetch gallery items from Supabase `website_gallery` with local storage fallback
  */
 export async function fetchGalleryFromSupabase() {
+  if (!isSupabaseConfigured || !supabase) return [];
   try {
     if (supabase) {
       // 1. Authoritative check on live Supabase store_gallery row

@@ -3,45 +3,13 @@ import { FaUserTie } from 'react-icons/fa';
 import { FiChevronLeft, FiChevronRight, FiArrowRight } from 'react-icons/fi';
 import ScrollToTopLink from '../ScrollToTopLink';
 import { getExecutives, fetchExecutivesFromSupabase } from '@nacos/supabase';
-const presidentImg = '';
-const vpImg = '';
-const secGenImg = '';
-const asgImg = '';
-const danielImg = '';
-const treasurerImg = '';
-const proImg = '';
-const welfareImg = '';
-const ictImg = '';
-const ictAsstImg = '';
-const socialsImg = '';
-const sportsImg = '';
-const provost1Img = '';
-const provost2Img = '';
-
-const DEFAULT_EXECUTIVES = [
-  { id: 'def-1', name: "High Comrade Irechukwu Emmanuel S.", role: "President", position: "President", image: presidentImg },
-  { id: 'def-2', name: "Comrade Okolie Chinaemereme E.", role: "Vice President", position: "Vice President", image: vpImg },
-  { id: 'def-3', name: "High Comrade Egwuonwu Makuochukwu V.", role: "Secretary General", position: "Secretary General", image: secGenImg },
-  { id: 'def-4', name: "Comrade Jibulu Chinecherem Favour", role: "Ass. Secretary General", position: "Ass. Secretary General", image: asgImg },
-  { id: 'def-5', name: "Comrade Nzeh Daniel Chukwuka", role: "Financial Secretary", position: "Financial Secretary", image: danielImg },
-  { id: 'def-6', name: "Comrade Pedro Dennis Chikamso", role: "Treasurer", position: "Treasurer", image: treasurerImg },
-  { id: 'def-7', name: "Journalist Comrade Balogun John M.", role: "P.R.O", position: "P.R.O", image: proImg },
-  { id: 'def-8', name: "Comrade Jonathan Faith Onyoiza", role: "Director of Welfare", position: "Director of Welfare", image: welfareImg },
-  { id: 'def-9', name: "Comrade Anyanwu Nestor Ifeanyi", role: "Director of ICT", position: "Director of ICT", image: ictImg },
-  { id: 'def-10', name: "Comrade Okere Kelechukwu Victory", role: "Asst. Director of ICT", position: "Asst. Director of ICT", image: ictAsstImg },
-  { id: 'def-11', name: "Comrade Ikenna Elvis Munachimso", role: "Director of Socials", position: "Director of Socials", image: socialsImg },
-  { id: 'def-12', name: "Comrade Azubuike Ebenezer Ifeanyi", role: "Director of Sports", position: "Director of Sports", image: sportsImg },
-  { id: 'def-13', name: "Comrade Emeka Mmesoma Rosemary", role: "Provost 1", position: "Provost 1", image: provost1Img },
-  { id: 'def-14', name: "Comrade Nduka Anselem Chidera", role: "Provost 2", position: "Provost 2", image: provost2Img },
-];
-
 const NacosSection = () => {
   const [executivesList, setExecutivesList] = useState(() => {
     try {
       const cur = getExecutives('current');
       if (Array.isArray(cur) && cur.length > 0) return cur;
     } catch (e) {}
-    return DEFAULT_EXECUTIVES;
+    return [];
   });
 
   useEffect(() => {
@@ -78,22 +46,21 @@ const NacosSection = () => {
     };
   }, []);
 
-  const rawList = executivesList && executivesList.length > 0 ? executivesList : DEFAULT_EXECUTIVES;
+  const rawList = executivesList && executivesList.length > 0 ? executivesList : [];
 
   // Carousel Items structure mapping
   const items = useMemo(() => {
     return rawList.map((exec, idx) => {
       const roleStr = exec.role || exec.position || 'Executive';
       const isPresident = roleStr.toLowerCase().includes('president') && !roleStr.toLowerCase().includes('vice');
-      const fallbackImg = DEFAULT_EXECUTIVES[idx % DEFAULT_EXECUTIVES.length]?.image || presidentImg;
-      const displayImg = exec.image || exec.image_url || fallbackImg;
+      const displayImg = exec.image || exec.image_url || '';
 
       return {
         id: exec.id || `exec-${idx}`,
         title: exec.name,
         subtitle: roleStr,
         image: displayImg,
-        fallbackImage: fallbackImg,
+        fallbackImage: '',
         link: "/about/nacos-executives",
         accentColor: "#10b981", // Green theme accent
         badge: isPresident ? "President" : undefined
@@ -159,6 +126,8 @@ const NacosSection = () => {
 
   // Continuous animation frame loop
   useEffect(() => {
+    if (!items.length) return;
+
     const updatePhysics = () => {
       if (isDragging.current) {
         animationFrameRef.current = requestAnimationFrame(updatePhysics);
@@ -277,6 +246,10 @@ const NacosSection = () => {
     for (let j = activeSortedIndex - 1; j >= 0; j--) {
       offsets[j] = offsets[j + 1] - widths[j] / 2 - gap - widths[j + 1] / 2;
     }
+  }
+
+  if (!items || items.length === 0) {
+    return null;
   }
 
   return (

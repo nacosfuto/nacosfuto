@@ -6,123 +6,6 @@ import { FiCamera, FiMaximize2, FiX, FiFilter, FiChevronLeft, FiChevronRight } f
 import { CloudinaryImage, getCloudinaryAssetUrl } from '@nacos/media';
 import { supabase, getGalleryItems, fetchGalleryFromSupabase } from '@nacos/supabase';
 
-// Local fallbacks
-const galleryDeptFront = '';
-const galleryStudentGroup = '';
-const galleryTraditionalDay = '';
-const galleryNatureHangout = '';
-const nacos1 = '';
-const nacos2 = '';
-const nacos3 = '';
-const nacos4 = '';
-const nacos5 = '';
-const nacos6 = '';
-const nacos7 = '';
-const nacos8 = '';
-const nacos9 = '';
-const nacos10 = '';
-const nacos11 = '';
-const nacos12 = '';
-
-const CANONICAL_GALLERY = [
-  {
-    publicId: 'nacos/gallery/gallery_dept_front',
-    src: getCloudinaryAssetUrl('gallery_dept_front') || galleryDeptFront,
-    caption: 'NACOS Student Leaders at the Department of Computer Science (TETFUND Complex)',
-    category: 'Academics'
-  },
-  {
-    publicId: 'nacos/gallery/gallery_student_group',
-    src: getCloudinaryAssetUrl('gallery_student_group') || galleryStudentGroup,
-    caption: 'FUTO Computing Students Outdoor Hangout & Mixer',
-    category: 'Socials'
-  },
-  {
-    publicId: 'nacos/gallery/gallery_traditional_day',
-    src: getCloudinaryAssetUrl('gallery_traditional_day') || galleryTraditionalDay,
-    caption: 'Traditional Attire Cultural Day Celebrations',
-    category: 'Culture'
-  },
-  {
-    publicId: 'nacos/gallery/gallery_nature_hangout',
-    src: getCloudinaryAssetUrl('gallery_nature_hangout') || galleryNatureHangout,
-    caption: 'Student Community Outing & Nature Meetup',
-    category: 'Socials'
-  },
-  {
-    publicId: 'nacos/gallery/nacos1',
-    src: getCloudinaryAssetUrl('nacos1') || nacos1,
-    caption: 'Tech Symposium Panel Discussion with Industry Guest Speakers',
-    category: 'Tech'
-  },
-  {
-    publicId: 'nacos/gallery/nacos2',
-    src: getCloudinaryAssetUrl('nacos2') || nacos2,
-    caption: 'Hackathon Sprint & Collaborative Coding Arena',
-    category: 'Tech'
-  },
-  {
-    publicId: 'nacos/gallery/nacos3',
-    src: getCloudinaryAssetUrl('nacos3') || nacos3,
-    caption: 'Departmental Software Project Demonstration Day',
-    category: 'Academics'
-  },
-  {
-    publicId: 'nacos/gallery/nacos4',
-    src: getCloudinaryAssetUrl('nacos4') || nacos4,
-    caption: 'Freshmen Orientation & Computing Induction Ceremony',
-    category: 'Campus Life'
-  },
-  {
-    publicId: 'nacos/gallery/nacos5',
-    src: getCloudinaryAssetUrl('nacos5') || nacos5,
-    caption: 'Annual NACOS Dinner & Outstanding Scholar Awards Gala',
-    category: 'Culture'
-  },
-  {
-    publicId: 'nacos/gallery/nacos6',
-    src: getCloudinaryAssetUrl('nacos6') || nacos6,
-    caption: 'Hands-on Cloud & Cyber Security Workshop Session',
-    category: 'Tech'
-  },
-  {
-    publicId: 'nacos/gallery/nacos7',
-    src: getCloudinaryAssetUrl('nacos7') || nacos7,
-    caption: 'Departmental Sports Championship & Track Relay',
-    category: 'Sports'
-  },
-  {
-    publicId: 'nacos/gallery/nacos8',
-    src: getCloudinaryAssetUrl('nacos8') || nacos8,
-    caption: 'Alumni Tech Talk & Career Advisory Fireside Chat',
-    category: 'Academics'
-  },
-  {
-    publicId: 'nacos/gallery/nacos9',
-    src: getCloudinaryAssetUrl('nacos9') || nacos9,
-    caption: 'Women in Computing Roundtable & Mentorship Circle',
-    category: 'Socials'
-  },
-  {
-    publicId: 'nacos/gallery/nacos10',
-    src: getCloudinaryAssetUrl('nacos10') || nacos10,
-    caption: 'Open Source Community Code Contribution Sprint',
-    category: 'Tech'
-  },
-  {
-    publicId: 'nacos/gallery/nacos11',
-    src: getCloudinaryAssetUrl('nacos11') || nacos11,
-    caption: 'TETFUND Laboratory Hardware & Systems Programming Class',
-    category: 'Academics'
-  },
-  {
-    publicId: 'nacos/gallery/nacos12',
-    src: getCloudinaryAssetUrl('nacos12') || nacos12,
-    caption: 'Final Year Project Exhibition & Valedictory Showcase',
-    category: 'Campus Life'
-  }
-];
-
 const Gallery = () => {
     const { theme } = useTheme();
     const [images, setImages] = useState(() => getGalleryItems());
@@ -130,7 +13,7 @@ const Gallery = () => {
     const [selectedImageIndex, setSelectedImageIndex] = useState(null);
 
     const loadGallery = (liveItems) => {
-        if (Array.isArray(liveItems) && liveItems.length > 0) {
+        if (Array.isArray(liveItems)) {
             setImages(liveItems);
         } else {
             setImages(getGalleryItems());
@@ -250,6 +133,13 @@ const Gallery = () => {
                     </div>
 
                     {/* 4:3 Landscape Ratio Grid with Interactive Fullscreen Click */}
+                    {filteredImages.length === 0 ? (
+                        <div className="py-20 text-center text-gray-500 dark:text-gray-400">
+                            <FiCamera className="text-4xl mx-auto mb-3 opacity-40" />
+                            <p className="text-base font-semibold">No gallery photos found.</p>
+                            <p className="text-xs opacity-75 mt-1">Photos will appear here as uploaded from the administrative dashboard.</p>
+                        </div>
+                    ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredImages.map((img, index) => (
                             <div 
@@ -295,6 +185,7 @@ const Gallery = () => {
                             </div>
                         ))}
                     </div>
+                    )}
                 </div>
 
                 {/* Interactive Full-Screen Lightbox Modal */}
