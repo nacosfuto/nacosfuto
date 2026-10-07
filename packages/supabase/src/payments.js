@@ -278,4 +278,141 @@ export async function updatePaymentFee(feeKey, amount, label = '') {
   }
 }
 
+/**
+ * Authoritatively fetch all dues payments from Supabase payments ledger
+ */
+export async function adminGetAllDuesPayments() {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('payment_type', 'DEPARTMENTAL_DUES')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('[Dues Payments Ledger Fetch Warning]:', error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error('[Dues Payments Ledger Error]:', err);
+    return [];
+  }
+}
+
+/**
+ * Authoritatively clear a student's departmental dues manually (e.g. Bursary Teller, POS, Exemption)
+ */
+export async function adminManuallyClearDues({
+  studentId,
+  registrationNumber,
+  studentName = 'Student',
+  studentEmail = '',
+  amount = 2500,
+  academicSession = '2026/2027',
+  level = 'All',
+  paymentMethod = 'MANUAL_BURSARY',
+  reference = null,
+  note = 'Manually cleared by portal administrator'
+}) {
+  const regNo = String(registrationNumber || '').trim().toUpperCase();
+  const stId = String(studentId || regNo || `cust_${Date.now()}`);
+  const now = new Date().toISOString();
+  const numAmount = Number(amount) || 2500;
+  const payRef = reference || `NACOS-DUES-MANUAL-${regNo || Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+  try {
+    if (supabase) {
+      // 1. Insert or update in public.payments table
+      const { data: paymentRecord, error: payErr } = await supabase
+        .from('payments')
+        .upsert({
+          student_id: stId,
+          registration_number: regNo,
+          payment_type: 'DEPARTMENTAL_DUES',
+          provider: paymentMethod,
+          amount: numAmount,
+          currency: 'NGN',
+          status: 'successful',
+          reference: payRef,
+          paid_at: now,
+          created_at: now,
+          updated_at: now,
+          metadata: {
+            customer_name: studentName,
+            customer_email: studentEmail,
+            academicSession,
+            level,
+            payment_method: paymentMethod,
+            note,
+            cleared_manually: true,
+            cleared_at: now
+          }
+        }, { onConflict: 'reference' })
+        .select()
+        .single();
+
+      if (payErr) {
+        console.error('[Manual Dues Clearance Payment Error]:', payErr);
+        return { error: `Failed to record payment: ${payErr.message}` };
+      }
+
+      // 2. Also record in dues_payments table if available
+      try {
+        await supabase
+          .from('dues_payments')
+          .upsert({
+            student_id: stId,
+            payment_type: 'departmental_dues',
+            status: 'successful'
+          });
+      } catch (_) {}
+
+      return { success: true, payment: paymentRecord, reference: payRef };
+    }
+  } catch (err) {
+    console.error('[Manual Dues Clearance Error]:', err);
+    return { error: err.message || 'Failed to clear dues' };
+  }
+
+  return { success: true, reference: payRef };
+}
+
+/**
+ * Revoke or cancel a student's departmental dues clearance
+ */
+export async function adminRevokeDuesClearance({ reference, registrationNumber, studentId }) {
+  const now = new Date().toISOString();
+  try {
+    if (supabase) {
+      if (reference) {
+        await supabase
+          .from('payments')
+          .update({
+            status: 'cancelled',
+            updated_at: now
+          })
+          .eq('reference', reference);
+      } else if (registrationNumber) {
+        await supabase
+          .from('payments')
+          .update({
+            status: 'cancelled',
+            updated_at: now
+          })
+          .eq('registration_number', registrationNumber)
+          .eq('payment_type', 'DEPARTMENTAL_DUES');
+      }
+
+      return { success: true };
+    }
+  } catch (err) {
+    console.error('[Revoke Dues Clearance Error]:', err);
+    return { error: err.message || 'Failed to revoke dues clearance' };
+  }
+  return { success: true };
+}
+
+
 

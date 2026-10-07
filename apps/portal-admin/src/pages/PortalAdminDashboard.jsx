@@ -24,6 +24,7 @@ import { adminGetAllVerifiedStudents } from '@nacos/supabase/verifiedStudents';
 import { adminGetAllStudents } from '@nacos/supabase/auth';
 import { portalAdminGetApplications } from '@nacos/supabase/idCard';
 import { getDuesSettings, supabase } from '@nacos/supabase';
+import DashboardDuesTracker from '../components/DashboardDuesTracker';
 import { useTheme } from '../context/ThemeContext';
 
 export const PortalAdminDashboard = () => {
@@ -267,6 +268,9 @@ export const PortalAdminDashboard = () => {
             );
           })}
         </div>
+
+        {/* Dedicated Section: Departmental Dues Clearance & Financial Tracker */}
+        <DashboardDuesTracker onSettingsUpdated={loadDashboardData} />
 
         {/* Live Data Tables & Feeds */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
