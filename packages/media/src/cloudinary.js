@@ -190,10 +190,7 @@ export function getCloudName() {
   if (typeof process !== 'undefined' && process.env?.CLOUDINARY_CLOUD_NAME) {
     return process.env.CLOUDINARY_CLOUD_NAME;
   }
-  if (cloudinaryAssetsData?.cloudName) {
-    return cloudinaryAssetsData.cloudName;
-  }
-  return 'nacos-futo';
+  return '';
 }
 
 /**
@@ -266,6 +263,7 @@ export function getOptimizedImageUrl(publicIdOrUrl, options = {}) {
   }
 
   // Case 3: A Cloudinary Public ID (e.g., 'nacos/students/2024CS12345_passport')
+  if (!cloudName) return '';
   const cleanPublicId = publicIdOrUrl.replace(/^\/+/, '');
   return `https://res.cloudinary.com/${cloudName}/image/upload/${transforms}/${cleanPublicId}`;
 }
