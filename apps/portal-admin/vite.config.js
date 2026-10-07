@@ -4,12 +4,34 @@ import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import crypto from 'crypto';
 import { dispatchEmail } from '../../packages/supabase/src/server/emailDispatcher.js';
+import { handleStorageRequest } from '../../packages/supabase/src/server/b2StorageDispatcher.js';
 
 function cloudinaryDevPlugin() {
   return {
     name: 'cloudinary-dev-server',
     configureServer(server) {
-      server.middlewares.use((req, res, next) => {
+      server.middlewares.use(async (req, res, next) => {
+        // --- BACKBLAZE B2 RESOURCE STORAGE DEV ENDPOINTS ---
+        if (
+          req.url?.startsWith('/api/resource-storage') || 
+          req.url?.startsWith('/api/b2-download-token') ||
+          req.url?.startsWith('/api/download') ||
+          req.url?.startsWith('/api/preview')
+        ) {
+          try {
+            const rootEnv = loadEnv('development', path.resolve(__dirname, '../../'), '');
+            const localEnv = loadEnv('development', process.cwd(), '');
+            const env = { ...process.env, ...rootEnv, ...localEnv };
+            const handled = await handleStorageRequest(req, res, env);
+            if (handled) return;
+          } catch (storageErr) {
+            console.error('[Portal Admin Dev Storage Error]:', storageErr);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: storageErr.message }));
+            return;
+          }
+        }
         if (req.url === '/api/email/send' && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });

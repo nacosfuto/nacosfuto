@@ -12,8 +12,56 @@ import { storageService } from './storageService.js';
 /**
  * Fetch all active resource categories (sorted by display order / name)
  */
+export const DEFAULT_RESOURCE_CATEGORIES = [
+  {
+    id: '7156a37d-6134-4bb0-8848-93d57c25ce93',
+    name: 'Handouts & Lecture Notes',
+    slug: 'handouts',
+    description: 'Official lecture slides and departmental handouts',
+    icon: 'FileText',
+    display_order: 1,
+    is_active: true
+  },
+  {
+    id: 'ddd57263-dbaf-400b-8a2a-d5d6dd906a45',
+    name: 'Past Questions & Solutions',
+    slug: 'past-questions',
+    description: 'Past examination questions and solutions',
+    icon: 'HelpCircle',
+    display_order: 2,
+    is_active: true
+  },
+  {
+    id: 'c79cdfc4-d4c6-4075-b72d-8c1b12f08273',
+    name: 'Textbooks & Compendiums',
+    slug: 'books',
+    description: 'Recommended textbooks and academic compendiums',
+    icon: 'BookOpen',
+    display_order: 3,
+    is_active: true
+  },
+  {
+    id: 'b5fa175a-d23a-421d-90d3-df19df92136b',
+    name: 'Video Tutorials & Lectures',
+    slug: 'videos',
+    description: 'Recorded workshops, webinars and tutorial archives',
+    icon: 'Video',
+    display_order: 4,
+    is_active: true
+  },
+  {
+    id: '74d92f9b-f81d-44e5-8d80-65b2eb08457d',
+    name: 'Lab Guides & Code Repositories',
+    slug: 'tutorials',
+    description: 'Lab manuals, code repositories and practical tutorials',
+    icon: 'Sparkles',
+    display_order: 5,
+    is_active: true
+  }
+];
+
 export async function fetchResourceCategories(options = { includeInactive: false }) {
-  if (!supabase) return { data: [], error: 'Supabase client not initialized' };
+  if (!supabase) return { data: DEFAULT_RESOURCE_CATEGORIES, error: null };
 
   try {
     let query = supabase
@@ -27,11 +75,27 @@ export async function fetchResourceCategories(options = { includeInactive: false
     }
 
     const { data, error } = await query;
-    if (error) throw error;
-    return { data: data || [], error: null };
+    if (error) {
+      console.warn('Database category query notice, using default categories:', error.message);
+      return { data: DEFAULT_RESOURCE_CATEGORIES, error: null };
+    }
+    
+    if (Array.isArray(data) && data.length > 0) {
+      // Enhance short names with descriptive labels if needed
+      const enhanced = data.map(cat => {
+        const found = DEFAULT_RESOURCE_CATEGORIES.find(d => d.id === cat.id || d.slug === cat.slug);
+        return {
+          ...cat,
+          name: found ? found.name : cat.name
+        };
+      });
+      return { data: enhanced, error: null };
+    }
+
+    return { data: DEFAULT_RESOURCE_CATEGORIES, error: null };
   } catch (err) {
-    console.error('Error fetching resource categories:', err);
-    return { data: [], error: err.message || 'Failed to fetch categories' };
+    console.warn('Error fetching resource categories, falling back to defaults:', err);
+    return { data: DEFAULT_RESOURCE_CATEGORIES, error: null };
   }
 }
 

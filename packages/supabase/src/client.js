@@ -10,16 +10,17 @@ const supabaseAnonKey =
     ? import.meta.env.VITE_SUPABASE_ANON_KEY
     : (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_ANON_KEY ? process.env.VITE_SUPABASE_ANON_KEY : '');
 
-const dummyUrl = 'https://unconfigured-project.supabase.co';
-const dummyKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.unconfigured';
+const defaultUrl = 'https://jvxbyataifjsotudtqly.supabase.co';
+const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2eGJ5YXRhaWZqc290dWR0cWx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMTczNTksImV4cCI6MjEwNjg5MzM1OX0.rqE9EmdZLiHFTKmznpCXmurn8NHnt0jF6vm2Fa6YaOM';
 
 const isServer = typeof window === 'undefined' && typeof process !== 'undefined';
 const serverKey = isServer ? (process.env?.SUPABASE_SERVICE_ROLE_KEY || process.env?.VITE_SUPABASE_ANON_KEY) : '';
-const effectiveKey = (isServer && serverKey) ? serverKey : (supabaseAnonKey || dummyKey);
+const resolvedUrl = supabaseUrl || defaultUrl;
+const effectiveKey = (isServer && serverKey) ? serverKey : (supabaseAnonKey || defaultKey);
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && (serverKey || supabaseAnonKey) && supabaseUrl !== dummyUrl);
+export const isSupabaseConfigured = Boolean(resolvedUrl && effectiveKey);
 
-export const supabase = createClient(supabaseUrl || dummyUrl, effectiveKey, {
+export const supabase = createClient(resolvedUrl, effectiveKey, {
   auth: {
     persistSession: !isServer,
     autoRefreshToken: !isServer,

@@ -44,7 +44,8 @@ import {
   adminGetResourceAnalytics,
   adminCreateCategory,
   adminDeleteCategory,
-  storageService
+  storageService,
+  DEFAULT_RESOURCE_CATEGORIES
 } from '@nacos/supabase';
 import { getPortalAdminSession } from '@nacos/auth';
 
@@ -53,7 +54,7 @@ const PortalAdminResources = () => {
 
   // Data States
   const [resources, setResources] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState(DEFAULT_RESOURCE_CATEGORIES);
   const [analytics, setAnalytics] = useState({
     totalResources: 0,
     activeResources: 0,
@@ -87,7 +88,7 @@ const PortalAdminResources = () => {
   const [uploadFormData, setUploadFormData] = useState({
     title: '',
     description: '',
-    categoryId: '',
+    categoryId: DEFAULT_RESOURCE_CATEGORIES[0]?.id || '',
     courseCode: '',
     courseTitle: '',
     level: '300',
@@ -1023,6 +1024,40 @@ const PortalAdminResources = () => {
                     onChange={(e) => setSelectedResourceForEdit({ ...selectedResourceForEdit, description: e.target.value })}
                     className="w-full px-3.5 py-2 rounded bg-white dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/40 text-gray-900 dark:text-white"
                   />
+                </div>
+
+                {/* Category & Resource Type */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-700 dark:text-green-200 mb-1">
+                      Resource Category
+                    </label>
+                    <select
+                      value={selectedResourceForEdit.category_id || categories[0]?.id || ''}
+                      onChange={(e) => setSelectedResourceForEdit({ ...selectedResourceForEdit, category_id: e.target.value })}
+                      className="w-full px-3 py-2 rounded bg-white dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/40 text-gray-900 dark:text-white"
+                    >
+                      {categories.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-700 dark:text-green-200 mb-1">
+                      Resource Type
+                    </label>
+                    <select
+                      value={selectedResourceForEdit.resource_type || 'document'}
+                      onChange={(e) => setSelectedResourceForEdit({ ...selectedResourceForEdit, resource_type: e.target.value })}
+                      className="w-full px-3 py-2 rounded bg-white dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/40 text-gray-900 dark:text-white"
+                    >
+                      <option value="document">Course Notes / PDF Document</option>
+                      <option value="past_question">Past Questions & Solutions</option>
+                      <option value="video">Video Tutorial</option>
+                      <option value="image">Image / Graphic / Flyer</option>
+                      <option value="archive">ZIP / Source Code Archive</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

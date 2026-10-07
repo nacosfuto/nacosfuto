@@ -242,6 +242,28 @@ export function extractCleanStorageKey(keyOrUrl) {
   return str.replace(/^\/+/, '');
 }
 
+/**
+ * Helper to encode File or Blob to base64
+ */
+async function fileToBase64(file) {
+  if (typeof FileReader !== 'undefined') {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result || '';
+        const base64 = typeof result === 'string' ? result.split(',')[1] || '' : '';
+        resolve(base64);
+      };
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
+  } else if (file && typeof file.arrayBuffer === 'function') {
+    const buffer = await file.arrayBuffer();
+    return typeof Buffer !== 'undefined' ? Buffer.from(buffer).toString('base64') : '';
+  }
+  return '';
+}
+
 export const storageService = {
   /**
    * Upload a file to Backblaze B2 / Storage Provider.
@@ -267,28 +289,68 @@ export const storageService = {
       if (targetRes.ok) {
         const target = await targetRes.json();
         if (target?.uploadUrl && target?.authorizationToken) {
-          await this._streamUpload(target.uploadUrl, file, mimeType, options.onProgress, {
-            Authorization: target.authorizationToken,
-            'X-Bz-File-Name': encodeURIComponent(storageKey),
-            'Content-Type': mimeType,
-            'Content-Length': file.size.toString(),
-            'X-Bz-Content-Sha1': 'do_not_verify'
-          });
+          try {
+            await this._streamUpload(target.uploadUrl, file, mimeType, options.onProgress, {
+              Authorization: target.authorizationToken,
+              'X-Bz-File-Name': encodeURIComponent(storageKey),
+              'Content-Type': mimeType,
+              'Content-Length': file.size.toString(),
+              'X-Bz-Content-Sha1': 'do_not_verify'
+            });
 
-          return {
-            success: true,
-            storageKey,
-            storageProvider: 'backblaze_b2',
-            storageBucket: target.bucket || B2_BUCKET_NAME,
-            publicUrl: `${B2_PUBLIC_BASE_URL}/${storageKey}`,
-            fileSize: file.size,
-            fileName: sanitizeFilename(fileName),
-            mimeType
-          };
+            return {
+              success: true,
+              storageKey,
+              storageProvider: 'backblaze_b2',
+              storageBucket: target.bucket || B2_BUCKET_NAME,
+              publicUrl: `${B2_PUBLIC_BASE_URL}/${storageKey}`,
+              fileSize: file.size,
+              fileName: sanitizeFilename(fileName),
+              mimeType
+            };
+          } catch (streamErr) {
+            console.warn('Direct stream to B2 uploadUrl failed (likely CORS on B2 bucket):', streamErr);
+          }
         }
       }
     } catch (apiErr) {
       console.warn('API B2 upload target notice:', apiErr);
+    }
+
+    // 1.1 Server-side direct-upload fallback (bypasses browser CORS completely)
+    try {
+      const base64 = await fileToBase64(file);
+      if (base64) {
+        const directRes = await fetch('/api/resource-storage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'direct-upload',
+            storageKey,
+            fileBase64: base64,
+            mimeType
+          })
+        });
+
+        if (directRes.ok) {
+          const directData = await directRes.json();
+          if (directData?.success) {
+            if (typeof options.onProgress === 'function') options.onProgress(100);
+            return {
+              success: true,
+              storageKey,
+              storageProvider: 'backblaze_b2',
+              storageBucket: directData.storageBucket || B2_BUCKET_NAME,
+              publicUrl: directData.publicUrl || `${B2_PUBLIC_BASE_URL}/${storageKey}`,
+              fileSize: file.size,
+              fileName: sanitizeFilename(fileName),
+              mimeType
+            };
+          }
+        }
+      }
+    } catch (directErr) {
+      console.warn('Server direct-upload notice:', directErr);
     }
 
     // 2. Try Supabase Edge Function if deployed

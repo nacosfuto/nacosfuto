@@ -284,6 +284,12 @@ export async function createOTPVerification(regNumber, channel, destination, ful
 
 export async function verifyOTP(regNumber, channel, submittedCode) {
   const cleanReg = regNumber.trim().toUpperCase();
+  const strippedReg = cleanReg.replace(/[^a-zA-Z0-9]/g, '');
+  let formattedReg = cleanReg;
+  if (cleanReg.length === 11 && !cleanReg.includes('/')) {
+    formattedReg = `${cleanReg.slice(0, 4)}/${cleanReg.slice(4)}`;
+  }
+
   const cleanCode = (submittedCode || '').toString().replace(/\D/g, '').trim();
 
   if (!cleanCode || cleanCode.length !== 6) {
@@ -295,50 +301,69 @@ export async function verifyOTP(regNumber, channel, submittedCode) {
   let match = null;
 
   try {
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const orFilter = `registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg},registration_number.ilike.${formattedReg}`;
     const { data: activeList } = await supabase
       .from('otp_verifications')
       .select('*')
-      .eq('registration_number', cleanReg)
-      .gte('created_at', thirtyMinutesAgo)
-      .order('created_at', { ascending: false });
+      .or(orFilter)
+      .order('created_at', { ascending: false })
+      .limit(20);
 
     if (activeList && activeList.length > 0) {
-      match = activeList.find(r => r.otp_hash === submittedHash);
+      match = activeList.find(r => r.otp_hash === submittedHash || (r.code && r.code === cleanCode));
 
       if (match) {
         const expiryTime = match.expires_at ? new Date(match.expires_at).getTime() : 0;
-        const isExpired = expiryTime > 0 && (Date.now() > expiryTime + 5 * 60 * 1000);
+        const isExpired = expiryTime > 0 && (Date.now() > expiryTime + 10 * 60 * 1000);
 
         if (isExpired) {
           return { success: false, error: { message: 'This verification code has expired. Please request a new code.' } };
         }
 
-        // Mark match as verified & used
-        await supabase
-          .from('otp_verifications')
-          .update({
-            verified_at: nowIso,
-            is_used: true
-          })
-          .eq('id', match.id);
+        if (match.attempts >= (match.max_attempts || OTP_MAX_ATTEMPTS)) {
+          return { success: false, error: { message: 'Maximum verification attempts exceeded. Please request a new code.' } };
+        }
+
+        // If already verified within last 30 minutes, allow success
+        if (match.verified_at) {
+          const verifiedAge = Date.now() - new Date(match.verified_at).getTime();
+          if (verifiedAge < 30 * 60 * 1000) {
+            // Re-authorization valid
+          } else {
+            return { success: false, error: { message: 'This verification code has already been verified and expired. Please request a new code.' } };
+          }
+        } else {
+          // Mark match as verified & used
+          await supabase
+            .from('otp_verifications')
+            .update({
+              verified_at: nowIso,
+              is_used: true
+            })
+            .eq('id', match.id);
+        }
       } else {
-        const activeUnused = activeList.filter(c => !c.is_used);
-        if (activeUnused.length > 0) {
-          const latest = activeUnused[0];
-          const newAttempts = (latest.attempts || 0) + 1;
+        const pending = activeList.find(c => !c.is_used || (!c.expires_at || new Date(c.expires_at).getTime() + 10 * 60 * 1000 >= Date.now()));
+        if (pending) {
+          const newAttempts = (pending.attempts || 0) + 1;
           await supabase
             .from('otp_verifications')
             .update({
               attempts: newAttempts,
-              is_used: newAttempts >= (latest.max_attempts || OTP_MAX_ATTEMPTS)
+              is_used: newAttempts >= (pending.max_attempts || OTP_MAX_ATTEMPTS)
             })
-            .eq('id', latest.id);
+            .eq('id', pending.id);
 
-          if (newAttempts >= (latest.max_attempts || OTP_MAX_ATTEMPTS)) {
-            return { success: false, error: { message: 'Too many verification attempts. Please request a new code.' } };
-          }
-          return { success: false, error: { message: 'Incorrect verification code. Please try again.' } };
+          const maxAttempts = pending.max_attempts || OTP_MAX_ATTEMPTS;
+          const remaining = Math.max(0, maxAttempts - newAttempts);
+          return { 
+            success: false, 
+            error: { 
+              message: remaining > 0 
+                ? `Incorrect verification code. ${remaining} attempt(s) remaining.` 
+                : 'Maximum verification attempts exceeded. Please request a new code.' 
+            } 
+          };
         }
       }
     }
@@ -347,12 +372,11 @@ export async function verifyOTP(regNumber, channel, submittedCode) {
   if (!match) {
     const storedCodes = getLocalData(OTP_STORAGE_KEY);
     const activeStored = storedCodes.filter(c =>
-      c.registration_number === cleanReg &&
-      !c.is_used &&
-      (new Date(c.expires_at).getTime() + 5 * 60 * 1000 >= Date.now())
+      (c.registration_number === cleanReg || c.registration_number === strippedReg) &&
+      (!c.expires_at || new Date(c.expires_at).getTime() + 10 * 60 * 1000 >= Date.now())
     );
 
-    match = activeStored.find(c => c.otp_hash === submittedHash);
+    match = activeStored.find(c => c.otp_hash === submittedHash || c.code === cleanCode);
 
     if (match) {
       match.is_used = true;
@@ -365,10 +389,15 @@ export async function verifyOTP(regNumber, channel, submittedCode) {
         codeRecord.is_used = true;
       }
       saveLocalData(OTP_STORAGE_KEY, storedCodes);
-      if (codeRecord.attempts >= OTP_MAX_ATTEMPTS) {
-        return { success: false, error: { message: 'Too many verification attempts. Please request a new code.' } };
-      }
-      return { success: false, error: { message: 'Incorrect verification code. Please try again.' } };
+      const remaining = Math.max(0, OTP_MAX_ATTEMPTS - codeRecord.attempts);
+      return { 
+        success: false, 
+        error: { 
+          message: remaining > 0 
+            ? `Incorrect verification code. ${remaining} attempt(s) remaining.` 
+            : 'Maximum verification attempts exceeded. Please request a new code.' 
+        } 
+      };
     }
   }
 

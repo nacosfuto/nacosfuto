@@ -12,12 +12,23 @@ import {
   Shield,
   Lock,
   ShieldAlert,
-  UserCheck
+  UserCheck,
+  UserPlus,
+  Plus,
+  X,
+  Check
 } from 'lucide-react';
 import { getIdCardSettings, getDuesSettings, savePortalSettingsDirectly } from '@nacos/supabase';
 import { CURRENT_ACADEMIC_YEAR_START, getAcademicSession } from '@nacos/config/academic';
 import { useTheme } from '../context/ThemeContext';
-import { getLocalPortalAdmins, fetchPortalAdminsFromSupabase, updateAdminAssignedLevel, getPortalAdminSession } from '@nacos/auth';
+import { 
+  getLocalPortalAdmins, 
+  fetchPortalAdminsFromSupabase, 
+  updateAdminAssignedLevel, 
+  getPortalAdminSession,
+  createPortalAdmin,
+  togglePortalAdminStatus
+} from '@nacos/auth';
 
 export const PortalAdminSettings = () => {
   const { theme } = useTheme();
@@ -34,6 +45,16 @@ export const PortalAdminSettings = () => {
   const [currentAdmin, setCurrentAdmin] = useState(null);
   const [portalAdmins, setPortalAdmins] = useState([]);
   const [adminUpdateMsg, setAdminUpdateMsg] = useState('');
+  const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
+  const [isAddingAdmin, setIsAddingAdmin] = useState(false);
+  const [addAdminError, setAddAdminError] = useState('');
+  const [newAdminData, setNewAdminData] = useState({
+    fullName: '',
+    email: '',
+    role: 'course_adviser',
+    assignedLevel: '100',
+    password: 'password'
+  });
 
   useEffect(() => {
     // 1. Authoritative fetch directly from Supabase database
@@ -72,6 +93,54 @@ export const PortalAdminSettings = () => {
     } catch (e) {
       console.error(e);
       setAdminUpdateMsg(`Failed to update level in database: ${e.message}`);
+    }
+  };
+
+  const handleCreateAdmin = async (e) => {
+    e.preventDefault();
+    setIsAddingAdmin(true);
+    setAddAdminError('');
+    try {
+      const res = await createPortalAdmin({
+        fullName: newAdminData.fullName,
+        email: newAdminData.email,
+        role: newAdminData.role,
+        assignedLevel: newAdminData.assignedLevel,
+        initialPassword: newAdminData.password || 'password'
+      });
+
+      if (res?.error) {
+        setAddAdminError(res.error);
+      } else {
+        setPortalAdmins(res.admins);
+        setAdminUpdateMsg(`Administrator ${newAdminData.fullName} created & synced to database!`);
+        setIsAddAdminModalOpen(false);
+        setNewAdminData({
+          fullName: '',
+          email: '',
+          role: 'course_adviser',
+          assignedLevel: '100',
+          password: 'password'
+        });
+        setTimeout(() => setAdminUpdateMsg(''), 4000);
+      }
+    } catch (err) {
+      setAddAdminError(err.message || 'Failed to create administrator.');
+    } finally {
+      setIsAddingAdmin(false);
+    }
+  };
+
+  const handleToggleAdminStatus = async (adminId, currentActive) => {
+    try {
+      const res = await togglePortalAdminStatus(adminId, !currentActive);
+      if (res?.admins) {
+        setPortalAdmins(res.admins);
+        setAdminUpdateMsg(`Admin account status updated.`);
+        setTimeout(() => setAdminUpdateMsg(''), 3000);
+      }
+    } catch (e) {
+      setAdminUpdateMsg(`Status update error: ${e.message}`);
     }
   };
 
@@ -295,16 +364,26 @@ export const PortalAdminSettings = () => {
         <div className={`p-6 rounded-2xl border space-y-4 ${
           isDark ? 'bg-[#04160d] border-emerald-950/60' : 'bg-white border-slate-200'
         }`}>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-emerald-400">
               <Users className="w-4 h-4" />
               <h2 className="text-sm font-bold">Administrator Level Assignments & Scope Rights</h2>
             </div>
-            {adminUpdateMsg && (
-              <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-md border border-emerald-800">
-                {adminUpdateMsg}
-              </span>
-            )}
+            <div className="flex items-center gap-2.5">
+              {adminUpdateMsg && (
+                <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-md border border-emerald-800">
+                  {adminUpdateMsg}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsAddAdminModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 hover:to-emerald-500 shadow-sm cursor-pointer transition-colors"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Add Administrator</span>
+              </button>
+            </div>
           </div>
 
           <p className="text-xs text-slate-400 leading-relaxed">
@@ -337,24 +416,39 @@ export const PortalAdminSettings = () => {
                       <p className="text-[11px] text-gray-500 font-mono">{admin.email}</p>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-semibold text-gray-400">Assigned Level:</span>
-                      <select
-                        value={assigned}
-                        onChange={(e) => handleLevelChange(admin.id, e.target.value)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
-                          assigned === 'all'
-                            ? 'bg-emerald-50 dark:bg-[#041801] text-[#138601] dark:text-[#4bd043] border-[#138601]/30'
-                            : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-semibold text-gray-400">Level:</span>
+                        <select
+                          value={assigned}
+                          onChange={(e) => handleLevelChange(admin.id, e.target.value)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                            assigned === 'all'
+                              ? 'bg-emerald-50 dark:bg-[#041801] text-[#138601] dark:text-[#4bd043] border-[#138601]/30'
+                              : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                          }`}
+                        >
+                          <option value="all">Full Access (All Levels)</option>
+                          <option value="100">100 Level (Course Adviser)</option>
+                          <option value="200">200 Level (Course Adviser)</option>
+                          <option value="300">300 Level (Course Adviser)</option>
+                          <option value="400">400 Level (Course Adviser)</option>
+                          <option value="500">500 Level (Course Adviser)</option>
+                        </select>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleAdminStatus(admin.id, admin.is_active !== false)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
+                          admin.is_active !== false
+                            ? 'bg-emerald-100/60 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                            : 'bg-rose-100/60 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800'
                         }`}
+                        title={admin.is_active !== false ? 'Click to disable access' : 'Click to enable access'}
                       >
-                        <option value="all">Full Access (All Levels)</option>
-                        <option value="100">100 Level (Course Adviser)</option>
-                        <option value="200">200 Level (Course Adviser)</option>
-                        <option value="300">300 Level (Course Adviser)</option>
-                        <option value="400">400 Level (Course Adviser)</option>
-                        <option value="500">500 Level (Course Adviser)</option>
-                      </select>
+                        {admin.is_active !== false ? 'Active' : 'Disabled'}
+                      </button>
                     </div>
                   </div>
 
@@ -387,6 +481,129 @@ export const PortalAdminSettings = () => {
             })}
           </div>
         </div>
+
+        {/* Modal: Add New Portal Administrator */}
+        {isAddAdminModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/40 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              <div className="p-5 border-b border-gray-100 dark:border-[#138601]/25 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white">Add Portal Administrator</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddAdminModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-700 dark:hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateAdmin} className="p-5 space-y-4 text-xs">
+                {addAdminError && (
+                  <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300">
+                    {addAdminError}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block font-semibold text-gray-700 dark:text-green-200 mb-1">
+                    Full Name &amp; Title *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Dr. Jacinta Odirichukwu"
+                    value={newAdminData.fullName}
+                    onChange={(e) => setNewAdminData({ ...newAdminData, fullName: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/40 text-gray-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-700 dark:text-green-200 mb-1">
+                    Official Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="e.g. jacinta.odirichukwu@futo.edu.ng"
+                    value={newAdminData.email}
+                    onChange={(e) => setNewAdminData({ ...newAdminData, email: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/40 text-gray-900 dark:text-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-700 dark:text-green-200 mb-1">
+                      Administrative Role
+                    </label>
+                    <select
+                      value={newAdminData.role}
+                      onChange={(e) => setNewAdminData({ ...newAdminData, role: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/40 text-gray-900 dark:text-white"
+                    >
+                      <option value="course_adviser">Course Adviser</option>
+                      <option value="portal_admin">Portal Administrator</option>
+                      <option value="super_admin">Super Administrator</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-gray-700 dark:text-green-200 mb-1">
+                      Assigned Level
+                    </label>
+                    <select
+                      value={newAdminData.assignedLevel}
+                      onChange={(e) => setNewAdminData({ ...newAdminData, assignedLevel: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/40 text-gray-900 dark:text-white"
+                    >
+                      <option value="all">Full Access (All Levels)</option>
+                      <option value="100">100 Level</option>
+                      <option value="200">200 Level</option>
+                      <option value="300">300 Level</option>
+                      <option value="400">400 Level</option>
+                      <option value="500">500 Level</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-700 dark:text-green-200 mb-1">
+                    Initial Password
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newAdminData.password}
+                    onChange={(e) => setNewAdminData({ ...newAdminData, password: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/40 text-gray-900 dark:text-white font-mono"
+                  />
+                  <span className="text-[10px] text-gray-400 mt-1 block">Default initial password is 'password'. Admin can change after login.</span>
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddAdminModalOpen(false)}
+                    className="px-4 py-2 rounded-lg font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isAddingAdmin}
+                    className="px-5 py-2 rounded-lg font-bold text-white bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 hover:to-emerald-500 shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {isAddingAdmin ? 'Syncing to Database...' : 'Create Administrator'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </PortalAdminLayout>
   );

@@ -383,6 +383,55 @@ export default async function handler(req, res) {
         });
       }
 
+      if (action === 'upload-file' || action === 'direct-upload') {
+        const { fileBase64, mimeType = 'application/octet-stream' } = body;
+        if (!fileBase64 || !storageKey) {
+          return res.status(400).json({ error: 'Missing fileBase64 or storageKey' });
+        }
+
+        const upRes = await fetch(`${auth.apiUrl}/b2api/v3/b2_get_upload_url`, {
+          method: 'POST',
+          headers: {
+            Authorization: auth.authorizationToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ bucketId: auth.bucketId })
+        });
+
+        if (!upRes.ok) {
+          throw new Error('Failed to obtain B2 upload target for direct upload');
+        }
+
+        const upTarget = await upRes.json();
+        const buffer = Buffer.from(fileBase64, 'base64');
+
+        const b2UploadRes = await fetch(upTarget.uploadUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: upTarget.authorizationToken,
+            'X-Bz-File-Name': encodeURIComponent(storageKey),
+            'Content-Type': mimeType,
+            'Content-Length': buffer.length.toString(),
+            'X-Bz-Content-Sha1': 'do_not_verify'
+          },
+          body: buffer
+        });
+
+        if (!b2UploadRes.ok) {
+          const errData = await b2UploadRes.json().catch(() => ({}));
+          throw new Error(errData.message || 'B2 direct upload failed');
+        }
+
+        return res.status(200).json({
+          success: true,
+          storageKey,
+          storageProvider: 'backblaze_b2',
+          storageBucket: auth.bucketName,
+          publicUrl: `${auth.downloadUrl}/file/${auth.bucketName}/${storageKey}`,
+          fileSize: buffer.length
+        });
+      }
+
       if (action === 'delete') {
         const cleanKey = String(storageKey || '').replace(/^\/+/, '');
         if (!cleanKey) return res.status(400).json({ error: 'Missing storageKey' });

@@ -335,5 +335,78 @@ export async function updateAdminAssignedLevel(adminId, level) {
   return { success: true, admins: liveAdmins };
 }
 
+/**
+ * Create a new Portal Administrator / Course Adviser and sync live to Supabase
+ */
+export async function createPortalAdmin({ email, fullName, role = 'portal_admin', permissions = ['feature:student_registry', 'feature:results_management'], assignedLevel = 'all', initialPassword = 'password' }) {
+  if (!email || !fullName) {
+    return { error: 'Email and Full Name are required.' };
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  const passwordHash = await hashPassword(initialPassword || 'password');
+  const cleanLevel = String(assignedLevel || 'all').toLowerCase().replace(' level', '');
+
+  const newAdmin = {
+    id: `admin-${Date.now()}`,
+    user_id: `usr-${Date.now()}`,
+    email: cleanEmail,
+    full_name: fullName.trim(),
+    scope: ADMIN_SCOPES.STUDENT_PORTAL,
+    role: role || 'portal_admin',
+    assigned_level: cleanLevel,
+    permissions: permissions || ['feature:student_registry', 'feature:results_management'],
+    is_active: true,
+    password_hash: passwordHash,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  // 1. Persist directly to Supabase admin_scopes table
+  if (supabase) {
+    try {
+      const { error: dbError } = await supabase.from('admin_scopes').insert([newAdmin]);
+      if (dbError) {
+        console.warn('Supabase admin_scopes insert warning:', dbError.message);
+      }
+    } catch (e) {
+      console.warn('Supabase admin insert exception:', e);
+    }
+  }
+
+  // 2. Update local cache
+  const localAdmins = getLocalPortalAdmins();
+  const existingIdx = localAdmins.findIndex(a => a.email.toLowerCase() === cleanEmail);
+  if (existingIdx !== -1) {
+    localAdmins[existingIdx] = { ...localAdmins[existingIdx], ...newAdmin };
+  } else {
+    localAdmins.push(newAdmin);
+  }
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(localAdmins));
+    window.dispatchEvent(new Event('nacos_portal_admin_updated'));
+  }
+
+  // 3. Return updated live list
+  const liveAdmins = await fetchPortalAdminsFromSupabase();
+  return { success: true, admin: newAdmin, admins: liveAdmins };
+}
+
+/**
+ * Toggle portal administrator active/inactive status
+ */
+export async function togglePortalAdminStatus(adminId, isActive) {
+  if (supabase) {
+    try {
+      await supabase
+        .from('admin_scopes')
+        .update({ is_active: isActive, updated_at: new Date().toISOString() })
+        .or(`id.eq.${adminId},user_id.eq.${adminId}`);
+    } catch (e) {}
+  }
+  const liveAdmins = await fetchPortalAdminsFromSupabase();
+  return { success: true, admins: liveAdmins };
+}
+
 export { requestAdminPasswordReset, confirmAdminPasswordReset } from '@nacos/supabase/adminAuth';
 
