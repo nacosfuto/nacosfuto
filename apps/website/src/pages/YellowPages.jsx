@@ -18,11 +18,11 @@ import {
   FiImage
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
-import flyerPeacemaker from '../assets/flyer_peacemaker.jpg';
-import flyerNiforix from '../assets/flyer_niforix.jpg';
-import flyerCypher from '../assets/flyer_cypher.jpg';
-import flyerNinasBraid from '../assets/flyer_ninas_braid.jpg';
-import laptopImg from '../assets/laptop.jpg';
+const flyerPeacemaker = '';
+const flyerNiforix = '';
+const flyerCypher = '';
+const flyerNinasBraid = '';
+const laptopImg = '';
 import { getCloudinaryAssetUrl, MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { getYellowPagesBusinesses, submitYellowPageBusiness, fetchYellowPagesFromSupabase } from '@nacos/supabase';
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
-import slide1 from "../../assets/header.jpg";
+const slide1 = '';
 
 const NewsSlider = () => {
   const slides = [

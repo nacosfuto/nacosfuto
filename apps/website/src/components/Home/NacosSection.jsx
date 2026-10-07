@@ -3,20 +3,20 @@ import { FaUserTie } from 'react-icons/fa';
 import { FiChevronLeft, FiChevronRight, FiArrowRight } from 'react-icons/fi';
 import ScrollToTopLink from '../ScrollToTopLink';
 import { getExecutives, fetchExecutivesFromSupabase } from '@nacos/supabase';
-import presidentImg from '../../assets/executives/president_irechukwu.jpg';
-import vpImg from '../../assets/executives/vp_chinaemerem.jpg';
-import secGenImg from '../../assets/executives/sec_gen_makuochukwu.jpg';
-import asgImg from '../../assets/executives/asg_chinecherem.jpg';
-import danielImg from '../../assets/executives/daniel_chukwuka.jpg';
-import treasurerImg from '../../assets/executives/treasurer_chikamso.jpg';
-import proImg from '../../assets/executives/pro_john.jpg';
-import welfareImg from '../../assets/executives/welfare_onyoiza.jpg';
-import ictImg from '../../assets/executives/ict_dir_ifeanyi.jpg';
-import ictAsstImg from '../../assets/executives/ict_asst_victory.jpg';
-import socialsImg from '../../assets/executives/socials_dir_munachimso.jpg';
-import sportsImg from '../../assets/executives/sports_dir_ifeanyi.jpg';
-import provost1Img from '../../assets/executives/provost1_rosemary.jpg';
-import provost2Img from '../../assets/executives/provost2_chidera.jpg';
+const presidentImg = '';
+const vpImg = '';
+const secGenImg = '';
+const asgImg = '';
+const danielImg = '';
+const treasurerImg = '';
+const proImg = '';
+const welfareImg = '';
+const ictImg = '';
+const ictAsstImg = '';
+const socialsImg = '';
+const sportsImg = '';
+const provost1Img = '';
+const provost2Img = '';
 
 const DEFAULT_EXECUTIVES = [
   { id: 'def-1', name: "High Comrade Irechukwu Emmanuel S.", role: "President", position: "President", image: presidentImg },

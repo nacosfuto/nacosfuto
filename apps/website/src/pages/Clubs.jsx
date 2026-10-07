@@ -10,7 +10,7 @@ import {
   FiUsers,
 } from "react-icons/fi";
 import ScrollToTopLink from "../components/ScrollToTopLink";
-import clubsImage from "../assets/clubs.jpg";
+const clubsImage = '';
 
 const Clubs = () => {
   const techClubs = [

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from '../components/Nav/Navbar';
 import Footer from '../components/Footer';
 import { useTheme } from '../context/ThemeContext';
-import execGroupImg from '../assets/nacos_exec_group.jpg';
+const execGroupImg = '';
 import TechTeamSection from '../components/TechTeamSection';
 import { FiClock, FiChevronDown, FiChevronUp, FiCalendar } from 'react-icons/fi';
 import { 

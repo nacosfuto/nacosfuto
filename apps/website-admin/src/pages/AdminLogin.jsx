@@ -3,7 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { getCloudinaryAssetUrl } from '@nacos/media';
 import { loginWebsiteAdmin, getWebsiteAdminSession } from '@nacos/auth';
 import { getAppUrls } from '@nacos/config/urls';
-import studentPhoto from '../assets/gallery_student_group.jpg';
+const studentPhoto = '';
 import logoDark from '../assets/full-logo-dark.png';
 import { Globe, Mail, Lock, ArrowRight, ShieldAlert, Eye, EyeOff, ShieldCheck, ExternalLink } from 'lucide-react';
 

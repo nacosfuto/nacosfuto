@@ -17,10 +17,10 @@ import { FaGraduationCap, FaAward, FaBuilding, FaGlobeAmericas, FaLinkedin, FaUs
 import ScrollToTopLink from "../components/ScrollToTopLink";
 import { getCloudinaryAssetUrl, MediaUpload, CLOUDINARY_FOLDERS } from "@nacos/media";
 import { getAlumniDirectory, submitAlumniRequest, fetchAlumniFromSupabase } from "@nacos/supabase";
-import alumniImage from "../assets/alumni.jpg";
-import departmentImage from "../assets/department.jpg";
-import benitaImg from "../assets/alumni_benita.jpg";
-import godfirstImg from "../assets/alumni_godfirst.jpg";
+const alumniImage = '';
+const departmentImage = '';
+const benitaImg = '';
+const godfirstImg = '';
 
 const Alumni = () => {
   const { theme } = useTheme();

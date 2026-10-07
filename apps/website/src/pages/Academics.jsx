@@ -10,7 +10,7 @@ import {
 } from "react-icons/fi";
 import { FaGraduationCap, FaCertificate, FaCalendarAlt, FaAward } from "react-icons/fa";
 import ScrollToTopLink from "../components/ScrollToTopLink";
-import academicsImage from "../assets/academics.jpg";
+const academicsImage = '';
 
 const Academics = () => {
   const sectionRefs = useRef([]);

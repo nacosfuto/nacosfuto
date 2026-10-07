@@ -12,7 +12,7 @@ import QuickHelpCTA from "../components/Home/QuickHelpCTA";
 import TechTeamSection from "../components/TechTeamSection";
 import Footer from "../components/Footer";
 
-import alumniHomeImg from "../assets/alumni_home.jpg";
+const alumniHomeImg = '';
 
 const HERO_IMAGE_URL = "";
 

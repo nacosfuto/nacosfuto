@@ -23,8 +23,8 @@ import {
   FiBookOpen,
   FiUploadCloud
 } from 'react-icons/fi';
-import libraryShelfCloseup from '../assets/library_shelf_closeup.jpg';
-import libraryHero from '../assets/library_hero.jpg';
+const libraryShelfCloseup = '';
+const libraryHero = '';
 import { 
   fetchResources, 
   fetchResourceCategories, 

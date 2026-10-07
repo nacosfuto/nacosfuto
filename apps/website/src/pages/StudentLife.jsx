@@ -11,7 +11,7 @@ import {
 } from "react-icons/fi";
 import ScrollToTopLink from "../components/ScrollToTopLink";
 import { getCloudinaryAssetUrl } from "@nacos/media";
-import studentLifeImageFallback from "../assets/student-life.jpg";
+const studentLifeImageFallback = '';
 
 const StudentLife = () => {
   const studentLifeImage = getCloudinaryAssetUrl('student-life') || studentLifeImageFallback;

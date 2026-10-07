@@ -5,8 +5,8 @@ import { useTheme } from '../context/ThemeContext';
 import { FiUser, FiMail } from 'react-icons/fi';
 import { fetchDepartmentStaff, INITIAL_STAFF } from '@nacos/supabase';
 import { getCloudinaryAssetUrl } from '@nacos/media';
-import hodStanleyImg from '../assets/executives/hod_stanley.jpg';
-import staffAdviserImg from '../assets/executives/staff_adviser_nwokorie.jpg';
+const hodStanleyImg = '';
+const staffAdviserImg = '';
 
 const Administration = () => {
     const { theme } = useTheme();

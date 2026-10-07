@@ -16,8 +16,8 @@ import {
   FiExternalLink
 } from 'react-icons/fi';
 import ScrollToTopLink from '../components/ScrollToTopLink';
-import clubsImage from '../assets/clubs.jpg';
-import laptopImage from '../assets/laptop.jpg';
+const clubsImage = '';
+const laptopImage = '';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { getCampusClubs, submitCampusClub, fetchCampusClubsFromSupabase } from '@nacos/supabase';
 

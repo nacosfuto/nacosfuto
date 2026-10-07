@@ -12,7 +12,7 @@ import {
 import { FaGraduationCap, FaAward, FaBook, FaUsers } from "react-icons/fa";
 import ScrollToTopLink from "../components/ScrollToTopLink";
 import { getCloudinaryAssetUrl } from "@nacos/media";
-import researchImageFallback from "../assets/research.jpg";
+const researchImageFallback = '';
 
 const Research = () => {
   const researchImage = getCloudinaryAssetUrl('research') || researchImageFallback;

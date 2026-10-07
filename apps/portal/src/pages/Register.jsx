@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getCloudinaryAssetUrl } from '@nacos/media';
-import studentPhoto from '../assets/gallery_student_group.jpg';
+const studentPhoto = '';
 import logoDark from '../assets/full-logo-dark.png';
 import { 
   CheckCircle2, 

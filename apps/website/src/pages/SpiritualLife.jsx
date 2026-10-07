@@ -15,7 +15,7 @@ import {
 } from 'react-icons/fi';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { getSpiritualFellowships, submitSpiritualFellowship, fetchSpiritualFellowshipsFromSupabase } from '@nacos/supabase';
-import headerImg from '../assets/header.jpg';
+const headerImg = '';
 
 const SpiritualLife = () => {
   const { theme } = useTheme();

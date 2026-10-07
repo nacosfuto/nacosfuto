@@ -15,7 +15,7 @@ import {
   FaWater,
 } from "react-icons/fa";
 import ScrollToTopLink from "../components/ScrollToTopLink";
-import departmentImage from "../assets/department.jpg";
+const departmentImage = '';
 import DepartmentStats from "../components/Home/DepartmentStats";
 
 const About = () => {

@@ -7,22 +7,22 @@ import { CloudinaryImage, getCloudinaryAssetUrl } from '@nacos/media';
 import { supabase, getGalleryItems, fetchGalleryFromSupabase } from '@nacos/supabase';
 
 // Local fallbacks
-import galleryDeptFront from '../assets/gallery_dept_front.jpg';
-import galleryStudentGroup from '../assets/gallery_student_group.jpg';
-import galleryTraditionalDay from '../assets/gallery_traditional_day.jpg';
-import galleryNatureHangout from '../assets/gallery_nature_hangout.jpg';
-import nacos1 from '../assets/nacos1.jpg';
-import nacos2 from '../assets/nacos2.jpg';
-import nacos3 from '../assets/nacos3.jpg';
-import nacos4 from '../assets/nacos4.jpg';
-import nacos5 from '../assets/nacos5.jpg';
-import nacos6 from '../assets/nacos6.jpg';
-import nacos7 from '../assets/nacos7.jpg';
-import nacos8 from '../assets/nacos8.jpg';
-import nacos9 from '../assets/nacos9.jpg';
-import nacos10 from '../assets/nacos10.jpg';
-import nacos11 from '../assets/nacos11.jpg';
-import nacos12 from '../assets/nacos12.jpg';
+const galleryDeptFront = '';
+const galleryStudentGroup = '';
+const galleryTraditionalDay = '';
+const galleryNatureHangout = '';
+const nacos1 = '';
+const nacos2 = '';
+const nacos3 = '';
+const nacos4 = '';
+const nacos5 = '';
+const nacos6 = '';
+const nacos7 = '';
+const nacos8 = '';
+const nacos9 = '';
+const nacos10 = '';
+const nacos11 = '';
+const nacos12 = '';
 
 const CANONICAL_GALLERY = [
   {

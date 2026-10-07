@@ -10,7 +10,7 @@ import {
 } from "react-icons/fi";
 import { FaPaperPlane } from "react-icons/fa";
 import ScrollToTopLink from "../components/ScrollToTopLink";
-import contactImage from "../assets/contact.jpg";
+const contactImage = '';
 
 const Contact = () => {
   const [formData, setFormData] = useState({

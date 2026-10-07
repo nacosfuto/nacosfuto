@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getCloudinaryAssetUrl } from '@nacos/media';
 import { signInStudent, isLocalEnvironment } from '@nacos/supabase/auth';
-import studentPhoto from '../assets/gallery_student_group.jpg';
+const studentPhoto = '';
 import logoDark from '../assets/full-logo-dark.png';
 import { FaUserShield } from 'react-icons/fa';
 import { ShieldCheck, AlertCircle, Eye, EyeOff, RotateCw, ArrowRight } from 'lucide-react';
