@@ -24,7 +24,7 @@ export const INITIAL_STAFF = [
     role: 'Head of Department (CSC)',
     rank: 'Senior Lecturer / HOD',
     email: 'hod.csc@futo.edu.ng',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569270/nacos/executives/hod_stanley.jpg',
+    image: '',
     cloudinary_public_id: 'nacos/executives/hod_stanley',
     order_index: 1,
     is_active: true
@@ -35,7 +35,7 @@ export const INITIAL_STAFF = [
     role: 'Staff Adviser / Course Adviser',
     rank: 'Senior Lecturer / Staff Adviser',
     email: 'staff.adviser@futo.edu.ng',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569274/nacos/executives/staff_adviser_nwokorie.jpg',
+    image: '',
     cloudinary_public_id: 'nacos/executives/staff_adviser_nwokorie',
     order_index: 2,
     is_active: true
@@ -222,7 +222,7 @@ export async function saveDepartmentStaffMember(memberData) {
     if (supabase) {
       await supabase.from('media_assets').upsert({
         cloudinary_public_id: record.cloudinary_public_id || ('nacos/general/' + record.id),
-        image_url: record.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569270/nacos/executives/hod_stanley.jpg',
+        image_url: record.image || '',
         image_alt: JSON.stringify(record),
         media_type: 'image',
         folder: 'nacos/general',

@@ -1,10 +1,10 @@
 {
-  "cloudName": "z3wgqisj",
+  "cloudName": "a2mmcttn",
   "syncedAt": "2026-09-05T00:47:47.819Z",
   "assets": {
     "header": {
       "publicId": "nacos/homepage/header",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569326/nacos/homepage/header.png",
+      "url": "",
       "folder": "nacos/homepage",
       "category": "homepage",
       "width": 1640,
@@ -13,7 +13,7 @@
     },
     "asg_chinecherem": {
       "publicId": "nacos/executives/asg_chinecherem",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569268/nacos/executives/asg_chinecherem.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 731,
@@ -22,7 +22,7 @@
     },
     "daniel_chukwuka": {
       "publicId": "nacos/executives/daniel_chukwuka",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569269/nacos/executives/daniel_chukwuka.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 731,
@@ -31,7 +31,7 @@
     },
     "hod_stanley": {
       "publicId": "nacos/executives/hod_stanley",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569270/nacos/executives/hod_stanley.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 132,
@@ -40,7 +40,7 @@
     },
     "hon_ogbu": {
       "publicId": "nacos/executives/hon_ogbu",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569271/nacos/executives/hon_ogbu.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 132,
@@ -49,7 +49,7 @@
     },
     "ict_asst_victory": {
       "publicId": "nacos/executives/ict_asst_victory",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569271/nacos/executives/ict_asst_victory.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 731,
@@ -58,7 +58,7 @@
     },
     "ict_dir_ifeanyi": {
       "publicId": "nacos/executives/ict_dir_ifeanyi",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569272/nacos/executives/ict_dir_ifeanyi.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 731,
@@ -67,7 +67,7 @@
     },
     "msrc_ruby": {
       "publicId": "nacos/executives/msrc_ruby",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569273/nacos/executives/msrc_ruby.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 731,
@@ -76,7 +76,7 @@
     },
     "president_irechukwu": {
       "publicId": "nacos/executives/president_irechukwu",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569274/nacos/executives/president_irechukwu.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 731,
@@ -85,7 +85,7 @@
     },
     "provost1_rosemary": {
       "publicId": "nacos/executives/provost1_rosemary",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569275/nacos/executives/provost1_rosemary.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 731,
@@ -94,7 +94,7 @@
     },
     "provost2_chidera": {
       "publicId": "nacos/executives/provost2_chidera",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569276/nacos/executives/provost2_chidera.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 731,
@@ -103,7 +103,7 @@
     },
     "pro_john": {
       "publicId": "nacos/executives/pro_john",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569277/nacos/executives/pro_john.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 731,
@@ -112,7 +112,7 @@
     },
     "sec_gen_makuochukwu": {
       "publicId": "nacos/executives/sec_gen_makuochukwu",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569277/nacos/executives/sec_gen_makuochukwu.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 731,
@@ -121,7 +121,7 @@
     },
     "socials_dir_munachimso": {
       "publicId": "nacos/executives/socials_dir_munachimso",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569278/nacos/executives/socials_dir_munachimso.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 731,
@@ -130,7 +130,7 @@
     },
     "sports_dir_ifeanyi": {
       "publicId": "nacos/executives/sports_dir_ifeanyi",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569279/nacos/executives/sports_dir_ifeanyi.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 731,
@@ -139,7 +139,7 @@
     },
     "staff_adviser_nwokorie": {
       "publicId": "nacos/executives/staff_adviser_nwokorie",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569280/nacos/executives/staff_adviser_nwokorie.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 132,
@@ -148,7 +148,7 @@
     },
     "state_ict_okikere": {
       "publicId": "nacos/executives/state_ict_okikere",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569280/nacos/executives/state_ict_okikere.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 161,
@@ -157,7 +157,7 @@
     },
     "treasurer_chikamso": {
       "publicId": "nacos/executives/treasurer_chikamso",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569281/nacos/executives/treasurer_chikamso.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 731,
@@ -166,7 +166,7 @@
     },
     "vp_chinaemerem": {
       "publicId": "nacos/executives/vp_chinaemerem",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569282/nacos/executives/vp_chinaemerem.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 731,
@@ -175,7 +175,7 @@
     },
     "welfare_onyoiza": {
       "publicId": "nacos/executives/welfare_onyoiza",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569283/nacos/executives/welfare_onyoiza.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 118,
@@ -184,7 +184,7 @@
     },
     "zonal_coord_johnson": {
       "publicId": "nacos/executives/zonal_coord_johnson",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569283/nacos/executives/zonal_coord_johnson.jpg",
+      "url": "",
       "folder": "nacos/executives",
       "category": "executives",
       "width": 161,
@@ -193,7 +193,7 @@
     },
     "alumni": {
       "publicId": "nacos/alumni/alumni",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569284/nacos/alumni/alumni.jpg",
+      "url": "",
       "folder": "nacos/alumni",
       "category": "alumni",
       "width": 259,
@@ -202,7 +202,7 @@
     },
     "alumni_benita": {
       "publicId": "nacos/alumni/alumni_benita",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569285/nacos/alumni/alumni_benita.jpg",
+      "url": "",
       "folder": "nacos/alumni",
       "category": "alumni",
       "width": 480,
@@ -211,7 +211,7 @@
     },
     "alumni_godfirst": {
       "publicId": "nacos/alumni/alumni_godfirst",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569286/nacos/alumni/alumni_godfirst.jpg",
+      "url": "",
       "folder": "nacos/alumni",
       "category": "alumni",
       "width": 500,
@@ -220,7 +220,7 @@
     },
     "alumni_home": {
       "publicId": "nacos/alumni/alumni_home",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569286/nacos/alumni/alumni_home.jpg",
+      "url": "",
       "folder": "nacos/alumni",
       "category": "alumni",
       "width": 960,
@@ -229,7 +229,7 @@
     },
     "department": {
       "publicId": "nacos/gallery/department",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569287/nacos/gallery/department.webp",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 711,
@@ -238,7 +238,7 @@
     },
     "event_allstars_media": {
       "publicId": "nacos/events/event_allstars_media",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569289/nacos/events/event_allstars_media.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 821,
@@ -247,7 +247,7 @@
     },
     "event_asicts_techtalk": {
       "publicId": "nacos/events/event_asicts_techtalk",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569289/nacos/events/event_asicts_techtalk.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 800,
@@ -256,7 +256,7 @@
     },
     "event_atf_ai_challenge": {
       "publicId": "nacos/events/event_atf_ai_challenge",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569291/nacos/events/event_atf_ai_challenge.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 819,
@@ -265,7 +265,7 @@
     },
     "event_bridging_gap": {
       "publicId": "nacos/events/event_bridging_gap",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569292/nacos/events/event_bridging_gap.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 819,
@@ -274,7 +274,7 @@
     },
     "event_cv_masterclass": {
       "publicId": "nacos/events/event_cv_masterclass",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569293/nacos/events/event_cv_masterclass.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 819,
@@ -283,7 +283,7 @@
     },
     "event_founders_table": {
       "publicId": "nacos/events/event_founders_table",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569293/nacos/events/event_founders_table.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 1024,
@@ -292,7 +292,7 @@
     },
     "event_fyb_week": {
       "publicId": "nacos/events/event_fyb_week",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569294/nacos/events/event_fyb_week.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 819,
@@ -301,7 +301,7 @@
     },
     "event_global_internship": {
       "publicId": "nacos/events/event_global_internship",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569295/nacos/events/event_global_internship.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 560,
@@ -310,7 +310,7 @@
     },
     "event_ieee_opportunities": {
       "publicId": "nacos/events/event_ieee_opportunities",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569296/nacos/events/event_ieee_opportunities.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 819,
@@ -319,7 +319,7 @@
     },
     "event_linkedin_branding": {
       "publicId": "nacos/events/event_linkedin_branding",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569297/nacos/events/event_linkedin_branding.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 819,
@@ -328,7 +328,7 @@
     },
     "event_masked_affairs": {
       "publicId": "nacos/events/event_masked_affairs",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569298/nacos/events/event_masked_affairs.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 819,
@@ -337,7 +337,7 @@
     },
     "event_nacos_schedule": {
       "publicId": "nacos/events/event_nacos_schedule",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569298/nacos/events/event_nacos_schedule.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 800,
@@ -346,7 +346,7 @@
     },
     "event_nacos_sportsday": {
       "publicId": "nacos/events/event_nacos_sportsday",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569299/nacos/events/event_nacos_sportsday.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 800,
@@ -355,7 +355,7 @@
     },
     "event_nacos_thanksgiving_mass": {
       "publicId": "nacos/events/event_nacos_thanksgiving_mass",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569300/nacos/events/event_nacos_thanksgiving_mass.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 800,
@@ -364,7 +364,7 @@
     },
     "event_nacos_week_schedule": {
       "publicId": "nacos/events/event_nacos_week_schedule",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569301/nacos/events/event_nacos_week_schedule.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 800,
@@ -373,7 +373,7 @@
     },
     "event_oldschool_picnic": {
       "publicId": "nacos/events/event_oldschool_picnic",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569302/nacos/events/event_oldschool_picnic.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 800,
@@ -382,7 +382,7 @@
     },
     "event_old_school_picnic": {
       "publicId": "nacos/events/event_old_school_picnic",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569302/nacos/events/event_old_school_picnic.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 800,
@@ -391,7 +391,7 @@
     },
     "event_safer_internet": {
       "publicId": "nacos/events/event_safer_internet",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569303/nacos/events/event_safer_internet.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 819,
@@ -400,7 +400,7 @@
     },
     "event_sports_day": {
       "publicId": "nacos/events/event_sports_day",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569305/nacos/events/event_sports_day.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 800,
@@ -409,7 +409,7 @@
     },
     "event_tech_day": {
       "publicId": "nacos/events/event_tech_day",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569305/nacos/events/event_tech_day.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 800,
@@ -418,7 +418,7 @@
     },
     "event_tech_rewind": {
       "publicId": "nacos/events/event_tech_rewind",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569307/nacos/events/event_tech_rewind.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 819,
@@ -427,7 +427,7 @@
     },
     "event_thanksgiving_mass": {
       "publicId": "nacos/events/event_thanksgiving_mass",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569307/nacos/events/event_thanksgiving_mass.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 800,
@@ -436,7 +436,7 @@
     },
     "event_unfair_advantage": {
       "publicId": "nacos/events/event_unfair_advantage",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569308/nacos/events/event_unfair_advantage.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 819,
@@ -445,7 +445,7 @@
     },
     "event_zonal_convention": {
       "publicId": "nacos/events/event_zonal_convention",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569309/nacos/events/event_zonal_convention.jpg",
+      "url": "",
       "folder": "nacos/events",
       "category": "events",
       "width": 1024,
@@ -454,7 +454,7 @@
     },
     "flyer_cypher": {
       "publicId": "nacos/yellow_pages/flyer_cypher",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569310/nacos/yellow_pages/flyer_cypher.jpg",
+      "url": "",
       "folder": "nacos/yellow_pages",
       "category": "yellow_pages",
       "width": 682,
@@ -463,7 +463,7 @@
     },
     "flyer_niforix": {
       "publicId": "nacos/yellow_pages/flyer_niforix",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569311/nacos/yellow_pages/flyer_niforix.jpg",
+      "url": "",
       "folder": "nacos/yellow_pages",
       "category": "yellow_pages",
       "width": 1024,
@@ -472,7 +472,7 @@
     },
     "flyer_ninas_braid": {
       "publicId": "nacos/yellow_pages/flyer_ninas_braid",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569312/nacos/yellow_pages/flyer_ninas_braid.jpg",
+      "url": "",
       "folder": "nacos/yellow_pages",
       "category": "yellow_pages",
       "width": 819,
@@ -481,7 +481,7 @@
     },
     "flyer_peacemaker": {
       "publicId": "nacos/yellow_pages/flyer_peacemaker",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569313/nacos/yellow_pages/flyer_peacemaker.jpg",
+      "url": "",
       "folder": "nacos/yellow_pages",
       "category": "yellow_pages",
       "width": 819,
@@ -490,7 +490,7 @@
     },
     "full-logo-dark": {
       "publicId": "nacos/general/full-logo-dark",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569314/nacos/general/full-logo-dark.png",
+      "url": "",
       "folder": "nacos/general",
       "category": "general",
       "width": 1574,
@@ -499,7 +499,7 @@
     },
     "full-logo-light": {
       "publicId": "nacos/general/full-logo-light",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569315/nacos/general/full-logo-light.png",
+      "url": "",
       "folder": "nacos/general",
       "category": "general",
       "width": 1024,
@@ -508,7 +508,7 @@
     },
     "full-logo": {
       "publicId": "nacos/general/full-logo",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569316/nacos/general/full-logo.png",
+      "url": "",
       "folder": "nacos/general",
       "category": "general",
       "width": 1024,
@@ -517,7 +517,7 @@
     },
     "gallery_dept_front": {
       "publicId": "nacos/gallery/gallery_dept_front",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569317/nacos/gallery/gallery_dept_front.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 1024,
@@ -526,7 +526,7 @@
     },
     "gallery_nature_hangout": {
       "publicId": "nacos/gallery/gallery_nature_hangout",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569318/nacos/gallery/gallery_nature_hangout.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 768,
@@ -535,7 +535,7 @@
     },
     "gallery_student_group": {
       "publicId": "nacos/gallery/gallery_student_group",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569318/nacos/gallery/gallery_student_group.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 1024,
@@ -544,7 +544,7 @@
     },
     "gallery_traditional_day": {
       "publicId": "nacos/gallery/gallery_traditional_day",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569319/nacos/gallery/gallery_traditional_day.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 1024,
@@ -553,7 +553,7 @@
     },
     "header-dark": {
       "publicId": "nacos/homepage/header-dark",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569321/nacos/homepage/header-dark.png",
+      "url": "",
       "folder": "nacos/homepage",
       "category": "homepage",
       "width": 1640,
@@ -562,7 +562,7 @@
     },
     "header-light": {
       "publicId": "nacos/homepage/header-light",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569323/nacos/homepage/header-light.png",
+      "url": "",
       "folder": "nacos/homepage",
       "category": "homepage",
       "width": 1640,
@@ -571,7 +571,7 @@
     },
     "logo": {
       "publicId": "nacos/general/logo",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569327/nacos/general/logo.png",
+      "url": "",
       "folder": "nacos/general",
       "category": "general",
       "width": 51,
@@ -580,7 +580,7 @@
     },
     "nacos1": {
       "publicId": "nacos/gallery/nacos1",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569327/nacos/gallery/nacos1.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 217,
@@ -589,7 +589,7 @@
     },
     "nacos10": {
       "publicId": "nacos/gallery/nacos10",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569328/nacos/gallery/nacos10.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 400,
@@ -598,7 +598,7 @@
     },
     "nacos11": {
       "publicId": "nacos/gallery/nacos11",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569329/nacos/gallery/nacos11.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 400,
@@ -607,7 +607,7 @@
     },
     "nacos12": {
       "publicId": "nacos/gallery/nacos12",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569329/nacos/gallery/nacos12.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 153,
@@ -616,7 +616,7 @@
     },
     "nacos2": {
       "publicId": "nacos/gallery/nacos2",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569330/nacos/gallery/nacos2.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 176,
@@ -625,7 +625,7 @@
     },
     "nacos3": {
       "publicId": "nacos/gallery/nacos3",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569331/nacos/gallery/nacos3.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 177,
@@ -634,7 +634,7 @@
     },
     "nacos4": {
       "publicId": "nacos/gallery/nacos4",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569332/nacos/gallery/nacos4.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 152,
@@ -643,7 +643,7 @@
     },
     "nacos5": {
       "publicId": "nacos/gallery/nacos5",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569332/nacos/gallery/nacos5.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 149,
@@ -652,7 +652,7 @@
     },
     "nacos6": {
       "publicId": "nacos/gallery/nacos6",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569333/nacos/gallery/nacos6.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 152,
@@ -661,7 +661,7 @@
     },
     "nacos7": {
       "publicId": "nacos/gallery/nacos7",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569334/nacos/gallery/nacos7.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 148,
@@ -670,7 +670,7 @@
     },
     "nacos8": {
       "publicId": "nacos/gallery/nacos8",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569335/nacos/gallery/nacos8.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 1024,
@@ -679,7 +679,7 @@
     },
     "nacos9": {
       "publicId": "nacos/gallery/nacos9",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569336/nacos/gallery/nacos9.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 400,
@@ -688,7 +688,7 @@
     },
     "nacos_exec_group": {
       "publicId": "nacos/gallery/nacos_exec_group",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569337/nacos/gallery/nacos_exec_group.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 1024,
@@ -697,7 +697,7 @@
     },
     "research": {
       "publicId": "nacos/gallery/research",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569339/nacos/gallery/research.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 5184,
@@ -706,7 +706,7 @@
     },
     "student-life": {
       "publicId": "nacos/gallery/student-life",
-      "url": "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569340/nacos/gallery/student-life.jpg",
+      "url": "",
       "folder": "nacos/gallery",
       "category": "gallery",
       "width": 259,

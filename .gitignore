@@ -52,12 +52,8 @@ build/
 .env.development
 .env.production
 
-# Flutter/Dart specific
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-.pub-cache/
-.pub/
+# Supabase Migration Backups
+supabase-migration/
 .fvm/
 .flutter/
 

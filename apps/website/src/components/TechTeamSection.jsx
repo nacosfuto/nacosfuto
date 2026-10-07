@@ -6,25 +6,25 @@ const TechTeamSection = () => {
         {
             name: "Nestor Anyanwu",
             role: "PM/Lead Developer",
-            image: "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569335/nacos/gallery/nacos8.jpg",
+            image: "",
             portfolio: "https://www.linkedin.com/in/nestoranyanwu"
         },
         {
             name: "Kelechukwu Okere",
             role: "QA/UX Personnel",
-            image: "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569336/nacos/gallery/nacos9.jpg",
+            image: "",
             portfolio: "https://www.linkedin.com/in/kelechukwu-okere-7173b52a7/"
         },
         {
             name: "Daniel Maduka",
             role: "Consultant Developer",
-            image: "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569329/nacos/gallery/nacos11.jpg",
+            image: "",
             portfolio: "https://www.linkedin.com/in/daniel-maduka-a312b7345/"
         },
         {
             name: "Dumebi Oruche",
             role: "Associate Developer",
-            image: "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569328/nacos/gallery/nacos10.jpg",
+            image: "",
             portfolio: "https://www.linkedin.com/in/dumebioruche/"
         }
     ];

@@ -14,7 +14,7 @@ import {
 import { getLocalNewsArticles, fetchNewsArticles } from '@nacos/supabase';
 import { getCloudinaryAssetUrl } from '@nacos/media';
 
-const HERO_IMAGE_URL = "https://res.cloudinary.com/z3wgqisj/image/upload/v1789824604/20250304_223205_Destiny_Eke_ce1a4da154_hxay39.jpg";
+const HERO_IMAGE_URL = "";
 
 const CATEGORIES = [
   { id: 'all', label: 'All Articles' },

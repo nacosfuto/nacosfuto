@@ -7,7 +7,7 @@ import { getCloudinaryAssetUrl } from "@nacos/media";
 import SearchBar from "../SearchBar";
 import ScrollToTopLink from "../ScrollToTopLink";
 
-const heroImg = getCloudinaryAssetUrl('header') || "https://res.cloudinary.com/z3wgqisj/image/upload/v1789824604/20250304_223205_Destiny_Eke_ce1a4da154_hxay39.jpg";
+const heroImg = getCloudinaryAssetUrl('header') || "";
 
 const slides = [
   {

@@ -180,8 +180,8 @@ const AdminEvents = () => {
         category,
         registration_link: registrationLink.trim() || null,
         registrationLink: registrationLink.trim() || null,
-        image_url: flyerUrl || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569305/nacos/events/event_masked_affairs.jpg',
-        image: flyerUrl || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569305/nacos/events/event_masked_affairs.jpg',
+        image_url: flyerUrl || '',
+        image: flyerUrl || '',
         cloudinary_public_id: flyerPublicId || null,
         is_published: isPublished,
         is_featured: isFeatured

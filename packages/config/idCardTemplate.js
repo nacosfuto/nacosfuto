@@ -14,8 +14,8 @@
 export const ID_CARD_TEMPLATE = {
   version: '2026.2',
   isDoubleSided: true,
-  masterTemplateUrl: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788570571/B_cld0wm.jpg',
-  masterBackUrl: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788571061/NACOS_ID_CARD_PHASE_1_zodyod.jpg',
+  masterTemplateUrl: '',
+  masterBackUrl: '',
   dimensions: {
     width: 662,
     height: 1075,

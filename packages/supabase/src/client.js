@@ -10,8 +10,8 @@ const supabaseAnonKey =
     ? import.meta.env.VITE_SUPABASE_ANON_KEY
     : (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_ANON_KEY ? process.env.VITE_SUPABASE_ANON_KEY : '');
 
-const defaultUrl = 'https://hfaomycwsjgxgvdqqgwl.supabase.co';
-const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmYW9teWN3c2pneGd2ZHFxZ3dsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NTcwOTEsImV4cCI6MjEwNDEzMzA5MX0.W0for0s-oWavvkuws93EAbW7PPiD4uux-MMUDtmQat8';
+const defaultUrl = 'https://jvxbyataifjsotudtqly.supabase.co';
+const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2eGJ5YXRhaWZqc290dWR0cWx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMTczNTksImV4cCI6MjEwNjg5MzM1OX0.rqE9EmdZLiHFTKmznpCXmurn8NHnt0jF6vm2Fa6YaOM';
 
 export const supabase = createClient(supabaseUrl || defaultUrl, supabaseAnonKey || defaultKey, {
   auth: {

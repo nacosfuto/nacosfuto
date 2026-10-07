@@ -32,7 +32,7 @@ const INITIAL_YELLOW_PAGES = [
     email: 'peacemaker@nacos.org.ng',
     rating: 5.0,
     reviewsCount: 14,
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569313/nacos/yellow_pages/flyer_peacemaker.jpg',
+    image: '',
     imagePosition: 'top left', // Enforces AGENTS.md rule
     status: 'approved',
     createdAt: '2026-08-01T10:00:00Z'
@@ -51,7 +51,7 @@ const INITIAL_YELLOW_PAGES = [
     email: 'niforix@nacos.org.ng',
     rating: 5.0,
     reviewsCount: 25,
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569311/nacos/yellow_pages/flyer_niforix.jpg',
+    image: '',
     imagePosition: 'top right', // Enforces AGENTS.md rule
     status: 'approved',
     createdAt: '2026-08-05T12:00:00Z'
@@ -70,7 +70,7 @@ const INITIAL_YELLOW_PAGES = [
     email: 'dev@cypher.org.ng',
     rating: 5.0,
     reviewsCount: 30,
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569310/nacos/yellow_pages/flyer_cypher.jpg',
+    image: '',
     imagePosition: 'top center', // Enforces AGENTS.md rule
     status: 'approved',
     createdAt: '2026-08-08T14:00:00Z'
@@ -89,7 +89,7 @@ const INITIAL_YELLOW_PAGES = [
     email: '',
     rating: 4.9,
     reviewsCount: 19,
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569312/nacos/yellow_pages/flyer_ninas_braid.jpg',
+    image: '',
     imagePosition: 'top center', // Enforces AGENTS.md rule
     status: 'approved',
     createdAt: '2026-08-12T16:00:00Z'
@@ -153,7 +153,7 @@ const INITIAL_ALUMNI = [
     position: 'Lead Software Engineer',
     company: 'Enterprise Cloud Solutions',
     linkedin: 'https://www.linkedin.com/in/godfirst-asogwa/',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569300/nacos/alumni/alumni_godfirst.jpg',
+    image: '',
     bio: 'Pioneered several departmental digital systems and currently leads distributed frontend engineering teams building scalable fintech platforms.',
     status: 'approved',
     createdAt: '2026-06-10T10:00:00Z'
@@ -165,7 +165,7 @@ const INITIAL_ALUMNI = [
     position: 'Senior Cybersecurity Analyst',
     company: 'Global Information Security Group',
     linkedin: 'https://www.linkedin.com/in/nwabueze-benita/',
-    image: 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569301/nacos/alumni/alumni_benita.jpg',
+    image: '',
     bio: 'Specialist in threat intelligence, cloud infrastructure security, and vulnerability remediation across African and European enterprises.',
     status: 'approved',
     createdAt: '2026-06-15T12:00:00Z'

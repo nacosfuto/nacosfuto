@@ -14,7 +14,7 @@ import Footer from "../components/Footer";
 
 import alumniHomeImg from "../assets/alumni_home.jpg";
 
-const HERO_IMAGE_URL = "https://res.cloudinary.com/z3wgqisj/image/upload/v1789824604/20250304_223205_Destiny_Eke_ce1a4da154_hxay39.jpg";
+const HERO_IMAGE_URL = "";
 
 const Home = () => {
   const liveAlumniHomeImg = getCloudinaryAssetUrl('alumni_home') || alumniHomeImg;

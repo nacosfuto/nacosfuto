@@ -32,7 +32,7 @@ const websiteEnv = parseEnv(path.join(rootDir, 'apps/website/.env'));
 const rootEnv = parseEnv(path.join(rootDir, '.env'));
 const env = { ...process.env, ...rootEnv, ...websiteEnv };
 
-const supabaseUrl = env.VITE_SUPABASE_URL || 'https://hfaomycwsjgxgvdqqgwl.supabase.co';
+const supabaseUrl = env.VITE_SUPABASE_URL || 'https://jvxbyataifjsotudtqly.supabase.co';
 const supabaseKey = env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseKey) {
