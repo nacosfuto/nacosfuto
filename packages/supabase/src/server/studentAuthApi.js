@@ -130,7 +130,60 @@ async function getOfficialStudentRecord(registrationNumber) {
     }
   }
 
-  // 2. Canonical departmental roster fallback
+  // 2. Try Supabase id_card_settings (store_verified_roster)
+  if (supabase) {
+    try {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('payload')
+        .eq('id', 'store_verified_roster')
+        .maybeSingle();
+
+      if (storeRow?.payload?.roster && Array.isArray(storeRow.payload.roster)) {
+        const found = storeRow.payload.roster.find(s =>
+          (s.registration_number && s.registration_number.toUpperCase() === cleanReg) ||
+          (s.registration_number && s.registration_number.replace(/[^a-zA-Z0-9]/g, '') === cleanReg.replace(/[^a-zA-Z0-9]/g, ''))
+        );
+        if (found) return found;
+      }
+    } catch (_) {}
+
+    // 3. Try Supabase profiles table
+    try {
+      const strippedReg = cleanReg.replace(/[^a-zA-Z0-9]/g, '');
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg},matric_number.ilike.${cleanReg},matric_number.ilike.${strippedReg}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (prof) {
+        return {
+          id: prof.id,
+          registration_number: prof.registration_number || prof.matric_number,
+          full_name: prof.full_name,
+          first_name: prof.first_name || (prof.full_name ? prof.full_name.split(' ')[0] : ''),
+          last_name: prof.last_name || prof.surname || '',
+          surname: prof.surname || prof.last_name || '',
+          middle_name: prof.middle_name || '',
+          email: prof.email,
+          phone_number: prof.phone_number,
+          masked_email: maskEmail(prof.email),
+          masked_phone: maskPhone(prof.phone_number),
+          department: prof.department || 'Computer Science',
+          faculty: prof.faculty,
+          admission_year: prof.admission_year,
+          level: prof.level,
+          programme: prof.programme,
+          programme_duration: prof.programme_duration,
+          has_registered: Boolean(prof.password_hash)
+        };
+      }
+    } catch (_) {}
+  }
+
+  // 4. Canonical departmental roster fallback
   const { getLocalVerifiedStudents } = await import('../verifiedStudents.js');
   const roster = getLocalVerifiedStudents();
   return roster.find(s => 
@@ -517,89 +570,97 @@ export async function handleVerifyOtp({ stepToken, otpCode, purpose = 'SIGNUP' }
 
   let matched = false;
 
-  // 1. Look up active challenge(s) in Supabase
+  // 1. Look up challenge(s) in Supabase
   if (supabase) {
     try {
-      // Fetch all active, unexpired, unused verification challenges for this student
-      const { data: activeRecords, error: fetchErr } = await supabase
+      // Query challenges created within the last 30 minutes for this registration number
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      const { data: challenges, error: fetchErr } = await supabase
         .from('otp_verifications')
         .select('*')
         .eq('registration_number', cleanReg)
-        .eq('is_used', false)
-        .gte('expires_at', nowIso)
+        .gte('created_at', thirtyMinutesAgo)
         .order('created_at', { ascending: false });
 
       if (fetchErr) {
         console.warn('Database OTP query warning:', fetchErr.message);
       }
 
-      const activeList = activeRecords || [];
-      const matchedRecord = activeList.find(r => r.otp_hash === candidateHash);
+      const challengeList = challenges || [];
+      const matchedRecord = challengeList.find(r => r.otp_hash === candidateHash);
 
       if (matchedRecord) {
+        // Allow up to 5 minutes clock skew beyond expires_at
+        const expiryTime = matchedRecord.expires_at ? new Date(matchedRecord.expires_at).getTime() : 0;
+        const isExpired = expiryTime > 0 && (Date.now() > expiryTime + 5 * 60 * 1000);
+
+        if (isExpired) {
+          return { success: false, error: 'This verification code has expired. Please request a new code.' };
+        }
+
         if (matchedRecord.attempts >= (matchedRecord.max_attempts || 5)) {
           return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
         }
 
         matched = true;
 
-        // Mark the matched record as used & verified
+        // Mark this specific record as verified & used
         await supabase
           .from('otp_verifications')
           .update({ is_used: true, verified_at: nowIso })
           .eq('id', matchedRecord.id);
 
-        // Deactivate all sibling pending codes for this student to prevent reuse
-        await supabase
-          .from('otp_verifications')
-          .update({ is_used: true })
-          .eq('registration_number', cleanReg)
-          .eq('is_used', false);
-
-      } else if (activeList.length > 0) {
-        // Active challenge exists, but user entered wrong code
-        const latestChallenge = activeList[0];
-        const newAttempts = (latestChallenge.attempts || 0) + 1;
-        const maxAttempts = latestChallenge.max_attempts || 5;
-
-        await supabase
-          .from('otp_verifications')
-          .update({
-            attempts: newAttempts,
-            is_used: newAttempts >= maxAttempts
-          })
-          .eq('id', latestChallenge.id);
-
-        const remaining = Math.max(0, maxAttempts - newAttempts);
-        return {
-          success: false,
-          error: remaining > 0
-            ? `Incorrect verification code. ${remaining} attempt(s) remaining.`
-            : 'Maximum verification attempts exceeded. Please request a new code.'
-        };
       } else {
-        // No active unexpired unused challenge found. Check historical records to give precise feedback
-        const { data: recentRecords } = await supabase
-          .from('otp_verifications')
-          .select('*')
-          .eq('registration_number', cleanReg)
-          .order('created_at', { ascending: false })
-          .limit(10);
+        // Check if there is an active unconsumed challenge to register an attempt against
+        const activeUnused = challengeList.filter(c => !c.is_used && (!c.expires_at || new Date(c.expires_at).getTime() + 5 * 60 * 1000 >= Date.now()));
+        if (activeUnused.length > 0) {
+          const latestChallenge = activeUnused[0];
+          const newAttempts = (latestChallenge.attempts || 0) + 1;
+          const maxAttempts = latestChallenge.max_attempts || 5;
 
-        const historicalMatch = (recentRecords || []).find(r => r.otp_hash === candidateHash);
-        if (historicalMatch) {
-          if (historicalMatch.verified_at) {
-            return { success: false, error: 'This verification code has already been verified and used.' };
+          await supabase
+            .from('otp_verifications')
+            .update({
+              attempts: newAttempts,
+              is_used: newAttempts >= maxAttempts
+            })
+            .eq('id', latestChallenge.id);
+
+          const remaining = Math.max(0, maxAttempts - newAttempts);
+          return {
+            success: false,
+            error: remaining > 0
+              ? `Incorrect verification code. ${remaining} attempt(s) remaining.`
+              : 'Maximum verification attempts exceeded. Please request a new code.'
+          };
+        } else {
+          // Check historical records
+          const { data: recentRecords } = await supabase
+            .from('otp_verifications')
+            .select('*')
+            .eq('registration_number', cleanReg)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+          const historicalMatch = (recentRecords || []).find(r => r.otp_hash === candidateHash);
+          if (historicalMatch) {
+            // If already verified within the last 15 minutes, allow re-authorization
+            if (historicalMatch.verified_at) {
+              const verifiedAge = Date.now() - new Date(historicalMatch.verified_at).getTime();
+              if (verifiedAge < 15 * 60 * 1000) {
+                matched = true;
+              } else {
+                return { success: false, error: 'This verification code has already been verified and expired. Please request a new code.' };
+              }
+            } else if (historicalMatch.expires_at && new Date(historicalMatch.expires_at).getTime() + 5 * 60 * 1000 < Date.now()) {
+              return { success: false, error: 'This verification code has expired. Please request a new code.' };
+            }
           }
-          if (historicalMatch.is_used) {
-            return { success: false, error: 'This verification code was superseded by a newer code. Please use the most recent code sent to your contact or request a new code.' };
-          }
-          if (new Date(historicalMatch.expires_at) <= new Date()) {
-            return { success: false, error: 'This verification code has expired. Please request a new code.' };
+
+          if (!matched) {
+            return { success: false, error: 'Invalid or expired verification code. Please request a new code.' };
           }
         }
-
-        return { success: false, error: 'Invalid or expired verification code. Please request a new code.' };
       }
     } catch (e) {
       console.warn('Database OTP verification error:', e.message);
@@ -690,8 +751,20 @@ export async function handleCompleteSignup({ authorizationToken, password }) {
 
   if (supabase) {
     try {
-      // 1. Upsert profile
-      await supabase.from('profiles').upsert(profileRecord, { onConflict: 'registration_number' });
+      // 1. Create or update profile in public.profiles
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .or(`registration_number.eq.${cleanReg},id.eq.${profileRecord.id}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingProfile) {
+        profileRecord.id = existingProfile.id;
+        await supabase.from('profiles').update(profileRecord).eq('id', existingProfile.id);
+      } else {
+        await supabase.from('profiles').insert([profileRecord]);
+      }
 
       // 2. Mark verified_students as registered
       await supabase

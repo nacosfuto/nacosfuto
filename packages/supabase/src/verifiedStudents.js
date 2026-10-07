@@ -838,23 +838,67 @@ export function cleanupExpiredData() {
 // =========================================================================
 
 /**
+ * Helper to sync roster store to Supabase id_card_settings
+ */
+export async function syncRosterStoreToSupabase(rosterList) {
+  if (!supabase) return;
+  try {
+    await supabase.from('id_card_settings').upsert({
+      id: 'store_verified_roster',
+      payload: { roster: rosterList },
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+  } catch (e) {
+    console.warn('Sync roster store error:', e);
+  }
+}
+
+/**
  * Get all verified students in the departmental roster
  */
 export async function adminGetAllVerifiedStudents() {
-  // 1. Try Supabase
+  const map = new Map();
+
+  // 1. Try Supabase verified_students table
   try {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('verified_students')
       .select('*')
       .order('registration_number', { ascending: true });
 
-    if (!error && data && data.length > 0) {
-      return data;
+    if (Array.isArray(data)) {
+      data.forEach(s => {
+        if (s.registration_number) map.set(s.registration_number.toUpperCase(), s);
+      });
     }
   } catch (e) {}
 
-  // 2. Fallback to local store
-  return getLocalVerifiedStudents();
+  // 2. Try Supabase id_card_settings (store_verified_roster)
+  try {
+    const { data: storeRow } = await supabase
+      .from('id_card_settings')
+      .select('payload')
+      .eq('id', 'store_verified_roster')
+      .maybeSingle();
+
+    if (storeRow?.payload?.roster && Array.isArray(storeRow.payload.roster)) {
+      storeRow.payload.roster.forEach(s => {
+        if (s.registration_number && !map.has(s.registration_number.toUpperCase())) {
+          map.set(s.registration_number.toUpperCase(), s);
+        }
+      });
+    }
+  } catch (e) {}
+
+  // 3. Fallback to local store
+  const localRoster = getLocalVerifiedStudents();
+  localRoster.forEach(s => {
+    if (s.registration_number && !map.has(s.registration_number.toUpperCase())) {
+      map.set(s.registration_number.toUpperCase(), s);
+    }
+  });
+
+  return Array.from(map.values());
 }
 
 /**
@@ -944,6 +988,7 @@ export async function adminImportVerifiedStudents(rawRecords) {
   if (toInsert.length > 0) {
     const updatedRoster = [...existingRoster, ...toInsert];
     saveLocalVerifiedStudents(updatedRoster);
+    await syncRosterStoreToSupabase(updatedRoster);
 
     // Sync imported batch to Supabase profiles & verified roster
     for (const item of toInsert) {
@@ -1036,6 +1081,7 @@ export async function adminToggleVerifiedStudentStatus(regNo) {
   roster[index].status = newStatus;
   roster[index].updated_at = new Date().toISOString();
   saveLocalVerifiedStudents(roster);
+  await syncRosterStoreToSupabase(roster);
 
   // Sync with Supabase
   try {
@@ -1118,10 +1164,12 @@ export async function adminAddVerifiedStudent(studentData) {
     roster.push(record);
   }
   saveLocalVerifiedStudents(roster);
+  await syncRosterStoreToSupabase(roster);
 
-  // Try updating verified_students table if it already has this row
+  // Live sync to verified_students table in Supabase
   try {
-    await supabase.from('verified_students').update({
+    await supabase.from('verified_students').upsert({
+      registration_number: cleanReg,
       full_name: resolvedFullName,
       surname: resolvedSurname,
       first_name: resolvedFirstName,
@@ -1129,11 +1177,25 @@ export async function adminAddVerifiedStudent(studentData) {
       last_name: resolvedSurname,
       email: cleanEmail,
       phone_number: record.phone_number,
+      masked_email: maskEmail(cleanEmail),
+      masked_phone: maskPhone(record.phone_number),
+      department: record.department,
+      faculty: record.faculty,
+      level: record.level,
+      admission_year: admissionYear,
+      programme: record.programme,
+      programme_duration: duration,
+      academic_session: record.academic_session,
       status: 'active',
       has_registered: true,
+      is_registered: true,
+      registered_at: record.registered_at,
+      auth_user_id: record.auth_user_id,
       updated_at: new Date().toISOString()
-    }).eq('registration_number', cleanReg);
-  } catch (e) {}
+    }, { onConflict: 'registration_number' });
+  } catch (e) {
+    console.warn('Supabase adminAddVerifiedStudent error:', e);
+  }
 
   return { success: true, data: record };
 }
@@ -1146,9 +1208,11 @@ export async function adminDeleteVerifiedStudent(regNo) {
   const roster = getLocalVerifiedStudents();
   const filtered = roster.filter(s => s.registration_number.toUpperCase() !== cleanReg);
   saveLocalVerifiedStudents(filtered);
+  await syncRosterStoreToSupabase(filtered);
 
   try {
     await supabase.from('verified_students').delete().eq('registration_number', cleanReg);
+    await supabase.from('profiles').delete().eq('registration_number', cleanReg);
   } catch (e) {}
 
   return { success: true };

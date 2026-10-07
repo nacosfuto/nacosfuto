@@ -6,7 +6,7 @@ import {
   calculateExpectedGraduation, 
   getAcademicSession 
 } from '@nacos/config/academic';
-import { createOTPVerification, verifyOTP, maskEmail } from './otpService.js';
+import { createOTPVerification, verifyOTP, maskEmail, maskPhone } from './otpService.js';
 import { sendPasswordResetEmail } from './emailService.js';
 
 /**
@@ -213,10 +213,17 @@ export async function signInStudent(identifier, password) {
 
   // 2. Direct Supabase Database (public.profiles) lookup
   try {
+    const strippedId = cleanId.replace(/[^a-zA-Z0-9]/g, '');
+    let filterString = `registration_number.ilike.${cleanId},email.ilike.${cleanId}`;
+    if (strippedId && strippedId !== cleanId) {
+      filterString += `,registration_number.ilike.${strippedId},matric_number.ilike.${cleanId},matric_number.ilike.${strippedId}`;
+    } else {
+      filterString += `,matric_number.ilike.${cleanId}`;
+    }
     const { data: dbProfile, error: dbError } = await supabase
       .from('profiles')
       .select('*')
-      .or(`registration_number.ilike.${cleanId},email.ilike.${cleanId}`)
+      .or(filterString)
       .limit(1)
       .maybeSingle();
 
@@ -574,11 +581,13 @@ export async function adminAddStudent(studentData) {
     console.warn('Supabase profiles live sync exception:', err);
   }
 
-  // 3. Sync to verified_students if existing row exists
+  // 3. Sync to verified_students in Supabase (upsert so new student exists in both tables)
   try {
+    const levelInfo = calculateCurrentLevel(admissionYear, CURRENT_ACADEMIC_YEAR_START, duration);
     await supabase
       .from('verified_students')
-      .update({
+      .upsert({
+        registration_number: resolvedReg,
         full_name: resolvedFullName,
         surname: resolvedSurname,
         first_name: resolvedFirstName,
@@ -586,12 +595,25 @@ export async function adminAddStudent(studentData) {
         last_name: resolvedSurname,
         email: resolvedEmail,
         phone_number: profileRecord.phone_number,
+        masked_email: maskEmail(resolvedEmail),
+        masked_phone: maskPhone(profileRecord.phone_number),
+        department: profileRecord.department,
+        faculty: profileRecord.faculty,
+        level: levelInfo.levelString,
+        admission_year: admissionYear,
+        programme: profileRecord.programme,
+        programme_duration: duration,
+        academic_session: getAcademicSession(CURRENT_ACADEMIC_YEAR_START),
         status: 'active',
         has_registered: true,
+        is_registered: true,
+        registered_at: new Date().toISOString(),
+        auth_user_id: studentId,
         updated_at: new Date().toISOString()
-      })
-      .eq('registration_number', resolvedReg);
-  } catch (err) {}
+      }, { onConflict: 'registration_number' });
+  } catch (err) {
+    console.warn('Supabase verified_students sync error:', err);
+  }
 
   // 4. Save to local stores
   const localDb = getLocalStudentsDatabase();

@@ -109,8 +109,10 @@ const Dashboard = () => {
     }
 
     try {
-      let query = supabase.from('profiles').select('id, registration_number, is_active').limit(1);
-      if (userId) {
+      let query = supabase.from('profiles').select('*').limit(1);
+      if (userId && regNo) {
+        query = query.or(`id.eq.${userId},registration_number.ilike.${regNo}`);
+      } else if (userId) {
         query = query.eq('id', userId);
       } else {
         query = query.ilike('registration_number', regNo);
@@ -134,6 +136,12 @@ const Dashboard = () => {
         return false;
       }
 
+      // Merge latest live Supabase database attributes with user state
+      const mergedUser = { ...currentUser, ...data };
+      setUser(mergedUser);
+      localStorage.setItem('nacos_user', JSON.stringify(mergedUser));
+      checkPaymentStatus(mergedUser);
+
       setVerified(true);
       return true;
     } catch (err) {
@@ -153,11 +161,7 @@ const Dashboard = () => {
       }
       try {
         const parsed = JSON.parse(stored);
-        const ok = await verifyStudentInDatabase(parsed);
-        if (ok) {
-          setUser(parsed);
-          checkPaymentStatus(parsed);
-        }
+        await verifyStudentInDatabase(parsed);
       } catch (e) {
         console.error(e);
       }
