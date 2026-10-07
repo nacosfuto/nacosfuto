@@ -23,6 +23,7 @@ import PortalAdminLayout from '../components/PortalAdminLayout';
 import { adminGetAllVerifiedStudents } from '@nacos/supabase/verifiedStudents';
 import { adminGetAllStudents } from '@nacos/supabase/auth';
 import { portalAdminGetApplications } from '@nacos/supabase/idCard';
+import { getDuesSettings, supabase } from '@nacos/supabase';
 import { useTheme } from '../context/ThemeContext';
 
 export const PortalAdminDashboard = () => {
@@ -45,6 +46,13 @@ export const PortalAdminDashboard = () => {
     approvedIdCards: 0
   });
 
+  const [duesStats, setDuesStats] = useState({
+    rate: 2500,
+    academicSession: '2026/2027',
+    clearedCount: 0,
+    totalRevenue: 0
+  });
+
   useEffect(() => {
     loadDashboardData();
   }, []);
@@ -52,10 +60,11 @@ export const PortalAdminDashboard = () => {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [whitelistRes, accountsRes, idCardsRes] = await Promise.all([
+      const [whitelistRes, accountsRes, idCardsRes, duesSettingsRes] = await Promise.all([
         adminGetAllVerifiedStudents(),
         adminGetAllStudents(),
-        portalAdminGetApplications({ status: 'ALL' })
+        portalAdminGetApplications({ status: 'ALL' }),
+        getDuesSettings().catch(() => ({ dues_amount: 2500, academic_session: '2026/2027' }))
       ]);
 
       // Robust parsing: handles arrays or response objects
@@ -88,6 +97,41 @@ export const PortalAdminDashboard = () => {
         activeAccounts: accounts.length,
         pendingIdCards: pending,
         approvedIdCards: approved
+      });
+
+      // Calculate dues statistics
+      let clearedDuesCount = 0;
+      let totalDuesRev = 0;
+      if (accounts && accounts.length > 0) {
+        clearedDuesCount = accounts.filter(a => a.dues_cleared === true || a.has_paid_dues === true).length;
+      }
+
+      const activeDuesRate = Number(duesSettingsRes?.dues_amount || 2500);
+
+      if (supabase) {
+        try {
+          const { data: duesPays } = await supabase
+            .from('payments')
+            .select('amount, status')
+            .eq('payment_type', 'DEPARTMENTAL_DUES')
+            .eq('status', 'successful');
+
+          if (duesPays && duesPays.length > 0) {
+            clearedDuesCount = Math.max(clearedDuesCount, duesPays.length);
+            totalDuesRev = duesPays.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+          } else {
+            totalDuesRev = clearedDuesCount * activeDuesRate;
+          }
+        } catch (_) {
+          totalDuesRev = clearedDuesCount * activeDuesRate;
+        }
+      }
+
+      setDuesStats({
+        rate: activeDuesRate,
+        academicSession: duesSettingsRes?.academic_session || '2026/2027',
+        clearedCount: clearedDuesCount,
+        totalRevenue: totalDuesRev
       });
 
       setDbStatus({
@@ -129,6 +173,14 @@ export const PortalAdminDashboard = () => {
       icon: GraduationCap,
       color: 'from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-400',
       link: '/students'
+    },
+    {
+      title: 'Departmental Dues',
+      value: `₦${Number(duesStats.rate).toLocaleString()}`,
+      subtitle: `${duesStats.clearedCount} Cleared • ₦${Number(duesStats.totalRevenue).toLocaleString()} Rev`,
+      icon: CreditCard,
+      color: 'from-lime-500/20 to-emerald-500/20 border-lime-500/30 text-lime-400',
+      link: '/settings'
     },
     {
       title: 'Pending ID Cards',
@@ -184,7 +236,7 @@ export const PortalAdminDashboard = () => {
         </div>
 
         {/* KPI Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {statCards.map((stat, i) => {
             const Icon = stat.icon;
             return (
@@ -434,9 +486,9 @@ export const PortalAdminDashboard = () => {
                   <CreditCard className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-inherit">Portal Session & Settings</h3>
+                  <h3 className="text-xs font-bold text-inherit">Departmental Dues & Session Settings</h3>
                   <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                    Configure active academic sessions, departmental dues, and registration controls.
+                    Live Dues Rate: <strong className="text-emerald-500">₦{Number(duesStats.rate).toLocaleString()}</strong> ({duesStats.academicSession}). Update fee schedules, dues clearances, and registration controls.
                   </p>
                 </div>
               </Link>

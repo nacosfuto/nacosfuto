@@ -152,11 +152,21 @@ export const PortalAdminSettings = () => {
     setSavedSuccess(false);
     setSaveError('');
     try {
+      const parsedIdCard = Number(idCardFee);
+      const parsedDues = Number(duesFee);
+
+      if (isNaN(parsedIdCard) || parsedIdCard < 0) {
+        throw new Error('Please enter a valid positive ID Card fee.');
+      }
+      if (isNaN(parsedDues) || parsedDues < 0) {
+        throw new Error('Please enter a valid positive Departmental Dues fee.');
+      }
+
       // Single fast atomic database write directly to Supabase
       const res = await savePortalSettingsDirectly({
-        idCardFee: Number(idCardFee),
-        duesFee: Number(duesFee),
-        academicSession,
+        idCardFee: parsedIdCard,
+        duesFee: parsedDues,
+        academicSession: academicSession || '2026/2027',
         allowRegistration
       });
 

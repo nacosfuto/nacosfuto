@@ -115,9 +115,19 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
     localSettings.is_application_open = isOpen;
     localSettings.updated_at = now;
     localStorage.setItem(ID_SETTINGS_STORAGE_KEY, JSON.stringify(localSettings));
+
+    const duesSettings = {
+      id: 'dues',
+      dues_amount: duesNum,
+      academic_session: session,
+      is_open: true,
+      updated_at: now
+    };
+    localStorage.setItem('nacos_dues_settings_db', JSON.stringify(duesSettings));
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('nacos_id_card_settings_updated', { detail: localSettings }));
-      window.dispatchEvent(new CustomEvent('nacos_dues_settings_updated', { detail: { dues_amount: duesNum } }));
+      window.dispatchEvent(new CustomEvent('nacos_dues_settings_updated', { detail: duesSettings }));
     }
   } catch (_) {}
 

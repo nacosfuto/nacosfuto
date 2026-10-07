@@ -354,65 +354,84 @@ export async function createPaymentCheckout({
     console.warn('[Bachs] Pending payment record creation error:', dbErr);
   }
 
-  // 7. Call Bachs Checkout API
+  // 7. Call Bachs Hosted Checkout API
   let checkoutUrl = '';
   let providerCheckoutId = `chk_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
   try {
     const isLiveKey = config.apiKey && !config.apiKey.includes('sample') && !config.apiKey.includes('your_key');
-    if (isLiveKey) {
-      const response = await fetch(`${config.baseUrl}/v1/checkout/sessions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${config.apiKey}`,
-          'Content-Type': 'application/json'
+    if (!isLiveKey) {
+      throw new Error('Valid server-side BACHS_API_KEY is not configured');
+    }
+
+    // Bachs strictly validates that success_url and cancel_url must be publicly accessible URLs (no localhost or private IP).
+    const publicOrigin = (
+      process.env.PUBLIC_PORTAL_URL || 
+      process.env.NEXT_PUBLIC_PORTAL_URL || 
+      process.env.VITE_PORTAL_URL || 
+      'https://portal.nacosfuto.com.ng'
+    ).replace(/\/+$/, '');
+
+    const isLocalReturn = returnUrl.includes('localhost') || returnUrl.includes('127.0.0.1');
+    const isLocalCancel = cancelUrl.includes('localhost') || cancelUrl.includes('127.0.0.1');
+
+    const bachsSuccessUrl = isLocalReturn
+      ? `${publicOrigin}${defRedirect.startsWith('/') ? '' : '/'}${defRedirect}`
+      : returnUrl;
+
+    const bachsCancelUrl = isLocalCancel
+      ? `${publicOrigin}${defCancel.startsWith('/') ? '' : '/'}${defCancel}`
+      : cancelUrl;
+
+    const response = await fetch(`${config.baseUrl}/v1/checkout-sessions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        customer: {
+          name: customerName,
+          email: customerEmail,
+          ...(customerPhone ? { phone: customerPhone } : {})
         },
-        body: JSON.stringify({
-          amount: chargeAmount,
-          currency: config.currency,
-          reference: reference,
+        pricing: {
+          amount: Number(chargeAmount).toFixed(2),
+          currency: config.currency || 'NGN'
+        },
+        success_url: bachsSuccessUrl,
+        cancel_url: bachsCancelUrl,
+        reference: reference,
+        metadata: {
+          student_id: studentId,
+          registration_number: regNo,
+          payment_type: normalizedType,
+          payment_record_id: paymentRecordId,
           product_id: productId,
-          customer: {
-            name: customerName,
-            email: customerEmail,
-            phone: customerPhone
-          },
-          metadata: {
-            student_id: studentId,
-            registration_number: regNo,
-            payment_type: normalizedType,
-            payment_record_id: paymentRecordId,
-            ...metadata
-          },
-          redirect_url: returnUrl,
-          cancel_url: cancelUrl
-        })
-      });
+          ...metadata
+        }
+      })
+    });
 
-      const result = await response.json();
-      if (!response.ok || !result) {
-        console.error('[Bachs Live] API session creation failed:', result);
-        throw new Error(result?.message || result?.error || 'Bachs Live API error creating session');
-      }
+    const result = await response.json();
+    if (!response.ok || !result) {
+      console.error('[Bachs Live] API checkout session creation failed:', response.status, result);
+      throw new Error(result?.detail || result?.message || result?.error || `Bachs API error (status ${response.status})`);
+    }
 
-      checkoutUrl = result.checkout_url || result.url || result.data?.checkout_url;
-      providerCheckoutId = result.id || result.session_id || result.data?.id || providerCheckoutId;
-    } else {
-      if (config.environment === 'production') {
-        console.warn('[Bachs Live] Production active. Directing to authoritative Bachs live checkout portal.');
-        checkoutUrl = `https://checkout.bachs.io/pay?product=${encodeURIComponent(productId)}&ref=${encodeURIComponent(reference)}&amount=${chargeAmount}&email=${encodeURIComponent(customerEmail)}`;
-      } else {
-        checkoutUrl = `${returnUrl}&payment=simulated_checkout&reference=${encodeURIComponent(reference)}&amount=${chargeAmount}`;
-      }
+    checkoutUrl = result.checkout_url || result.url;
+    providerCheckoutId = result.checkout_id || result.id || providerCheckoutId;
+
+    if (!checkoutUrl) {
+      console.error('[Bachs Live] Missing checkout_url in Bachs response:', result);
+      throw new Error('Bachs API responded without a valid hosted checkout_url.');
     }
   } catch (apiErr) {
-    if (config.environment === 'production') {
-      console.warn('[Bachs Live] Remote API call encountered:', apiErr.message, '- redirecting to live Bachs checkout URL');
-      checkoutUrl = `https://checkout.bachs.io/pay?product=${encodeURIComponent(productId)}&ref=${encodeURIComponent(reference)}&amount=${chargeAmount}&email=${encodeURIComponent(customerEmail)}`;
-    } else {
-      console.warn('[Bachs] Remote API call failed, falling back to secure sandbox session:', apiErr.message);
-      checkoutUrl = `${returnUrl}&payment=simulated_checkout&reference=${encodeURIComponent(reference)}&amount=${chargeAmount}`;
-    }
+    console.error('[Bachs Checkout Error]:', apiErr.message);
+    return {
+      error: `Payment checkout gateway error: ${apiErr.message}`,
+      statusCode: 502
+    };
   }
 
   // 8. Update payment record with provider checkout details
@@ -702,28 +721,50 @@ export async function getPaymentStatus({ reference, paymentType, registrationNum
       const { data, error } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
       if (!error && data) {
         const config = getBachsConfig();
-        // If pending in live environment, query Bachs verify endpoint as fallback if webhook had network lag
-        if (data.status === 'pending' && config.environment === 'production' && config.apiKey && !config.apiKey.includes('sample')) {
+        // If pending in live environment, query Bachs checkout-sessions endpoint as fallback if webhook had network lag
+        if (data.status === 'pending' && config.apiKey && !config.apiKey.includes('sample')) {
           try {
-            const verifyUrl = `${config.baseUrl}/v1/payments/verify/${data.reference}`;
-            const verifyRes = await fetch(verifyUrl, {
-              headers: { 'Authorization': `Bearer ${config.apiKey}` }
-            });
-            if (verifyRes.ok) {
+            const checkoutId = data.provider_checkout_id;
+            let verifyRes = null;
+            if (checkoutId && checkoutId.startsWith('chk_')) {
+              verifyRes = await fetch(`${config.baseUrl}/v1/checkout-sessions/${checkoutId}`, {
+                headers: { 'Authorization': `Bearer ${config.apiKey}` }
+              });
+            }
+            if (!verifyRes || !verifyRes.ok) {
+              verifyRes = await fetch(`${config.baseUrl}/v1/payments/verify/${data.reference}`, {
+                headers: { 'Authorization': `Bearer ${config.apiKey}` }
+              });
+            }
+
+            if (verifyRes && verifyRes.ok) {
               const verifyData = await verifyRes.json();
-              const statusStr = (verifyData.status || verifyData.data?.status || '').toLowerCase();
-              if (statusStr === 'successful' || statusStr === 'paid' || statusStr === 'completed') {
+              const sessionStatus = (verifyData.status || '').toLowerCase();
+              const paymentStatus = (verifyData.payment_status || '').toLowerCase();
+              const chargeStatus = (verifyData.charge?.status || verifyData.data?.status || '').toLowerCase();
+
+              const isSuccess = 
+                paymentStatus === 'paid' || 
+                chargeStatus === 'paid' || 
+                chargeStatus === 'successful' || 
+                sessionStatus === 'completed' ||
+                sessionStatus === 'paid';
+
+              if (isSuccess) {
                 const now = new Date().toISOString();
+                const providerPaymentId = verifyData.charge?.payment_id || verifyData.charge?.id || verifyData.payment_id || '';
                 await supabase.from('payments').update({
                   status: 'successful',
+                  provider_payment_id: providerPaymentId || data.provider_payment_id,
                   paid_at: now,
                   updated_at: now
                 }).eq('id', data.id);
 
                 data.status = 'successful';
                 data.paid_at = now;
+                if (providerPaymentId) data.provider_payment_id = providerPaymentId;
 
-                // Fulfill dynamically
+                // Fulfill dynamically across student profile & modules
                 await fulfillSuccessfulPayment(data, now);
               }
             }

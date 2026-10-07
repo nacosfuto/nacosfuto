@@ -66,8 +66,6 @@ const IdCard = () => {
   // Bachs Payment Verification & Polling States
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
   const [verifyingReference, setVerifyingReference] = useState('');
-  const [simulatedModal, setSimulatedModal] = useState(null);
-  const [isSimulatingSuccess, setIsSimulatingSuccess] = useState(false);
   const [isStepUpOpen, setIsStepUpOpen] = useState(false);
 
   useEffect(() => {
@@ -156,11 +154,6 @@ const IdCard = () => {
       setIsVerifyingPayment(true);
       setVerifyingReference(ref);
       startPaymentVerificationPolling(ref);
-    } else if (paymentAction === 'simulated_checkout' && ref) {
-      setSimulatedModal({
-        reference: ref,
-        amount: searchParams.get('amount') || settings.id_card_fee || ''
-      });
     } else if (paymentAction === 'cancelled') {
       showNotification('Payment was cancelled. You can retry checkout when you are ready.', 'error');
       searchParams.delete('payment');
@@ -236,39 +229,6 @@ const IdCard = () => {
     } catch (e) {
       setIsPaying(false);
       showNotification('Could not check status. Please check your network connection.', 'error');
-    }
-  };
-
-  const handleSimulatePaymentSuccess = async (ref) => {
-    const targetRef = ref || verifyingReference || simulatedModal?.reference;
-    if (!targetRef) return;
-    setIsSimulatingSuccess(true);
-    try {
-      const res = await fetch('/api/payments/id-card/simulate-success', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reference: targetRef,
-          amount: settings.id_card_fee
-        })
-      });
-      const data = await res.json();
-      setIsSimulatingSuccess(false);
-      setSimulatedModal(null);
-      if (data.success) {
-        showNotification('Sandbox payment confirmed via webhook simulation!');
-        setIsVerifyingPayment(false);
-        searchParams.delete('payment');
-        searchParams.delete('reference');
-        searchParams.delete('amount');
-        setSearchParams(searchParams, { replace: true });
-        await loadStudentAndApplication();
-      } else {
-        showNotification(data.error || 'Simulation failed', 'error');
-      }
-    } catch (e) {
-      setIsSimulatingSuccess(false);
-      showNotification('Simulation endpoint error', 'error');
     }
   };
 
@@ -599,16 +559,6 @@ const IdCard = () => {
                     {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
                     <span>Check Payment Status</span>
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSimulatePaymentSuccess(verifyingReference)}
-                    disabled={isSimulatingSuccess}
-                    className="w-full sm:w-auto px-5 py-3 min-h-[44px] text-xs font-semibold text-gray-700 dark:text-green-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 rounded-xl border border-gray-200 dark:border-[#138601]/30 transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
-                  >
-                    {isSimulatingSuccess ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-amber-500" />}
-                    <span>Simulate Webhook (Sandbox)</span>
-                  </button>
                 </div>
               </div>
             ) : (
@@ -671,75 +621,6 @@ const IdCard = () => {
                 </div>
               </>
             )}
-          </div>
-        )}
-
-        {/* -------------------------------------------------------------------
-            MODAL: BACHS SANDBOX CHECKOUT SIMULATOR
-            ------------------------------------------------------------------- */}
-        {simulatedModal && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/40 p-6 space-y-5 shadow-2xl text-left">
-              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#138601]/20">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-                  <h3 className="text-base font-bold text-gray-900 dark:text-white">
-                    Bachs Sandbox Checkout
-                  </h3>
-                </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                  SANDBOX
-                </span>
-              </div>
-
-              <p className="text-xs text-gray-600 dark:text-green-100/80">
-                You are testing the NACOS Student ID Card payment flow in sandbox mode. Simulating completion will trigger an authoritative webhook to unlock passport upload.
-              </p>
-
-              <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/20 text-xs space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Student:</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">{student.name || student.full_name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Reg No:</span>
-                  <span className="font-mono font-bold text-[#138601] dark:text-[#4bd043]">{student.matric || student.registration_number}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Reference:</span>
-                  <span className="font-mono text-[11px] text-gray-700 dark:text-green-200">{simulatedModal.reference}</span>
-                </div>
-                <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-[#138601]/20 text-sm font-bold">
-                  <span className="text-gray-900 dark:text-white">Total:</span>
-                  <span className="text-[#138601] dark:text-[#4bd043]">₦{Number(simulatedModal.amount || 5000).toLocaleString()}.00</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSimulatedModal(null);
-                    searchParams.delete('payment');
-                    searchParams.delete('reference');
-                    searchParams.delete('amount');
-                    setSearchParams(searchParams, { replace: true });
-                  }}
-                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSimulatePaymentSuccess(simulatedModal.reference)}
-                  disabled={isSimulatingSuccess}
-                  className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs cursor-pointer inline-flex items-center gap-1.5"
-                >
-                  {isSimulatingSuccess ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                  <span>Complete Test Payment</span>
-                </button>
-              </div>
-            </div>
           </div>
         )}
 
