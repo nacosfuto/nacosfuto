@@ -221,11 +221,13 @@ export async function createOTPVerification(regNumber, channel, destination, ful
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
 
   try {
+    const nowIso = new Date().toISOString();
     await supabase
       .from('otp_verifications')
       .update({ is_used: true })
       .eq('registration_number', cleanReg)
       .eq('channel', channel)
+      .lt('expires_at', nowIso)
       .eq('is_used', false);
 
     await supabase.from('otp_verifications').insert([{
@@ -282,102 +284,103 @@ export async function createOTPVerification(regNumber, channel, destination, ful
 
 export async function verifyOTP(regNumber, channel, submittedCode) {
   const cleanReg = regNumber.trim().toUpperCase();
-  const cleanCode = submittedCode.trim();
+  const cleanCode = (submittedCode || '').toString().replace(/\D/g, '').trim();
 
   if (!cleanCode || cleanCode.length !== 6) {
     return { success: false, error: { message: 'Please enter a valid 6-digit verification code.' } };
   }
 
+  const nowIso = new Date().toISOString();
+  const submittedHash = await hashOTP(cleanCode);
   let match = null;
 
   try {
-    const { data } = await supabase
+    const { data: activeList } = await supabase
       .from('otp_verifications')
       .select('*')
       .eq('registration_number', cleanReg)
       .eq('channel', channel)
       .eq('is_used', false)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .gte('expires_at', nowIso)
+      .order('created_at', { ascending: false });
 
-    if (data) {
-      const submittedHash = await hashOTP(cleanCode);
-      if (data.otp_hash === submittedHash) {
-        match = data;
+    if (activeList && activeList.length > 0) {
+      match = activeList.find(r => r.otp_hash === submittedHash);
+
+      if (match) {
+        // Mark match as verified & used
+        await supabase
+          .from('otp_verifications')
+          .update({
+            verified_at: nowIso,
+            is_used: true
+          })
+          .eq('id', match.id);
+
+        // Deactivate other pending codes for this user & channel
+        await supabase
+          .from('otp_verifications')
+          .update({ is_used: true })
+          .eq('registration_number', cleanReg)
+          .eq('channel', channel)
+          .eq('is_used', false);
+      } else {
+        // Increment attempts on the newest active challenge
+        const latest = activeList[0];
+        const newAttempts = (latest.attempts || 0) + 1;
+        await supabase
+          .from('otp_verifications')
+          .update({
+            attempts: newAttempts,
+            is_used: newAttempts >= (latest.max_attempts || OTP_MAX_ATTEMPTS)
+          })
+          .eq('id', latest.id);
+
+        if (newAttempts >= (latest.max_attempts || OTP_MAX_ATTEMPTS)) {
+          return { success: false, error: { message: 'Too many verification attempts. Please request a new code.' } };
+        }
+        return { success: false, error: { message: 'Incorrect verification code. Please try again.' } };
       }
     }
   } catch (e) {}
 
   if (!match) {
     const storedCodes = getLocalData(OTP_STORAGE_KEY);
-    match = storedCodes.find(c =>
+    const activeStored = storedCodes.filter(c =>
       c.registration_number === cleanReg &&
       c.channel === channel &&
-      !c.is_used
+      !c.is_used &&
+      new Date(c.expires_at) >= new Date()
     );
-    if (match) {
-      const submittedHash = await hashOTP(cleanCode);
-      if (match.otp_hash !== submittedHash) {
-        match = null;
-      }
-    }
-  }
 
-  if (!match) {
-    const storedCodes = getLocalData(OTP_STORAGE_KEY);
-    const codeRecord = storedCodes.find(c =>
-      c.registration_number === cleanReg &&
-      c.channel === channel &&
-      !c.is_used
-    );
-    if (codeRecord) {
+    match = activeStored.find(c => c.otp_hash === submittedHash);
+
+    if (match) {
+      match.is_used = true;
+      match.verified_at = nowIso;
+      saveLocalData(OTP_STORAGE_KEY, storedCodes);
+    } else if (activeStored.length > 0) {
+      const codeRecord = activeStored[0];
       codeRecord.attempts = (codeRecord.attempts || 0) + 1;
       if (codeRecord.attempts >= OTP_MAX_ATTEMPTS) {
         codeRecord.is_used = true;
       }
       saveLocalData(OTP_STORAGE_KEY, storedCodes);
-
-      try {
-        await supabase
-          .from('otp_verifications')
-          .update({
-            attempts: codeRecord.attempts,
-            is_used: codeRecord.attempts >= OTP_MAX_ATTEMPTS
-          })
-          .eq('registration_number', cleanReg)
-          .eq('channel', channel)
-          .eq('is_used', false);
-      } catch (e) {}
-
       if (codeRecord.attempts >= OTP_MAX_ATTEMPTS) {
         return { success: false, error: { message: 'Too many verification attempts. Please request a new code.' } };
       }
+      return { success: false, error: { message: 'Incorrect verification code. Please try again.' } };
     }
+  }
 
-    return { success: false, error: { message: 'Incorrect verification code. Please try again.' } };
+  if (!match) {
+    return { success: false, error: { message: 'Invalid or expired verification code. Please request a new code.' } };
   }
 
   const isExpired = new Date(match.expires_at) < new Date();
   if (isExpired) {
     return { success: false, error: { message: 'This verification code has expired. Please request a new code.' } };
   }
-
-  const attempts = (match.attempts || 0) + 1;
-  if (attempts > OTP_MAX_ATTEMPTS) {
-    return { success: false, error: { message: 'Too many verification attempts. Please request a new code.' } };
-  }
-
-  try {
-    await supabase
-      .from('otp_verifications')
-      .update({
-        attempts,
-        verified_at: new Date().toISOString(),
-        is_used: true
-      })
-      .eq('id', match.id);
-  } catch (e) {}
 
   const storedCodes = getLocalData(OTP_STORAGE_KEY);
   const localIdx = storedCodes.findIndex(c => c.id === match.id);

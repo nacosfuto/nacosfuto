@@ -220,7 +220,7 @@ const Register = () => {
     e.preventDefault();
     setError('');
 
-    const cleanCode = otpCode.trim();
+    const cleanCode = (otpCode || '').toString().replace(/\D/g, '').trim();
     if (!cleanCode || cleanCode.length !== 6) {
       setError('Please enter the 6-digit verification code.');
       return;

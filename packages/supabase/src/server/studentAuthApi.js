@@ -382,11 +382,13 @@ export async function handleSendOtp({ stepToken, channel = 'email', purpose = 'S
   // Save Challenge in Database
   if (supabase) {
     try {
-      // Deactivate older active OTPs for this reg number
+      // Clean up only expired challenges for this registration number
+      const nowIso = new Date().toISOString();
       await supabase
         .from('otp_verifications')
         .update({ is_used: true })
         .eq('registration_number', cleanReg)
+        .lt('expires_at', nowIso)
         .eq('is_used', false);
 
       // Insert new verification record with purpose encoded
@@ -500,62 +502,104 @@ export async function handleSendOtp({ stepToken, channel = 'email', purpose = 'S
 export async function handleVerifyOtp({ stepToken, otpCode, purpose = 'SIGNUP' }) {
   const verifiedToken = verifyAuthToken(stepToken);
   if (!verifiedToken) {
-    return { success: false, error: 'Session expired. Please restart.' };
+    return { success: false, error: 'Session expired. Please restart the verification flow.' };
   }
 
-  if (!otpCode || otpCode.trim().length !== 6) {
+  // Sanitize input: extract 6 digits, strip any accidental whitespace, hyphens, or formatting
+  const cleanOtp = (otpCode || '').toString().replace(/\D/g, '').trim();
+  if (!cleanOtp || cleanOtp.length !== 6) {
     return { success: false, error: 'Please enter a valid 6-digit verification code.' };
   }
 
   const cleanReg = verifiedToken.registrationNumber;
-  const cleanOtp = otpCode.trim();
   const candidateHash = hashOtpServer(cleanOtp);
   const nowIso = new Date().toISOString();
 
   let matched = false;
-  let recordId = null;
 
-  // 1. Look up active challenge in Supabase
+  // 1. Look up active challenge(s) in Supabase
   if (supabase) {
     try {
-      const { data: record } = await supabase
+      // Fetch all active, unexpired, unused verification challenges for this student
+      const { data: activeRecords, error: fetchErr } = await supabase
         .from('otp_verifications')
         .select('*')
         .eq('registration_number', cleanReg)
         .eq('is_used', false)
         .gte('expires_at', nowIso)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order('created_at', { ascending: false });
 
-      if (record) {
-        recordId = record.id;
-        if (record.attempts >= record.max_attempts) {
-          return { success: false, error: 'Too many incorrect attempts. Please request a new verification code.' };
+      if (fetchErr) {
+        console.warn('Database OTP query warning:', fetchErr.message);
+      }
+
+      const activeList = activeRecords || [];
+      const matchedRecord = activeList.find(r => r.otp_hash === candidateHash);
+
+      if (matchedRecord) {
+        if (matchedRecord.attempts >= (matchedRecord.max_attempts || 5)) {
+          return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
         }
 
-        if (record.otp_hash === candidateHash) {
-          matched = true;
-          // Mark as used & verified
-          await supabase
-            .from('otp_verifications')
-            .update({ is_used: true, verified_at: nowIso })
-            .eq('id', record.id);
-        } else {
-          // Increment attempts
-          await supabase
-            .from('otp_verifications')
-            .update({ attempts: (record.attempts || 0) + 1 })
-            .eq('id', record.id);
+        matched = true;
 
-          const remaining = Math.max(0, (record.max_attempts || 5) - (record.attempts || 0) - 1);
-          return {
-            success: false,
-            error: remaining > 0 
-              ? `Incorrect verification code. ${remaining} attempt(s) remaining.`
-              : 'Maximum attempts exceeded. Please request a new code.'
-          };
+        // Mark the matched record as used & verified
+        await supabase
+          .from('otp_verifications')
+          .update({ is_used: true, verified_at: nowIso })
+          .eq('id', matchedRecord.id);
+
+        // Deactivate all sibling pending codes for this student to prevent reuse
+        await supabase
+          .from('otp_verifications')
+          .update({ is_used: true })
+          .eq('registration_number', cleanReg)
+          .eq('is_used', false);
+
+      } else if (activeList.length > 0) {
+        // Active challenge exists, but user entered wrong code
+        const latestChallenge = activeList[0];
+        const newAttempts = (latestChallenge.attempts || 0) + 1;
+        const maxAttempts = latestChallenge.max_attempts || 5;
+
+        await supabase
+          .from('otp_verifications')
+          .update({
+            attempts: newAttempts,
+            is_used: newAttempts >= maxAttempts
+          })
+          .eq('id', latestChallenge.id);
+
+        const remaining = Math.max(0, maxAttempts - newAttempts);
+        return {
+          success: false,
+          error: remaining > 0
+            ? `Incorrect verification code. ${remaining} attempt(s) remaining.`
+            : 'Maximum verification attempts exceeded. Please request a new code.'
+        };
+      } else {
+        // No active unexpired unused challenge found. Check historical records to give precise feedback
+        const { data: recentRecords } = await supabase
+          .from('otp_verifications')
+          .select('*')
+          .eq('registration_number', cleanReg)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        const historicalMatch = (recentRecords || []).find(r => r.otp_hash === candidateHash);
+        if (historicalMatch) {
+          if (historicalMatch.verified_at) {
+            return { success: false, error: 'This verification code has already been verified and used.' };
+          }
+          if (historicalMatch.is_used) {
+            return { success: false, error: 'This verification code was superseded by a newer code. Please use the most recent code sent to your contact or request a new code.' };
+          }
+          if (new Date(historicalMatch.expires_at) <= new Date()) {
+            return { success: false, error: 'This verification code has expired. Please request a new code.' };
+          }
         }
+
+        return { success: false, error: 'Invalid or expired verification code. Please request a new code.' };
       }
     } catch (e) {
       console.warn('Database OTP verification error:', e.message);
