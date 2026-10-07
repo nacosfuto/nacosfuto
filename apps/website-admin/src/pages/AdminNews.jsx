@@ -60,13 +60,21 @@ const AdminNews = () => {
   // Sync with Supabase on mount and listen for real-time updates
   useEffect(() => {
     fetchNewsArticles({ publishedOnly: false }).then(fetched => {
-      if (fetched && fetched.length > 0) {
+      if (Array.isArray(fetched)) {
         setArticles(fetched);
       }
     });
 
     const handleSync = () => {
-      setArticles(getLocalNewsArticles({ publishedOnly: false }));
+      fetchNewsArticles({ publishedOnly: false }).then(fetched => {
+        if (Array.isArray(fetched)) {
+          setArticles(fetched);
+        } else {
+          setArticles(getLocalNewsArticles({ publishedOnly: false }));
+        }
+      }).catch(() => {
+        setArticles(getLocalNewsArticles({ publishedOnly: false }));
+      });
     };
 
     window.addEventListener('nacos_website_articles_updated', handleSync);

@@ -14,12 +14,24 @@ const Events = () => {
 
   // Dynamic syncing with Supabase and real-time dashboard events
   useEffect(() => {
-    fetchEventsFromSupabase().then(() => {
-      setAllEvents(getEvents({ category: 'all', publishedOnly: true }));
+    fetchEventsFromSupabase().then((data) => {
+      if (Array.isArray(data)) {
+        setAllEvents(data.filter(e => e.is_published));
+      } else {
+        setAllEvents(getEvents({ category: 'all', publishedOnly: true }));
+      }
     });
 
     const handleSync = () => {
-      setAllEvents(getEvents({ category: 'all', publishedOnly: true }));
+      fetchEventsFromSupabase().then((data) => {
+        if (Array.isArray(data)) {
+          setAllEvents(data.filter(e => e.is_published));
+        } else {
+          setAllEvents(getEvents({ category: 'all', publishedOnly: true }));
+        }
+      }).catch(() => {
+        setAllEvents(getEvents({ category: 'all', publishedOnly: true }));
+      });
     };
 
     window.addEventListener('nacos_website_events_updated', handleSync);

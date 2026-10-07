@@ -61,13 +61,21 @@ const AdminEvents = () => {
   // Load latest events from Supabase in background
   useEffect(() => {
     fetchEventsFromSupabase().then(fetched => {
-      if (fetched && fetched.length > 0) {
+      if (Array.isArray(fetched)) {
         setEvents(fetched);
       }
     });
 
     const handleSync = () => {
-      setEvents(getEvents({ category: 'all' }));
+      fetchEventsFromSupabase().then(fetched => {
+        if (Array.isArray(fetched)) {
+          setEvents(fetched);
+        } else {
+          setEvents(getEvents({ category: 'all' }));
+        }
+      }).catch(() => {
+        setEvents(getEvents({ category: 'all' }));
+      });
     };
 
     window.addEventListener('nacos_website_events_updated', handleSync);

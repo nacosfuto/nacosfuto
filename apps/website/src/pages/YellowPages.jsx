@@ -85,16 +85,16 @@ const YellowPages = () => {
 
   const loadBusinesses = async () => {
     try {
-      const local = getYellowPagesBusinesses('approved');
-      if (local && local.length > 0) {
-        setBusinesses(local);
-      }
       const remote = await fetchYellowPagesFromSupabase('approved');
-      if (remote && remote.length > 0) {
+      if (Array.isArray(remote)) {
         setBusinesses(remote);
+      } else {
+        const local = getYellowPagesBusinesses('approved');
+        setBusinesses(local || []);
       }
     } catch (e) {
-      console.warn('Error loading yellow pages businesses:', e);
+      const local = getYellowPagesBusinesses('approved');
+      setBusinesses(local || []);
     }
   };
 

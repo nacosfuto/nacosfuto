@@ -32,10 +32,10 @@ import {
   downloadIdCardAsPdf
 } from '@nacos/supabase/idCard';
 import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
-import { getOptimizedImageUrl } from '@nacos/media';
+import { idTemplateMaster, idTemplateBack, idTemplateFrame } from '@nacos/media';
 
-const masterTemplateAsset = getOptimizedImageUrl('nacos/ids/nacos_id_template_master');
-const frameAsset = getOptimizedImageUrl('nacos/ids/nacos_id_template_frame');
+const masterTemplateAsset = idTemplateMaster;
+const frameAsset = idTemplateFrame;
 
 const AdminIdCards = () => {
   const [applications, setApplications] = useState([]);
@@ -536,7 +536,7 @@ const AdminIdCards = () => {
                       </div>
                       <div className={`${adminViewSide === 'back' ? 'block' : 'hidden'}`}>
                         <img
-                          src={selectedApp.id_card_back_url || ID_CARD_TEMPLATE.masterBackUrl || ''}
+                          src={selectedApp.id_card_back_url || ID_CARD_TEMPLATE.masterBackUrl || idTemplateBack}
                           alt="ID Card Back"
                           className="w-full h-auto block object-cover"
                           style={{ aspectRatio: `${ID_CARD_TEMPLATE.dimensions.aspectRatio}` }}

@@ -58,16 +58,16 @@ const CampusClubs = () => {
 
   const loadClubs = async () => {
     try {
-      const local = getCampusClubs('approved');
-      if (local && local.length > 0) {
-        setClubs(local);
-      }
       const remote = await fetchCampusClubsFromSupabase('approved');
-      if (remote && remote.length > 0) {
+      if (Array.isArray(remote)) {
         setClubs(remote);
+      } else {
+        const local = getCampusClubs('approved');
+        setClubs(local || []);
       }
     } catch (e) {
-      console.warn('Error loading campus clubs:', e);
+      const local = getCampusClubs('approved');
+      setClubs(local || []);
     }
   };
 

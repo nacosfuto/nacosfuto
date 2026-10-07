@@ -23,129 +23,6 @@ import {
   fetchGalleryFromSupabase
 } from '@nacos/supabase';
 
-const INITIAL_GALLERY = [
-  {
-    id: 'gal-1',
-    title: 'Department Front Entrance',
-    caption: 'NACOS Student Leaders at the Department of Computer Science (TETFUND Complex)',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/gallery_dept_front',
-    category: 'Academics',
-    is_featured: true,
-    created_at: '2026-08-10T12:00:00Z'
-  },
-  {
-    id: 'gal-2',
-    title: 'Student Group Mixer',
-    caption: 'FUTO Computing Students Outdoor Hangout & Mixer',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/gallery_student_group',
-    category: 'Socials',
-    is_featured: true,
-    created_at: '2026-08-12T14:30:00Z'
-  },
-  {
-    id: 'gal-3',
-    title: 'Cultural Day Celebrations',
-    caption: 'Traditional Attire Cultural Day Celebrations',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/gallery_traditional_day',
-    category: 'Culture',
-    is_featured: true,
-    created_at: '2026-08-15T16:00:00Z'
-  },
-  {
-    id: 'gal-4',
-    title: 'Community Nature Outing',
-    caption: 'Student Community Outing & Nature Meetup',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/gallery_nature_hangout',
-    category: 'Socials',
-    is_featured: false,
-    created_at: '2026-08-18T10:00:00Z'
-  },
-  {
-    id: 'gal-5',
-    title: 'Tech Symposium Panel',
-    caption: 'Tech Symposium Panel Discussion with Industry Guest Speakers',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos1',
-    category: 'Tech Events',
-    is_featured: false,
-    created_at: '2026-08-20T11:00:00Z'
-  },
-  {
-    id: 'gal-6',
-    title: 'Hackathon Sprint',
-    caption: 'Hackathon Sprint & Collaborative Coding Arena',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos2',
-    category: 'Tech Events',
-    is_featured: false,
-    created_at: '2026-08-22T09:00:00Z'
-  },
-  {
-    id: 'gal-7',
-    title: 'Software Project Demo Day',
-    caption: 'Departmental Software Project Demonstration Day',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos3',
-    category: 'Academics',
-    is_featured: false,
-    created_at: '2026-08-25T13:00:00Z'
-  },
-  {
-    id: 'gal-8',
-    title: 'Freshmen Induction Ceremony',
-    caption: 'Freshmen Orientation & Computing Induction Ceremony',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos4',
-    category: 'Campus Life',
-    is_featured: false,
-    created_at: '2026-08-28T10:00:00Z'
-  },
-  {
-    id: 'gal-9',
-    title: 'NACOS Dinner & Awards Gala',
-    caption: 'Annual NACOS Dinner & Outstanding Scholar Awards Gala',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos5',
-    category: 'Culture',
-    is_featured: false,
-    created_at: '2026-09-01T18:00:00Z'
-  },
-  {
-    id: 'gal-10',
-    title: 'Cloud & Security Workshop',
-    caption: 'Hands-on Cloud & Cyber Security Workshop Session',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos6',
-    category: 'Tech Events',
-    is_featured: false,
-    created_at: '2026-09-03T15:00:00Z'
-  },
-  {
-    id: 'gal-11',
-    title: 'Sports Championship & Relay',
-    caption: 'Departmental Sports Championship & Track Relay',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos7',
-    category: 'Sports',
-    is_featured: false,
-    created_at: '2026-09-05T16:00:00Z'
-  },
-  {
-    id: 'gal-12',
-    title: 'Alumni Career Talk',
-    caption: 'Alumni Tech Talk & Career Advisory Fireside Chat',
-    image_url: '',
-    cloudinary_public_id: 'nacos/gallery/nacos8',
-    category: 'Academics',
-    is_featured: false,
-    created_at: '2026-09-08T12:00:00Z'
-  }
-];
-
 const AdminGallery = () => {
   const [items, setItems] = useState([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -168,7 +45,7 @@ const AdminGallery = () => {
   const [editPublicId, setEditPublicId] = useState('');
 
   const loadGallery = (liveData) => {
-    if (Array.isArray(liveData) && liveData.length > 0) {
+    if (Array.isArray(liveData)) {
       setItems(liveData);
     } else {
       setItems(getGalleryItems());

@@ -79,13 +79,16 @@ const AdminYellowPages = () => {
 
   const loadBusinesses = async () => {
     setLoading(true);
-    setBusinesses(getYellowPages('all'));
     try {
       const live = await fetchYellowPagesFromSupabase('all');
-      if (live && live.length > 0) {
+      if (Array.isArray(live)) {
         setBusinesses(live);
+      } else {
+        setBusinesses(getYellowPages('all'));
       }
-    } catch (e) {}
+    } catch (e) {
+      setBusinesses(getYellowPages('all'));
+    }
     setLoading(false);
   };
 

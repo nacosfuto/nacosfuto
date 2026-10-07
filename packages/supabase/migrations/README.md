@@ -47,11 +47,8 @@ If your database is already populated and you want to apply specific version upd
 
 ---
 
-## 🔒 Default Admin Credentials (Seed Data)
-For local development and initial login:
-
-| Email | Scope | Default Password |
-| :--- | :--- | :--- |
-| `superadmin@nacos.org.ng` | `super_admin` | `password` |
-| `portaladmin@nacos.org.ng` | `student_portal` | `password` |
-| `webadmin@nacos.org.ng` | `main_website` | `password` |
+## 🔒 Administrative Access Setup
+For initial setup and administration:
+- Administrative scopes and role permissions are provisioned in the `admin_scopes` table.
+- Administrators authenticate using email and cryptographic password hashes with scope-level isolation (`super_admin`, `student_portal`, `main_website`).
+- Manage and rotate administrative credentials directly in your Supabase project dashboard or via the scoped admin consoles.

@@ -44,133 +44,12 @@ import {
 import { supabase } from '@nacos/supabase';
 import { syncMediaAsset, deleteMediaAsset, fetchMediaAssets } from '@nacos/supabase/media';
 
-// Seed demo media library items representing typical NACOS assets
-const INITIAL_MEDIA_ASSETS = [
-  {
-    id: 'media-1',
-    cloudinary_public_id: 'nacos/students/20241429481_passport',
-    image_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600',
-    image_alt: 'Passport photo - Nestor Anyanwu',
-    category: 'students',
-    folder: 'nacos/students',
-    entity_type: 'student_passport',
-    entity_id: '20241429481',
-    format: 'jpg',
-    bytes: 184320,
-    width: 600,
-    height: 720,
-    created_at: '2026-08-20T10:15:00Z'
-  },
-  {
-    id: 'media-2',
-    cloudinary_public_id: 'nacos/executives/president_irechukwu',
-    image_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=600',
-    image_alt: 'Chapter President - Irechukwu',
-    category: 'executives',
-    folder: 'nacos/executives',
-    entity_type: 'executive_portrait',
-    entity_id: 'president',
-    format: 'jpg',
-    bytes: 245100,
-    width: 600,
-    height: 600,
-    created_at: '2026-08-15T14:30:00Z'
-  },
-  {
-    id: 'media-3',
-    cloudinary_public_id: 'nacos/events/masked_affairs_banner',
-    image_url: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&q=80&w=1200',
-    image_alt: 'Masked Affairs Social Mixer Banner',
-    category: 'events',
-    folder: 'nacos/events',
-    entity_type: 'event_banner',
-    entity_id: 'masked-affairs-2026',
-    format: 'jpg',
-    bytes: 482900,
-    width: 1200,
-    height: 630,
-    created_at: '2026-08-25T09:00:00Z'
-  },
-  {
-    id: 'media-4',
-    cloudinary_public_id: 'nacos/gallery/tetfund_dept_complex',
-    image_url: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&q=80&w=1200',
-    image_alt: 'Department of Computer Science TETFUND Complex',
-    category: 'gallery',
-    folder: 'nacos/gallery',
-    entity_type: 'campus_gallery',
-    entity_id: 'dept-front',
-    format: 'jpg',
-    bytes: 524000,
-    width: 1200,
-    height: 800,
-    created_at: '2026-08-10T12:00:00Z'
-  },
-  {
-    id: 'media-5',
-    cloudinary_public_id: 'nacos/certificates/hackathon_first_place',
-    image_url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&q=80&w=1200',
-    image_alt: 'BuildX NACOS 2026 Certificate Badge',
-    category: 'certificates',
-    folder: 'nacos/certificates',
-    entity_type: 'certificate_template',
-    entity_id: 'buildx-2026-cert',
-    format: 'png',
-    bytes: 312000,
-    width: 1200,
-    height: 850,
-    created_at: '2026-09-01T16:20:00Z'
-  },
-  {
-    id: 'media-6',
-    cloudinary_public_id: 'nacos/ids/id_20241429481_card',
-    image_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=1200',
-    image_alt: 'Digital Student ID Card - Nestor Anyanwu',
-    category: 'ids',
-    folder: 'nacos/ids',
-    entity_type: 'student_id_card',
-    entity_id: '20241429481',
-    format: 'png',
-    bytes: 420000,
-    width: 1012,
-    height: 638,
-    created_at: '2026-09-02T11:00:00Z'
-  },
-  {
-    id: 'media-7',
-    cloudinary_public_id: 'nacos/yellow_pages/peacemaker_tech_flyer',
-    image_url: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=1200',
-    image_alt: 'Peacemaker Technologies Indigenous Student Startup',
-    category: 'yellow_pages',
-    folder: 'nacos/yellow_pages',
-    entity_type: 'business_flyer',
-    entity_id: 'peacemaker-tech',
-    format: 'png',
-    bytes: 412000,
-    width: 1200,
-    height: 800,
-    created_at: '2026-08-28T10:00:00Z'
-  },
-  {
-    id: 'media-8',
-    cloudinary_public_id: 'nacos/alumni/emeka_okoye_spotlight',
-    image_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600',
-    image_alt: 'Alumni Network Spotlight - Principal Engineer',
-    category: 'alumni',
-    folder: 'nacos/alumni',
-    entity_type: 'alumni_spotlight',
-    entity_id: 'alumni-emeka',
-    format: 'jpg',
-    bytes: 280000,
-    width: 600,
-    height: 600,
-    created_at: '2026-08-18T11:00:00Z'
-  }
-];
+// Media library items loaded dynamically from Supabase & Cloudinary
+const INITIAL_MEDIA_ASSETS = [];
 
 const AdminMedia = () => {
   const [currentUser, setCurrentUser] = useState(null);
-  const [mediaList, setMediaList] = useState(INITIAL_MEDIA_ASSETS);
+  const [mediaList, setMediaList] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -202,7 +81,6 @@ const AdminMedia = () => {
         console.error(e);
       }
     }
-    loadMediaFromDatabase();
 
     // Query folder status on mount
     async function loadFolderStatus() {
@@ -218,14 +96,14 @@ const AdminMedia = () => {
     loadFolderStatus();
   }, []);
 
-  const loadMediaFromDatabase = async () => {
-    const res = await fetchMediaAssets({ category: selectedCategory });
-    if (res.data && res.data.length > 0) {
-      const existingIds = new Set(res.data.map(d => d.cloudinary_public_id));
-      const merged = [...res.data, ...INITIAL_MEDIA_ASSETS.filter(item => !existingIds.has(item.cloudinary_public_id))];
-      setMediaList(merged);
-    }
+  const loadMediaFromDatabase = async (category = selectedCategory) => {
+    const res = await fetchMediaAssets(category !== 'all' ? { category } : {});
+    setMediaList(res.data || []);
   };
+
+  useEffect(() => {
+    loadMediaFromDatabase(selectedCategory);
+  }, [selectedCategory]);
 
   const showNotification = (text, type = 'success') => {
     setNotification({ text, type });

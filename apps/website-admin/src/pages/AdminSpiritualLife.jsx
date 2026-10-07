@@ -63,13 +63,16 @@ const AdminSpiritualLife = () => {
 
   const loadFellowships = async () => {
     setLoading(true);
-    setFellowships(getSpiritualFellowships('all'));
     try {
       const live = await fetchSpiritualFellowshipsFromSupabase('all');
-      if (live && live.length > 0) {
+      if (Array.isArray(live)) {
         setFellowships(live);
+      } else {
+        setFellowships(getSpiritualFellowships('all'));
       }
-    } catch (e) {}
+    } catch (e) {
+      setFellowships(getSpiritualFellowships('all'));
+    }
     setLoading(false);
   };
 

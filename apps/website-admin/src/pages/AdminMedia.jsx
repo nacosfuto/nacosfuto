@@ -40,95 +40,10 @@ import {
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
 import { syncMediaAsset, deleteMediaAsset, fetchMediaAssets } from '@nacos/supabase/media';
 
-const INITIAL_WEBSITE_MEDIA = [
-  {
-    id: 'wm-1',
-    cloudinary_public_id: 'nacos/events/masked_affairs_flyer',
-    image_url: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&q=80&w=1200',
-    image_alt: 'Masked Affairs Social Mixer Official Flyer',
-    category: 'events',
-    format: 'jpg',
-    bytes: 482900,
-    width: 1200,
-    height: 630,
-    created_at: '2026-08-25T09:00:00Z'
-  },
-  {
-    id: 'wm-2',
-    cloudinary_public_id: 'nacos/gallery/tetfund_dept_complex',
-    image_url: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&q=80&w=1200',
-    image_alt: 'Department of Computer Science TETFUND Complex',
-    category: 'gallery',
-    format: 'jpg',
-    bytes: 524000,
-    width: 1200,
-    height: 800,
-    created_at: '2026-08-10T12:00:00Z'
-  },
-  {
-    id: 'wm-3',
-    cloudinary_public_id: 'nacos/executives/president_irechukwu',
-    image_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=600',
-    image_alt: 'NACOS Chapter President Official Portrait',
-    category: 'executives',
-    format: 'jpg',
-    bytes: 245100,
-    width: 600,
-    height: 600,
-    created_at: '2026-08-15T14:30:00Z'
-  },
-  {
-    id: 'wm-4',
-    cloudinary_public_id: 'nacos/news/hackathon_announcement_cover',
-    image_url: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&q=80&w=1200',
-    image_alt: 'National Hackathon Announcement Cover',
-    category: 'news',
-    format: 'jpg',
-    bytes: 390200,
-    width: 1200,
-    height: 700,
-    created_at: '2026-09-01T15:00:00Z'
-  },
-  {
-    id: 'wm-5',
-    cloudinary_public_id: 'nacos/yellow_pages/peacemaker_tech_flyer',
-    image_url: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=1200',
-    image_alt: 'Peacemaker Technologies Indigenous Student Startup Flyer',
-    category: 'yellow_pages',
-    format: 'png',
-    bytes: 412000,
-    width: 1200,
-    height: 800,
-    created_at: '2026-08-28T10:00:00Z'
-  },
-  {
-    id: 'wm-6',
-    cloudinary_public_id: 'nacos/alumni/emeka_okoye_spotlight',
-    image_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600',
-    image_alt: 'Distinguished Alumni Spotlight - Principal Engineer',
-    category: 'alumni',
-    format: 'jpg',
-    bytes: 280000,
-    width: 600,
-    height: 600,
-    created_at: '2026-08-18T11:00:00Z'
-  },
-  {
-    id: 'wm-7',
-    cloudinary_public_id: 'nacos/homepage/hero_tech_ecosystem',
-    image_url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&q=80&w=1200',
-    image_alt: 'NACOS Official Website Hero Banner - Computing Ecosystem',
-    category: 'homepage',
-    format: 'jpg',
-    bytes: 512000,
-    width: 1200,
-    height: 600,
-    created_at: '2026-09-02T08:00:00Z'
-  }
-];
+const INITIAL_WEBSITE_MEDIA = [];
 
 const AdminMedia = () => {
-  const [mediaList, setMediaList] = useState(INITIAL_WEBSITE_MEDIA);
+  const [mediaList, setMediaList] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -153,11 +68,7 @@ const AdminMedia = () => {
   useEffect(() => {
     async function loadData() {
       const res = await fetchMediaAssets({ category: selectedCategory });
-      if (res.data && res.data.length > 0) {
-        const existingIds = new Set(res.data.map(d => d.cloudinary_public_id));
-        const merged = [...res.data, ...INITIAL_WEBSITE_MEDIA.filter(item => !existingIds.has(item.cloudinary_public_id))];
-        setMediaList(merged);
-      }
+      setMediaList(res.data || []);
     }
     loadData();
 

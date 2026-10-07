@@ -158,7 +158,7 @@ function App() {
               <Route path="/students" element={<StudentLife />} />
               <Route path="/campus-tour" element={<CampusTour />} />
               <Route path="/campus-clubs" element={<CampusClubs />} />
-              <Route path="/clubs" element={<Clubs />} />
+              <Route path="/clubs" element={<CampusClubs />} />
               <Route path="/events" element={<Events />} />
               <Route path="/yellow-pages" element={<YellowPages />} />
               <Route path="/spiritual-life" element={<SpiritualLife />} />

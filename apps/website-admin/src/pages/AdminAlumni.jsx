@@ -60,13 +60,16 @@ const AdminAlumni = () => {
 
   const loadAlumni = async () => {
     setLoading(true);
-    setAlumni(getAlumni('all'));
     try {
       const live = await fetchAlumniFromSupabase('all');
-      if (live && live.length > 0) {
+      if (Array.isArray(live)) {
         setAlumni(live);
+      } else {
+        setAlumni(getAlumni('all'));
       }
-    } catch (e) {}
+    } catch (e) {
+      setAlumni(getAlumni('all'));
+    }
     setLoading(false);
   };
 

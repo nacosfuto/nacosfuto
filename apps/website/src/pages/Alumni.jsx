@@ -54,16 +54,16 @@ const Alumni = () => {
 
   const loadAlumni = async () => {
     try {
-      const local = getAlumniDirectory('approved');
-      if (local && local.length > 0) {
-        setAlumniList(local);
-      }
       const remote = await fetchAlumniFromSupabase('approved');
-      if (remote && remote.length > 0) {
+      if (Array.isArray(remote)) {
         setAlumniList(remote);
+      } else {
+        const local = getAlumniDirectory('approved');
+        setAlumniList(local || []);
       }
     } catch (e) {
-      console.warn('Error loading alumni directory:', e);
+      const local = getAlumniDirectory('approved');
+      setAlumniList(local || []);
     }
   };
 

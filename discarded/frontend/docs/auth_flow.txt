@@ -1,6 +1,0 @@
-sequenceDiagram
-    Frontend->>Backend: Check registration details (real-time)
-    Backend->>Database: Validate against valid_registrations
-    Database-->>Backend: Return match status
-    Backend-->>Frontend: Show validation result
-    Frontend->>Backend: Submit only if all valid

@@ -2,7 +2,7 @@ import { supabase } from './client.js';
 import { syncMediaAsset } from './media.js';
 import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
 import { getLocalStudentsDatabase } from './auth.js';
-import { uploadMedia, CLOUDINARY_FOLDERS, getOptimizedImageUrl } from '@nacos/media';
+import { uploadMedia, CLOUDINARY_FOLDERS, getOptimizedImageUrl, idTemplateMaster, idTemplateBack, idTemplateFrame } from '@nacos/media';
 import QRCode from 'qrcode';
 
 const PAYMENTS_STORAGE_KEY = 'nacos_payments_db';
@@ -1339,6 +1339,7 @@ function loadTemplateImage(primaryUrl, fallbackUrl) {
     const candidates = [
       primaryUrl,
       fallbackUrl,
+      idTemplateMaster,
       ID_CARD_TEMPLATE.masterTemplateUrl
     ].filter(Boolean);
     const uniqueUrls = [...new Set(candidates)];
@@ -1405,8 +1406,8 @@ export async function drawIdCardOnCanvas(canvas, student, photoImg, cardInfo = n
   canvas.height = t.dimensions.height;
 
   // 1. Load Master Template Image (Priority: options URL -> static asset -> Cloudinary URL)
-  const templateSrc = options.templateImgUrl || options.templateUrl || t.masterTemplateUrl;
-  const templateImg = options.templateImg || await loadTemplateImage(templateSrc, '');
+  const templateSrc = options.templateImgUrl || options.templateUrl || idTemplateMaster || t.masterTemplateUrl;
+  const templateImg = options.templateImg || await loadTemplateImage(templateSrc, idTemplateMaster);
 
   const hasMasterTemplate = templateImg && templateImg.complete && templateImg.naturalWidth > 0;
 
@@ -1559,7 +1560,7 @@ export async function drawIdCardOnCanvas(canvas, student, photoImg, cardInfo = n
   }
 
   // 2b. Frame Overlay (Ensures authentic green and white border sits cleanly above the photo)
-  const frameSrc = options.frameImgUrl || options.frameUrl || '';
+  const frameSrc = options.frameImgUrl || options.frameUrl || idTemplateFrame || t.frameUrl || '';
   const frameImg = options.frameImg || await loadOptionalImage(frameSrc);
   if (frameImg && frameImg.complete && frameImg.naturalWidth > 0) {
     ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
@@ -1705,7 +1706,7 @@ export async function downloadIdCardAsImage(frontCanvasOrUrl, filename = 'NACOS-
     ? frontCanvasOrUrl
     : frontCanvasOrUrl?.toDataURL('image/png');
 
-  const backUrl = ID_CARD_TEMPLATE.masterBackUrl || '';
+  const backUrl = ID_CARD_TEMPLATE.masterBackUrl || idTemplateBack || '';
 
   if (side === 'front' || side === 'both') {
     if (frontDataUrl) {
@@ -1736,7 +1737,7 @@ export function downloadIdCardAsPdf(frontCanvasOrUrl, filename = 'NACOS-Student-
 
   if (!frontImgData) return;
 
-  const backImgData = backUrl || ID_CARD_TEMPLATE.masterBackUrl || '';
+  const backImgData = backUrl || ID_CARD_TEMPLATE.masterBackUrl || idTemplateBack || '';
 
   const printWindow = window.open('', '_blank');
   if (!printWindow) {

@@ -18,11 +18,23 @@ import {
   Building2
 } from 'lucide-react';
 import { getWebsiteAdminSession, getAdminAuditLogs } from '@nacos/supabase/adminAuth';
+import { 
+  fetchNewsArticles, 
+  fetchEventsFromSupabase, 
+  fetchGalleryFromSupabase, 
+  fetchMediaAssets 
+} from '@nacos/supabase';
 
 const AdminDashboard = () => {
   const [admin, setAdmin] = useState(null);
   const [recentLogs, setRecentLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [counts, setCounts] = useState({
+    articles: 0,
+    events: 0,
+    gallery: 0,
+    media: 0
+  });
 
   useEffect(() => {
     const session = getWebsiteAdminSession();
@@ -32,8 +44,29 @@ const AdminDashboard = () => {
 
   const loadDashboardData = async () => {
     try {
-      const logs = await getAdminAuditLogs('main_website', 6);
-      setRecentLogs(logs);
+      const [logs, newsData, eventsData, galleryData, mediaData] = await Promise.allSettled([
+        getAdminAuditLogs('main_website', 6),
+        fetchNewsArticles({ publishedOnly: false }),
+        fetchEventsFromSupabase('all'),
+        fetchGalleryFromSupabase(),
+        fetchMediaAssets()
+      ]);
+
+      if (logs.status === 'fulfilled') {
+        setRecentLogs(logs.value || []);
+      }
+
+      const articlesCount = newsData.status === 'fulfilled' && Array.isArray(newsData.value) ? newsData.value.length : 0;
+      const eventsCount = eventsData.status === 'fulfilled' && Array.isArray(eventsData.value) ? eventsData.value.length : 0;
+      const galleryCount = galleryData.status === 'fulfilled' && Array.isArray(galleryData.value) ? galleryData.value.length : 0;
+      const mediaCount = mediaData.status === 'fulfilled' && mediaData.value?.data ? mediaData.value.data.length : 0;
+
+      setCounts({
+        articles: articlesCount,
+        events: eventsCount,
+        gallery: galleryCount,
+        media: mediaCount
+      });
     } catch (e) {
       console.error(e);
     } finally {
@@ -42,10 +75,10 @@ const AdminDashboard = () => {
   };
 
   const quickStats = [
-    { label: 'Published Articles', value: '14', change: '+3 this month', icon: Newspaper, path: '/admin/news' },
-    { label: 'Upcoming Events', value: '8', change: '2 featured', icon: Calendar, path: '/admin/events' },
-    { label: 'Gallery Photos', value: '32', change: 'Cloudinary CDN', icon: Camera, path: '/admin/gallery' },
-    { label: 'Media Assets', value: '78', change: '0 MB DB storage', icon: ImageIcon, path: '/admin/media' }
+    { label: 'Published Articles', value: String(counts.articles), change: 'Live from Supabase', icon: Newspaper, path: '/admin/news' },
+    { label: 'Upcoming Events', value: String(counts.events), change: 'Live from Supabase', icon: Calendar, path: '/admin/events' },
+    { label: 'Gallery Photos', value: String(counts.gallery), change: 'Cloudinary CDN', icon: Camera, path: '/admin/gallery' },
+    { label: 'Media Assets', value: String(counts.media), change: 'Cloudinary CDN', icon: ImageIcon, path: '/admin/media' }
   ];
 
   return (

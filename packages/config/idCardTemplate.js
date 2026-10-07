@@ -13,9 +13,9 @@
 
 export const ID_CARD_TEMPLATE = {
   version: '2026.2',
-  isDoubleSided: true,
-  masterTemplateUrl: '',
-  masterBackUrl: '',
+  masterTemplateUrl: 'https://res.cloudinary.com/a2mmcttn/image/upload/nacos/ids/nacos_id_template_master.jpg',
+  masterBackUrl: 'https://res.cloudinary.com/a2mmcttn/image/upload/nacos/ids/nacos_id_template_back.jpg',
+  frameUrl: 'https://res.cloudinary.com/a2mmcttn/image/upload/nacos/ids/nacos_id_template_frame.png',
   dimensions: {
     width: 662,
     height: 1075,

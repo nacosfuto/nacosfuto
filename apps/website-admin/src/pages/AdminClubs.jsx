@@ -58,13 +58,16 @@ const AdminClubs = () => {
 
   const loadClubs = async () => {
     setLoading(true);
-    setClubs(getCampusClubs('all'));
     try {
       const live = await fetchCampusClubsFromSupabase('all');
-      if (live && live.length > 0) {
+      if (Array.isArray(live)) {
         setClubs(live);
+      } else {
+        setClubs(getCampusClubs('all'));
       }
-    } catch (e) {}
+    } catch (e) {
+      setClubs(getCampusClubs('all'));
+    }
     setLoading(false);
   };
 

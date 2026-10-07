@@ -89,7 +89,7 @@ const Gallery = () => {
                 {/* Full-width Home-Style Hero Section */}
                 <section className="relative flex min-h-[460px] sm:min-h-[500px] md:h-[65vh] items-center justify-center overflow-hidden bg-gray-950">
                     <img
-                        src={getCloudinaryAssetUrl('gallery_dept_front') || galleryDeptFront}
+                        src={getCloudinaryAssetUrl('gallery_dept_front') || ''}
                         alt="Campus Life Gallery Banner"
                         className="absolute inset-0 w-full h-full object-cover object-center"
                     />

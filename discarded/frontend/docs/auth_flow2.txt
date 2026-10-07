@@ -1,4 +1,0 @@
-flowchart TB
-    A[Navbar] --> B{Is logged in?}
-    B -->|Yes| C[Show Profile Dropdown]
-    B -->|No| D[Show Login/Signup]

@@ -1,6 +1,6 @@
 # NACOS FUTO Monorepo Platform
 
-> **One Repository. Four Dedicated Applications. Shared Infrastructure. Distinct Experiences. Unified Brand.**
+> **One Repository. Five Dedicated Applications. Shared Infrastructure. Distinct Experiences. Unified Brand.**
 
 Welcome to the official digital ecosystem for the **Nigeria Association of Computing Students (NACOS), Federal University of Technology, Owerri (FUTO) Chapter**.
 
@@ -34,11 +34,15 @@ nacosfuto/
 │   │   ├── src/pages/AdminMedia.jsx  # Cloudinary Media Assets Library
 │   │   └── src/pages/AdminUsers.jsx  # Scoped Administrative Role Assignment
 │   │
-│   └── portal-admin/                 # Dedicated Student Portal Operations Admin
-│       ├── src/pages/PortalAdminDash # Portal Verification & Metric Overview
-│       ├── src/pages/PortalAdminStu* # Student Registry & Academic Record Auditing
-│       ├── src/pages/PortalAdminId*  # Digital Student ID Application Reviews & Approvals
-│       └── src/pages/PortalAdminSet* # Academic Session & System Settings
+│   ├── portal-admin/                 # Dedicated Student Portal Operations Admin
+│   │   ├── src/pages/PortalAdminDash # Portal Verification & Metric Overview
+│   │   ├── src/pages/PortalAdminStu* # Student Registry & Academic Record Auditing
+│   │   ├── src/pages/PortalAdminId*  # Digital Student ID Application Reviews & Approvals
+│   │   └── src/pages/PortalAdminSet* # Academic Session & System Settings
+│   │
+│   └── upskill-hub/                  # Interactive Peer Learning, Workshops & Courses
+│       ├── src/pages/CoursesPage.jsx # Technical Skill Tracks & Cohorts
+│       └── src/pages/Workshops*.jsx  # Live Student Developer Masterclasses
 │
 ├── packages/
 │   ├── auth/                         # Shared Scoped Authentication & Role-Based Permissions
@@ -88,12 +92,13 @@ This initializes all 18 subsystems:
 ### Option B: Incremental Migrations
 For existing databases, incremental SQL migrations are available in [`packages/supabase/migrations/`](packages/supabase/migrations/). See the [Migrations README](packages/supabase/migrations/README.md) for details.
 
-### 🔑 Default Pre-Seeded Admin Credentials
-| Scope / Role | Email | Default Password |
-| :--- | :--- | :--- |
-| **Super Admin** | `superadmin@nacos.org.ng` | `password` |
-| **Portal Admin** | `portaladmin@nacos.org.ng` | `password` |
-| **Website Admin** | `webadmin@nacos.org.ng` | `password` |
+### 🔒 Administrative Access Setup
+Administrative access is secured via scoped role-based access control (RBAC):
+- **Super Admin (`super_admin`)**: Full cross-system access across portal operations and website publishing.
+- **Portal Admin (`student_portal`)**: Scoped to student registry, verification audits, dues clearances, and ID cards.
+- **Website Admin (`main_website`)**: Scoped to website announcements, news, events, gallery, and Cloudinary media library.
+
+Administrative users are provisioned in the `admin_scopes` table with salted password hashes. Configure or rotate administrative accounts directly within your Supabase project dashboard.
 
 ---
 
@@ -105,22 +110,23 @@ npm install
 ```
 
 ### 2. Configure Environment Variables
-Copy `.env.example` to `.env` in the root or individual app folders:
+Copy `.env.example` to `.env` in the root:
 ```bash
 cp .env.example .env
 ```
-Provide your Supabase URL, Anon Key, Termii API Key (for SMS), and Resend API Key (for Email).
+Provide your Supabase URL, Anon Key, Cloudinary credentials, and communication API keys (Termii SMS and Nodemailer SMTP / Resend).
 
 ### 3. Run Applications
 ```bash
-# Start all 4 apps concurrently (Turbo pipeline)
-npm run dev
+# Start all applications concurrently
+npm run dev:all
 
 # Or start specific applications:
 npm run dev:website        # Main Website (http://localhost:5173)
 npm run dev:portal         # Student Portal (http://localhost:5174)
 npm run dev:website-admin  # Website CMS Admin (http://localhost:5175)
 npm run dev:portal-admin   # Portal Operations Admin (http://localhost:5176)
+npm run dev:upskill-hub    # Upskill Hub (http://localhost:5177)
 ```
 
 ---
@@ -128,7 +134,7 @@ npm run dev:portal-admin   # Portal Operations Admin (http://localhost:5176)
 ## 📦 Production Builds
 
 ```bash
-# Build all workspaces via Turborepo
+# Build all workspaces and bundle unified dist output
 npm run build
 
 # Build individual applications
@@ -136,15 +142,19 @@ npm run build:website
 npm run build:portal
 npm run build:website-admin
 npm run build:portal-admin
+npm run build:upskill-hub
 ```
 
 ---
 
 ## 🚀 Deployment (Vercel)
 
-All applications can be deployed from this repository as separate Vercel projects or bundled using the root `vercel.json` bundle script:
+The monorepo builds into a unified root `./dist` directory via `scripts/bundle-dist.js`, configured for single-project or multi-domain deployment on Vercel:
 
-1. **Main Website**: Root `apps/website` -> `nacosfuto.org`
-2. **Student Portal**: Root `apps/portal` -> `portal.nacosfuto.org`
-3. **Website Admin CMS**: Root `apps/website-admin` -> `admin.nacosfuto.org`
-4. **Portal Admin Operations**: Root `apps/portal-admin` -> `portal-admin.nacosfuto.org`
+1. **Main Website**: `/` -> `dist/index.html`
+2. **Student Portal**: `/portal` -> `dist/portal/index.html`
+3. **Website Admin CMS**: `/admin` -> `dist/admin/index.html`
+4. **Portal Admin Operations**: `/portal-admin` -> `dist/portal-admin/index.html`
+5. **Upskill Hub**: `/upskill-hub` -> `dist/upskill-hub/index.html`
+6. **Unified Serverless API**: `/api/*` -> `api/index.js`
+
