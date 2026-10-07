@@ -259,26 +259,31 @@ function saveLocalIdApplications(apps) {
  * Check whether a student has a verified dues/ID-card payment
  * Derived securely from the payment database, NEVER from client-side flags.
  */
-export async function checkStudentPaymentStatus(matricNumber) {
+export async function checkStudentPaymentStatus(matricNumber, currentLevel = null) {
   if (!matricNumber) return { isPaid: false, payment: null };
 
   const cleanMatric = matricNumber.trim().toUpperCase();
-  const today = new Date();
-  const threeSixtyFiveDays = 365 * 24 * 60 * 60 * 1000;
+  const cleanTargetLevel = currentLevel ? String(currentLevel).replace(/[^0-9]/g, '') : null;
 
   // 1. Check Bachs payments table in Supabase (Authoritative)
   try {
     let studentUuid = null;
+    let studentProfileLevel = null;
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanMatric)) {
       studentUuid = cleanMatric;
     } else if (supabase) {
       const { data: prof } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, level, current_level')
         .or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`)
         .maybeSingle();
       if (prof?.id) studentUuid = prof.id;
+      if (prof?.level || prof?.current_level) {
+        studentProfileLevel = String(prof.level || prof.current_level).replace(/[^0-9]/g, '');
+      }
     }
+
+    const activeLevel = cleanTargetLevel || studentProfileLevel || '100';
 
     let pQuery = supabase
       .from('payments')
@@ -292,38 +297,51 @@ export async function checkStudentPaymentStatus(matricNumber) {
       pQuery = pQuery.or(`registration_number.eq.${cleanMatric},student_id.eq.${cleanMatric}`);
     }
 
-    const { data: bachsPayment, error: bachsErr } = await pQuery
-      .order('paid_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data: allBachsPayments } = await pQuery
+      .order('paid_at', { ascending: false });
 
-    if (!bachsErr && bachsPayment) {
-      const paidDate = bachsPayment.paid_at || bachsPayment.created_at;
-      const isExpired = paidDate ? (today.getTime() - new Date(paidDate).getTime() > threeSixtyFiveDays) : false;
-      if (isExpired) {
+    if (Array.isArray(allBachsPayments) && allBachsPayments.length > 0) {
+      // Level-based check: find payment matching student's active level, or latest payment
+      const levelMatch = allBachsPayments.find(p => {
+        const pLevel = String(p.metadata?.level || p.metadata?.assignedLevel || '').replace(/[^0-9]/g, '');
+        return pLevel && pLevel === activeLevel;
+      });
+
+      const chosenPayment = levelMatch || allBachsPayments[0];
+      const paymentLevel = String(chosenPayment.metadata?.level || chosenPayment.metadata?.assignedLevel || activeLevel).replace(/[^0-9]/g, '');
+
+      // Check if student has advanced beyond the level paid for
+      const isPastLevel = activeLevel && paymentLevel && parseInt(activeLevel, 10) > parseInt(paymentLevel, 10);
+
+      if (isPastLevel && !levelMatch) {
         return {
           isPaid: false,
           isExpired: true,
           needsRenewal: true,
-          payment: bachsPayment,
-          paidDate
+          payment: chosenPayment,
+          paidLevel: paymentLevel,
+          currentLevel: activeLevel,
+          paidDate: chosenPayment.paid_at || chosenPayment.created_at
         };
       }
+
       return { 
         isPaid: true, 
         isExpired: false,
-        payment: bachsPayment, 
-        provider: bachsPayment.provider || 'BACHS',
-        reference: bachsPayment.reference,
-        amount: bachsPayment.amount,
-        paidDate
+        payment: chosenPayment, 
+        provider: chosenPayment.provider || 'BACHS',
+        reference: chosenPayment.reference,
+        amount: chosenPayment.amount,
+        paidLevel: paymentLevel,
+        currentLevel: activeLevel,
+        paidDate: chosenPayment.paid_at || chosenPayment.created_at
       };
     }
   } catch (err) {
     // Offline / table fallback
   }
 
-  // 2. Check Supabase departmental_dues remote if available
+  // 2. Check Supabase departmental_dues / local store
   try {
     const { data, error } = await supabase
       .from('departmental_dues')
@@ -333,38 +351,21 @@ export async function checkStudentPaymentStatus(matricNumber) {
       .maybeSingle();
 
     if (!error && data) {
-      // Check renewal / expiry date from id_card_applications
-      const { data: appData, error: appError } = await supabase
+      const { data: appData } = await supabase
         .from('id_card_applications')
-        .select('card_expiry_date, status')
+        .select('card_expiry_date, status, level')
         .or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`)
         .maybeSingle();
 
-      if (!appError && appData) {
-        // If application is revoked, not paid regardless of dues status
+      if (appData) {
         if (appData.status === 'revoked') {
           return { isPaid: false, payment: data };
         }
-
-        // If card_expiry_date is set and within 365 days, payment stays verified
-        if (appData.card_expiry_date) {
-          const expiryDate = new Date(appData.card_expiry_date);
-          if (today > expiryDate) {
-            return { isPaid: false, isExpired: true, needsRenewal: true, payment: data };
-          }
-          return { isPaid: true, isExpired: false, payment: data };
-        }
-
-        // Renewal expired (> 365 days) - still paid if not revoked, but needs renewal
-        return { isPaid: true, payment: data, needsRenewal: false };
+        return { isPaid: true, isExpired: false, payment: data };
       }
-
-      // No application record - payment from dues is still valid
       return { isPaid: true, payment: data };
     }
-  } catch (err) {
-    // Offline fallback
-  }
+  } catch (err) {}
 
   // 2. Check local payments database
   const payments = getLocalPaymentsDatabase();

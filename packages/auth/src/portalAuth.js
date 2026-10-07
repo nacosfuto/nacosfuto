@@ -11,29 +11,13 @@ export function getLocalPortalAdmins() {
   const stored = localStorage.getItem(ADMIN_SCOPES_STORAGE_KEY);
   if (stored) {
     try {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) return parsed;
     } catch (e) {
       console.error(e);
     }
   }
-
-  const defaultAdmins = [
-    {
-      id: 'admin-super-ict',
-      user_id: 'usr-superadmin-ict',
-      email: 'ict.nacosfuto@gmail.com',
-      full_name: 'NACOS FUTO ICT / Super Administrator',
-      scope: ADMIN_SCOPES.SUPER_ADMIN,
-      role: 'super_admin',
-      permissions: ['*'],
-      is_active: true,
-      password_hash: '0c72b5bd44ae98f639e6d29d0429f1fade10ee23cd770e5b8fc9bd2ba248aeb6',
-      created_at: '2026-10-07T12:00:00Z'
-    }
-  ];
-
-  localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(defaultAdmins));
-  return defaultAdmins;
+  return [];
 }
 
 export async function loginPortalAdmin(email, password) {
@@ -248,52 +232,27 @@ export function getStudentSession() {
  * Fetch portal administrators from Supabase with multi-device resilience
  */
 export async function fetchPortalAdminsFromSupabase() {
-  const local = getLocalPortalAdmins();
   try {
     if (supabase) {
-      // 1. Authoritative check on store_portal_admins row in id_card_settings
-      const { data: storeRow } = await supabase
-        .from('id_card_settings')
-        .select('academic_session')
-        .eq('id', 'store_portal_admins')
-        .maybeSingle();
-
-      if (storeRow?.academic_session) {
-        try {
-          const parsed = JSON.parse(storeRow.academic_session);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            if (typeof window !== 'undefined') {
-              localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(parsed));
-              window.dispatchEvent(new Event('nacos_portal_admin_updated'));
-            }
-            return parsed;
-          }
-        } catch (_) {}
-      }
-
-      // 2. Direct query on admin_scopes table
+      // Direct query on admin_scopes table (strict database source of truth)
       const { data: dbAdmins, error } = await supabase
         .from('admin_scopes')
         .select('*')
-        .in('scope', [ADMIN_SCOPES.STUDENT_PORTAL, ADMIN_SCOPES.SUPER_ADMIN]);
+        .in('scope', [ADMIN_SCOPES.STUDENT_PORTAL, ADMIN_SCOPES.SUPER_ADMIN])
+        .order('created_at', { ascending: true });
 
-      if (!error && Array.isArray(dbAdmins) && dbAdmins.length > 0) {
-        const mergedMap = new Map();
-        local.forEach(a => mergedMap.set(a.id || a.email, a));
-        dbAdmins.forEach(a => mergedMap.set(a.id || a.email, { ...(mergedMap.get(a.id || a.email) || {}), ...a }));
-        const merged = Array.from(mergedMap.values());
-
+      if (!error && Array.isArray(dbAdmins)) {
         if (typeof window !== 'undefined') {
-          localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(merged));
+          localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(dbAdmins));
           window.dispatchEvent(new Event('nacos_portal_admin_updated'));
         }
-        return merged;
+        return dbAdmins;
       }
     }
   } catch (err) {
     console.warn('Supabase fetchPortalAdmins notice:', err);
   }
-  return local;
+  return [];
 }
 
 /**
@@ -332,6 +291,30 @@ export async function updateAdminAssignedLevel(adminId, level) {
     }
   }
 
+  // 3. Dispatch scope update email via Resend
+  try {
+    const targetAdmin = liveAdmins.find(a => a.id === adminId || a.user_id === adminId);
+    if (targetAdmin?.email) {
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://portal-admin.nacosfuto.com.ng';
+      fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'admin_assignment',
+          to: targetAdmin.email,
+          admin: {
+            fullName: targetAdmin.full_name || 'Administrator',
+            scope: targetAdmin.scope || 'student_portal',
+            role: targetAdmin.role || 'portal_admin',
+            assignedLevel: cleanLevel,
+            portalAdminUrl: origin,
+            assignedAt: new Date().toISOString()
+          }
+        })
+      }).catch(e => console.warn('[Admin Level Update Email Warning]:', e.message));
+    }
+  } catch (_) {}
+
   return { success: true, admins: liveAdmins };
 }
 
@@ -349,10 +332,10 @@ export async function createPortalAdmin({ email, fullName, role = 'portal_admin'
 
   const newAdmin = {
     id: `admin-${Date.now()}`,
-    user_id: `usr-${Date.now()}`,
+    user_id: null,
     email: cleanEmail,
     full_name: fullName.trim(),
-    scope: ADMIN_SCOPES.STUDENT_PORTAL,
+    scope: role === 'super_admin' ? ADMIN_SCOPES.SUPER_ADMIN : ADMIN_SCOPES.STUDENT_PORTAL,
     role: role || 'portal_admin',
     assigned_level: cleanLevel,
     permissions: permissions || ['feature:student_registry', 'feature:results_management'],
@@ -374,20 +357,30 @@ export async function createPortalAdmin({ email, fullName, role = 'portal_admin'
     }
   }
 
-  // 2. Update local cache
-  const localAdmins = getLocalPortalAdmins();
-  const existingIdx = localAdmins.findIndex(a => a.email.toLowerCase() === cleanEmail);
-  if (existingIdx !== -1) {
-    localAdmins[existingIdx] = { ...localAdmins[existingIdx], ...newAdmin };
-  } else {
-    localAdmins.push(newAdmin);
-  }
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(localAdmins));
-    window.dispatchEvent(new Event('nacos_portal_admin_updated'));
+  // 2. Dispatch professional scope assignment email via Resend
+  try {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://portal-admin.nacosfuto.com.ng';
+    fetch('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'admin_assignment',
+        to: cleanEmail,
+        admin: {
+          fullName: fullName.trim(),
+          scope: newAdmin.scope,
+          role: newAdmin.role,
+          assignedLevel: cleanLevel,
+          portalAdminUrl: origin,
+          assignedAt: newAdmin.created_at
+        }
+      })
+    }).catch(e => console.warn('[Admin Assignment Email Dispatch Warning]:', e.message));
+  } catch (emailErr) {
+    console.warn('[Admin Assignment Email Notice]:', emailErr.message);
   }
 
-  // 3. Return updated live list
+  // 3. Return updated live list directly from Supabase
   const liveAdmins = await fetchPortalAdminsFromSupabase();
   return { success: true, admin: newAdmin, admins: liveAdmins };
 }

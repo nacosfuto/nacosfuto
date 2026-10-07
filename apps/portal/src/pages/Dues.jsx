@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   Printer,
+  Download,
   CreditCard,
   Check
 } from 'lucide-react';
@@ -42,6 +43,16 @@ const Dues = () => {
 
   const [paymentData, setPaymentData] = useState(null);
   const [isPaid, setIsPaid] = useState(false);
+  const [totalLifetimeDues, setTotalLifetimeDues] = useState(0);
+
+  // Level map storing dues clearance for each academic level
+  const [levelDuesMap, setLevelDuesMap] = useState({
+    '100': null,
+    '200': null,
+    '300': null,
+    '400': null,
+    '500': null
+  });
 
   // Level the student is paying dues for — pre-filled from their profile
   const deriveLevel = (u) => {
@@ -53,13 +64,25 @@ const Dues = () => {
   };
   const [selectedLevel, setSelectedLevel] = useState(() => deriveLevel(user));
 
-  // Check payment status from Bachs payments table, local storage, and database
-  const checkStatus = async (currentUser) => {
+  // Check payment status from Bachs payments table, local storage, and database across all levels
+  const checkStatus = async (currentUser, targetLvl = null) => {
+    const activeLevel = targetLvl || selectedLevel;
     const matric = currentUser?.registration_number || currentUser?.matric || currentUser?.matricNumber || '';
     const cleanMatric = String(matric).trim().toUpperCase();
     const userId = currentUser?.id;
+    const studentHomeLevel = deriveLevel(currentUser);
 
-    // 1. Authoritative Bachs Live Payments Table
+    const newMap = {
+      '100': null,
+      '200': null,
+      '300': null,
+      '400': null,
+      '500': null
+    };
+
+    let totalPaidSum = 0;
+
+    // 1. Authoritative Bachs Live Payments Table (Supabase)
     try {
       if (supabase && (cleanMatric || userId)) {
         let query = supabase
@@ -74,149 +97,112 @@ const Dues = () => {
           query = query.eq('registration_number', cleanMatric);
         }
 
-        const { data: bachsDues } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
-        if (bachsDues) {
-          const payDate = bachsDues.paid_at || bachsDues.created_at;
-          const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
-          const isExpired = payDate ? (Date.now() - new Date(payDate).getTime() > ONE_YEAR_MS) : false;
+        const { data: allDues } = await query.order('created_at', { ascending: false });
+        if (allDues && allDues.length > 0) {
+          allDues.forEach(item => {
+            const amt = Number(item.amount || 2500);
+            totalPaidSum += amt;
 
-          if (isExpired) {
-            setIsPaid(false);
-            setPaymentData({
-              receiptNo: bachsDues.reference,
-              paymentDate: new Date(payDate).toLocaleDateString('en-GB') + ' (Expired - 1 Year Lapsed)',
-              amount: bachsDues.amount ? `₦${Number(bachsDues.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
-              paymentMethod: 'Bachs Payment Gateway',
-              status: 'Expired (Annual Clearance Lapsed)',
-              isExpired: true
-            });
-            return;
-          }
+            const itemLevelRaw = item.metadata?.level || item.level || '';
+            const match = String(itemLevelRaw).match(/\d{3}/);
+            const lvl = match ? match[0] : studentHomeLevel;
 
-          setIsPaid(true);
-          const dateStr = payDate ? new Date(payDate).toLocaleDateString('en-GB', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-          }) + ' (' + new Date(payDate).toLocaleTimeString('en-GB') + ' GMT+1)' : 'Current Session';
+            if (['100', '200', '300', '400', '500'].includes(lvl) && !newMap[lvl]) {
+              const payDate = item.paid_at || item.created_at;
+              const dateStr = payDate ? new Date(payDate).toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+              }) + ' (' + new Date(payDate).toLocaleTimeString('en-GB') + ' GMT+1)' : 'Current Session';
 
-          setPaymentData({
-            receiptNo: bachsDues.reference,
-            paymentDate: dateStr,
-            amount: bachsDues.amount ? `₦${Number(bachsDues.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
-            paymentMethod: 'Bachs Payment Gateway (Verified Live)',
-            status: 'Verified & Cleared',
-            isExpired: false
+              newMap[lvl] = {
+                receiptNo: item.reference,
+                paymentDate: dateStr,
+                amount: item.amount ? `₦${Number(item.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
+                rawAmount: amt,
+                paymentMethod: 'Bachs Payment Gateway (Verified Live)',
+                status: 'Verified & Cleared',
+                session: item.metadata?.academic_session || item.session || currentUser?.academic_session || '2026/2027 Academic Session'
+              };
+            }
           });
-          return;
         }
       }
     } catch (err) {
       console.warn('Bachs payments check error:', err);
     }
 
-    // 2. Check user profile object flags
-    if (
+    // 2. Legacy dues_payments table
+    try {
+      if (userId && supabase) {
+        const { data: legacyDues } = await supabase
+          .from('dues_payments')
+          .select('*')
+          .eq('student_id', userId)
+          .in('status', ['successful', 'verified', 'cleared', 'paid']);
+
+        if (legacyDues && legacyDues.length > 0) {
+          legacyDues.forEach(item => {
+            const amt = Number(item.amount || 2500);
+            const itemLevelRaw = item.level || '';
+            const match = String(itemLevelRaw).match(/\d{3}/);
+            const lvl = match ? match[0] : studentHomeLevel;
+
+            if (['100', '200', '300', '400', '500'].includes(lvl) && !newMap[lvl]) {
+              totalPaidSum += amt;
+              const dateStr = item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+              }) + ' (' + new Date(item.created_at).toLocaleTimeString('en-GB') + ' GMT+1)' : 'Current Session';
+
+              newMap[lvl] = {
+                receiptNo: item.payment_reference || `NACOS-FUTO-${cleanMatric || userId.slice(0, 8).toUpperCase()}`,
+                paymentDate: dateStr,
+                amount: item.amount ? `₦${Number(item.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
+                rawAmount: amt,
+                paymentMethod: item.payment_method || 'Bachs Payment Gateway',
+                status: 'Verified & Cleared',
+                session: item.session || currentUser?.academic_session || '2026/2027 Academic Session'
+              };
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Legacy dues check error:', err);
+    }
+
+    // 3. Fallback to profile flags for student's active level if not yet recorded
+    if (!newMap[studentHomeLevel] && (
       currentUser?.dues_cleared === true ||
       currentUser?.has_paid_dues === true ||
       ['cleared', 'successful', 'verified', 'paid'].includes(String(currentUser?.payment_status).toLowerCase())
-    ) {
-      const pDate = currentUser.dues_paid_at || currentUser.payment_date;
-      const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
-      const isExpired = pDate && !isNaN(new Date(pDate).getTime()) ? (Date.now() - new Date(pDate).getTime() > ONE_YEAR_MS) : false;
-
-      if (isExpired) {
-        setIsPaid(false);
-        setPaymentData({
-          receiptNo: currentUser.receipt_no || currentUser.payment_reference || `NACOS-FUTO-${cleanMatric || '2026'}-EXPIRED`,
-          paymentDate: new Date(pDate).toLocaleDateString('en-GB') + ' (Expired)',
-          amount: currentUser.dues_amount || '₦2,500.00',
-          status: 'Expired (Annual Clearance Lapsed)',
-          isExpired: true
-        });
-        return;
-      }
-
-      setIsPaid(true);
-      setPaymentData({
+    )) {
+      totalPaidSum += 2500;
+      newMap[studentHomeLevel] = {
         receiptNo: currentUser.receipt_no || currentUser.payment_reference || `NACOS-FUTO-${cleanMatric || '2026'}-CLEARED`,
         paymentDate: currentUser.dues_paid_at || currentUser.payment_date || 'Current Session',
         amount: currentUser.dues_amount || '₦2,500.00',
+        rawAmount: 2500,
         paymentMethod: currentUser.payment_method || 'Bachs Payment Gateway',
         status: 'Verified & Cleared',
-        isExpired: false
-      });
-      return;
+        session: currentUser.academic_session || '2026/2027 Academic Session'
+      };
     }
 
-    // 3. Check local payments database (nacos_payments_db)
-    if (cleanMatric) {
-      try {
-        const localPayments = getLocalPaymentsDatabase();
-        if (Array.isArray(localPayments)) {
-          const found = localPayments.find(p => {
-            const pMatric = String(p.student_matric || p.matric_number || '').trim().toUpperCase();
-            const pStatus = String(p.status || '').toLowerCase();
-            return pMatric === cleanMatric && (pStatus === 'successful' || pStatus === 'verified' || pStatus === 'cleared' || pStatus === 'paid');
-          });
+    setLevelDuesMap(newMap);
+    setTotalLifetimeDues(totalPaidSum);
 
-          if (found) {
-            setIsPaid(true);
-            const dateStr = found.created_at ? new Date(found.created_at).toLocaleDateString('en-GB', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric'
-            }) + ' (' + new Date(found.created_at).toLocaleTimeString('en-GB') + ' GMT+1)' : 'Current Session';
-
-            setPaymentData({
-              receiptNo: found.payment_reference || `NACOS-FUTO-${cleanMatric}`,
-              paymentDate: dateStr,
-              amount: found.amount ? `₦${Number(found.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
-              paymentMethod: found.payment_method || 'Bachs Payment Gateway',
-              status: 'Verified & Cleared'
-            });
-            return;
-          }
-        }
-      } catch (e) {
-        console.warn('Local payment check error:', e);
-      }
-
-      // 4. Check legacy dues_payments table
-      try {
-        if (userId && supabase) {
-          const { data: duesPay } = await supabase
-            .from('dues_payments')
-            .select('*')
-            .eq('student_id', userId)
-            .in('status', ['successful', 'verified', 'cleared', 'paid'])
-            .maybeSingle();
-
-          if (duesPay) {
-            setIsPaid(true);
-            const dateStr = duesPay.created_at ? new Date(duesPay.created_at).toLocaleDateString('en-GB', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric'
-            }) + ' (' + new Date(duesPay.created_at).toLocaleTimeString('en-GB') + ' GMT+1)' : 'Current Session';
-            setPaymentData({
-              receiptNo: duesPay.payment_reference || `NACOS-FUTO-${cleanMatric || userId.slice(0, 8).toUpperCase()}`,
-              paymentDate: dateStr,
-              amount: duesPay.amount ? `₦${Number(duesPay.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
-              paymentMethod: duesPay.payment_method || 'Bachs Payment Gateway',
-              status: 'Verified & Cleared'
-            });
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('Supabase dues check error:', err);
-      }
+    // Apply status for currently selected level
+    const currentLvlPayment = newMap[activeLevel];
+    if (currentLvlPayment) {
+      setIsPaid(true);
+      setPaymentData(currentLvlPayment);
+    } else {
+      setIsPaid(false);
+      setPaymentData(null);
     }
-
-    // Otherwise unpaid
-    setIsPaid(false);
-    setPaymentData(null);
   };
 
   // Bachs Verification Polling when returning from Bachs checkout
@@ -422,6 +408,99 @@ const Dues = () => {
     }, 400);
   };
 
+  const handleDownloadReceipt = () => {
+    const filename = `NACOS_FUTO_Dues_Receipt_${matricNo}_${selectedLevel}L.html`;
+    const receiptHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NACOS FUTO Dues Receipt - ${studentName} (${matricNo})</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; margin: 0; padding: 40px 20px; color: #0f172a; }
+    .receipt-container { max-width: 720px; margin: 0 auto; background: #fff; border: 2px solid #138601; border-radius: 16px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); position: relative; }
+    .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 24px; margin-bottom: 28px; }
+    .org-title { font-size: 20px; font-weight: 800; color: #138601; margin: 0 0 4px 0; text-transform: uppercase; }
+    .org-sub { font-size: 13px; color: #475569; margin: 0; font-weight: 500; }
+    .badge { display: inline-block; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; background: #dcfce7; color: #166534; border: 1px solid #86efac; text-transform: uppercase; }
+    .badge-pending { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+    .item-label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600; margin-bottom: 4px; }
+    .item-value { font-size: 14px; font-weight: 700; color: #0f172a; }
+    .amount-box { border-top: 2px dashed #cbd5e1; border-bottom: 2px dashed #cbd5e1; padding: 20px 0; margin-bottom: 28px; display: flex; justify-content: space-between; align-items: center; }
+    .amount-val { font-size: 26px; font-weight: 800; color: #138601; }
+    .footer { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+    .security-stamp { font-family: monospace; font-size: 11px; background: #f1f5f9; padding: 8px 12px; border-radius: 6px; }
+    @media print {
+      body { background: transparent; padding: 0; }
+      .receipt-container { box-shadow: none; border-color: #138601; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="receipt-container">
+    <div class="header">
+      <div>
+        <h1 class="org-title">Nigeria Association of Computing Students</h1>
+        <p class="org-sub">Department of Computer Science • Federal University of Technology, Owerri</p>
+      </div>
+      <div style="text-align: right;">
+        <span class="badge ${!isPaid ? 'badge-pending' : ''}">${isPaid ? 'Official Electronic Receipt' : 'Payment Pending Slip'}</span>
+        <div style="font-size: 11px; color: #64748b; margin-top: 6px; font-family: monospace;">${paymentRecord.receiptNo}</div>
+      </div>
+    </div>
+    <div class="grid">
+      <div><div class="item-label">Student Name</div><div class="item-value">${paymentRecord.studentName}</div></div>
+      <div><div class="item-label">Registration / Matric Number</div><div class="item-value" style="font-family: monospace;">${paymentRecord.matricNo}</div></div>
+      <div><div class="item-label">Department & Level</div><div class="item-value">${paymentRecord.department} (${paymentRecord.level})</div></div>
+      <div><div class="item-label">Academic Session</div><div class="item-value">${paymentRecord.session}</div></div>
+      <div><div class="item-label">Payment Date & Time</div><div class="item-value">${paymentRecord.paymentDate}</div></div>
+      <div><div class="item-label">Payment Method</div><div class="item-value">${paymentRecord.paymentMethod}</div></div>
+    </div>
+    <div class="amount-box">
+      <div>
+        <div class="item-label">Total Amount ${isPaid ? 'Paid' : 'Required'}</div>
+        <div class="amount-val">${paymentRecord.amount}</div>
+        <div style="font-size: 12px; color: #64748b; font-style: italic; margin-top: 2px;">${paymentRecord.amountInWords}</div>
+      </div>
+      <div style="text-align: right;">
+        <div class="security-stamp">STATUS: ${paymentRecord.status.toUpperCase()}<br>REF: ${paymentRecord.receiptNo}</div>
+      </div>
+    </div>
+    <div class="footer">
+      <div>Authorized by: ${paymentRecord.authorizedBy}</div>
+      <div>Official Cryptographic Digital Clearance • NACOS FUTO Portal</div>
+    </div>
+  </div>
+  <div class="no-print" style="text-align: center; margin-top: 24px;">
+    <button onclick="window.print()" style="background: #138601; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">Print This Document</button>
+  </div>
+</body>
+</html>`;
+    const blob = new Blob([receiptHtml], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSelectLevel = (lvl) => {
+    setSelectedLevel(lvl);
+    const lvlPayment = levelDuesMap[lvl];
+    if (lvlPayment) {
+      setIsPaid(true);
+      setPaymentData(lvlPayment);
+    } else {
+      setIsPaid(false);
+      setPaymentData(null);
+    }
+  };
+
   return (
     <PortalLayout>
       <div className="space-y-6">
@@ -433,71 +512,117 @@ const Dues = () => {
               Dues Clearance &amp; Receipts
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-1">
-              Official annual departmental association dues payment confirmation and electronic receipt.
+              Official departmental association dues payment clearance and electronic receipts across all levels.
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5">
-            {/* Level Selector — only shown when not yet paid */}
+          <div className="flex flex-wrap items-center gap-2">
             {!isPaid && (
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-semibold text-gray-600 dark:text-green-200/80 whitespace-nowrap">Paying as:</label>
-                <select
-                  value={selectedLevel}
-                  onChange={(e) => setSelectedLevel(e.target.value)}
-                  className="text-xs font-semibold px-3 py-2 border border-gray-200 dark:border-[#138601]/40 rounded bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601] cursor-pointer"
-                >
-                  {['100', '200', '300', '400', '500'].map(l => (
-                    <option key={l} value={l}>{l} Level</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="flex items-center gap-2">
-              {!isPaid && (
-                <button
-                  type="button"
-                  onClick={handlePayDues}
-                  disabled={isProcessing || !duesFee}
-                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] transition-colors cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  <span>{isProcessing ? 'Processing...' : (duesFee ? `Pay Dues (₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })})` : 'Loading fee...')}</span>
-                </button>
-              )}
-
               <button
                 type="button"
-                onClick={handlePrint}
-                disabled={isPrinting}
-                className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${isPaid
-                    ? 'text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs'
-                    : 'text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#083002] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200/80 dark:border-[#138601]/30'
-                  }`}
+                onClick={handlePayDues}
+                disabled={isProcessing || !duesFee}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] transition-colors cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Printer className="w-4 h-4" />
-                <span>
-                  {isPrinting
-                    ? 'Generating Printout...'
-                    : isPaid
-                      ? 'Print Official Receipt'
-                      : 'Print Payment Slip'}
-                </span>
+                <CreditCard className="w-4 h-4" />
+                <span>{isProcessing ? 'Processing...' : (duesFee ? `Pay Dues (₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })})` : 'Loading fee...')}</span>
               </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handlePrint}
+              disabled={isPrinting}
+              className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${isPaid
+                  ? 'text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs'
+                  : 'text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#083002] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200/80 dark:border-[#138601]/30'
+                }`}
+            >
+              <Printer className="w-4 h-4" />
+              <span>
+                {isPrinting
+                  ? 'Generating...'
+                  : isPaid
+                    ? 'Print Official Receipt'
+                    : 'Print Payment Slip'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadReceipt}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#083002] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200/80 dark:border-[#138601]/30 transition-colors cursor-pointer shadow-xs"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download Receipt</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Level Clearance Selector Tabs (100L - 500L) */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 shadow-xs print:hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <div>
+              <h2 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white">
+                Academic Level Clearance Selector
+              </h2>
+              <p className="text-[11px] text-gray-500 dark:text-green-200/70">
+                Select an academic level to view clearance status, download receipts, or make dues payments.
+              </p>
             </div>
+            <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+              Total Dues Paid: <span className="text-[#138601] dark:text-[#4bd043] font-bold">₦{totalLifetimeDues.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {['100', '200', '300', '400', '500'].map((lvl) => {
+              const isLvlPaid = Boolean(levelDuesMap[lvl]);
+              const isSelected = selectedLevel === lvl;
+              return (
+                <button
+                  key={lvl}
+                  type="button"
+                  onClick={() => handleSelectLevel(lvl)}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${isSelected
+                      ? 'border-[#138601] bg-[#138601]/10 dark:bg-[#138601]/20 shadow-xs'
+                      : 'border-gray-200/80 dark:border-[#138601]/20 hover:border-gray-300 dark:hover:border-[#138601]/40 bg-gray-50/50 dark:bg-[#041801]/60'
+                    }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-gray-900 dark:text-white">
+                      {lvl} Level
+                    </span>
+                    {isLvlPaid ? (
+                      <span className="flex items-center gap-1 text-[10px] font-semibold text-[#138601] dark:text-[#4bd043]">
+                        <CheckCircle className="w-3 h-3" /> Paid
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                        <Clock className="w-3 h-3" /> Unpaid
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-gray-500 dark:text-green-200/70 truncate">
+                    {isLvlPaid ? 'Clearance Cleared' : 'Pending Payment'}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* 3 Overview Info Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 print:hidden">
 
-          {/* Card 1: Clearance Status */}
+          {/* Card 1: Clearance Status for Selected Level */}
           <div className={`p-5 rounded-2xl bg-white dark:bg-[#083002] border space-y-1 shadow-xs ${isPaid
               ? 'border-gray-200/80 dark:border-[#138601]/30'
               : 'border-amber-200/80 dark:border-amber-700/40 bg-amber-50/30'
             }`}>
-            <span className="text-xs font-medium text-gray-500 dark:text-green-200/80">Clearance Status</span>
+            <span className="text-xs font-medium text-gray-500 dark:text-green-200/80">
+              Clearance Status ({selectedLevel} Level)
+            </span>
             <div className={`flex items-center gap-2 text-lg font-bold ${isPaid
                 ? 'text-[#138601] dark:text-[#4bd043]'
                 : 'text-amber-600 dark:text-amber-400'
@@ -515,16 +640,20 @@ const Dues = () => {
               )}
             </div>
             <p className="text-xs text-gray-500 dark:text-green-200/70 font-normal">
-              {isPaid ? 'Eligible for departmental clearance' : 'Dues payment required for clearance'}
+              {isPaid ? `Eligible for ${selectedLevel}L departmental clearance` : `Dues payment required for ${selectedLevel}L clearance`}
             </p>
           </div>
 
-          {/* Card 2: Current Session Amount */}
+          {/* Card 2: Current Level Dues Amount */}
           <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 space-y-1 shadow-xs">
-            <span className="text-xs font-medium text-gray-500 dark:text-green-200/80">Current Session Amount</span>
-            <div className="text-xl font-bold text-gray-900 dark:text-white">{duesFee ? `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00'}</div>
+            <span className="text-xs font-medium text-gray-500 dark:text-green-200/80">
+              {selectedLevel} Level Dues Fee
+            </span>
+            <div className="text-xl font-bold text-gray-900 dark:text-white">
+              {duesFee ? `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00'}
+            </div>
             <p className="text-xs text-gray-500 dark:text-green-200/70 font-normal">
-              {session} {isPaid ? '• Paid in Full' : '• Outstanding Balance'}
+              {session} {isPaid ? '• Paid & Verified' : '• Outstanding Balance'}
             </p>
           </div>
 

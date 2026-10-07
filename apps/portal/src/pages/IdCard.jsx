@@ -132,8 +132,8 @@ const IdCard = () => {
         }
       }
 
-      // Check payment status dynamically
-      const payStatus = await checkStudentPaymentStatus(cleanMatric);
+      // Check payment status dynamically (level-aware)
+      const payStatus = await checkStudentPaymentStatus(cleanMatric, parsed?.level || parsed?.current_level);
 
       // Load application
       let app = await getStudentIdApplication(cleanMatric);
@@ -530,21 +530,23 @@ const IdCard = () => {
   }
 
   // ---------------------------------------------------------------------------
-  // Determine Exact State (1 through 9 + Expired)
+  // Determine Exact State (1 through 9 + Level Expired)
   // ---------------------------------------------------------------------------
   const appStatus = application?.status;
   const isPaid = application?.payment_status === 'verified' || application?.payment_status === 'paid';
 
-  // 1-Year Expiry calculation (365 days from paid_at / created_at)
-  const paidDate = application?.paid_at || application?.renewal_date || application?.created_at;
-  const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
-  const isExpired = paidDate ? (Date.now() - new Date(paidDate).getTime() > ONE_YEAR_MS) : false;
-  const expiryDate = paidDate ? new Date(new Date(paidDate).getTime() + ONE_YEAR_MS) : null;
-  const expiryDateFormatted = expiryDate ? expiryDate.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  }) : '1 Year from Issue';
+  // Level-based Validity calculation (ID card is valid per Academic Level)
+  const studentLevelRaw = String(student?.level || student?.current_level || '100');
+  const studentLevelNum = studentLevelRaw.match(/\d{3}/)?.[1] || '100';
+  const studentLevel = `${studentLevelNum} Level`;
+
+  const cardLevelRaw = String(application?.level || '');
+  const cardLevelNum = cardLevelRaw.match(/\d{3}/)?.[1] || (cardLevelRaw ? studentLevelNum : null);
+  const cardLevel = cardLevelNum ? `${cardLevelNum} Level` : null;
+
+  // Expired if card was issued for a previous academic level
+  const isLevelExpired = Boolean(cardLevel && studentLevel && cardLevel !== studentLevel);
+  const isExpired = isLevelExpired;
 
   const isState1 = !application;
   const isStateExpired = application && isExpired && appStatus !== 'rejected' && appStatus !== 'revoked';
@@ -587,7 +589,7 @@ const IdCard = () => {
                 }`}>
                 {isStateExpired ? <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> : isState7 ? <CheckCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
                 <span className="capitalize">
-                  {isStateExpired ? 'Expired (1 Year Elapsed)' : isState7 ? 'Active & Cleared' : (application.status || 'In Progress').replace(/_/g, ' ')}
+                  {isStateExpired ? `Requires Renewal (${cardLevel || 'Old Level'} → ${studentLevel})` : isState7 ? `Active (${cardLevel || studentLevel})` : (application.status || 'In Progress').replace(/_/g, ' ')}
                 </span>
               </span>
             )}
@@ -595,7 +597,7 @@ const IdCard = () => {
         </div>
 
         {/* ====================================================================
-            STATE EXPIRED: 1-YEAR VALIDITY LAPSED (Requires Annual Renewal)
+            STATE EXPIRED: LEVEL VALIDITY LAPSED (Requires Academic Level Renewal)
             ==================================================================== */}
         {isStateExpired && (
           <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-amber-300 dark:border-amber-700/60 text-center space-y-6 shadow-xs">
@@ -605,13 +607,13 @@ const IdCard = () => {
 
             <div className="max-w-md mx-auto space-y-2">
               <span className="inline-block px-3 py-1 rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 text-xs font-bold uppercase tracking-wider">
-                ID Card Expired
+                Level Renewal Required
               </span>
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                1-Year Validity Period Has Elapsed
+                New Academic Level ({studentLevel})
               </h2>
               <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
-                NACOS Student Identity Cards are valid for exactly 1 academic year (365 days). Your identity card expired on <strong>{expiryDateFormatted}</strong>. Renew your card now to continue enjoying departmental clearance, election voting rights, and lab access.
+                NACOS Student Identity Cards are validated for each academic level. Your card was issued for <strong>{cardLevel}</strong>, while your current standing is <strong>{studentLevel}</strong>. Renew your card for {studentLevel} to continue enjoying departmental clearance, election voting rights, and lab access.
               </p>
             </div>
 
@@ -621,8 +623,12 @@ const IdCard = () => {
                 <span className="font-mono font-bold text-gray-900 dark:text-white">{student.matric || student.registration_number}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Previous Expiry:</span>
-                <span className="font-semibold text-red-600 dark:text-red-400">{expiryDateFormatted}</span>
+                <span className="text-gray-500">Previous Card Level:</span>
+                <span className="font-semibold text-amber-600 dark:text-amber-400">{cardLevel}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Target Renewal Level:</span>
+                <span className="font-bold text-[#138601] dark:text-[#4bd043]">{studentLevel}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Renewal Fee:</span>

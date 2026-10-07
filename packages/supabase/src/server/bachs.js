@@ -178,6 +178,8 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
       let existingPhoto = null;
       let studentName = paymentRecord.metadata?.customer_name || 'Student Member';
 
+      let studentLevel = '100';
+
       try {
         let profQuery = supabase.from('profiles').select('*');
         if (regNo && studentId && studentId.length === 36) {
@@ -191,9 +193,14 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
         if (profData) {
           existingPhoto = profData.profile_photo_url || profData.avatar_url || profData.photo_url || null;
           studentName = profData.full_name || studentName;
+          studentLevel = String(profData.level || profData.current_level || '100').replace(/[^0-9]/g, '') || '100';
         }
       } catch (profErr) {
         console.warn('[Bachs Fulfillment] Profile lookup notice:', profErr.message);
+      }
+
+      if (paymentRecord.metadata?.level) {
+        studentLevel = String(paymentRecord.metadata.level).replace(/[^0-9]/g, '') || studentLevel;
       }
 
       // 2. Check for existing ID Card Application
@@ -228,6 +235,7 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
             full_name: studentName,
             registration_number: regNo,
             matric_number: regNo,
+            level: `${studentLevel} Level`,
             status: targetStatus,
             id_card_number: existingApp.id_card_number || cleanDigits,
             generated_at: resolvedPhoto ? (existingApp.generated_at || now) : existingApp.generated_at,
@@ -243,6 +251,7 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
             matric_number: regNo,
             registration_number: regNo,
             full_name: studentName,
+            level: `${studentLevel} Level`,
             application_number: `APP-${Date.now().toString().slice(-6)}`,
             id_card_number: cleanDigits,
             status: targetStatus,
@@ -298,14 +307,40 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
       }
     }
     
-    // Optionally trigger payment confirmation email via Resend if email is present (excluding ID card per requirements)
-    const recipientEmail = paymentRecord.metadata?.customer_email || paymentRecord.customer_email;
-    if (recipientEmail && pType !== 'ID_CARD') {
+    // Dispatch official payment receipt confirmation email via Resend for all payment types
+    let recipientEmail = (paymentRecord.metadata?.customer_email || paymentRecord.customer_email || '').trim();
+    let studentName = paymentRecord.metadata?.customer_name || 'Student Member';
+
+    if (!recipientEmail && supabase) {
+      try {
+        let pLookup = supabase.from('profiles').select('email, full_name');
+        if (studentId && studentId.length === 36) {
+          pLookup = pLookup.eq('id', studentId);
+        } else if (regNo) {
+          pLookup = pLookup.or(`registration_number.eq.${regNo},matric_number.eq.${regNo}`);
+        }
+        const { data: prof } = await pLookup.maybeSingle();
+        if (prof?.email) recipientEmail = prof.email;
+        if (prof?.full_name) studentName = prof.full_name;
+      } catch (_) {}
+    }
+
+    if (recipientEmail) {
+      let friendlyType = pType;
+      if (pType === 'ID_CARD') {
+        friendlyType = 'Digital Student ID Card Issuance';
+      } else if (pType === 'DEPARTMENTAL_DUES' || pType === 'DUES') {
+        const sessionTag = paymentRecord.metadata?.academic_session ? ` (${paymentRecord.metadata.academic_session})` : '';
+        friendlyType = `NACOS Departmental Dues Clearance${sessionTag}`;
+      } else if (pType === 'EVENT_TICKET') {
+        friendlyType = paymentRecord.metadata?.eventTitle ? `Event Ticket: ${paymentRecord.metadata.eventTitle}` : 'NACOS Event Ticket';
+      }
+
       sendPaymentConfirmationEmail({
         to: recipientEmail,
-        customerName: paymentRecord.metadata?.customer_name || 'Student',
+        customerName: studentName,
         reference: paymentRecord.reference,
-        paymentType: pType,
+        paymentType: friendlyType,
         amount: paymentRecord.amount,
         currency: paymentRecord.currency || 'NGN',
         paidAt: now

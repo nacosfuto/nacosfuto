@@ -387,3 +387,112 @@ export function renderRecoveryNotificationEmail({ adminEmail, studentReg, studen
     text
   };
 }
+
+/**
+ * Official Administrator Role & Scope Assignment Email
+ */
+export function renderAdminAssignmentEmail({
+  fullName = 'Administrator',
+  email = '',
+  scope = 'student_portal',
+  role = 'portal_admin',
+  assignedLevel = 'all',
+  portalAdminUrl = 'https://portal-admin.nacosfuto.com.ng',
+  assignedAt = new Date().toISOString()
+}) {
+  const safeName = sanitizeHtml(fullName);
+  const safeEmail = sanitizeHtml(email);
+  const safeScope = sanitizeHtml(scope);
+  const safeRole = sanitizeHtml(role.replace(/_/g, ' ').toUpperCase());
+  const levelDisplay = assignedLevel === 'all' ? 'All Academic Levels (Full Access)' : `${sanitizeHtml(assignedLevel)} Level Only`;
+  const accessUrl = portalAdminUrl || 'https://portal-admin.nacosfuto.com.ng';
+  const assignedDateFormatted = new Date(assignedAt).toLocaleString('en-NG', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+
+  const preheader = `You have been appointed as a NACOS FUTO Administrator (${safeRole}) with scope: ${safeScope}`;
+
+  const contentHtml = `
+    <h2 style="color: #0f172a; margin: 0 0 12px; font-size: 20px; font-weight: 700;">Administrator Role &amp; Scope Assigned</h2>
+    <p style="color: #475569; margin: 0 0 20px; font-size: 14px; line-height: 1.6;">
+      Dear <strong>${safeName}</strong>,
+    </p>
+    <p style="color: #475569; margin: 0 0 24px; font-size: 14px; line-height: 1.6;">
+      You have been officially granted administrative privileges on the <strong>Nigeria Association of Computing Students (NACOS) FUTO</strong> management platform.
+    </p>
+
+    <!-- Scope Details Card -->
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin: 0 0 24px; overflow: hidden;">
+      <tr>
+        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">Administrator Name</td>
+        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #0f172a; font-weight: 600; text-align: right;">${safeName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">Assigned Email</td>
+        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #0f172a; font-weight: 600; text-align: right;">${safeEmail}</td>
+      </tr>
+      <tr>
+        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">Designated Role</td>
+        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #15803d; font-weight: 700; text-align: right;">${safeRole}</td>
+      </tr>
+      <tr>
+        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">System Scope</td>
+        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #0f172a; font-family: monospace; font-weight: 600; text-align: right;">${safeScope}</td>
+      </tr>
+      <tr>
+        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">Academic Level Scope</td>
+        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #0f172a; font-weight: 600; text-align: right;">${levelDisplay}</td>
+      </tr>
+      <tr>
+        <td style="padding: 14px 18px; font-size: 13px; color: #64748b;">Assignment Timestamp</td>
+        <td style="padding: 14px 18px; font-size: 13px; color: #64748b; text-align: right;">${assignedDateFormatted}</td>
+      </tr>
+    </table>
+
+    <!-- Call to Action Button -->
+    <div style="text-align: center; margin: 32px 0;">
+      <a href="${accessUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background: linear-gradient(135deg, #083002 0%, #138601 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 700; font-size: 14px; letter-spacing: 0.3px; box-shadow: 0 4px 12px rgba(19, 134, 1, 0.25);">
+        Access Administrator Portal &rarr;
+      </a>
+    </div>
+
+    <!-- Direct Access Link -->
+    <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin: 0 0 20px; text-align: center;">
+      Direct link: <a href="${accessUrl}" style="color: #16a34a; text-decoration: underline;">${accessUrl}</a>
+    </p>
+
+    <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 18px; margin: 24px 0 0;">
+      <p style="color: #166534; margin: 0; font-size: 12px; line-height: 1.6;">
+        <strong>Security &amp; Ethics Notice:</strong> Administrative access is strictly confidential and monitored. Always log in using your registered credentials and ensure your session is terminated after administrative sessions.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    'NACOS FUTO - ADMINISTRATOR ROLE & SCOPE ASSIGNMENT',
+    '==================================================',
+    '',
+    `Dear ${fullName},`,
+    '',
+    'You have been officially granted administrative privileges on the NACOS FUTO management platform.',
+    '',
+    `Administrative Role: ${safeRole}`,
+    `System Scope: ${scope}`,
+    `Assigned Level: ${levelDisplay}`,
+    `Assigned Email: ${email}`,
+    `Assignment Date: ${assignedDateFormatted}`,
+    '',
+    `Access Link: ${accessUrl}`,
+    '',
+    '-----------------------------------------',
+    'Department of Computer Science',
+    'Federal University of Technology, Owerri (FUTO)'
+  ].join('\n');
+
+  return {
+    subject: `[NACOS FUTO] Administrative Scope Assigned: ${safeRole} (${levelDisplay})`,
+    html: buildBaseEmailLayout({ title: 'Administrative Scope Assigned', preheader, contentHtml }),
+    text
+  };
+}

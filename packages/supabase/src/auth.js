@@ -473,15 +473,18 @@ export async function adminGetAllStudents() {
       .order('created_at', { ascending: false });
 
     if (!error && Array.isArray(data)) {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      }
       return data.map(s => enrichStudentProfile(s));
     }
   } catch (e) {
     console.warn('adminGetAllStudents Supabase query notice:', e);
   }
 
-  // 2. Fallback to local students database
-  const students = getLocalStudentsDatabase();
-  return students.map(s => enrichStudentProfile(s));
+  // 2. Fallback to cache without mock injection
+  const cached = getLocalStudentsDatabase();
+  return Array.isArray(cached) ? cached.map(s => enrichStudentProfile(s)) : [];
 }
 
 export async function adminAddStudent(studentData) {

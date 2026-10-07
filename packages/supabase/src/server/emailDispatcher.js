@@ -16,7 +16,8 @@ import {
   renderVerificationEmail,
   renderPasswordResetEmail,
   renderPaymentConfirmationEmail,
-  renderRecoveryNotificationEmail
+  renderRecoveryNotificationEmail,
+  renderAdminAssignmentEmail
 } from './emailTemplates.js';
 
 let cachedResendInstance = null;
@@ -491,11 +492,36 @@ export async function sendRecoveryNotificationEmail({ adminEmail, studentReg, st
 }
 
 /**
+ * High-Level Reusable Function: Send Admin Role & Scope Assignment Email
+ */
+export async function sendAdminAssignmentEmail({ to, fullName, scope, role, assignedLevel, portalAdminUrl, assignedAt, replyTo }, overrideEnv = {}) {
+  const template = renderAdminAssignmentEmail({
+    fullName,
+    email: to,
+    scope,
+    role,
+    assignedLevel,
+    portalAdminUrl,
+    assignedAt: assignedAt || new Date().toISOString()
+  });
+
+  return sendEmail({
+    to,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
+    replyTo,
+    emailType: 'admin_assignment',
+    tags: [{ name: 'category', value: 'admin_assignment' }]
+  }, overrideEnv);
+}
+
+/**
  * Universal Endpoint Handler Dispatcher
  * Consumes requests from /api/email/send
  */
 export async function dispatchEmail(payload = {}, overrideEnv = {}) {
-  const { to, subject, html, text, type, code, expiryMinutes, studentName, regNumber, payment, replyTo } = payload;
+  const { to, subject, html, text, type, code, expiryMinutes, studentName, regNumber, payment, admin, replyTo } = payload;
 
   if (!to) {
     return { success: false, error: 'Recipient email address ("to") is required.' };
@@ -508,6 +534,19 @@ export async function dispatchEmail(payload = {}, overrideEnv = {}) {
 
   if (type === 'password_reset') {
     return sendPasswordResetEmail({ to, code, expiryMinutes, studentName, regNumber, replyTo }, overrideEnv);
+  }
+
+  if (type === 'admin_assignment') {
+    return sendAdminAssignmentEmail({
+      to,
+      fullName: admin?.fullName || studentName || 'Administrator',
+      scope: admin?.scope || 'student_portal',
+      role: admin?.role || 'portal_admin',
+      assignedLevel: admin?.assignedLevel || 'all',
+      portalAdminUrl: admin?.portalAdminUrl,
+      assignedAt: admin?.assignedAt,
+      replyTo
+    }, overrideEnv);
   }
 
   if (type === 'payment_confirmation' && payment) {

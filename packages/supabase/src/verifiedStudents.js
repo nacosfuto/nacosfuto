@@ -857,48 +857,27 @@ export async function syncRosterStoreToSupabase(rosterList) {
  * Get all verified students in the departmental roster
  */
 export async function adminGetAllVerifiedStudents() {
-  const map = new Map();
-
-  // 1. Try Supabase verified_students table
   try {
-    const { data } = await supabase
-      .from('verified_students')
-      .select('*')
-      .order('registration_number', { ascending: true });
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('verified_students')
+        .select('*')
+        .order('registration_number', { ascending: true });
 
-    if (Array.isArray(data)) {
-      data.forEach(s => {
-        if (s.registration_number) map.set(s.registration_number.toUpperCase(), s);
-      });
-    }
-  } catch (e) {}
-
-  // 2. Try Supabase id_card_settings (store_verified_roster)
-  try {
-    const { data: storeRow } = await supabase
-      .from('id_card_settings')
-      .select('payload')
-      .eq('id', 'store_verified_roster')
-      .maybeSingle();
-
-    if (storeRow?.payload?.roster && Array.isArray(storeRow.payload.roster)) {
-      storeRow.payload.roster.forEach(s => {
-        if (s.registration_number && !map.has(s.registration_number.toUpperCase())) {
-          map.set(s.registration_number.toUpperCase(), s);
+      if (!error && Array.isArray(data)) {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(VERIFIED_STORAGE_KEY, JSON.stringify(data));
         }
-      });
+        return data;
+      }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn('adminGetAllVerifiedStudents database notice:', e);
+  }
 
-  // 3. Fallback to local store
-  const localRoster = getLocalVerifiedStudents();
-  localRoster.forEach(s => {
-    if (s.registration_number && !map.has(s.registration_number.toUpperCase())) {
-      map.set(s.registration_number.toUpperCase(), s);
-    }
-  });
-
-  return Array.from(map.values());
+  // Fallback to cache without mock injection
+  const cached = getLocalVerifiedStudents();
+  return Array.isArray(cached) ? cached : [];
 }
 
 /**

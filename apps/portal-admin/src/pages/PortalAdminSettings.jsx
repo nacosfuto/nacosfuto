@@ -72,11 +72,7 @@ export const PortalAdminSettings = () => {
     setCurrentAdmin(session);
 
     fetchPortalAdminsFromSupabase().then(liveAdmins => {
-      if (liveAdmins && liveAdmins.length > 0) {
-        setPortalAdmins(liveAdmins);
-      } else {
-        setPortalAdmins(getLocalPortalAdmins());
-      }
+      setPortalAdmins(Array.isArray(liveAdmins) ? liveAdmins : []);
     });
   }, []);
 
