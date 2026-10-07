@@ -107,11 +107,13 @@ const IdCard = () => {
       let resolvedPhoto = parsed.profile_photo_url || parsed.avatar_url || null;
       if (supabase && cleanMatric) {
         try {
-          const { data: profRow } = await supabase
-            .from('profiles')
-            .select('*')
-            .or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric},id.eq.${parsed.id || ''}`)
-            .maybeSingle();
+          let profQuery = supabase.from('profiles').select('*');
+          if (parsed.id && /^[0-9a-fA-F-]{36}$/.test(parsed.id)) {
+            profQuery = profQuery.or(`id.eq.${parsed.id},registration_number.eq.${cleanMatric}`);
+          } else {
+            profQuery = profQuery.eq('registration_number', cleanMatric);
+          }
+          const { data: profRow } = await profQuery.maybeSingle();
 
           if (profRow) {
             const freshPhoto = profRow.profile_photo_url || profRow.avatar_url || profRow.photo_url;
@@ -558,6 +560,19 @@ const IdCard = () => {
   const isState7 = !isStateExpired && application && (appStatus === 'generated' || (isPaid && application.passport_url && appStatus !== 'rejected' && appStatus !== 'revoked'));
   const isState8 = application && appStatus === 'rejected';
   const isState9 = application && appStatus === 'revoked';
+
+  // Format card expiration date (1-year validity from generation or current session)
+  const expiryDateFormatted = (() => {
+    try {
+      const baseDate = application?.generated_at ? new Date(application.generated_at) : new Date();
+      if (isNaN(baseDate.getTime())) return '1 Year from Issuance';
+      const expDate = new Date(baseDate);
+      expDate.setFullYear(expDate.getFullYear() + 1);
+      return expDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch (e) {
+      return '1 Year from Issuance';
+    }
+  })();
 
   return (
     <PortalLayout>
