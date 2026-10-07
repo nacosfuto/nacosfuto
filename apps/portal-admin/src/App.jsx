@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 
-const PortalAdminLogin = React.lazy(() => import('./pages/PortalAdminLogin'));
+import PortalAdminLogin from './pages/PortalAdminLogin';
 const PortalAdminDashboard = React.lazy(() => import('./pages/PortalAdminDashboard'));
 const PortalAdminStudents = React.lazy(() => import('./pages/PortalAdminStudents'));
 const PortalAdminIdCards = React.lazy(() => import('./pages/PortalAdminIdCards'));
@@ -76,7 +76,12 @@ class ErrorBoundary extends React.Component {
 }
 
 function App() {
-  const isNestedUnderPortalAdmin = typeof window !== 'undefined' && window.location.pathname.startsWith('/portal-admin');
+  const isLocal = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.endsWith('.local')
+  );
+  const isNestedUnderPortalAdmin = !isLocal && typeof window !== 'undefined' && window.location.pathname.startsWith('/portal-admin');
 
   return (
     <ErrorBoundary>
@@ -86,6 +91,7 @@ function App() {
           <Routes>
           {/* Public Administrative Authentication */}
           <Route path="/login" element={<PortalAdminLogin />} />
+          <Route path="/portal-admin/login" element={<PortalAdminLogin />} />
 
           {/* Protected Portal Admin Operations */}
           <Route 
@@ -97,7 +103,23 @@ function App() {
             } 
           />
           <Route 
+            path="/portal-admin" 
+            element={
+              <PortalAdminProtectedRoute>
+                <PortalAdminDashboard />
+              </PortalAdminProtectedRoute>
+            } 
+          />
+          <Route 
             path="/dashboard" 
+            element={
+              <PortalAdminProtectedRoute>
+                <PortalAdminDashboard />
+              </PortalAdminProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/portal-admin/dashboard" 
             element={
               <PortalAdminProtectedRoute>
                 <PortalAdminDashboard />

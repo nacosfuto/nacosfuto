@@ -14,7 +14,7 @@ import Footer from "../components/Footer";
 
 const alumniHomeImg = getCloudinaryAssetUrl('alumni_home') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569286/nacos/alumni/alumni_home.jpg";
 
-const HERO_IMAGE_URL = getCloudinaryAssetUrl('header') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569326/nacos/homepage/header.png";
+const HERO_IMAGE_URL = getCloudinaryAssetUrl('drilldown') || getCloudinaryAssetUrl('header') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1791346769/drilldown.jpg";
 
 const Home = () => {
   const liveAlumniHomeImg = getCloudinaryAssetUrl('alumni_home') || alumniHomeImg;

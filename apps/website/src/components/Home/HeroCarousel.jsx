@@ -7,7 +7,7 @@ import { getCloudinaryAssetUrl } from "@nacos/media";
 import SearchBar from "../SearchBar";
 import ScrollToTopLink from "../ScrollToTopLink";
 
-const heroImg = getCloudinaryAssetUrl('header') || headerImage || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569326/nacos/homepage/header.png";
+const heroImg = getCloudinaryAssetUrl('drilldown') || getCloudinaryAssetUrl('header') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1791346769/drilldown.jpg";
 const deptImg = getCloudinaryAssetUrl('department') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569287/nacos/gallery/department.webp";
 
 const slides = [

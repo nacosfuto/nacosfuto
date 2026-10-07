@@ -4,7 +4,7 @@ import { getCloudinaryAssetUrl } from "@nacos/media";
 import { ReactTyped } from "react-typed";
 
 const Hero = () => {
-  const heroImg = getCloudinaryAssetUrl('header') || headerImage || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569326/nacos/homepage/header.png";
+  const heroImg = getCloudinaryAssetUrl('drilldown') || getCloudinaryAssetUrl('header') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1791346769/drilldown.jpg";
 
   return (
     <section className="relative h-fit flex items-center justify-center bg-gray-900 text-white overflow-hidden">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { getCloudinaryAssetUrl } from '@nacos/media';
-import { loginPortalAdmin, getPortalAdminSession } from '@nacos/auth';
+import { loginPortalAdmin, getPortalAdminSession, logoutPortalAdmin } from '@nacos/auth';
 import { getAppUrls } from '@nacos/config/urls';
 const studentPhoto = '';
 import logoDark from '../assets/full-logo-dark.png';
@@ -80,7 +80,7 @@ export const PortalAdminLogin = () => {
       {/* LEFT HALF (50%): Department Photo with Brand Logo, Clean Overlay & Portal Admin Text */}
       <div 
         className="md:w-1/2 min-h-[360px] md:min-h-screen relative flex flex-col justify-between p-8 sm:p-12 md:p-14 lg:p-16 bg-cover bg-center"
-        style={{ backgroundImage: `url(${getCloudinaryAssetUrl('gallery_student_group') || studentPhoto})` }}
+        style={{ backgroundImage: `url(${getCloudinaryAssetUrl('drilldown') || getCloudinaryAssetUrl('header') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1791346769/drilldown.jpg'})` }}
       >
         {/* Subtle dark gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30 pointer-events-none"></div>

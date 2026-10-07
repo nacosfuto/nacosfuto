@@ -3,13 +3,20 @@
   "syncedAt": "2026-10-07T03:25:59.281Z",
   "assets": {
     "header": {
-      "publicId": "nacos/homepage/header",
-      "url": "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569326/nacos/homepage/header.png",
+      "publicId": "drilldown",
+      "url": "https://res.cloudinary.com/a2mmcttn/image/upload/v1791346769/drilldown.jpg",
       "folder": "nacos/homepage",
       "category": "homepage",
-      "width": 1640,
-      "height": 924,
-      "bytes": 1414166
+      "width": 1920,
+      "height": 1080
+    },
+    "drilldown": {
+      "publicId": "drilldown",
+      "url": "https://res.cloudinary.com/a2mmcttn/image/upload/v1791346769/drilldown.jpg",
+      "folder": "nacos/homepage",
+      "category": "homepage",
+      "width": 1920,
+      "height": 1080
     },
     "asg_chinecherem": {
       "publicId": "nacos/executives/asg_chinecherem",
