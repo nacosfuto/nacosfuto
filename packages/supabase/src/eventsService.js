@@ -218,27 +218,41 @@ export async function saveEvent(eventData) {
   }
 
 
-  // 2. Also attempt website_events table
+  // 2. Authoritative live write directly to public.website_events table
   try {
     if (supabase) {
-      await supabase
+      const dbPayload = {
+        title: normalized.title,
+        slug: normalized.slug,
+        event_date: normalized.date,
+        event_time: normalized.time,
+        location: normalized.location,
+        description: normalized.description,
+        image_url: normalized.image_url,
+        cloudinary_public_id: normalized.cloudinary_public_id,
+        category: normalized.category,
+        registration_link: normalized.registration_link,
+        is_published: normalized.is_published,
+        is_featured: normalized.is_featured,
+        updated_at: now
+      };
+
+      const isRealUuid = normalized.id && !normalized.id.startsWith('evt-');
+      const { data: existing } = await supabase
         .from('website_events')
-        .upsert({
-          id: normalized.id.startsWith('evt-') ? undefined : normalized.id,
-          title: normalized.title,
-          slug: normalized.slug,
-          event_date: normalized.date,
-          event_time: normalized.time,
-          location: normalized.location,
-          description: normalized.description,
-          image_url: normalized.image_url,
-          cloudinary_public_id: normalized.cloudinary_public_id,
-          category: normalized.category,
-          registration_link: normalized.registration_link,
-          is_published: normalized.is_published,
-          is_featured: normalized.is_featured,
-          updated_at: now
-        }, { onConflict: 'slug' });
+        .select('id')
+        .or(`slug.eq.${normalized.slug}${isRealUuid ? `,id.eq.${normalized.id}` : ''}`)
+        .maybeSingle();
+
+      if (existing?.id) {
+        await supabase.from('website_events').update(dbPayload).eq('id', existing.id);
+        normalized.id = existing.id;
+      } else {
+        const { data: inserted } = await supabase.from('website_events').insert([dbPayload]).select();
+        if (inserted?.[0]?.id) {
+          normalized.id = inserted[0].id;
+        }
+      }
     }
   } catch (err) {
     console.warn('Remote sync notice for event table:', err);
@@ -261,7 +275,7 @@ export async function deleteEvent(eventItem) {
 
   saveLocalEvents(updated);
 
-  // Authoritative live sync to Supabase store_events
+  // Authoritative live sync to Supabase store_events & website_events
   try {
     if (supabase) {
       await supabase.from('id_card_settings').upsert({
@@ -269,6 +283,13 @@ export async function deleteEvent(eventItem) {
         academic_session: JSON.stringify(updated),
         updated_at: new Date().toISOString()
       });
+
+      if (targetSlug) {
+        await supabase.from('website_events').delete().eq('slug', targetSlug);
+      }
+      if (targetId && !targetId.startsWith('evt-')) {
+        await supabase.from('website_events').delete().eq('id', targetId);
+      }
     }
   } catch (err) {
     console.warn('Supabase store_events delete sync error:', err);

@@ -19,6 +19,7 @@ import { supabase, getLocalPaymentsDatabase, recordStudentPayment, getDuesSettin
 import StepUpAuthModal from '../components/StepUpAuthModal';
 
 const Dues = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isPrinting, setIsPrinting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { theme } = useTheme();
@@ -477,7 +478,7 @@ const Dues = () => {
           {/* Card 2: Current Session Amount */}
           <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 space-y-1 shadow-xs">
             <span className="text-xs font-medium text-gray-500 dark:text-green-200/80">Current Session Amount</span>
-            <div className="text-xl font-bold text-gray-900 dark:text-white">{duesFee ? `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '...'}</div>
+            <div className="text-xl font-bold text-gray-900 dark:text-white">{duesFee ? `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00'}</div>
             <p className="text-xs text-gray-500 dark:text-green-200/70 font-normal">
               {session} {isPaid ? '• Paid in Full' : '• Outstanding Balance'}
             </p>
@@ -653,7 +654,7 @@ const Dues = () => {
                   className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] transition-colors cursor-pointer shadow-xs disabled:opacity-50"
                 >
                   <CreditCard className="w-4 h-4" />
-                  <span>{isProcessing ? 'Processing Payment...' : `Pay ₦2,500 — ${levelLabel}`}</span>
+                  <span>{isProcessing ? 'Processing Payment...' : (duesFee ? `Pay ₦${Number(duesFee).toLocaleString()} — ${levelLabel}` : `Pay Dues — ${levelLabel}`)}</span>
                 </button>
               </div>
             </div>

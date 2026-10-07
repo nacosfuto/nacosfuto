@@ -160,6 +160,34 @@ async function getRemoteStoreList(storeId, fallbackList) {
           return Array.from(map.values());
         }
       }
+
+      // If store_yellow_pages row is empty, fallback to yellow_pages table
+      if (storeId === 'store_yellow_pages') {
+        const { data: ypRows } = await supabase.from('yellow_pages').select('*').order('created_at', { ascending: false });
+        if (ypRows && ypRows.length > 0) {
+          const mapped = ypRows.map(b => ({
+            id: b.id,
+            name: b.name,
+            category: b.category,
+            secondaryCategories: Array.isArray(b.secondary_categories) ? b.secondary_categories : [],
+            ownerName: b.owner_name,
+            ownerLevel: b.owner_level,
+            description: b.description,
+            location: b.location,
+            phone: b.phone,
+            whatsapp: b.whatsapp,
+            email: b.email,
+            rating: Number(b.rating || 5.0),
+            reviewsCount: Number(b.reviews_count || 0),
+            image: b.image,
+            cloudinary_public_id: b.cloudinary_public_id,
+            imagePosition: b.image_position || 'top center',
+            status: b.status,
+            createdAt: b.created_at
+          }));
+          return mapped;
+        }
+      }
     }
   } catch (_) {}
   return [...fallbackList];

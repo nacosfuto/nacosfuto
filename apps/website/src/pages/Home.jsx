@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Navbar from "../components/Nav/Navbar";
 import { getCloudinaryAssetUrl } from "@nacos/media";
+import { supabase } from "@nacos/supabase";
 import ScrollToTopLink from "../components/ScrollToTopLink";
 import DepartmentStats from "../components/Home/DepartmentStats";
 import Cards from "../components/Home/Cards";
@@ -18,15 +19,54 @@ const HERO_IMAGE_URL = getCloudinaryAssetUrl('drilldown') || getCloudinaryAssetU
 
 const Home = () => {
   const liveAlumniHomeImg = getCloudinaryAssetUrl('alumni_home') || alumniHomeImg;
+  const [cmsContent, setCmsContent] = useState({
+    hero_headline: 'Empowering the Next Generation of Computer Scientists',
+    hero_subtext: "Join FUTO's vibrant CS community. Innovate, learn, and lead the future of global computing technology.",
+    announcement_active: false,
+    announcement_text: '',
+    announcement_link: '/news'
+  });
 
   useEffect(() => {
     window.scrollTo(0, 0);
     document.body.style.overflow = "auto";
+
+    // Load live homepage CMS from Supabase
+    const loadCms = async () => {
+      try {
+        if (supabase) {
+          const { data } = await supabase
+            .from('id_card_settings')
+            .select('academic_session')
+            .eq('id', 'store_homepage_content')
+            .maybeSingle();
+
+          if (data?.academic_session) {
+            const parsed = JSON.parse(data.academic_session);
+            if (parsed && typeof parsed === 'object') {
+              setCmsContent(prev => ({ ...prev, ...parsed }));
+            }
+          }
+        }
+      } catch (err) {}
+    };
+    loadCms();
   }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-[#041801] text-black dark:text-white transition-colors duration-200">
       <Navbar />
+
+      {cmsContent.announcement_active && cmsContent.announcement_text && (
+        <div className="bg-[#138601] text-white px-4 py-2.5 text-xs sm:text-sm font-medium text-center flex items-center justify-center gap-2 relative z-20 shadow-sm">
+          <span>📢 {cmsContent.announcement_text}</span>
+          {cmsContent.announcement_link && (
+            <ScrollToTopLink to={cmsContent.announcement_link} className="underline font-bold hover:text-green-200 ml-1">
+              Learn More →
+            </ScrollToTopLink>
+          )}
+        </div>
+      )}
       
       <main className="flex-grow">
         {/* Standard Responsive Full-Screen Fitting Hero */}
@@ -42,11 +82,10 @@ const Home = () => {
 
           <div className="relative z-10 text-center px-4 sm:px-6 max-w-4xl mx-auto flex flex-col items-center">
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-4 sm:mb-6 drop-shadow-lg tracking-tight leading-[1.2]">
-              Empowering the Next Generation of <br className="hidden sm:inline" />
-              <span className="text-[#4bd043]">Computer Scientists</span>
+              {cmsContent.hero_headline}
             </h1>
             <p className="text-base sm:text-lg md:text-xl text-gray-100 max-w-2xl drop-shadow font-normal leading-relaxed text-center">
-              Join FUTO's vibrant CS community. Innovate, learn, and lead the future of global computing technology.
+              {cmsContent.hero_subtext}
             </p>
           </div>
         </section>

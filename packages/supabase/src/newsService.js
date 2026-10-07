@@ -221,8 +221,7 @@ export async function saveNewsArticle(articleData) {
   // 2. Also attempt Supabase news_articles table
   try {
     if (supabase) {
-      await supabase.from('news_articles').upsert({
-        id: record.id.startsWith('art-') ? undefined : record.id,
+      const payload = {
         title: record.title,
         slug: record.slug,
         summary: record.summary,
@@ -232,9 +231,16 @@ export async function saveNewsArticle(articleData) {
         author: record.author,
         category: record.category,
         is_published: record.is_published,
-        published_at: record.published_at,
+        published_at: record.published_at || now,
         updated_at: now
-      }, { onConflict: 'slug' });
+      };
+      if (record.id && !record.id.startsWith('art-')) {
+        payload.id = record.id;
+      }
+      const { data: upserted } = await supabase.from('news_articles').upsert(payload, { onConflict: 'slug' }).select();
+      if (upserted?.[0]?.id) {
+        record.id = upserted[0].id;
+      }
     }
   } catch (err) {
     console.warn('Could not sync news article to news_articles table:', err);
@@ -259,6 +265,20 @@ export async function deleteNewsArticle(id, slug, cloudinaryPublicId) {
     }
   } catch (err) {
     console.warn('Supabase store_news delete sync error:', err);
+  }
+
+  // Delete from news_articles table
+  try {
+    if (supabase) {
+      if (slug) {
+        await supabase.from('news_articles').delete().eq('slug', slug);
+      }
+      if (id && !id.startsWith('art-')) {
+        await supabase.from('news_articles').delete().eq('id', id);
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase news_articles table delete error:', err);
   }
 
   // Delete from media_assets

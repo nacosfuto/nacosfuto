@@ -15,8 +15,14 @@ const HomeNewsSection = () => {
     };
 
     fetchNewsArticles({ publishedOnly: true })
-      .then(() => syncArticles())
-      .catch(() => {});
+      .then((items) => {
+        if (Array.isArray(items) && items.length > 0) {
+          setArticles(items.slice(0, 3));
+        } else {
+          syncArticles();
+        }
+      })
+      .catch(() => syncArticles());
 
     window.addEventListener('nacos_website_articles_updated', syncArticles);
     window.addEventListener('storage', syncArticles);
