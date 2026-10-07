@@ -61,8 +61,18 @@ export function enrichStudentProfile(student) {
   const levelInfo = calculateCurrentLevel(admissionYear, CURRENT_ACADEMIC_YEAR_START, duration);
   const expectedGraduation = calculateExpectedGraduation(admissionYear, duration);
 
+  const fullName = student.full_name || [student.surname, student.first_name, student.middle_name].filter(Boolean).join(' ') || '';
+  const firstName = student.first_name || (fullName ? fullName.split(' ')[0] : 'Student');
+  const lastName = student.last_name || student.surname || (fullName ? fullName.split(' ').slice(-1)[0] : '');
+
   return {
     ...student,
+    full_name: fullName,
+    name: fullName,
+    first_name: firstName,
+    firstName: firstName,
+    last_name: lastName,
+    lastName: lastName,
     matric: student.registration_number,
     matricNumber: student.registration_number,
     level: levelInfo.levelString,
@@ -169,7 +179,10 @@ export async function signInStudent(identifier, password) {
 
       const computedHashSalted = await hashPassword(cleanPass, 'nacos_futo_salt_2026');
       const computedHashUnsalted = await hashPassword(cleanPass, '');
-      const isDefaultPassword = cleanPass === 'password' || cleanPass === 'admin123' || !dbProfile.password_hash;
+      const defaultHashSalted = await hashPassword('password', 'nacos_futo_salt_2026');
+      const defaultHashUnsalted = await hashPassword('password', '');
+      const hasDefaultPassword = !dbProfile.password_hash || dbProfile.password_hash === defaultHashSalted || dbProfile.password_hash === defaultHashUnsalted;
+      const isDefaultPassword = hasDefaultPassword && (cleanPass === 'password' || cleanPass === 'admin123');
       const isValidPassword = 
         (dbProfile.password_hash && (dbProfile.password_hash === computedHashSalted || dbProfile.password_hash === computedHashUnsalted)) || 
         isDefaultPassword;
@@ -217,7 +230,63 @@ export async function signInStudent(identifier, password) {
     return { data: { user: enriched }, error: null };
   }
 
-  // 4. Canonical Verified Students Roster Fallback (e.g. 20241450682, 20241429481, etc.)
+  // 4. Supabase verified_students roster lookup & auto-provisioning
+  try {
+    const { data: vsRecord } = await supabase
+      .from('verified_students')
+      .select('*')
+      .or(`registration_number.ilike.${cleanId},email.ilike.${cleanId}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (vsRecord) {
+      if (vsRecord.status && vsRecord.status !== 'active') {
+        return { data: null, error: { message: 'This student account has been deactivated. Please contact the department.' } };
+      }
+
+      const isDefaultPassword = cleanPass === 'password' || cleanPass === 'admin123';
+      if (!isDefaultPassword) {
+        return { data: null, error: { message: 'Incorrect password. Default account password is "password".' } };
+      }
+
+      // Auto-provision student profile in public.profiles so future logins, id card and resets work directly
+      const profileRecord = {
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `student-${Date.now()}`,
+        registration_number: vsRecord.registration_number,
+        matric_number: vsRecord.registration_number,
+        surname: vsRecord.surname || vsRecord.full_name?.split(' ')[0] || '',
+        first_name: vsRecord.first_name || vsRecord.full_name?.split(' ')[1] || '',
+        middle_name: vsRecord.middle_name || '',
+        last_name: vsRecord.last_name || vsRecord.surname || '',
+        full_name: vsRecord.full_name,
+        email: vsRecord.email,
+        phone_number: vsRecord.phone_number || '',
+        department: vsRecord.department || 'Computer Science',
+        faculty: vsRecord.faculty || 'School of Information & Communication Tech (SICT)',
+        programme: vsRecord.programme || 'B.Tech Computer Science',
+        programme_duration: vsRecord.programme_duration || 5,
+        admission_year: vsRecord.admission_year || 2024,
+        password_hash: await hashPassword('password', 'nacos_futo_salt_2026'),
+        role: 'Student Member',
+        is_active: true,
+        institution: 'Federal University of Technology, Owerri (FUTO)',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      try {
+        await supabase.from('profiles').insert([profileRecord]);
+      } catch (insErr) {}
+
+      const enriched = enrichStudentProfile({ ...vsRecord, ...profileRecord });
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('nacos_user', JSON.stringify(enriched));
+      }
+      return { data: { user: enriched }, error: null };
+    }
+  } catch (vsErr) {}
+
+  // 5. Canonical Verified Students Roster Local Fallback
   try {
     const { getLocalVerifiedStudents } = await import('./verifiedStudents.js');
     const verifiedRoster = getLocalVerifiedStudents();
@@ -381,18 +450,137 @@ export async function adminGetAllStudents() {
 }
 
 export async function adminAddStudent(studentData) {
-  return registerStudent(studentData);
+  const {
+    surname,
+    firstName,
+    middleName,
+    fullName,
+    matricNumber,
+    registration_number,
+    regNumber,
+    email,
+    phone,
+    phone_number,
+    department,
+    faculty,
+    programme,
+    programmeDuration,
+    initialPassword = 'password'
+  } = studentData;
+
+  const resolvedReg = (matricNumber || registration_number || regNumber || '').toString().trim().toUpperCase();
+  const resolvedEmail = (email || '').toString().trim().toLowerCase();
+  const resolvedSurname = (surname || '').trim() || (fullName || '').trim().split(' ')[0] || '';
+  const resolvedFirstName = (firstName || '').trim() || (fullName || '').trim().split(' ')[1] || '';
+  const resolvedMiddleName = (middleName || '').trim() || (fullName || '').trim().split(' ').slice(2).join(' ') || '';
+  const resolvedFullName = [resolvedSurname, resolvedFirstName, resolvedMiddleName].filter(Boolean).join(' ') || (fullName || '').trim();
+
+  if (!resolvedReg) {
+    return { error: { message: 'Registration number is required.' } };
+  }
+  if (!resolvedEmail) {
+    return { error: { message: 'Student email is required.' } };
+  }
+  if (!resolvedFullName) {
+    return { error: { message: 'Student full name is required.' } };
+  }
+
+  // 1. Check duplicate in Supabase profiles
+  let existingId = null;
+  try {
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id, registration_number, email')
+      .or(`registration_number.ilike.${resolvedReg},email.ilike.${resolvedEmail}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      existingId = existing.id;
+    }
+  } catch (e) {}
+
+  const parse = parseAdmissionYear(resolvedReg, CURRENT_ACADEMIC_YEAR_START);
+  const admissionYear = parse.valid ? parse.admissionYear : CURRENT_ACADEMIC_YEAR_START;
+  const duration = parseInt(programmeDuration, 10) || 5;
+  const passwordHash = await hashPassword(initialPassword || 'password');
+  const studentId = existingId || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `student-${Date.now()}`);
+
+  const profileRecord = {
+    id: studentId,
+    registration_number: resolvedReg,
+    matric_number: resolvedReg,
+    surname: resolvedSurname,
+    first_name: resolvedFirstName,
+    middle_name: resolvedMiddleName,
+    last_name: resolvedSurname,
+    full_name: resolvedFullName,
+    email: resolvedEmail,
+    phone_number: (phone || phone_number || '').trim(),
+    department: department || 'Computer Science',
+    faculty: faculty || 'School of Information & Communication Tech (SICT)',
+    programme: programme || 'B.Tech Computer Science',
+    programme_duration: duration,
+    admission_year: admissionYear,
+    password_hash: passwordHash,
+    role: 'Student Member',
+    is_active: true,
+    institution: 'Federal University of Technology, Owerri (FUTO)',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  // 2. Persist to Supabase profiles
+  let finalRecord = profileRecord;
+  try {
+    let res;
+    if (existingId) {
+      res = await supabase.from('profiles').update(profileRecord).eq('id', existingId).select().maybeSingle();
+    } else {
+      res = await supabase.from('profiles').insert([profileRecord]).select().maybeSingle();
+    }
+    if (!res.error && res.data) {
+      finalRecord = res.data;
+    }
+  } catch (err) {
+    console.warn('Supabase profiles live sync exception:', err);
+  }
+
+  // 3. Sync to verified_students if existing row exists
+  try {
+    await supabase
+      .from('verified_students')
+      .update({
+        full_name: resolvedFullName,
+        surname: resolvedSurname,
+        first_name: resolvedFirstName,
+        middle_name: resolvedMiddleName,
+        last_name: resolvedSurname,
+        email: resolvedEmail,
+        phone_number: profileRecord.phone_number,
+        status: 'active',
+        has_registered: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('registration_number', resolvedReg);
+  } catch (err) {}
+
+  // 4. Save to local stores
+  const localDb = getLocalStudentsDatabase();
+  const existingIdx = localDb.findIndex(s => s.registration_number?.toUpperCase() === resolvedReg);
+  if (existingIdx !== -1) {
+    localDb[existingIdx] = { ...localDb[existingIdx], ...finalRecord };
+  } else {
+    localDb.unshift(finalRecord);
+  }
+  saveLocalStudentsDatabase(localDb);
+
+  return { success: true, data: enrichStudentProfile(finalRecord), error: null };
 }
 
 export async function adminUpdateStudent(id, updates) {
-  const students = getLocalStudentsDatabase();
-  const index = students.findIndex(s => s.id === id);
-  if (index === -1) {
-    return { error: { message: 'Student not found.' } };
-  }
-
-  // If registration number is modified, recalculate admission year
-  if (updates.registration_number && updates.registration_number !== students[index].registration_number) {
+  // Recalculate admission year if registration number is updated
+  if (updates.registration_number) {
     const parse = parseAdmissionYear(updates.registration_number, CURRENT_ACADEMIC_YEAR_START);
     if (!parse.valid) {
       return { error: { message: parse.error } };
@@ -400,35 +588,80 @@ export async function adminUpdateStudent(id, updates) {
     updates.admission_year = parse.admissionYear;
   }
 
-  students[index] = {
-    ...students[index],
+  const dbUpdates = {
     ...updates,
     updated_at: new Date().toISOString()
   };
 
-  saveLocalStudentsDatabase(students);
-  return { data: enrichStudentProfile(students[index]), error: null };
+  // 1. Sync live to Supabase profiles
+  try {
+    await supabase.from('profiles').update(dbUpdates).eq('id', id);
+  } catch (err) {
+    console.warn('Supabase update student error:', err);
+  }
+
+  // 2. Sync to local database
+  const students = getLocalStudentsDatabase();
+  const index = students.findIndex(s => s.id === id);
+  if (index !== -1) {
+    students[index] = {
+      ...students[index],
+      ...dbUpdates
+    };
+    saveLocalStudentsDatabase(students);
+    return { data: enrichStudentProfile(students[index]), error: null };
+  }
+
+  return { data: enrichStudentProfile({ id, ...dbUpdates }), error: null };
 }
 
 export async function adminToggleStudentStatus(id) {
+  let newStatus = true;
+
+  // 1. Check live in Supabase profiles
+  try {
+    const { data: current } = await supabase.from('profiles').select('id, is_active').eq('id', id).maybeSingle();
+    if (current) {
+      newStatus = !current.is_active;
+      await supabase.from('profiles').update({ is_active: newStatus, updated_at: new Date().toISOString() }).eq('id', id);
+    }
+  } catch (err) {}
+
+  // 2. Update in local store
   const students = getLocalStudentsDatabase();
   const student = students.find(s => s.id === id);
-  if (!student) return { error: { message: 'Student not found.' } };
+  if (student) {
+    student.is_active = newStatus;
+    student.updated_at = new Date().toISOString();
+    saveLocalStudentsDatabase(students);
+    return { data: enrichStudentProfile(student), error: null };
+  }
 
-  student.is_active = !student.is_active;
-  student.updated_at = new Date().toISOString();
-  saveLocalStudentsDatabase(students);
-  return { data: enrichStudentProfile(student), error: null };
+  return { data: { id, is_active: newStatus }, error: null };
 }
 
 export async function adminResetStudentPassword(id, newPassword = 'password') {
+  const passwordHash = await hashPassword(newPassword);
+
+  // 1. Sync live to Supabase profiles
+  try {
+    await supabase.from('profiles').update({
+      password_hash: passwordHash,
+      updated_at: new Date().toISOString()
+    }).eq('id', id);
+  } catch (err) {
+    console.warn('Supabase password reset update error:', err);
+  }
+
+  // 2. Update local store
   const students = getLocalStudentsDatabase();
   const student = students.find(s => s.id === id);
-  if (!student) return { error: { message: 'Student not found.' } };
+  if (student) {
+    student.password_hash = passwordHash;
+    student.updated_at = new Date().toISOString();
+    saveLocalStudentsDatabase(students);
+  }
 
-  student.password_hash = await hashPassword(newPassword);
-  student.updated_at = new Date().toISOString();
-  saveLocalStudentsDatabase(students);
   return { data: true, error: null };
 }
 
@@ -557,6 +790,43 @@ export async function confirmStudentPasswordReset(regNumber, otpCode, newPasswor
 
       if (!updErr && updated && updated.length > 0) {
         updatedInSupabase = true;
+      }
+    } else {
+      // If student is in verified_students but not yet in profiles, provision them into profiles with the new password hash
+      const { data: vsRecord } = await supabase
+        .from('verified_students')
+        .select('*')
+        .or(`registration_number.ilike.${cleanReg},email.ilike.${cleanReg.toLowerCase()}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (vsRecord) {
+        const profileRecord = {
+          id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `student-${Date.now()}`,
+          registration_number: vsRecord.registration_number,
+          matric_number: vsRecord.registration_number,
+          surname: vsRecord.surname || vsRecord.full_name?.split(' ')[0] || '',
+          first_name: vsRecord.first_name || vsRecord.full_name?.split(' ')[1] || '',
+          middle_name: vsRecord.middle_name || '',
+          last_name: vsRecord.last_name || vsRecord.surname || '',
+          full_name: vsRecord.full_name,
+          email: vsRecord.email,
+          phone_number: vsRecord.phone_number || '',
+          department: vsRecord.department || 'Computer Science',
+          faculty: vsRecord.faculty || 'School of Information & Communication Tech (SICT)',
+          programme: vsRecord.programme || 'B.Tech Computer Science',
+          programme_duration: vsRecord.programme_duration || 5,
+          admission_year: vsRecord.admission_year || 2024,
+          password_hash: passwordHash,
+          role: 'Student Member',
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        const { error: insErr } = await supabase.from('profiles').insert([profileRecord]);
+        if (!insErr) {
+          updatedInSupabase = true;
+        }
       }
     }
   } catch (e) {

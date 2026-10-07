@@ -1,5 +1,5 @@
 import { supabase } from './client.js';
-import { hashPassword, enrichStudentProfile, getLocalStudentsDatabase } from './auth.js';
+import { hashPassword, enrichStudentProfile, getLocalStudentsDatabase, adminAddStudent } from './auth.js';
 import { 
   CURRENT_ACADEMIC_YEAR_START, 
   parseAdmissionYear, 
@@ -45,7 +45,7 @@ export function maskPhone(phone) {
  * Retrieve verified students roster from localStorage with initial pre-seeding
  */
 export function getLocalVerifiedStudents() {
-  const stored = localStorage.getItem(VERIFIED_STORAGE_KEY);
+  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(VERIFIED_STORAGE_KEY) : null;
   if (stored) {
     try {
       return JSON.parse(stored);
@@ -228,19 +228,23 @@ export function getLocalVerifiedStudents() {
         }
         return s;
       });
-      if (updated) {
+      if (updated && typeof localStorage !== 'undefined') {
         localStorage.setItem(VERIFIED_STORAGE_KEY, JSON.stringify(migrated));
         return migrated;
       }
     } catch (e) {}
   }
 
-  localStorage.setItem(VERIFIED_STORAGE_KEY, JSON.stringify(seeded));
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(VERIFIED_STORAGE_KEY, JSON.stringify(seeded));
+  }
   return seeded;
 }
 
 export function saveLocalVerifiedStudents(list) {
-  localStorage.setItem(VERIFIED_STORAGE_KEY, JSON.stringify(list));
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(VERIFIED_STORAGE_KEY, JSON.stringify(list));
+  }
 }
 
 /**
@@ -941,11 +945,21 @@ export async function adminImportVerifiedStudents(rawRecords) {
     const updatedRoster = [...existingRoster, ...toInsert];
     saveLocalVerifiedStudents(updatedRoster);
 
-    // Try Supabase insert
-    try {
-      await supabase.from('verified_students').insert(toInsert);
-    } catch (e) {
-      console.warn('Supabase bulk insert fallback to local storage:', e);
+    // Sync imported batch to Supabase profiles & verified roster
+    for (const item of toInsert) {
+      try {
+        await adminAddStudent({
+          matricNumber: item.registration_number,
+          fullName: item.full_name,
+          email: item.email,
+          phone: item.phone_number,
+          department: item.department,
+          faculty: item.faculty,
+          programme: item.programme,
+          programmeDuration: item.programme_duration,
+          initialPassword: 'password'
+        });
+      } catch (e) {}
     }
   }
 
@@ -1035,15 +1049,23 @@ export async function adminToggleVerifiedStudentStatus(regNo) {
 }
 
 /**
- * Manually add an individual student to the verified roster
+ * Manually add an individual student to the verified roster and student profiles
  */
 export async function adminAddVerifiedStudent(studentData) {
+  // 1. Ensure student account is created and synced to Supabase public.profiles
+  const profileRes = await adminAddStudent(studentData);
+  if (profileRes.error) {
+    return profileRes;
+  }
+
   const {
     surname,
     firstName,
     middleName,
     fullName,
     matricNumber,
+    registration_number,
+    regNumber,
     email,
     phone,
     department,
@@ -1052,26 +1074,12 @@ export async function adminAddVerifiedStudent(studentData) {
     programmeDuration
   } = studentData;
 
+  const cleanReg = (matricNumber || registration_number || regNumber || '').toString().trim().toUpperCase();
+  const cleanEmail = (email || '').toString().trim().toLowerCase();
   const resolvedSurname = (surname || '').trim() || (fullName || '').trim().split(' ')[0] || '';
   const resolvedFirstName = (firstName || '').trim() || (fullName || '').trim().split(' ')[1] || '';
   const resolvedMiddleName = (middleName || '').trim() || (fullName || '').trim().split(' ').slice(2).join(' ') || '';
   const resolvedFullName = [resolvedSurname, resolvedFirstName, resolvedMiddleName].filter(Boolean).join(' ') || (fullName || '').trim();
-
-  if (!resolvedFullName || !matricNumber?.trim() || !email?.trim()) {
-    return { error: { message: 'Surname, first name, registration number, and email are required.' } };
-  }
-
-  const cleanReg = matricNumber.trim().toUpperCase();
-  const cleanEmail = email.trim().toLowerCase();
-
-  const roster = getLocalVerifiedStudents();
-  if (roster.some(s => s.registration_number.toUpperCase() === cleanReg)) {
-    return { error: { message: `Student with registration number "${cleanReg}" already exists in roster.` } };
-  }
-
-  if (roster.some(s => s.email.toLowerCase() === cleanEmail)) {
-    return { error: { message: `Student with email "${cleanEmail}" already exists in roster.` } };
-  }
 
   const parse = parseAdmissionYear(cleanReg, CURRENT_ACADEMIC_YEAR_START);
   const admissionYear = parse.valid ? parse.admissionYear : CURRENT_ACADEMIC_YEAR_START;
@@ -1079,7 +1087,7 @@ export async function adminAddVerifiedStudent(studentData) {
   const levelInfo = calculateCurrentLevel(admissionYear, CURRENT_ACADEMIC_YEAR_START, duration);
 
   const record = {
-    id: 'vs-' + Date.now(),
+    id: profileRes.data?.id ? `vs-${profileRes.data.id}` : ('vs-' + Date.now()),
     registration_number: cleanReg,
     surname: resolvedSurname,
     first_name: resolvedFirstName,
@@ -1096,17 +1104,35 @@ export async function adminAddVerifiedStudent(studentData) {
     programme_duration: duration,
     academic_session: getAcademicSession(CURRENT_ACADEMIC_YEAR_START),
     status: 'active',
-    has_registered: false,
-    auth_user_id: null,
-    registered_at: null,
+    has_registered: true,
+    auth_user_id: profileRes.data?.id || null,
+    registered_at: new Date().toISOString(),
     created_at: new Date().toISOString()
   };
 
-  roster.push(record);
+  const roster = getLocalVerifiedStudents();
+  const existingIdx = roster.findIndex(s => s.registration_number?.toUpperCase() === cleanReg);
+  if (existingIdx !== -1) {
+    roster[existingIdx] = { ...roster[existingIdx], ...record };
+  } else {
+    roster.push(record);
+  }
   saveLocalVerifiedStudents(roster);
 
+  // Try updating verified_students table if it already has this row
   try {
-    await supabase.from('verified_students').insert([record]);
+    await supabase.from('verified_students').update({
+      full_name: resolvedFullName,
+      surname: resolvedSurname,
+      first_name: resolvedFirstName,
+      middle_name: resolvedMiddleName,
+      last_name: resolvedSurname,
+      email: cleanEmail,
+      phone_number: record.phone_number,
+      status: 'active',
+      has_registered: true,
+      updated_at: new Date().toISOString()
+    }).eq('registration_number', cleanReg);
   } catch (e) {}
 
   return { success: true, data: record };

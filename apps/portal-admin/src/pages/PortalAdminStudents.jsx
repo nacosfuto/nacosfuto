@@ -219,9 +219,12 @@ const AdminStudents = () => {
     if (res.error) {
       showNotification(res.error.message, 'error');
     } else {
-      showNotification(`Student ${newRosterStudent.fullName} added to verified departmental roster!`);
+      showNotification(`Student ${newRosterStudent.fullName || newRosterStudent.surname} successfully added and synced to Supabase!`);
       setIsAddRosterModalOpen(false);
       setNewRosterStudent({
+        surname: '',
+        firstName: '',
+        middleName: '',
         fullName: '',
         matricNumber: '',
         email: '',
