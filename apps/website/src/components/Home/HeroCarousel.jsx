@@ -7,7 +7,8 @@ import { getCloudinaryAssetUrl } from "@nacos/media";
 import SearchBar from "../SearchBar";
 import ScrollToTopLink from "../ScrollToTopLink";
 
-const heroImg = getCloudinaryAssetUrl('header') || "";
+const heroImg = getCloudinaryAssetUrl('header') || headerImage || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569326/nacos/homepage/header.png";
+const deptImg = getCloudinaryAssetUrl('department') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569287/nacos/gallery/department.webp";
 
 const slides = [
   {
@@ -17,8 +18,7 @@ const slides = [
     button: { text: "Check Your Results", link: "/results" },
   },
   {
-    image:
-      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80",
+    image: deptImg,
     title: "Welcome to FUTO",
     description: "Empowering students for a brighter future.",
     button: { text: "Get Started", link: "/signup" },

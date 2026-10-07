@@ -56,7 +56,7 @@ const Events = () => {
     setIsRecapModalOpen(true);
   };
 
-  const heroImage = upcomingEvents[0]?.image || getCloudinaryAssetUrl('event_tech_day') || '';
+  const heroImage = upcomingEvents[0]?.image || getCloudinaryAssetUrl('event_tech_day') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569305/nacos/events/event_tech_day.jpg';
 
   return (
     <div className={`min-h-screen flex flex-col ${theme === 'dark' ? 'bg-[#041801] text-white' : 'bg-white text-black'} transition-colors duration-300`}>

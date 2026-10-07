@@ -240,7 +240,7 @@ const AdminClubs = () => {
               <div>
                 <div className="relative aspect-video bg-gray-100 dark:bg-black/40 overflow-hidden">
                   <img
-                    src={club.image || 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=800&q=80'}
+                    src={club.image || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569337/nacos/gallery/nacos_exec_group.jpg'}
                     alt={club.name}
                     className="w-full h-full object-cover"
                   />

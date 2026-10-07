@@ -14,7 +14,7 @@ import {
 import { getLocalNewsArticles, fetchNewsArticles } from '@nacos/supabase';
 import { getCloudinaryAssetUrl } from '@nacos/media';
 
-const HERO_IMAGE_URL = "";
+const HERO_IMAGE_URL = getCloudinaryAssetUrl('header') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569326/nacos/homepage/header.png";
 
 const CATEGORIES = [
   { id: 'all', label: 'All Articles' },

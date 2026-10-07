@@ -20,7 +20,7 @@ export function CourseCard({ course, enrolled = false, progress = 0 }) {
         {/* Course Thumbnail */}
         <div className="relative aspect-video overflow-hidden bg-muted">
           <img
-            src={course.thumbnail || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop"}
+            src={course.thumbnail || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569330/nacos/gallery/nacos2.jpg"}
             alt={course.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"

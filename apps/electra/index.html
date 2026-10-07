@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Primary SEO Meta Tags -->
+    <title>ELECTRA | Official NACOS FUTO Election & Ballot Platform</title>
+    <meta name="title" content="ELECTRA | Official NACOS FUTO Election & Ballot Platform" />
+    <meta name="description" content="ELECTRA is the official tamper-proof, transparent departmental election platform for the Nigeria Association of Computing Students (NACOS), FUTO. Cast verified ballots, review candidate manifestos, and track live cryptographic audits." />
+    <meta name="keywords" content="ELECTRA, NACOS FUTO Electra, Department of Computer Science Election, Student Ballot, FUTO Computing Manifesto, Electoral Commission" />
+    <meta name="theme-color" content="#c6ff00" />
+    
+    <!-- Prevent Theme Flash -->
+    <script>
+      (function() {
+        const theme = localStorage.getItem('electra_theme') || 'light';
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  </head>
+  <body class="bg-[#f8f9fa] dark:bg-[#0a0b0d] text-gray-900 dark:text-white min-h-screen antialiased selection:bg-[#c6ff00] selection:text-black transition-colors duration-200">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

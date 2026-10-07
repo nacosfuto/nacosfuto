@@ -274,7 +274,7 @@ const AdminSpiritualLife = () => {
                   {/* Left: Image & Info */}
                   <div className="flex items-start space-x-4">
                     <img
-                      src={fel.image || 'https://images.unsplash.com/photo-1548625361-12503a277713?auto=format&fit=crop&w=400&q=80'}
+                      src={fel.image || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569300/nacos/events/event_nacos_thanksgiving_mass.jpg'}
                       alt={fel.name}
                       className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover shrink-0 border border-gray-100 dark:border-[#138601]/30"
                     />

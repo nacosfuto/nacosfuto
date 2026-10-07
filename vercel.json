@@ -39,6 +39,22 @@
       "destination": "/upskill-hub/index.html"
     },
     {
+      "source": "/electra-admin",
+      "destination": "/electra-admin/index.html"
+    },
+    {
+      "source": "/electra-admin/((?!.*\\.).*)",
+      "destination": "/electra-admin/index.html"
+    },
+    {
+      "source": "/electra",
+      "destination": "/electra/index.html"
+    },
+    {
+      "source": "/electra/((?!.*\\.).*)",
+      "destination": "/electra/index.html"
+    },
+    {
       "source": "/((?!api/)(?!.*\\.).*)",
       "destination": "/index.html"
     }

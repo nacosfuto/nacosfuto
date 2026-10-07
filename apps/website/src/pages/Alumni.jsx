@@ -17,10 +17,10 @@ import { FaGraduationCap, FaAward, FaBuilding, FaGlobeAmericas, FaLinkedin, FaUs
 import ScrollToTopLink from "../components/ScrollToTopLink";
 import { getCloudinaryAssetUrl, MediaUpload, CLOUDINARY_FOLDERS } from "@nacos/media";
 import { getAlumniDirectory, submitAlumniRequest, fetchAlumniFromSupabase } from "@nacos/supabase";
-const alumniImage = '';
-const departmentImage = '';
-const benitaImg = '';
-const godfirstImg = '';
+const alumniImage = getCloudinaryAssetUrl('alumni') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569284/nacos/alumni/alumni.jpg';
+const departmentImage = getCloudinaryAssetUrl('department') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569287/nacos/gallery/department.webp';
+const benitaImg = getCloudinaryAssetUrl('alumni_benita') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569285/nacos/alumni/alumni_benita.jpg';
+const godfirstImg = getCloudinaryAssetUrl('alumni_godfirst') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569286/nacos/alumni/alumni_godfirst.jpg';
 
 const Alumni = () => {
   const { theme } = useTheme();
@@ -99,7 +99,7 @@ const Alumni = () => {
 
     await submitAlumniRequest({
       ...newAlumni,
-      image: newAlumni.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'
+      image: newAlumni.image || alumniImage
     });
 
     setIsModalOpen(false);

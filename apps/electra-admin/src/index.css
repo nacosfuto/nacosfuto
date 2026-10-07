@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+:root {
+  --container-max-width: 90rem;
+  --gutter-mobile: 16px;
+  --gutter-tablet: 20px;
+  --gutter-desktop: 24px;
+
+  /* Universal Border Radius System from Global UI */
+  --radius: 5px;
+  --radius-sm: 5px;
+  --radius-md: 5px;
+  --radius-lg: 5px;
+  --radius-xl: 5px;
+  --radius-2xl: 5px;
+  --radius-3xl: 5px;
+  --radius-full: 9999px;
+}
+
+@layer base {
+  body {
+    background-color: #0a0b0d;
+    color: #ffffff;
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+  }
+}
+
+/* Responsive Layout Containers */
+.site-container {
+  width: 100%;
+  max-width: var(--container-max-width);
+  margin-inline: auto;
+  padding-inline: var(--gutter-mobile);
+}
+
+@media (min-width: 640px) {
+  .site-container {
+    padding-inline: var(--gutter-tablet);
+  }
+}
+
+@media (min-width: 1024px) {
+  .site-container {
+    padding-inline: var(--gutter-desktop);
+  }
+}
+
+/* Enforce Global UI Radius */
+.rounded-sm  { border-radius: var(--radius) !important; }
+.rounded     { border-radius: var(--radius) !important; }
+.rounded-md  { border-radius: var(--radius) !important; }
+.rounded-lg  { border-radius: var(--radius) !important; }
+.rounded-xl  { border-radius: var(--radius) !important; }
+.rounded-2xl { border-radius: var(--radius) !important; }
+.rounded-3xl { border-radius: var(--radius) !important; }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0b0d;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #22252a;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c6ff00;
+}

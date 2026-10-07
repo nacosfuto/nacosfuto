@@ -18,12 +18,12 @@ import {
   FiImage
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
-const flyerPeacemaker = '';
-const flyerNiforix = '';
-const flyerCypher = '';
-const flyerNinasBraid = '';
-const laptopImg = '';
 import { getCloudinaryAssetUrl, MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
+const flyerPeacemaker = getCloudinaryAssetUrl('flyer_peacemaker') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569313/nacos/yellow_pages/flyer_peacemaker.jpg";
+const flyerNiforix = getCloudinaryAssetUrl('flyer_niforix') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569311/nacos/yellow_pages/flyer_niforix.jpg";
+const flyerCypher = getCloudinaryAssetUrl('flyer_cypher') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569310/nacos/yellow_pages/flyer_cypher.jpg";
+const flyerNinasBraid = getCloudinaryAssetUrl('flyer_ninas_braid') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569312/nacos/yellow_pages/flyer_ninas_braid.jpg";
+const laptopImg = getCloudinaryAssetUrl('flyer_cypher') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569310/nacos/yellow_pages/flyer_cypher.jpg";
 import { getYellowPagesBusinesses, submitYellowPageBusiness, fetchYellowPagesFromSupabase } from '@nacos/supabase';
 
 const YellowPages = () => {
@@ -132,12 +132,12 @@ const YellowPages = () => {
     // Fallback image if user didn't upload
     let finalImg = newBusiness.image;
     if (!finalImg) {
-      if (newBusiness.category === 'Food & Drinks') finalImg = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80';
-      else if (newBusiness.category === 'Tech & Coding') finalImg = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80';
-      else if (newBusiness.category === 'Graphics & Printing') finalImg = 'https://images.unsplash.com/photo-1562654501-a0ccc0fc3fb1?auto=format&fit=crop&w=800&q=80';
-      else if (newBusiness.category === 'Fashion & Styling') finalImg = 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=800&q=80';
-      else if (newBusiness.category === 'Gadgets & Repairs') finalImg = 'https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=800&q=80';
-      else finalImg = 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=800&q=80';
+      if (newBusiness.category === 'Food & Drinks') finalImg = flyerCypher;
+      else if (newBusiness.category === 'Tech & Coding') finalImg = flyerCypher;
+      else if (newBusiness.category === 'Graphics & Printing') finalImg = flyerNiforix;
+      else if (newBusiness.category === 'Fashion & Styling') finalImg = flyerNinasBraid;
+      else if (newBusiness.category === 'Gadgets & Repairs') finalImg = flyerPeacemaker;
+      else finalImg = flyerCypher;
     }
 
     const cleanWhatsapp = newBusiness.whatsapp.replace(/\D/g, '') || newBusiness.phone.replace(/\D/g, '');

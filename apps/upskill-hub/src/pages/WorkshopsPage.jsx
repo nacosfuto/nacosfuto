@@ -56,7 +56,7 @@ export function WorkshopsPage() {
       description: newWorkshop.description || 'Hands-on live engineering workshop and mentor office hours.',
       is_live_workshop: true,
       level: 'All Levels',
-      thumbnail: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&q=80&w=800',
+      thumbnail: 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569331/nacos/gallery/nacos3.jpg',
       tags: ['LiveWorkshop', 'Engineering'],
       workshop_details: {
         date: newWorkshop.date,
@@ -165,7 +165,7 @@ export function WorkshopsPage() {
                     {/* Visual Banner */}
                     <div className="relative aspect-video overflow-hidden bg-gray-100">
                       <img
-                        src={ws.thumbnail || "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&auto=format&fit=crop"}
+                        src={ws.thumbnail || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569331/nacos/gallery/nacos3.jpg"}
                         alt={ws.title}
                         className="w-full h-full object-cover"
                       />

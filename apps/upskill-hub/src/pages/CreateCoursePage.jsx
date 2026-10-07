@@ -160,7 +160,7 @@ export function CreateCoursePage() {
         title: title.trim(),
         description: description.trim(),
         level,
-        thumbnail: thumbnail.trim() || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop",
+        thumbnail: thumbnail.trim() || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569330/nacos/gallery/nacos2.jpg",
         tags: tags.length > 0 ? tags : ["engineering", "nacos"],
         is_live_workshop: isWorkshop,
         workshop_details: isWorkshop
@@ -679,7 +679,7 @@ export function CreateCoursePage() {
                     <div>
                       <div className="relative aspect-video bg-[#000000]">
                         <img
-                          src={c.thumbnail || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop"}
+                          src={c.thumbnail || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569330/nacos/gallery/nacos2.jpg"}
                           alt={c.title}
                           className="w-full h-full object-cover"
                         />
@@ -799,11 +799,11 @@ export function CreateCoursePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider block mb-1">
-                    Cover Image URL (Unsplash / Direct Link)
+                    Cover Image URL (Cloudinary / Direct Link)
                   </label>
                   <input
                     type="url"
-                    placeholder="https://images.unsplash.com/..."
+                    placeholder="https://res.cloudinary.com/a2mmcttn/..."
                     value={thumbnail}
                     onChange={(e) => setThumbnail(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded bg-white dark:bg-[#000000] border border-gray-300 dark:border-[#0056D2]/40 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0056D2]"

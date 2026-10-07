@@ -15,7 +15,7 @@ import {
   BookOpen,
   Sparkles
 } from 'lucide-react';
-import { MediaUpload, CloudinaryImage, CLOUDINARY_FOLDERS, deleteMedia } from '@nacos/media';
+import { MediaUpload, CloudinaryImage, CLOUDINARY_FOLDERS, deleteMedia, getCloudinaryAssetUrl } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
 import { 
   getLocalNewsArticles, 
@@ -173,8 +173,8 @@ const AdminNews = () => {
         summary: summary.trim(),
         excerpt: summary.trim(),
         content: content.trim(),
-        cover_image_url: coverUrl || existing?.cover_image_url || '',
-        image: coverUrl || existing?.cover_image_url || '',
+        cover_image_url: coverUrl || existing?.cover_image_url || getCloudinaryAssetUrl('research') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569339/nacos/gallery/research.jpg',
+        image: coverUrl || existing?.cover_image_url || getCloudinaryAssetUrl('research') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569339/nacos/gallery/research.jpg',
         cloudinary_public_id: coverPublicId || existing?.cloudinary_public_id || null,
         author: author.trim() || 'NACOS Press Desk',
         category,

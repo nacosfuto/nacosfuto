@@ -12,9 +12,9 @@ import QuickHelpCTA from "../components/Home/QuickHelpCTA";
 import TechTeamSection from "../components/TechTeamSection";
 import Footer from "../components/Footer";
 
-const alumniHomeImg = '';
+const alumniHomeImg = getCloudinaryAssetUrl('alumni_home') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569286/nacos/alumni/alumni_home.jpg";
 
-const HERO_IMAGE_URL = "";
+const HERO_IMAGE_URL = getCloudinaryAssetUrl('header') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569326/nacos/homepage/header.png";
 
 const Home = () => {
   const liveAlumniHomeImg = getCloudinaryAssetUrl('alumni_home') || alumniHomeImg;

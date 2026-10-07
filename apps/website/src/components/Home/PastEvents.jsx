@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { FaCalendarAlt, FaClock, FaMapMarkerAlt, FaStar } from 'react-icons/fa';
 import ScrollToTopLink from '../ScrollToTopLink';
 import { getEvents, fetchEventsFromSupabase } from '@nacos/supabase';
+import { getCloudinaryAssetUrl } from '@nacos/media';
 
-const PLACEHOLDER_IMG = "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=600&q=80";
+const PLACEHOLDER_IMG = getCloudinaryAssetUrl('event_tech_day') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569305/nacos/events/event_tech_day.jpg";
 
 const UpcomingEvents = () => {
   const [featuredEvents, setFeaturedEvents] = useState(() => {

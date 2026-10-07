@@ -4,30 +4,32 @@ import Footer from '../components/Footer';
 import { useTheme } from '../context/ThemeContext';
 import { FiPlay, FiMapPin, FiCompass, FiAward, FiInfo } from 'react-icons/fi';
 
+import { getCloudinaryAssetUrl } from '@nacos/media';
+
 const CampusTour = () => {
   const { theme } = useTheme();
 
   // FUTO Landmark Highlights
   const landmarks = [
     {
-      name: "FUTO Senate Building",
+      name: "FUTO Senate Building & Dept Complex",
       description: "The administrative heart of the university, featuring modern architecture and housing the offices of the principal officers.",
-      image: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=800&q=80"
+      image: getCloudinaryAssetUrl('gallery_dept_front') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569317/nacos/gallery/gallery_dept_front.jpg"
     },
     {
-      name: "SEET Complex",
-      description: "The School of Engineering and Engineering Technology complex, where core technical and technological lectures take place.",
-      image: "https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=800&q=80"
+      name: "Department of Computer Science & Labs",
+      description: "The computing and software engineering complex, where core technical and programming lectures take place.",
+      image: getCloudinaryAssetUrl('department') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569287/nacos/gallery/department.webp"
     },
     {
-      name: "University Library",
-      description: "A vast repository of physical and electronic academic resources supporting research and study for all students.",
-      image: "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=800&q=80"
+      name: "Computing Research Laboratories",
+      description: "A vast repository of computational infrastructure supporting research and study for all scholars.",
+      image: getCloudinaryAssetUrl('research') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569339/nacos/gallery/research.jpg"
     },
     {
-      name: "FUTO ICT Centre",
-      description: "The technological nerve center of the campus, equipped with high-speed computers, hosting examinations and digital workshops.",
-      image: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=800&q=80"
+      name: "Campus Quad & Student Life Center",
+      description: "The vibrant nerve center of the campus, hosting events, study sprints, and digital community workshops.",
+      image: getCloudinaryAssetUrl('student-life') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569340/nacos/gallery/student-life.jpg"
     }
   ];
 

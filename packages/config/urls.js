@@ -14,7 +14,9 @@ export function getAppUrls() {
       websiteAdmin: '/admin',
       portalAdmin: '/portal-admin',
       adminHub: '/admin-hub',
-      upskillHub: '/upskill-hub'
+      upskillHub: '/upskill-hub',
+      electra: '/electra',
+      electraAdmin: '/electra-admin'
     };
   }
 
@@ -23,6 +25,8 @@ export function getAppUrls() {
   const envWebAdmin = typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBSITE_ADMIN_URL;
   const envPortalAdmin = typeof import.meta !== 'undefined' && import.meta.env?.VITE_PORTAL_ADMIN_URL;
   const envUpskillHub = typeof import.meta !== 'undefined' && import.meta.env?.VITE_UPSKILL_HUB_URL;
+  const envElectra = typeof import.meta !== 'undefined' && import.meta.env?.VITE_ELECTRA_URL;
+  const envElectraAdmin = typeof import.meta !== 'undefined' && import.meta.env?.VITE_ELECTRA_ADMIN_URL;
 
   const { hostname, protocol, port } = window.location;
   const isLocal = 
@@ -42,7 +46,9 @@ export function getAppUrls() {
       websiteAdmin: envWebAdmin || `${protocol}//${hostname}:5175`,
       portalAdmin: envPortalAdmin || `${protocol}//${hostname}:5176`,
       adminHub: `${protocol}//${hostname}:5173/admin-hub`,
-      upskillHub: envUpskillHub || `${protocol}//${hostname}:5177`
+      upskillHub: envUpskillHub || `${protocol}//${hostname}:5177`,
+      electra: envElectra || `${protocol}//${hostname}:5178`,
+      electraAdmin: envElectraAdmin || `${protocol}//${hostname}:5179`
     };
   }
 
@@ -53,7 +59,9 @@ export function getAppUrls() {
     websiteAdmin: envWebAdmin || '/admin',
     portalAdmin: envPortalAdmin || '/portal-admin',
     adminHub: '/admin-hub',
-    upskillHub: envUpskillHub || '/upskill-hub'
+    upskillHub: envUpskillHub || '/upskill-hub',
+    electra: envElectra || '/electra',
+    electraAdmin: envElectraAdmin || '/electra-admin'
   };
 }
 

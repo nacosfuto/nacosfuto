@@ -137,7 +137,7 @@ const INITIAL_COURSES = [
     level: "Beginner",
     is_live_workshop: false,
     workshop_details: null,
-    thumbnail: "https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=600&auto=format&fit=crop",
+    thumbnail: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569327/nacos/gallery/nacos1.jpg",
     description: "Master the foundations of JavaScript from modern ES6+ syntax to functional programming, async/await, DOM APIs, and state patterns.",
     tags: ["javascript", "frontend", "web-dev"],
     created_at: "2026-01-10T10:00:00Z"
@@ -150,7 +150,7 @@ const INITIAL_COURSES = [
     level: "Intermediate",
     is_live_workshop: false,
     workshop_details: null,
-    thumbnail: "https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=600&auto=format&fit=crop",
+    thumbnail: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569330/nacos/gallery/nacos2.jpg",
     description: "Hands-on data analysis, Pandas manipulation, NumPy vectorization, Matplotlib charts, and machine learning pipelines in Python.",
     tags: ["python", "data-science", "ai"],
     created_at: "2026-01-15T12:00:00Z"
@@ -170,7 +170,7 @@ const INITIAL_COURSES = [
       instructor: "Ifeanyi John",
       capacity: 120,
     },
-    thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600&auto=format&fit=crop",
+    thumbnail: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569331/nacos/gallery/nacos3.jpg",
     description: "Live interactive engineering bootcamp covering React 19 server actions, hooks architecture, Tailwind design systems, and fullstack deployment.",
     tags: ["react", "frontend", "fullstack"],
     created_at: "2026-02-01T08:30:00Z"
@@ -183,7 +183,7 @@ const INITIAL_COURSES = [
     level: "200 Level",
     is_live_workshop: false,
     workshop_details: null,
-    thumbnail: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop",
+    thumbnail: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569332/nacos/gallery/nacos4.jpg",
     description: "Comprehensive curriculum for FUTO CSC 201. Dynamic arrays, linked lists, trees, graphs, sorting algorithms, and asymptotic complexity analysis.",
     tags: ["algorithms", "cs-core", "java"],
     created_at: "2026-02-10T14:00:00Z"
@@ -203,7 +203,7 @@ const INITIAL_COURSES = [
       instructor: "Victor Munachimso",
       capacity: 200,
     },
-    thumbnail: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&auto=format&fit=crop",
+    thumbnail: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569332/nacos/gallery/nacos5.jpg",
     description: "Production-ready backend architecture, cluster mode, Redis pub/sub caching, message queues, Dockerization, and API security best practices.",
     tags: ["nodejs", "backend", "api"],
     created_at: "2026-02-20T10:00:00Z"
@@ -216,7 +216,7 @@ const INITIAL_COURSES = [
     level: "Professional",
     is_live_workshop: false,
     workshop_details: null,
-    thumbnail: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop",
+    thumbnail: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569333/nacos/gallery/nacos6.jpg",
     description: "Build robust cloud architectures. Containerize applications with Docker, manage container orchestration with Kubernetes, and automate CI/CD pipelines.",
     tags: ["cloud", "devops", "docker"],
     created_at: "2026-03-01T11:00:00Z"
@@ -236,7 +236,7 @@ const INITIAL_COURSES = [
       instructor: "Godfirst Benita",
       capacity: 80,
     },
-    thumbnail: "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=600&auto=format&fit=crop",
+    thumbnail: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569334/nacos/gallery/nacos7.jpg",
     description: "Understand penetration testing methodology, OWASP Top 10 web vulnerabilities, SQL injection defense, network packet sniffing, and secure auth.",
     tags: ["security", "networking", "cybersecurity"],
     created_at: "2026-03-10T09:00:00Z"
@@ -249,7 +249,7 @@ const INITIAL_COURSES = [
     level: "Beginner",
     is_live_workshop: false,
     workshop_details: null,
-    thumbnail: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=600&auto=format&fit=crop",
+    thumbnail: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569335/nacos/gallery/nacos8.jpg",
     description: "Cross-platform mobile engineering. Build fast, reactive iOS and Android applications with single Dart codebase and beautiful Flutter widgets.",
     tags: ["mobile", "flutter", "dart"],
     created_at: "2026-03-15T15:00:00Z"

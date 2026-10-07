@@ -16,9 +16,9 @@ import {
   FiExternalLink
 } from 'react-icons/fi';
 import ScrollToTopLink from '../components/ScrollToTopLink';
-const clubsImage = '';
-const laptopImage = '';
-import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
+import { getCloudinaryAssetUrl, MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
+const clubsImage = getCloudinaryAssetUrl('nacos_exec_group') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569337/nacos/gallery/nacos_exec_group.jpg';
+const laptopImage = getCloudinaryAssetUrl('header') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569326/nacos/homepage/header.png';
 import { getCampusClubs, submitCampusClub, fetchCampusClubsFromSupabase } from '@nacos/supabase';
 
 const CampusClubs = () => {
@@ -101,7 +101,7 @@ const CampusClubs = () => {
 
     await submitCampusClub({
       ...newClub,
-      image: newClub.image || 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=800&q=80'
+      image: newClub.image || clubsImage
     });
 
     setIsModalOpen(false);

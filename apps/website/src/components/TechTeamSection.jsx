@@ -1,30 +1,31 @@
 import React from 'react';
 import { FiArrowRight } from 'react-icons/fi';
+import { getCloudinaryAssetUrl } from '@nacos/media';
 
 const TechTeamSection = () => {
     const team = [
         {
             name: "Nestor Anyanwu",
             role: "PM/Lead Developer",
-            image: "",
+            image: getCloudinaryAssetUrl('nacos8') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569335/nacos/gallery/nacos8.jpg",
             portfolio: "https://www.linkedin.com/in/nestoranyanwu"
         },
         {
             name: "Kelechukwu Okere",
             role: "QA/UX Personnel",
-            image: "",
+            image: getCloudinaryAssetUrl('nacos9') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569336/nacos/gallery/nacos9.jpg",
             portfolio: "https://www.linkedin.com/in/kelechukwu-okere-7173b52a7/"
         },
         {
             name: "Daniel Maduka",
             role: "Consultant Developer",
-            image: "",
+            image: getCloudinaryAssetUrl('nacos11') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569329/nacos/gallery/nacos11.jpg",
             portfolio: "https://www.linkedin.com/in/daniel-maduka-a312b7345/"
         },
         {
             name: "Dumebi Oruche",
             role: "Associate Developer",
-            image: "",
+            image: getCloudinaryAssetUrl('nacos10') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569328/nacos/gallery/nacos10.jpg",
             portfolio: "https://www.linkedin.com/in/dumebioruche/"
         }
     ];

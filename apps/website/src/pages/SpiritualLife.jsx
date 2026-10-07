@@ -13,9 +13,9 @@ import {
   FiCheckCircle,
   FiExternalLink
 } from 'react-icons/fi';
-import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
+import { getCloudinaryAssetUrl, MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { getSpiritualFellowships, submitSpiritualFellowship, fetchSpiritualFellowshipsFromSupabase } from '@nacos/supabase';
-const headerImg = '';
+const headerImg = getCloudinaryAssetUrl('event_nacos_thanksgiving_mass') || getCloudinaryAssetUrl('header') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569300/nacos/events/event_nacos_thanksgiving_mass.jpg';
 
 const SpiritualLife = () => {
   const { theme } = useTheme();
@@ -97,7 +97,7 @@ const SpiritualLife = () => {
 
     await submitSpiritualFellowship({
       ...newFellowship,
-      image: newFellowship.image || 'https://images.unsplash.com/photo-1548625361-12503a277713?auto=format&fit=crop&w=800&q=80'
+      image: newFellowship.image || headerImg
     });
 
     setIsModalOpen(false);
