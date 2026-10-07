@@ -1247,18 +1247,25 @@ const IdCard = () => {
               </p>
             </div>
 
-            {settings.allow_reapplication_on_revoke && (
-              <div>
-                <button
-                  type="button"
-                  onClick={handleReapply}
-                  className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Submit New Application</span>
-                </button>
-              </div>
-            )}
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={handlePayment}
+                disabled={isPaying}
+                className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
+              >
+                <CreditCard className="w-4 h-4" />
+                <span>Pay &amp; Apply for New ID Card {settings.id_card_fee ? `(₦${Number(settings.id_card_fee).toLocaleString()})` : ''}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleReapply}
+                className="px-6 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#083002] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200 dark:border-[#138601]/30 rounded-xl transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Reset Application Details</span>
+              </button>
+            </div>
           </div>
         )}
 

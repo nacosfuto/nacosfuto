@@ -304,19 +304,50 @@ const Dashboard = () => {
     return '0 results';
   };
 
+  const isGraduated = Boolean(user.is_graduated || user.level === 'Graduated' || user.status === 'graduated');
+  const graduationYear = user.graduation_year || user.expected_graduation_year || new Date().getFullYear();
+  const isRevoked = String(user.payment_status).toLowerCase() === 'revoked';
+
   return (
     <PortalLayout>
       <div className="space-y-6">
 
         {/* Welcome Header */}
         <div className="pb-1">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-            Welcome, {firstName}!
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+              Welcome, {firstName}!
+            </h1>
+            {isGraduated && (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50">
+                Alumni • Class of {graduationYear}
+              </span>
+            )}
+          </div>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 mt-0.5">
-            Department of Computer Science • Federal University of Technology, Owerri
+            {isGraduated 
+              ? 'Department of Computer Science • Federal University of Technology, Owerri (Alumni Member)'
+              : 'Department of Computer Science • Federal University of Technology, Owerri'}
           </p>
         </div>
+
+        {/* Revocation Warning Alert if Dues are Revoked */}
+        {isRevoked && (
+          <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 flex items-center justify-between gap-3 text-red-900 dark:text-red-200 text-xs shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <Clock className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
+              <span>
+                <strong>Clearance Revoked:</strong> Your departmental dues clearance was officially revoked by administration. A new dues payment is required to restore your clearance.
+              </span>
+            </div>
+            <Link
+              to="/dues"
+              className="px-3 py-1.5 rounded font-bold text-xs bg-red-600 hover:bg-red-700 text-white transition-colors shrink-0"
+            >
+              Pay Dues Now
+            </Link>
+          </div>
+        )}
 
         {/* Feedback / Appraisal Banner */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 flex items-start gap-3.5 shadow-xs">
@@ -345,55 +376,58 @@ const Dashboard = () => {
         {/* 3 Clean Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-          {/* Card 1: Courses Registered */}
+          {/* Card 1: Courses Registered / Degree Conferred */}
           <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 flex flex-col justify-between min-h-[125px] shadow-xs">
             <div className="text-[#138601] dark:text-[#4bd043]">
               <BookOpen className="w-6 h-6" />
             </div>
             <div className="mt-3 space-y-1.5">
               <h4 className="text-xs sm:text-sm font-normal text-gray-700 dark:text-gray-200">
-                Courses Registered
+                {isGraduated ? 'Academic Standing' : 'Courses Registered'}
               </h4>
               <div className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
-                {getCoursesCount()}
+                {isGraduated ? 'Degree Conferred (B.Tech)' : getCoursesCount()}
               </div>
             </div>
           </div>
 
-          {/* Card 2: Results Published */}
+          {/* Card 2: Results Published / Transcript */}
           <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 flex flex-col justify-between min-h-[125px] shadow-xs">
             <div className="text-[#138601] dark:text-[#4bd043]">
               <BarChart3 className="w-6 h-6" />
             </div>
             <div className="mt-3 space-y-1.5">
               <h4 className="text-xs sm:text-sm font-normal text-gray-700 dark:text-gray-200">
-                Results Published
+                {isGraduated ? 'Academic Transcript' : 'Results Published'}
               </h4>
               <div className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
-                {getResultsCount()}
+                {isGraduated ? 'Complete Graduate Record' : getResultsCount()}
               </div>
             </div>
           </div>
 
           {/* Card 3: Total Payments (100L Till Date) */}
           <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 flex flex-col justify-between min-h-[125px] shadow-xs">
-            <div className={isPaid ? 'text-[#083002] dark:text-[#4bd043]' : 'text-amber-600 dark:text-amber-400'}>
+            <div className={isPaid && !isRevoked ? 'text-[#083002] dark:text-[#4bd043]' : 'text-amber-600 dark:text-amber-400'}>
               <Wallet className="w-6 h-6" />
             </div>
             <div className="mt-3 space-y-1.5">
               <div className="flex items-center justify-between">
-                <h4 className={`text-xs sm:text-sm font-normal ${isPaid ? 'text-gray-800 dark:text-white' : 'text-gray-700 dark:text-gray-200'
+                <h4 className={`text-xs sm:text-sm font-normal ${isPaid && !isRevoked ? 'text-gray-800 dark:text-white' : 'text-gray-700 dark:text-gray-200'
                   }`}>
                   Total Paid (100L Till Date)
                 </h4>
-                <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-md ${isPaid
-                    ? 'bg-white/80 dark:bg-[#041801]/60 text-[#138601] dark:text-[#4bd043]'
-                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300'
+                <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-md ${
+                  isRevoked
+                    ? 'bg-red-100 text-red-800 dark:bg-red-950/70 dark:text-red-300'
+                    : isPaid
+                      ? 'bg-white/80 dark:bg-[#041801]/60 text-[#138601] dark:text-[#4bd043]'
+                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300'
                   }`}>
-                  {isPaid ? `${studentLevelNum}L Cleared` : `${studentLevelNum}L Pending`}
+                  {isRevoked ? 'Revoked (Pay Again)' : isPaid ? `${studentLevelNum}L Cleared` : `${studentLevelNum}L Pending`}
                 </span>
               </div>
-              <div className={`text-sm sm:text-base font-bold ${isPaid ? 'text-gray-900 dark:text-white' : 'text-amber-700 dark:text-amber-400'
+              <div className={`text-sm sm:text-base font-bold ${isPaid && !isRevoked ? 'text-gray-900 dark:text-white' : 'text-amber-700 dark:text-amber-400'
                 }`}>
                 ₦{totalLifetimePayments.toLocaleString()}
               </div>
@@ -415,7 +449,7 @@ const Dashboard = () => {
               </p>
             </div>
             <div className="text-xs font-semibold px-3 py-1 rounded-lg bg-gray-100 dark:bg-[#041801] text-gray-700 dark:text-green-200 border border-gray-200 dark:border-[#138601]/20 self-start sm:self-auto">
-              Current Academic Standing: <span className="font-bold text-[#138601] dark:text-[#4bd043]">{studentLevelNum} Level</span>
+              Current Academic Standing: <span className="font-bold text-[#138601] dark:text-[#4bd043]">{isGraduated ? `Graduated (Class of ${graduationYear})` : `${studentLevelNum} Level`}</span>
             </div>
           </div>
 

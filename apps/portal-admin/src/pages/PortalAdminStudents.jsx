@@ -22,7 +22,9 @@ import {
   Trash2,
   Lock,
   UserCheck,
-  Building2
+  Building2,
+  ShieldAlert,
+  Award
 } from 'lucide-react';
 import { 
   adminGetAllStudents, 
@@ -38,7 +40,11 @@ import {
   adminDeleteVerifiedStudent,
   submitAccountRecoveryRequest,
   getRecoveryRequests,
-  reviewRecoveryRequest
+  reviewRecoveryRequest,
+  adminRevokeStudentDues,
+  adminRevokeStudentIdCard,
+  adminResetStudentRegistration,
+  adminMarkStudentGraduation
 } from '@nacos/supabase';
 import { 
   parseAdmissionYear, 
@@ -174,7 +180,11 @@ const AdminStudents = () => {
         s.email?.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchDept = departmentFilter === 'ALL' || s.department === departmentFilter;
-      const matchLevel = levelFilter === 'ALL' || s.level?.includes(levelFilter);
+      const matchLevel = levelFilter === 'ALL' 
+        ? true 
+        : levelFilter === 'GRADUATED'
+          ? Boolean(s.is_graduated || s.level === 'Graduated' || s.status === 'graduated' || s.current_level === 'Graduated')
+          : (s.level?.includes(levelFilter) || s.current_level?.includes(levelFilter));
       
       let matchStatus = true;
       if (regStatusFilter === 'REGISTERED') matchStatus = s.has_registered === true;
@@ -198,7 +208,11 @@ const AdminStudents = () => {
         s.email?.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchDept = departmentFilter === 'ALL' || s.department === departmentFilter;
-      const matchLevel = levelFilter === 'ALL' || s.current_level?.includes(levelFilter);
+      const matchLevel = levelFilter === 'ALL' 
+        ? true 
+        : levelFilter === 'GRADUATED'
+          ? Boolean(s.is_graduated || s.level === 'Graduated' || s.status === 'graduated' || s.current_level === 'Graduated')
+          : (s.current_level?.includes(levelFilter) || s.level?.includes(levelFilter));
       return matchSearch && matchDept && matchLevel;
     });
   }, [activeAccounts, searchTerm, departmentFilter, levelFilter, adminSession]);
@@ -249,6 +263,66 @@ const AdminStudents = () => {
       showNotification(res.error.message, 'error');
     } else {
       showNotification(`Registration reset for ${student.full_name}. The student can now re-register.`);
+      loadData();
+    }
+  };
+
+  // Revoke student departmental dues clearance (requires new payment)
+  const handleAdminRevokeDues = async (student) => {
+    const regNo = student.registration_number || student.matric || student.matric_number;
+    if (!window.confirm(`Are you sure you want to REVOKE dues clearance for ${student.full_name} (${regNo})?\n\nThis will invalidate their clearance and require them to make a new dues payment.`)) {
+      return;
+    }
+    const res = await adminRevokeStudentDues(regNo, 'Administrative clearance revocation by portal admin', adminSession);
+    if (res.error) {
+      showNotification(res.error.message || 'Failed to revoke dues', 'error');
+    } else {
+      showNotification(res.message || `Dues clearance revoked for ${regNo}.`);
+      loadData();
+    }
+  };
+
+  // Revoke student ID Card (requires new application & payment)
+  const handleAdminRevokeIdCard = async (student) => {
+    const regNo = student.registration_number || student.matric || student.matric_number;
+    if (!window.confirm(`Are you sure you want to REVOKE the Student ID Card for ${student.full_name} (${regNo})?\n\nThis will invalidate their card and require a new application & payment.`)) {
+      return;
+    }
+    const res = await adminRevokeStudentIdCard(regNo, 'Administrative ID card revocation by portal admin', adminSession);
+    if (res.error) {
+      showNotification(res.error.message || 'Failed to revoke ID card', 'error');
+    } else {
+      showNotification(res.message || `ID card revoked for ${regNo}.`);
+      loadData();
+    }
+  };
+
+  // Reset student registration from active accounts table (allows student to re-register)
+  const handleAdminResetRegistrationAccount = async (student) => {
+    const regNo = student.registration_number || student.matric || student.matric_number;
+    if (!window.confirm(`Are you sure you want to RESET registration for ${student.full_name} (${regNo})?\n\nThis will delete their login credentials and allow them to re-register cleanly at /register.`)) {
+      return;
+    }
+    const res = await adminResetStudentRegistration(regNo, adminSession);
+    if (res.error) {
+      showNotification(res.error.message || 'Failed to reset registration', 'error');
+    } else {
+      showNotification(res.message || `Registration for ${regNo} has been reset.`);
+      loadData();
+    }
+  };
+
+  // Mark student as Graduated (Class of Year)
+  const handleAdminMarkGraduated = async (student) => {
+    const regNo = student.registration_number || student.matric || student.matric_number;
+    const defaultYear = student.expected_graduation_year || new Date().getFullYear();
+    const promptYear = window.prompt(`Enter graduation year for ${student.full_name} (${regNo}):`, String(defaultYear));
+    if (!promptYear) return;
+    const res = await adminMarkStudentGraduation(regNo, promptYear, adminSession);
+    if (res.error) {
+      showNotification(res.error.message || 'Failed to mark as graduated', 'error');
+    } else {
+      showNotification(res.message || `Student marked as Graduated (Class of ${promptYear}).`);
       loadData();
     }
   };
@@ -646,6 +720,7 @@ const AdminStudents = () => {
                   <option value="300">300 Level</option>
                   <option value="400">400 Level</option>
                   <option value="500">500 Level</option>
+                  <option value="GRADUATED">Alumni / Graduated</option>
                 </>
               )}
             </select>
@@ -832,13 +907,20 @@ const AdminStudents = () => {
                         {s.expected_graduation_year}
                       </td>
                       <td className="py-3.5 px-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold ${
-                          s.is_active 
-                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
-                            : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                        }`}>
-                          {s.is_active ? 'Active Enrolled' : 'Suspended'}
-                        </span>
+                        {s.is_graduated || s.level === 'Graduated' || s.status === 'graduated' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 dark:bg-purple-950/50 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/40">
+                            <Award className="w-3 h-3 text-purple-600" />
+                            <span>Graduated ({s.graduation_year || s.expected_graduation_year || 'Alumni'})</span>
+                          </span>
+                        ) : (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold ${
+                            s.is_active 
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
+                              : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                          }`}>
+                            {s.is_active ? 'Active Enrolled' : 'Suspended'}
+                          </span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="inline-flex items-center gap-1.5">
@@ -875,6 +957,34 @@ const AdminStudents = () => {
                             className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-[#041801] text-emerald-600 dark:text-emerald-400"
                           >
                             <ShieldCheck className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            title="Revoke Dues Clearance (Requires re-payment)"
+                            onClick={() => handleAdminRevokeDues(s)}
+                            className="p-1.5 rounded hover:bg-amber-100 dark:hover:bg-amber-950/40 text-amber-600 dark:text-amber-400"
+                          >
+                            <CreditCard className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            title="Revoke ID Card (Requires re-application & payment)"
+                            onClick={() => handleAdminRevokeIdCard(s)}
+                            className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400"
+                          >
+                            <ShieldAlert className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            title="Reset Registration (Allow re-registering at /register)"
+                            onClick={() => handleAdminResetRegistrationAccount(s)}
+                            className="p-1.5 rounded hover:bg-orange-100 dark:hover:bg-orange-950/40 text-orange-600 dark:text-orange-400"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            title="Mark as Graduated / Alumni"
+                            onClick={() => handleAdminMarkGraduated(s)}
+                            className="p-1.5 rounded hover:bg-purple-100 dark:hover:bg-purple-950/40 text-purple-600 dark:text-purple-400"
+                          >
+                            <Award className="w-3.5 h-3.5" />
                           </button>
                           <button
                             title={s.is_active ? 'Deactivate Student' : 'Activate Student'}

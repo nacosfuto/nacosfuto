@@ -916,3 +916,283 @@ export async function confirmStudentPasswordReset(regNumber, otpCode, newPasswor
   return { success: true, message: 'Password reset successful. You can now log in.' };
 }
 
+/**
+ * PORTAL ADMIN: Revoke Student Dues Clearance
+ * Sets student dues to revoked status, invalidates payment, and requires new payment.
+ */
+export async function adminRevokeStudentDues(identifier, reason = 'Administrative clearance revocation', adminUser = null) {
+  if (!identifier) return { error: { message: 'Student identifier is required.' } };
+  const cleanId = String(identifier).trim().toUpperCase();
+
+  // 1. Update Supabase profiles table
+  try {
+    await supabase
+      .from('profiles')
+      .update({
+        dues_cleared: false,
+        has_paid_dues: false,
+        payment_status: 'revoked',
+        dues_revoked_at: new Date().toISOString(),
+        dues_revocation_reason: reason,
+        updated_at: new Date().toISOString()
+      })
+      .or(`registration_number.eq.${cleanId},id.eq.${cleanId}`);
+  } catch (err) {
+    console.warn('Supabase profiles dues revoke error:', err);
+  }
+
+  // 2. Mark corresponding dues payments as revoked
+  try {
+    await supabase
+      .from('payments')
+      .update({
+        status: 'revoked',
+        updated_at: new Date().toISOString()
+      })
+      .eq('payment_type', 'DEPARTMENTAL_DUES')
+      .or(`registration_number.eq.${cleanId},student_id.eq.${cleanId}`);
+  } catch (err) {
+    console.warn('Supabase payments dues revoke error:', err);
+  }
+
+  try {
+    await supabase
+      .from('dues_payments')
+      .update({
+        status: 'revoked',
+        updated_at: new Date().toISOString()
+      })
+      .or(`student_id.eq.${cleanId},matric_number.eq.${cleanId}`);
+  } catch (err) {
+    console.warn('Supabase dues_payments revoke error:', err);
+  }
+
+  // 3. Update local databases
+  const students = getLocalStudentsDatabase();
+  const idx = students.findIndex(s => 
+    s.registration_number?.toUpperCase() === cleanId || s.id === cleanId
+  );
+  if (idx !== -1) {
+    students[idx] = {
+      ...students[idx],
+      dues_cleared: false,
+      has_paid_dues: false,
+      payment_status: 'revoked',
+      dues_revoked_at: new Date().toISOString(),
+      dues_revocation_reason: reason,
+      updated_at: new Date().toISOString()
+    };
+    saveLocalStudentsDatabase(students);
+  }
+
+  // Update active session if student is logged in locally
+  try {
+    const rawUser = localStorage.getItem('nacos_user');
+    if (rawUser) {
+      const u = JSON.parse(rawUser);
+      if (u.registration_number?.toUpperCase() === cleanId || u.id === cleanId) {
+        u.dues_cleared = false;
+        u.has_paid_dues = false;
+        u.payment_status = 'revoked';
+        u.dues_revoked_at = new Date().toISOString();
+        u.dues_revocation_reason = reason;
+        localStorage.setItem('nacos_user', JSON.stringify(u));
+        window.dispatchEvent(new Event('nacos_user_updated'));
+      }
+    }
+  } catch (e) {}
+
+  return { 
+    success: true, 
+    message: `Dues clearance revoked for ${cleanId}. Student is now required to pay anew to restore clearance.` 
+  };
+}
+
+/**
+ * PORTAL ADMIN: Revoke Student ID Card
+ * Revokes an issued ID card, requiring a new payment & application.
+ */
+export async function adminRevokeStudentIdCard(identifier, reason = 'Administrative card revocation', adminUser = null) {
+  if (!identifier) return { error: { message: 'Student identifier is required.' } };
+  const cleanId = String(identifier).trim().toUpperCase();
+
+  // 1. Update Supabase id_card_applications
+  try {
+    await supabase
+      .from('id_card_applications')
+      .update({
+        status: 'revoked',
+        payment_status: 'revoked',
+        revocation_reason: reason,
+        revoked_at: new Date().toISOString(),
+        reviewed_by: adminUser?.id || 'admin-portal',
+        updated_at: new Date().toISOString()
+      })
+      .or(`matric_number.eq.${cleanId},user_id.eq.${cleanId},id.eq.${cleanId}`);
+  } catch (err) {
+    console.warn('Supabase id_card_applications revoke error:', err);
+  }
+
+  // 2. Mark payments for ID card as revoked
+  try {
+    await supabase
+      .from('payments')
+      .update({
+        status: 'revoked',
+        updated_at: new Date().toISOString()
+      })
+      .eq('payment_type', 'ID_CARD')
+      .or(`registration_number.eq.${cleanId},student_id.eq.${cleanId}`);
+  } catch (err) {
+    console.warn('Supabase payments id card revoke error:', err);
+  }
+
+  // Update active session if relevant
+  try {
+    const rawUser = localStorage.getItem('nacos_user');
+    if (rawUser) {
+      const u = JSON.parse(rawUser);
+      if (u.registration_number?.toUpperCase() === cleanId || u.id === cleanId) {
+        window.dispatchEvent(new Event('nacos_user_updated'));
+      }
+    }
+  } catch (e) {}
+
+  return {
+    success: true,
+    message: `ID Card revoked for ${cleanId}. Student is now required to pay & re-apply for a new card.`
+  };
+}
+
+/**
+ * PORTAL ADMIN: Reset Student Registration
+ * Completely resets registration so the student can re-register from scratch on /register.
+ */
+export async function adminResetStudentRegistration(identifier, adminUser = null) {
+  if (!identifier) return { error: { message: 'Student identifier is required.' } };
+  const cleanId = String(identifier).trim().toUpperCase();
+
+  // 1. Unlink & reset in verified_students
+  try {
+    await supabase
+      .from('verified_students')
+      .update({
+        has_registered: false,
+        is_registered: false,
+        auth_user_id: null,
+        registered_at: null,
+        updated_at: new Date().toISOString()
+      })
+      .or(`registration_number.eq.${cleanId},email.eq.${cleanId.toLowerCase()}`);
+  } catch (err) {
+    console.warn('Supabase reset verified_students error:', err);
+  }
+
+  // 2. Remove from profiles table so they can re-register without unique constraint collision
+  try {
+    await supabase
+      .from('profiles')
+      .delete()
+      .or(`registration_number.eq.${cleanId},id.eq.${cleanId}`);
+  } catch (err) {
+    console.warn('Supabase delete profile error:', err);
+  }
+
+  // 3. Remove from local storage
+  const students = getLocalStudentsDatabase();
+  const updatedStudents = students.filter(s => 
+    s.registration_number?.toUpperCase() !== cleanId && s.id !== cleanId
+  );
+  saveLocalStudentsDatabase(updatedStudents);
+
+  // Clear active session if this student is currently logged in on this machine
+  try {
+    const rawUser = localStorage.getItem('nacos_user');
+    if (rawUser) {
+      const u = JSON.parse(rawUser);
+      if (u.registration_number?.toUpperCase() === cleanId || u.id === cleanId) {
+        localStorage.removeItem('nacos_user');
+        localStorage.removeItem('nacos_last_activity');
+        window.dispatchEvent(new Event('nacos_user_updated'));
+      }
+    }
+  } catch (e) {}
+
+  return {
+    success: true,
+    message: `Registration for ${cleanId} has been reset. The student can now re-register cleanly at /register.`
+  };
+}
+
+/**
+ * PORTAL ADMIN: Mark Student as Graduated / Alumni
+ * Updates student standing to Graduated with graduation year.
+ * Allows student to continue logging into the portal as an Alumni.
+ */
+export async function adminMarkStudentGraduation(identifier, graduationYear = new Date().getFullYear(), adminUser = null) {
+  if (!identifier) return { error: { message: 'Student identifier is required.' } };
+  const cleanId = String(identifier).trim().toUpperCase();
+  const gradYear = parseInt(graduationYear, 10) || new Date().getFullYear();
+
+  const updates = {
+    is_graduated: true,
+    status: 'graduated',
+    level: 'Graduated',
+    current_level: 'Graduated',
+    graduation_year: gradYear,
+    expected_graduation_year: gradYear,
+    graduated_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  // 1. Supabase profiles
+  try {
+    await supabase
+      .from('profiles')
+      .update(updates)
+      .or(`registration_number.eq.${cleanId},id.eq.${cleanId}`);
+  } catch (err) {
+    console.warn('Supabase graduation update error:', err);
+  }
+
+  // 2. Supabase verified_students
+  try {
+    await supabase
+      .from('verified_students')
+      .update({
+        level: 'Graduated',
+        status: 'graduated',
+        updated_at: new Date().toISOString()
+      })
+      .or(`registration_number.eq.${cleanId}`);
+  } catch (err) {
+    console.warn('Supabase verified_students grad update error:', err);
+  }
+
+  // 3. Local database
+  const students = getLocalStudentsDatabase();
+  const idx = students.findIndex(s => s.registration_number?.toUpperCase() === cleanId || s.id === cleanId);
+  if (idx !== -1) {
+    students[idx] = { ...students[idx], ...updates };
+    saveLocalStudentsDatabase(students);
+  }
+
+  // Update active session if student is logged in
+  try {
+    const rawUser = localStorage.getItem('nacos_user');
+    if (rawUser) {
+      const u = JSON.parse(rawUser);
+      if (u.registration_number?.toUpperCase() === cleanId || u.id === cleanId) {
+        const merged = { ...u, ...updates };
+        localStorage.setItem('nacos_user', JSON.stringify(merged));
+        window.dispatchEvent(new Event('nacos_user_updated'));
+      }
+    }
+  } catch (e) {}
+
+  return {
+    success: true,
+    message: `Student ${cleanId} marked as Graduated (Class of ${gradYear}). They can continue accessing the portal as an Alumni.`
+  };
+}
+

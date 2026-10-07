@@ -1027,7 +1027,7 @@ export async function adminResetVerifiedStudentRegistration(regNo) {
   const updatedAccounts = accounts.filter(a => a.registration_number.toUpperCase() !== cleanReg);
   localStorage.setItem('nacos_students_db', JSON.stringify(updatedAccounts));
 
-  // 3. Sync with Supabase
+  // 3. Sync with Supabase (reset verified_students and delete profile row)
   try {
     await supabase
       .from('verified_students')
@@ -1036,6 +1036,13 @@ export async function adminResetVerifiedStudentRegistration(regNo) {
         auth_user_id: null,
         registered_at: null
       })
+      .eq('registration_number', cleanReg);
+  } catch (e) {}
+
+  try {
+    await supabase
+      .from('profiles')
+      .delete()
       .eq('registration_number', cleanReg);
   } catch (e) {}
 

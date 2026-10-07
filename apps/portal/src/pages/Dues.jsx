@@ -43,6 +43,8 @@ const Dues = () => {
 
   const [paymentData, setPaymentData] = useState(null);
   const [isPaid, setIsPaid] = useState(false);
+  const [isRevoked, setIsRevoked] = useState(false);
+  const [revocationReason, setRevocationReason] = useState('');
   const [totalLifetimeDues, setTotalLifetimeDues] = useState(0);
 
   // Level map storing dues clearance for each academic level
@@ -193,6 +195,19 @@ const Dues = () => {
 
     setLevelDuesMap(newMap);
     setTotalLifetimeDues(totalPaidSum);
+
+    // Check if clearance has been revoked
+    const userIsRevoked = String(currentUser?.payment_status).toLowerCase() === 'revoked' || currentUser?.dues_revoked === true;
+    if (userIsRevoked) {
+      setIsRevoked(true);
+      setRevocationReason(currentUser?.dues_revocation_reason || 'Departmental dues clearance was officially revoked by administration. A new dues payment is required to restore clearance.');
+      setIsPaid(false);
+      setPaymentData(null);
+      return;
+    } else {
+      setIsRevoked(false);
+      setRevocationReason('');
+    }
 
     // Apply status for currently selected level
     const currentLvlPayment = newMap[activeLevel];
@@ -558,6 +573,34 @@ const Dues = () => {
             </button>
           </div>
         </div>
+
+        {/* Revocation Alert Banner */}
+        {isRevoked && (
+          <div className="p-5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 text-red-900 dark:text-red-200 space-y-3 shadow-xs print:hidden">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-red-900 dark:text-red-100">
+                  Departmental Dues Clearance Revoked
+                </h3>
+                <p className="text-xs text-red-700 dark:text-red-200">
+                  {revocationReason || 'Your departmental clearance was revoked by administrative directive. A new payment is required to restore your clearance standing.'}
+                </p>
+              </div>
+            </div>
+            <div className="pt-1 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handlePayDues}
+                disabled={isProcessing || !duesFee}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors cursor-pointer shadow-xs"
+              >
+                <CreditCard className="w-4 h-4" />
+                <span>Pay Dues Now to Restore Clearance {duesFee ? `(₦${Number(duesFee).toLocaleString()})` : ''}</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Level Clearance Selector Tabs (100L - 500L) */}
         <div className="p-4 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 shadow-xs print:hidden">

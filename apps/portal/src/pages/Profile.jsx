@@ -15,7 +15,8 @@ import {
   Building2,
   BookOpen,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Award
 } from 'lucide-react';
 import PortalLayout from '../components/PortalLayout';
 import { supabase } from '@nacos/supabase';
@@ -25,6 +26,8 @@ import { getLocalStudentsDatabase } from '@nacos/supabase/auth';
 const formatDatabaseStudent = (dbRecord, fallback = {}) => {
   if (!dbRecord && !fallback) return null;
   const rec = dbRecord || fallback;
+  const isGraduated = Boolean(rec.is_graduated || rec.status === 'graduated' || rec.level === 'Graduated' || fallback.is_graduated || fallback.level === 'Graduated');
+  const graduationYear = rec.graduation_year || fallback.graduation_year || (isGraduated ? 2026 : null);
   const fullName = (
     rec.full_name || 
     rec.fullName || 
@@ -54,8 +57,10 @@ const formatDatabaseStudent = (dbRecord, fallback = {}) => {
   const deptCode = rec.dept_code || (dept.toLowerCase().includes('software') ? 'SE' : 'CSC');
   const avatar = rec.profile_photo_url || rec.avatar_url || rec.photo_url || fallback.profile_photo_url || fallback.avatar_url || '';
   const admissionYear = parseInt(rec.admission_year || fallback.admission_year || 2024, 10);
-  const currentLevel = rec.current_level || rec.level || fallback.current_level || fallback.level || 
-    (admissionYear ? `${Math.min(5, Math.max(1, 2026 - admissionYear + 1))}00 Level` : '100 Level');
+  const currentLevel = isGraduated
+    ? 'Graduated'
+    : (rec.current_level || rec.level || fallback.current_level || fallback.level || 
+      (admissionYear ? `${Math.min(5, Math.max(1, 2026 - admissionYear + 1))}00 Level` : '100 Level'));
 
   return {
     id: rec.id || fallback.id || matric,
@@ -81,11 +86,13 @@ const formatDatabaseStudent = (dbRecord, fallback = {}) => {
     level: currentLevel,
     current_level: currentLevel,
     admission_year: admissionYear,
+    is_graduated: isGraduated,
+    graduation_year: graduationYear,
     zone: rec.zone || rec.state_of_origin || fallback.zone || 'South East',
     gender: rec.gender || fallback.gender || 'M',
     avatar_url: avatar,
     profile_photo_url: avatar,
-    role: rec.role || fallback.role || 'Student Member',
+    role: isGraduated ? 'Alumni Member' : (rec.role || fallback.role || 'Student Member'),
     is_active: rec.is_active !== undefined ? rec.is_active : true,
     is_registered: true
   };
@@ -389,11 +396,18 @@ const Profile = () => {
               
               {/* Badges Row */}
               <div className="flex flex-wrap items-center gap-2.5 pt-1.5 text-xs">
-                {/* Level Badge */}
-                <span className="px-3 py-1 rounded-md text-xs font-semibold border border-green-200 dark:border-[#138601]/40 text-[#138601] dark:text-[#4bd043] bg-green-50/60 dark:bg-[#138601]/10 flex items-center gap-1.5">
-                  <GraduationCap className="w-3.5 h-3.5" />
-                  <span>{user.level || user.current_level || '100 Level'}</span>
-                </span>
+                {/* Level / Alumni Badge */}
+                {user.is_graduated || user.level === 'Graduated' ? (
+                  <span className="px-3 py-1 rounded-md text-xs font-bold border border-amber-300 dark:border-amber-600/40 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 flex items-center gap-1.5 shadow-xs">
+                    <Award className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>Alumni • Class of {user.graduation_year || '2026'}</span>
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 rounded-md text-xs font-semibold border border-green-200 dark:border-[#138601]/40 text-[#138601] dark:text-[#4bd043] bg-green-50/60 dark:bg-[#138601]/10 flex items-center gap-1.5">
+                    <GraduationCap className="w-3.5 h-3.5" />
+                    <span>{user.level || user.current_level || '100 Level'}</span>
+                  </span>
+                )}
 
                 {/* Institution Badge */}
                 <span className="text-xs font-semibold uppercase tracking-wide text-[#138601] dark:text-[#4bd043] flex items-center gap-1.5">
@@ -622,6 +636,7 @@ const Profile = () => {
                     <option value="300 Level">300 Level</option>
                     <option value="400 Level">400 Level</option>
                     <option value="500 Level">500 Level</option>
+                    <option value="Graduated">Graduated / Alumni</option>
                   </select>
                   <ChevronDown className="w-4 h-4 text-gray-400 dark:text-green-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
