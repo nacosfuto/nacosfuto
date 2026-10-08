@@ -5,6 +5,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import PortalAdminLogin from './pages/PortalAdminLogin';
 const PortalAdminDashboard = React.lazy(() => import('./pages/PortalAdminDashboard'));
 const PortalAdminStudents = React.lazy(() => import('./pages/PortalAdminStudents'));
+const PortalAdminDues = React.lazy(() => import('./pages/PortalAdminDues'));
 const PortalAdminIdCards = React.lazy(() => import('./pages/PortalAdminIdCards'));
 const PortalAdminResources = React.lazy(() => import('./pages/PortalAdminResources'));
 const PortalAdminCourses = React.lazy(() => import('./pages/PortalAdminCourses'));
@@ -142,6 +143,22 @@ function App() {
             element={
               <PortalAdminProtectedRoute requiredPermission="student_portal.results">
                 <PortalAdminResults />
+              </PortalAdminProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/dues" 
+            element={
+              <PortalAdminProtectedRoute requiredPermission="student_portal.view">
+                <PortalAdminDues />
+              </PortalAdminProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/portal-admin/dues" 
+            element={
+              <PortalAdminProtectedRoute requiredPermission="student_portal.view">
+                <PortalAdminDues />
               </PortalAdminProtectedRoute>
             } 
           />

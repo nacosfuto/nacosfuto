@@ -7,8 +7,16 @@ import {
   Vote, 
   FileText,
   ChevronRight,
-  Award
+  Award,
+  Lock,
+  EyeOff,
+  Shield,
+  MessageSquare,
+  Users2,
+  KeyRound,
+  Inbox
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function HeroElectraSection({ onStartVoting, onOpenManifesto, presidentialCandidates = [] }) {
   const [selectedCandidateId, setSelectedCandidateId] = useState(
@@ -37,225 +45,219 @@ export default function HeroElectraSection({ onStartVoting, onOpenManifesto, pre
 
   return (
     <section className="pt-6 pb-12 sm:pb-16">
-      <div className="site-container">
+      <div className="site-container space-y-8">
         
-        {/* Main 2-Column Hero Grid Matching Reference Design */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        {/* ========================================================
+            HERO CONTAINER: ELIGO BLU / ELECTRA PURPLE LIGHT THEME
+           ======================================================== */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           
-          {/* ========================================================
-              LEFT COLUMN: VIBRANT ELECTRIC LIME HERO CARD
-             ======================================================== */}
-          <div className="lg:col-span-7 bg-[#c6ff00] text-black rounded-3xl p-7 sm:p-12 relative overflow-hidden flex flex-col justify-between shadow-2xl shadow-[#c6ff00]/15 min-h-[480px]">
+          {/* LEFT COLUMN: HERO BANNER (Extracted Purple #684BFD) */}
+          <div className="lg:col-span-7 bg-[#684BFD] text-white rounded-3xl p-7 sm:p-12 relative overflow-hidden flex flex-col justify-between shadow-2xl shadow-[#684BFD]/25 min-h-[520px]">
             
-            {/* Subtle Texture / Noise / Background Hands Graphic */}
-            <div className="absolute right-0 bottom-0 pointer-events-none opacity-90 translate-y-2 translate-x-2">
-              <svg 
-                className="w-44 h-44 sm:w-56 sm:h-56 text-black" 
-                viewBox="0 0 200 200" 
-                fill="currentColor"
-              >
-                {/* Voting Hands Silhouette Graphic */}
-                <path d="M70,200 L70,120 C70,114 74,110 80,110 C86,110 90,114 90,120 L90,140 C90,140 94,130 100,130 C106,130 110,134 110,140 L110,145 C110,145 114,136 120,136 C126,136 130,140 130,146 L130,152 C130,152 134,144 140,144 C146,144 150,148 150,154 L150,175 C150,195 135,200 120,200 Z" />
-                <path d="M130,200 L130,105 C130,98 135,94 142,94 C149,94 154,98 154,105 L154,125 C154,125 158,115 165,115 C172,115 176,119 176,126 L176,132 C176,132 180,123 187,123 C194,123 198,127 198,134 L198,175 C198,195 180,200 160,200 Z" />
-                <path d="M10,200 L10,135 C10,128 15,124 22,124 C29,124 34,128 34,135 L34,155 C34,155 38,145 45,145 C52,145 56,149 56,156 L56,180 C56,195 40,200 25,200 Z" />
-              </svg>
+            {/* Subtle Stylized Ballot Box Graphic Overlay */}
+            <div className="absolute right-0 bottom-0 pointer-events-none opacity-15 translate-y-6 translate-x-6">
+              <Vote className="w-80 h-80 text-white" />
             </div>
 
             {/* Top Eyebrow Tag */}
             <div className="relative z-10">
-              <span className="text-xs sm:text-sm font-extrabold tracking-tight uppercase text-black/80 block mb-4">
-                The #1 Decentralized Election Platform on Campus.
-              </span>
-
-              {/* Huge Bold Headline with Floating Micro-Badges */}
-              <div className="relative inline-block mb-6">
-                <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[0.98] font-display uppercase">
-                  YOUR OPINION <br />
-                  FINALLY PAYS OFF BRO
-                </h1>
-
-                {/* Floating Micro-Badge 1 */}
-                <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-black text-xs font-black shadow-md absolute top-12 right-2 rotate-2 animate-bounce">
-                  <span>+ 1 Verified Ballot</span>
-                </div>
-
-                {/* Floating Micro-Badge 2 */}
-                <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-black text-xs font-black shadow-md absolute -bottom-4 right-16 -rotate-3">
-                  <span>+ 100% Audit</span>
-                </div>
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-bold uppercase tracking-wider mb-5">
+                <ShieldCheck className="w-4 h-4 text-white" />
+                <span>Verified Democratic Ballot Engine</span>
               </div>
 
-              <p className="text-sm sm:text-base font-semibold text-black/85 max-w-md leading-relaxed">
-                Turn manifestos, debates and student leadership visions into verified real-time democratic rewards.
+              {/* Bold Headline matching Eligo Blu Mockup */}
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-[1.1] font-display">
+                Share your Voice <br />
+                Anonymously and Build a <br />
+                Stronger Community
+              </h1>
+
+              <p className="text-sm sm:text-base font-medium text-white/90 max-w-lg mt-4 leading-relaxed">
+                Empowering every Computer Science student with decentralized, tamper-proof ballots. Your vote is confidential, audited, and immutable.
               </p>
             </div>
 
-            {/* Bottom Action Button */}
-            <div className="relative z-10 pt-8 sm:pt-12">
-              <button
-                type="button"
-                onClick={onStartVoting}
-                className="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-[#0a0b0d] hover:bg-black text-white text-base font-black transition-all transform hover:scale-105 active:scale-95 shadow-xl cursor-pointer group"
-              >
-                <span>Let's vote!</span>
-                <div className="w-6 h-6 rounded-full bg-white text-black flex items-center justify-center group-hover:translate-x-0.5 transition-transform">
-                  <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
+            {/* 3 Core Value Pillars (Extracted from Eligo Blu Phone Screen 1) */}
+            <div className="relative z-10 my-6 space-y-3">
+              <div className="p-3.5 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center gap-3.5 text-xs text-white font-medium">
+                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                  <Lock className="w-4 h-4 text-white" />
                 </div>
-              </button>
+                <span>Employs encryption to ensure confidentiality and voter anonymity.</span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center gap-3.5 text-xs text-white font-medium">
+                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                  <MessageSquare className="w-4 h-4 text-white" />
+                </div>
+                <span>Offers an easy, creative, and anonymous way for users to express their democratic opinion.</span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center gap-3.5 text-xs text-white font-medium">
+                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                  <Users2 className="w-4 h-4 text-white" />
+                </div>
+                <span>Helps to build a cohesive and forward-looking departmental community.</span>
+              </div>
+            </div>
+
+            {/* Bottom: 3 Security Specs & Primary Action Button */}
+            <div className="relative z-10 space-y-5 pt-2">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="p-2.5 rounded-xl bg-black/20 text-center border border-white/10">
+                  <Shield className="w-4 h-4 mx-auto mb-1 text-white/80" />
+                  <span className="text-[10px] font-bold block leading-tight text-white/90">TLS 1.2 Protocol</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-black/20 text-center border border-white/10">
+                  <EyeOff className="w-4 h-4 mx-auto mb-1 text-white/80" />
+                  <span className="text-[10px] font-bold block leading-tight text-white/90">No Voter Tracking</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-black/20 text-center border border-white/10">
+                  <Lock className="w-4 h-4 mx-auto mb-1 text-white/80" />
+                  <span className="text-[10px] font-bold block leading-tight text-white/90">1024-Bit Client Cipher</span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={onStartVoting}
+                  className="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-white hover:bg-slate-100 text-[#684BFD] text-sm font-extrabold shadow-xl transition-all transform hover:scale-103 active:scale-97 cursor-pointer group"
+                >
+                  <span>Start Now & Cast Ballot</span>
+                  <ArrowRight className="w-4 h-4 text-[#684BFD] group-hover:translate-x-1 transition-transform" />
+                </button>
+
+                <Link
+                  to="/results"
+                  className="inline-flex items-center gap-2 px-6 py-4 rounded-full bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition-all cursor-pointer"
+                >
+                  <Inbox className="w-4 h-4" />
+                  <span>Audit Live Results</span>
+                </Link>
+              </div>
             </div>
 
           </div>
 
+          {/* RIGHT COLUMN: INTERACTIVE BALLOT CARDS (Light Mode Cards) */}
+          <div className="lg:col-span-5 flex flex-col justify-between gap-6">
 
-          {/* ========================================================
-              RIGHT COLUMN: INTERACTIVE VOTE CARD (LIGHT/DARK)
-             ======================================================== */}
-          <div className="lg:col-span-5 bg-white dark:bg-[#141518] border border-gray-200 dark:border-[#232529] rounded-3xl p-6 sm:p-8 flex flex-col justify-between shadow-xl shadow-gray-200/50 dark:shadow-2xl relative overflow-hidden min-h-[480px] transition-colors duration-200">
-            
-            {/* Top Category Badge */}
-            <div>
-              <div className="inline-flex items-center gap-2 mb-3">
-                <div className="w-5 h-5 rounded-full bg-[#c6ff00] text-black flex items-center justify-center font-black text-xs">
-                  i
-                </div>
-                <span className="text-xs font-bold text-gray-500 dark:text-gray-400">#PresidentialRace</span>
+            {/* Quick Action Card 1: To Vote & Insert Code (Matching Eligo Blu Phone Screen 2) */}
+            <div className="bg-white border border-[#DDD6FE] rounded-3xl p-6 sm:p-7 shadow-lg shadow-[#684BFD]/05 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-[#684BFD]">
+                  To Vote...
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F3FF] text-[#684BFD] border border-[#DDD6FE]">
+                  Active Ballot
+                </span>
               </div>
 
-              {/* Poll Question */}
-              <h2 className="text-xl sm:text-2xl font-black text-gray-950 dark:text-white font-display uppercase tracking-tight leading-snug mb-6">
-                EXECOUNCIL 2026: WHO IS YOUR CHOICE FOR CHAPTER PRESIDENT?
-              </h2>
-
-              {/* 2 Contestant Choice Cards Side by Side */}
-              <div className="grid grid-cols-2 gap-3.5">
-                
-                {/* Candidate 1 Card */}
-                <div 
-                  onClick={() => setSelectedCandidateId(c1.id)}
-                  className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
-                    selectedCandidateId === c1.id 
-                      ? 'border-[#c6ff00] bg-[#f7fee7]/40 dark:bg-[#1b1d22] shadow-lg shadow-[#c6ff00]/15 ring-1 ring-[#c6ff00]' 
-                      : 'bg-gray-50 dark:bg-[#1c1d22] border-gray-200 dark:border-[#2a2c33] hover:border-gray-400 dark:hover:border-gray-500'
-                  }`}
-                >
-                  <div className="aspect-square rounded-xl overflow-hidden bg-gray-200 dark:bg-[#24262c] mb-3 relative">
-                    <img
-                      src={c1.photoUrl}
-                      alt={c1.name}
-                      className="w-full h-full object-cover"
-                    />
-                    {selectedCandidateId === c1.id && (
-                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#c6ff00] text-black flex items-center justify-center shadow-sm">
-                        <Check className="w-3 h-3 stroke-[3]" />
-                      </div>
-                    )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* Insert Code Box */}
+                <div className="p-4 rounded-2xl bg-[#F5F3FF] border border-[#DDD6FE] flex flex-col justify-between space-y-3">
+                  <div className="space-y-1">
+                    <h3 className="text-xs font-black text-slate-900 leading-snug">
+                      Join a new ballot by inserting a provided code
+                    </h3>
+                    <p className="text-[10px] text-slate-500">
+                      Use your student matric credentials or commission passcode.
+                    </p>
                   </div>
-
-                  <div className="space-y-1 mb-3">
-                    <div className="text-xs font-black text-emerald-600 dark:text-[#c6ff00]">{p1}%</div>
-                    <div className="text-xs font-bold text-gray-900 dark:text-white line-clamp-1">{c1.name}</div>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-1">{c1.slogan}</p>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 pt-1">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedCandidateId(c1.id);
-                        onStartVoting?.(c1);
-                      }}
-                      className={`w-full py-1.5 rounded-full text-xs font-black transition-colors ${
-                        selectedCandidateId === c1.id
-                          ? 'bg-[#c6ff00] text-black shadow-sm'
-                          : 'border border-gray-300 dark:border-[#c6ff00]/60 text-gray-800 dark:text-[#c6ff00] hover:bg-[#c6ff00] hover:text-black hover:border-transparent'
-                      }`}
-                    >
-                      Select
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenManifesto?.(c1);
-                      }}
-                      className="text-[10px] text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white underline text-center"
-                    >
-                      Manifesto
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={onStartVoting}
+                    className="inline-flex items-center justify-between px-3.5 py-2 rounded-xl bg-[#684BFD] hover:bg-[#5537F8] text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                  >
+                    <span>Insert Code</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
-                {/* Candidate 2 Card */}
-                <div 
-                  onClick={() => setSelectedCandidateId(c2.id)}
-                  className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
-                    selectedCandidateId === c2.id 
-                      ? 'border-[#c6ff00] bg-[#f7fee7]/40 dark:bg-[#1b1d22] shadow-lg shadow-[#c6ff00]/15 ring-1 ring-[#c6ff00]' 
-                      : 'bg-gray-50 dark:bg-[#1c1d22] border-gray-200 dark:border-[#2a2c33] hover:border-gray-400 dark:hover:border-gray-500'
-                  }`}
+                {/* Past Votes Box */}
+                <Link
+                  to="/results"
+                  className="p-4 rounded-2xl bg-slate-50 hover:bg-[#F5F3FF] border border-slate-200 hover:border-[#DDD6FE] flex flex-col justify-between space-y-3 transition-colors"
                 >
-                  <div className="aspect-square rounded-xl overflow-hidden bg-gray-200 dark:bg-[#24262c] mb-3 relative">
-                    <img
-                      src={c2.photoUrl}
-                      alt={c2.name}
-                      className="w-full h-full object-cover"
-                    />
-                    {selectedCandidateId === c2.id && (
-                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#c6ff00] text-black flex items-center justify-center shadow-sm">
-                        <Check className="w-3 h-3 stroke-[3]" />
-                      </div>
-                    )}
+                  <div className="space-y-1">
+                    <h3 className="text-xs font-black text-slate-900 leading-snug">
+                      Go to Past Votes & Audit
+                    </h3>
+                    <p className="text-[10px] text-slate-500">
+                      Inspect tally counts and cryptographic verification proofs.
+                    </p>
                   </div>
-
-                  <div className="space-y-1 mb-3">
-                    <div className="text-xs font-black text-emerald-600 dark:text-[#c6ff00]">{p2}%</div>
-                    <div className="text-xs font-bold text-gray-900 dark:text-white line-clamp-1">{c2.name}</div>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-1">{c2.slogan}</p>
+                  <div className="inline-flex items-center justify-between text-xs font-bold text-[#684BFD]">
+                    <span>View Audit</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </div>
-
-                  <div className="flex flex-col gap-1.5 pt-1">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedCandidateId(c2.id);
-                        onStartVoting?.(c2);
-                      }}
-                      className={`w-full py-1.5 rounded-full text-xs font-black transition-colors ${
-                        selectedCandidateId === c2.id
-                          ? 'bg-[#c6ff00] text-black shadow-sm'
-                          : 'border border-gray-300 dark:border-[#c6ff00]/60 text-gray-800 dark:text-[#c6ff00] hover:bg-[#c6ff00] hover:text-black hover:border-transparent'
-                      }`}
-                    >
-                      Select
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenManifesto?.(c2);
-                      }}
-                      className="text-[10px] text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white underline text-center"
-                    >
-                      Manifesto
-                    </button>
-                  </div>
-                </div>
-
+                </Link>
               </div>
             </div>
 
-            {/* Carousel Navigation Bar at Bottom */}
-            <div className="pt-6 border-t border-gray-200 dark:border-[#232529] flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="w-8 h-1.5 rounded-full bg-gray-900 dark:bg-white"></span>
-                <span className="w-8 h-1.5 rounded-full bg-gray-300 dark:bg-[#2a2c33]"></span>
-                <span className="w-8 h-1.5 rounded-full bg-gray-300 dark:bg-[#2a2c33]"></span>
+            {/* Quick Action Card 2: Community Polls & Candidates (Matching Eligo Blu Phone Screen 2) */}
+            <div className="bg-white border border-[#DDD6FE] rounded-3xl p-6 sm:p-7 shadow-lg shadow-[#684BFD]/05 space-y-5 flex-1 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-900">
+                    Community Polls
+                  </span>
+                  <span className="text-[11px] font-bold text-slate-500">
+                    Dept. of Computer Science
+                  </span>
+                </div>
+
+                {/* Poll Card Pill */}
+                <div className="p-4 rounded-2xl bg-slate-900 text-white flex items-center justify-between shadow-md">
+                  <div>
+                    <h4 className="text-xs font-black">NACOS FUTO Executive Elections</h4>
+                    <p className="text-[10px] text-slate-400">Departmental Electoral Commission</p>
+                  </div>
+                  <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
+                    <ArrowRight className="w-4 h-4 text-white" />
+                  </div>
+                </div>
+
+                {/* Presidential Race Preview */}
+                <div className="mt-4 space-y-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-slate-700">Presidential Post Contenders</span>
+                    <span className="text-[11px] font-bold text-[#684BFD]">{total} Verified Ballots</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <img src={c1.photoUrl} alt={c1.name} className="w-7 h-7 rounded-full object-cover border border-[#684BFD]" />
+                        <span className="text-xs font-bold text-slate-800">{c1.name}</span>
+                      </div>
+                      <span className="text-xs font-mono font-bold text-[#684BFD]">{p1}%</span>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <img src={c2.photoUrl} alt={c2.name} className="w-7 h-7 rounded-full object-cover border border-slate-300" />
+                        <span className="text-xs font-bold text-slate-800">{c2.name}</span>
+                      </div>
+                      <span className="text-xs font-mono font-bold text-slate-600">{p2}%</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <span className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">
-                {total} Certified Ballots Cast
-              </span>
+
+              {/* Contestants Link Pill */}
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                <Link to="/contestants" className="font-bold text-[#684BFD] hover:underline flex items-center gap-1">
+                  <span>Browse All Contestants & Posts</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+                <Link to="/manifestos" className="text-slate-500 hover:text-slate-900 font-medium">
+                  Manifestos →
+                </Link>
+              </div>
             </div>
 
           </div>

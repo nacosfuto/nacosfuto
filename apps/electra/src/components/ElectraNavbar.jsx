@@ -12,52 +12,49 @@ import {
   ChevronDown,
   Menu,
   X,
-  Sun,
-  Moon
+  KeyRound
 } from 'lucide-react';
 import { getAppUrls } from '@nacos/config/urls';
-import { useTheme } from '../context/ThemeContext';
 
 export default function ElectraNavbar({ voter, onOpenConnect, onDisconnect }) {
   const location = useLocation();
   const urls = getAppUrls();
-  const { isDark, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
     { label: 'Live Polls', path: '/' },
     { label: 'Contestants', path: '/contestants' },
     { label: 'Manifestos', path: '/manifestos' },
-    { label: 'Live Results', path: '/results' },
+    { label: 'Audit Results', path: '/results' },
     { label: 'Guidelines', path: '/guidelines' },
   ];
 
   const isActive = (path) => {
-    if (path === '/') return location.pathname === '/';
+    if (path === '/') return location.pathname === '/' || location.pathname === '/electra';
     return location.pathname.startsWith(path);
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/90 dark:bg-[#0c0d0e]/90 backdrop-blur-xl border-b border-gray-200 dark:border-[#22252a]/80 transition-colors duration-200">
+    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-slate-200 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           
-          {/* Logo */}
+          {/* Logo & Brand matching Eligo Blu / Electra design */}
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-2xl bg-[#c6ff00] text-black flex items-center justify-center font-black shadow-lg shadow-[#c6ff00]/25 group-hover:scale-105 transition-transform">
-              <Vote className="w-6 h-6 stroke-[2.5]" />
+            <div className="w-11 h-11 rounded-2xl bg-[#684BFD] text-white flex items-center justify-center font-black shadow-lg shadow-[#684BFD]/25 group-hover:scale-105 transition-transform">
+              <Vote className="w-6 h-6 stroke-[2.2]" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-2xl tracking-tight text-gray-950 dark:text-white font-display">
+                <span className="font-extrabold text-2xl tracking-tight text-slate-900 font-display">
                   ELECTRA
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gray-100 dark:bg-[#22252a] text-gray-800 dark:text-[#c6ff00] border border-gray-200 dark:border-[#c6ff00]/30">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#F5F3FF] text-[#684BFD] border border-[#DDD6FE]">
                   NACOS FUTO
                 </span>
               </div>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 -mt-0.5 tracking-wide">
-                Decentralized Campus Ballot Engine
+              <p className="text-[10px] text-slate-500 font-medium -mt-0.5 tracking-wide">
+                E-Voting & Democratic Ballot Engine
               </p>
             </div>
           </Link>
@@ -68,10 +65,10 @@ export default function ElectraNavbar({ voter, onOpenConnect, onDisconnect }) {
               <Link
                 key={link.path}
                 to={link.path}
-                className={`text-sm font-semibold transition-colors ${
+                className={`text-sm font-bold transition-colors ${
                   isActive(link.path)
-                    ? 'text-black dark:text-[#c6ff00] font-bold'
-                    : 'text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white'
+                    ? 'text-[#684BFD] border-b-2 border-[#684BFD] pb-1'
+                    : 'text-slate-600 hover:text-[#684BFD]'
                 }`}
               >
                 {link.label}
@@ -81,38 +78,31 @@ export default function ElectraNavbar({ voter, onOpenConnect, onDisconnect }) {
 
           {/* Right Action Items */}
           <div className="hidden sm:flex items-center gap-3.5">
-            
-            {/* Theme Toggle Switch */}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-              title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-              className="p-2.5 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-[#161719] dark:hover:bg-[#202227] text-gray-700 dark:text-gray-300 hover:text-black dark:hover:text-[#c6ff00] border border-gray-200 dark:border-[#232529] transition-all cursor-pointer flex items-center justify-center"
+            {/* Student Portal Link */}
+            <a
+              href={urls.portal}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-semibold text-slate-500 hover:text-[#684BFD] flex items-center gap-1 transition-colors px-2 py-1"
             >
-              {isDark ? (
-                <Sun className="w-4 h-4 text-[#c6ff00]" />
-              ) : (
-                <Moon className="w-4 h-4 text-gray-700" />
-              )}
-            </button>
+              <span>Student Portal</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
 
             {/* Voter Status / Connect Action */}
             {voter ? (
-              <div className="flex items-center gap-3 bg-gray-100 dark:bg-[#161719] border border-gray-200 dark:border-[#232529] p-1.5 pr-4 rounded-full">
-                <div className="w-8 h-8 rounded-full bg-[#c6ff00] text-black flex items-center justify-center font-bold text-xs">
-                  {voter.name?.charAt(0) || 'V'}
-                </div>
-                <div className="text-left text-xs">
-                  <span className="font-bold text-gray-900 dark:text-white block leading-tight">{voter.matricNumber}</span>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 inline" /> Verified Scholar
+              <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
+                <div className="flex items-center gap-2 bg-[#F5F3FF] border border-[#DDD6FE] px-3 py-1.5 rounded-full">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                  <span className="text-xs font-bold text-[#684BFD]">
+                    {voter.registrationNumber || voter.reg_no || 'Voter Active'}
                   </span>
                 </div>
                 <button
+                  type="button"
                   onClick={onDisconnect}
-                  title="Disconnect voter session"
-                  className="ml-2 text-gray-400 hover:text-red-500 transition-colors p-1"
+                  title="Disconnect Voter Session"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -121,36 +111,21 @@ export default function ElectraNavbar({ voter, onOpenConnect, onDisconnect }) {
               <button
                 type="button"
                 onClick={onOpenConnect}
-                className="inline-flex items-center gap-2.5 px-6 py-3 rounded-full text-sm font-black text-black bg-[#c6ff00] hover:bg-[#b2e600] transition-all transform active:scale-95 shadow-lg shadow-[#c6ff00]/25 cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#684BFD] hover:bg-[#5537F8] text-white text-xs font-bold shadow-md shadow-[#684BFD]/25 transition-all transform hover:scale-102 active:scale-98 cursor-pointer"
               >
-                <UserCheck className="w-4 h-4 stroke-[2.5]" />
-                <span>Connect NACOS Account</span>
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Insert Code / Connect</span>
               </button>
             )}
-
-            {/* Commission Console Link */}
-            <a
-              href={urls.electraAdmin}
-              className="text-xs text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors border border-gray-200 dark:border-[#22252a] px-3.5 py-2.5 rounded-full bg-white dark:bg-transparent"
-            >
-              Commission Console
-            </a>
           </div>
 
-          {/* Mobile Actions */}
-          <div className="flex sm:hidden items-center gap-2">
+          {/* Mobile Menu Button */}
+          <div className="flex md:hidden items-center gap-2">
             <button
               type="button"
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-              className="p-2 rounded-xl bg-gray-100 dark:bg-[#161719] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#23252a]"
-            >
-              {isDark ? <Sun className="w-5 h-5 text-[#c6ff00]" /> : <Moon className="w-5 h-5" />}
-            </button>
-
-            <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-xl bg-gray-100 dark:bg-[#161719] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#23252a]"
+              className="p-2 rounded-xl text-slate-700 bg-slate-100 border border-slate-200"
+              aria-label="Toggle navigation"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -161,46 +136,65 @@ export default function ElectraNavbar({ voter, onOpenConnect, onDisconnect }) {
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="sm:hidden bg-white dark:bg-[#0c0d0e] border-b border-gray-200 dark:border-[#22252a] px-4 pt-3 pb-6 space-y-4">
-          <div className="flex flex-col space-y-2">
+        <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-3">
+          <nav className="flex flex-col space-y-1">
             {navLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`px-3.5 py-2.5 rounded-2xl text-sm font-semibold ${
+                className={`px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${
                   isActive(link.path)
-                    ? 'bg-gray-100 dark:bg-[#161719] text-black dark:text-[#c6ff00] font-bold'
-                    : 'text-gray-600 dark:text-gray-300'
+                    ? 'bg-[#F5F3FF] text-[#684BFD]'
+                    : 'text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 {link.label}
               </Link>
             ))}
-          </div>
+          </nav>
 
-          <div className="pt-3 border-t border-gray-200 dark:border-[#22252a]">
+          <div className="pt-3 border-t border-slate-100 flex flex-col gap-2.5">
             {voter ? (
-              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gray-50 dark:bg-[#161719] border border-gray-200 dark:border-[#232529]">
-                <div>
-                  <div className="text-sm font-bold text-gray-900 dark:text-white">{voter.name}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">{voter.matricNumber} • {voter.level}</div>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#F5F3FF] border border-[#DDD6FE]">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <span className="text-xs font-bold text-[#684BFD]">
+                    {voter.registrationNumber || voter.reg_no}
+                  </span>
                 </div>
                 <button
-                  onClick={() => { onDisconnect(); setMobileMenuOpen(false); }}
-                  className="text-red-500 text-xs font-semibold"
+                  type="button"
+                  onClick={() => {
+                    onDisconnect();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="text-xs font-bold text-red-600 hover:underline"
                 >
                   Disconnect
                 </button>
               </div>
             ) : (
               <button
-                onClick={() => { onOpenConnect(); setMobileMenuOpen(false); }}
-                className="w-full py-3 rounded-full text-center font-black text-black bg-[#c6ff00] text-sm shadow-md"
+                type="button"
+                onClick={() => {
+                  onOpenConnect();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full py-3 rounded-xl bg-[#684BFD] text-white text-xs font-bold text-center shadow-md shadow-[#684BFD]/25"
               >
-                Connect NACOS Account
+                Insert Code / Connect Voter
               </button>
             )}
+
+            <a
+              href={urls.portal}
+              target="_blank"
+              rel="noreferrer"
+              className="text-center text-xs font-medium text-slate-500 py-1"
+            >
+              Main Student Portal →
+            </a>
           </div>
         </div>
       )}

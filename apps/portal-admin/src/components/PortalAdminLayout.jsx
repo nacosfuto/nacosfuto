@@ -103,9 +103,10 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
   const navItems = [
     { label: 'Portal Overview', path: '/', icon: LayoutDashboard, exact: true },
     { label: 'Student Registry', path: '/students', icon: Users },
+    { label: 'Dues Management', path: '/dues', icon: CreditCard },
+    { label: 'ID Card Applications', path: '/id-cards', icon: ShieldCheck },
     { label: 'Course Management', path: '/courses', icon: BookOpen },
     { label: 'Results & Grades', path: '/results', icon: Award },
-    { label: 'ID Card Applications', path: '/id-cards', icon: ShieldCheck },
     { label: 'Notices & Bulletins', path: '/notices', icon: Bell },
     { label: 'Resource Hub', path: '/resources', icon: BookOpen },
     { label: 'Student Media', path: '/media', icon: ImageIcon },

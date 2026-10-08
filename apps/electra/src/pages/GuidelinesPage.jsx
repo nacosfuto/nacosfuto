@@ -34,18 +34,18 @@ export default function GuidelinesPage() {
   ];
 
   return (
-    <div className="py-10 site-container max-w-5xl">
+    <div className="py-10 site-container max-w-5xl bg-[#F8FAFC]">
       
       {/* Header */}
       <div className="mb-10 space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-gray-100 dark:bg-[#1e2025] text-gray-900 dark:text-[#c6ff00]">
-          <Scale className="w-3.5 h-3.5 text-[#c6ff00]" />
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-[#F5F3FF] text-[#684BFD] border border-[#DDD6FE]">
+          <Scale className="w-3.5 h-3.5 text-[#684BFD]" />
           <span>Electoral Commission Regulatory Code</span>
         </div>
-        <h1 className="text-3xl sm:text-5xl font-black text-gray-950 dark:text-white font-display">
+        <h1 className="text-3xl sm:text-5xl font-black text-slate-900 font-display">
           ELECTRA Voting Guidelines & Ethics
         </h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400 max-w-2xl leading-relaxed">
+        <p className="text-sm text-slate-600 max-w-2xl leading-relaxed">
           The constitution and certified rules established by the NACOS FUTO Electoral Commission (DEC 2026).
         </p>
       </div>
@@ -55,17 +55,17 @@ export default function GuidelinesPage() {
         {rules.map((rule, idx) => (
           <div
             key={idx}
-            className="p-6 rounded-3xl bg-white dark:bg-[#141518] border border-gray-200 dark:border-[#232529] space-y-2 hover:border-[#c6ff00] dark:hover:border-[#c6ff00]/40 transition-colors shadow-md"
+            className="p-6 rounded-3xl bg-white border border-[#DDD6FE] space-y-2 hover:border-[#684BFD] transition-colors shadow-sm"
           >
             <div className="flex items-center gap-3">
-              <span className="w-7 h-7 rounded-xl bg-[#c6ff00]/25 dark:bg-[#c6ff00]/15 text-gray-900 dark:text-[#c6ff00] font-black text-xs flex items-center justify-center shrink-0">
+              <span className="w-7 h-7 rounded-xl bg-[#684BFD] text-white font-black text-xs flex items-center justify-center shrink-0">
                 0{idx + 1}
               </span>
-              <h3 className="text-base font-bold text-gray-900 dark:text-white">
+              <h3 className="text-base font-bold text-slate-900">
                 {rule.title}
               </h3>
             </div>
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed pl-10">
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pl-10">
               {rule.detail}
             </p>
           </div>
@@ -73,15 +73,15 @@ export default function GuidelinesPage() {
       </div>
 
       {/* Commission Disclaimer Box */}
-      <div className="p-7 rounded-3xl bg-amber-50/70 dark:bg-[#16171a] border border-amber-200 dark:border-[#262830] flex items-start gap-4">
-        <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+      <div className="p-7 rounded-3xl bg-amber-50 border border-amber-200 flex items-start gap-4">
+        <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0">
           <AlertTriangle className="w-5 h-5" />
         </div>
         <div className="space-y-1">
-          <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+          <h4 className="text-sm font-bold text-slate-900">
             Official Commission Certification
           </h4>
-          <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+          <p className="text-xs text-slate-600 leading-relaxed">
             The results tallied on ELECTRA are legally binding under Article VII of the NACOS FUTO constitution. Any electoral petitions must be lodged with the Electoral Commission within 24 hours of result declaration.
           </p>
         </div>

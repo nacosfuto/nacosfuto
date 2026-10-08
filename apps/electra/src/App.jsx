@@ -15,7 +15,7 @@ import {
   getVoterBallot 
 } from '@nacos/supabase/electraService';
 import { getAppUrls } from '@nacos/config/urls';
-import { Vote, ShieldCheck, Heart } from 'lucide-react';
+import { Vote, ShieldCheck, Lock, CheckCircle2, ChevronRight } from 'lucide-react';
 
 const VOTER_SESSION_KEY = 'nacos_electra_voter_session';
 
@@ -36,14 +36,14 @@ export class ElectraErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#0a0b0d] text-white flex items-center justify-center p-6 font-sans">
-          <div className="max-w-md w-full bg-[#141518] border border-[#22252a] rounded-3xl p-8 text-center space-y-5 shadow-2xl">
-            <div className="w-14 h-14 rounded-2xl bg-[#c6ff00]/15 text-[#c6ff00] border border-[#c6ff00]/30 flex items-center justify-center mx-auto text-2xl font-black">
+        <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex items-center justify-center p-6 font-sans">
+          <div className="max-w-md w-full bg-white border border-[#DDD6FE] rounded-3xl p-8 text-center space-y-5 shadow-xl">
+            <div className="w-14 h-14 rounded-2xl bg-[#684BFD]/10 text-[#684BFD] border border-[#DDD6FE] flex items-center justify-center mx-auto text-2xl font-black">
               !
             </div>
             <div className="space-y-1">
-              <h2 className="text-xl font-black text-white font-display">ELECTRA Ballot Engine</h2>
-              <p className="text-xs text-gray-400 leading-relaxed">
+              <h2 className="text-xl font-black text-slate-900 font-display">ELECTRA Ballot Engine</h2>
+              <p className="text-xs text-slate-500 leading-relaxed">
                 {this.state.error?.message || 'A render issue occurred while loading election data.'}
               </p>
             </div>
@@ -54,7 +54,7 @@ export class ElectraErrorBoundary extends React.Component {
                   this.setState({ hasError: false, error: null });
                   window.location.reload();
                 }}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#c6ff00] hover:bg-[#b2e600] text-black transition-colors cursor-pointer shadow-md shadow-[#c6ff00]/20"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#684BFD] hover:bg-[#5537F8] text-white transition-colors cursor-pointer shadow-md shadow-[#684BFD]/25"
               >
                 Reload Polls
               </button>
@@ -68,7 +68,7 @@ export class ElectraErrorBoundary extends React.Component {
                   } catch (_) {}
                   window.location.href = '/electra';
                 }}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
               >
                 Reset Cache & Return
               </button>
@@ -96,7 +96,6 @@ export default function App() {
   const [isConnectOpen, setIsConnectOpen] = useState(false);
   const [isManifestoOpen, setIsManifestoOpen] = useState(false);
   const [activeManifestoCandidate, setActiveManifestoCandidate] = useState(null);
-  
   const [isBallotOpen, setIsBallotOpen] = useState(false);
   const [targetCandidate, setTargetCandidate] = useState(null);
 
@@ -163,7 +162,7 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#0a0b0d] text-gray-900 dark:text-white flex flex-col font-sans selection:bg-[#c6ff00] selection:text-black transition-colors duration-200">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans selection:bg-[#684BFD] selection:text-white">
       
       {/* Top Navbar */}
       <ElectraNavbar
@@ -175,7 +174,6 @@ export default function App() {
       {/* Main Page Content */}
       <main className="flex-1">
         <Routes>
-          {/* Dual Root & /electra route handling for 100% path coverage */}
           <Route path="/" element={renderHome()} />
           <Route path="/electra" element={renderHome()} />
           <Route path="/contestants" element={renderContestants()} />
@@ -227,34 +225,34 @@ export default function App() {
         }}
       />
 
-      {/* Footer */}
-      <footer className="mt-20 border-t border-gray-200 dark:border-[#1c1d22] bg-white dark:bg-[#08090a] py-12 text-xs text-gray-500 transition-colors duration-200">
+      {/* Light Mode Footer with Purple Accents */}
+      <footer className="mt-20 border-t border-slate-200 bg-white py-12 text-xs text-slate-500">
         <div className="site-container flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-[#c6ff00] text-black flex items-center justify-center font-black shadow-sm">
-              <Vote className="w-4 h-4 stroke-[2.5]" />
+            <div className="w-9 h-9 rounded-2xl bg-[#684BFD] text-white flex items-center justify-center font-black shadow-md shadow-[#684BFD]/25">
+              <Vote className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <span className="font-extrabold text-gray-950 dark:text-white text-sm font-display tracking-wide">
+              <span className="font-extrabold text-slate-900 text-sm font-display tracking-wide">
                 ELECTRA
               </span>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                Official Departmental Electoral Engine • NACOS FUTO
+              <p className="text-[10px] text-slate-500">
+                Official Electoral Engine • NACOS FUTO
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6 text-gray-600 dark:text-gray-400">
-            <Link to="/" className="hover:text-black dark:hover:text-white transition-colors">Live Polls</Link>
-            <Link to="/contestants" className="hover:text-black dark:hover:text-white transition-colors">Contestants</Link>
-            <Link to="/manifestos" className="hover:text-black dark:hover:text-white transition-colors">Manifestos</Link>
-            <Link to="/results" className="hover:text-black dark:hover:text-white transition-colors">Audit Results</Link>
-            <Link to="/guidelines" className="hover:text-black dark:hover:text-white transition-colors">Guidelines</Link>
-            <a href={urls.electraAdmin} className="text-emerald-700 dark:text-[#c6ff00] font-bold hover:underline">Commission Admin</a>
+          <div className="flex flex-wrap items-center gap-6 text-slate-600">
+            <Link to="/" className="hover:text-[#684BFD] font-medium transition-colors">Live Polls</Link>
+            <Link to="/contestants" className="hover:text-[#684BFD] font-medium transition-colors">Contestants</Link>
+            <Link to="/manifestos" className="hover:text-[#684BFD] font-medium transition-colors">Manifestos</Link>
+            <Link to="/results" className="hover:text-[#684BFD] font-medium transition-colors">Audit Results</Link>
+            <Link to="/guidelines" className="hover:text-[#684BFD] font-medium transition-colors">Guidelines</Link>
+            <a href={urls.electraAdmin} className="text-[#684BFD] font-bold hover:underline">Commission Admin</a>
           </div>
 
-          <div className="flex items-center gap-1.5 text-gray-500 text-[11px]">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
             <span>Cryptographically Verified Ballots</span>
           </div>
         </div>
