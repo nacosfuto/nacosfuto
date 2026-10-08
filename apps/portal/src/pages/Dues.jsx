@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import PortalLayout from '../components/PortalLayout';
 import { useTheme } from '../context/ThemeContext';
-import { supabase, recordStudentPayment, getDuesSettings } from '@nacos/supabase';
+import { supabase, recordStudentPayment, getDuesSettings, getLocalPaymentsDatabase } from '@nacos/supabase';
 import StepUpAuthModal from '../components/StepUpAuthModal';
 import PosThermalReceipt from '../components/PosThermalReceipt';
 
@@ -73,6 +73,9 @@ const Dues = () => {
   const [revocationReason, setRevocationReason] = useState('');
   const [totalLifetimeDues, setTotalLifetimeDues] = useState(0);
 
+  // Complete list of ALL payments student has made (synced from DB)
+  const [paymentHistoryList, setPaymentHistoryList] = useState([]);
+
   // Level map storing dues clearance for each academic level
   const [levelDuesMap, setLevelDuesMap] = useState({
     '100': null,
@@ -90,7 +93,6 @@ const Dues = () => {
   const [formSession, setFormSession] = useState('2026/2027');
   const [formPaymentType, setFormPaymentType] = useState('Departmental Dues - Full Payment');
   const [formLevel, setFormLevel] = useState(() => {
-    // Default to student's current level
     const pLevels = getProgressiveLevels(user);
     return pLevels[pLevels.length - 1] || '100';
   });
@@ -121,60 +123,79 @@ const Dues = () => {
     };
 
     let totalPaidSum = 0;
+    const allRecords = [];
+
+    // Helper to format and add a payment record to the master history list
+    const processItem = (item) => {
+      const amt = Number(item.amount || 2500);
+      const isPaid = ['successful', 'paid', 'cleared', 'verified', 'completed'].includes(String(item.status).toLowerCase()) || Boolean(item.paid_at);
+
+      if (isPaid) {
+        totalPaidSum += amt;
+      }
+
+      const payDate = item.paid_at || item.created_at || new Date().toISOString();
+      const dateObj = new Date(payDate);
+      const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      }) : 'Current Session';
+      const timeStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleTimeString('en-GB') : '12:00:00';
+
+      const itemLevelRaw = item.metadata?.level || item.level || '';
+      const match = String(itemLevelRaw).match(/\d{3}/);
+      const lvl = match ? match[0] : studentHomeLevel;
+
+      const isIdCard = item.payment_type === 'ID_CARD' || String(item.purpose || '').toLowerCase().includes('id card');
+      const paymentTypeLabel = isIdCard ? 'Student ID Card' : 'Departmental Dues (Full Payment)';
+      const session = item.metadata?.academic_session || item.session || currentUser?.academic_session || '2026/2027';
+
+      const formatted = {
+        id: item.id || item.reference || `pay-${Math.random()}`,
+        receiptNo: item.reference || item.payment_reference || `NACOS/${isIdCard ? 'IDCARD' : 'DUES'}/${cleanMatric}-${lvl}L`,
+        transactionId: item.provider_payment_id || item.id || `BCH-${Date.now()}`,
+        date: dateStr,
+        time: timeStr,
+        paymentDate: `${dateStr} (${timeStr} GMT+1)`,
+        amount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+        rawAmount: amt,
+        paymentMethod: item.provider ? `${item.provider} Online Gateway` : (item.payment_method || 'Bachs Online Gateway (Verified)'),
+        status: isPaid ? 'Verified & Cleared' : 'Payment Pending',
+        isPaid: isPaid,
+        session: session,
+        level: `${lvl} LEVEL`,
+        levelNum: lvl,
+        paymentType: paymentTypeLabel,
+        studentName: (currentUser?.full_name || currentUser?.name || item.customer_name || 'Student Member').trim(),
+        matricNo: cleanMatric || '20241450682',
+        department: currentUser?.department || 'Computer Science',
+        created_at: item.created_at || item.paid_at || new Date().toISOString()
+      };
+
+      allRecords.push(formatted);
+
+      if (isPaid && ['100', '200', '300', '400', '500'].includes(lvl) && !newMap[lvl]) {
+        newMap[lvl] = formatted;
+      }
+    };
 
     // 1. Authoritative Bachs Live Payments Table (Supabase)
     try {
       if (supabase && (cleanMatric || userId)) {
-        let query = supabase
-          .from('payments')
-          .select('*')
-          .eq('payment_type', 'DEPARTMENTAL_DUES')
-          .in('status', ['successful']);
+        let query = supabase.from('payments').select('*');
 
         if (cleanMatric && userId) {
           query = query.or(`registration_number.eq.${cleanMatric},student_id.eq.${userId}`);
         } else if (cleanMatric) {
           query = query.eq('registration_number', cleanMatric);
+        } else if (userId) {
+          query = query.eq('student_id', userId);
         }
 
-        const { data: allDues } = await query.order('created_at', { ascending: false });
-        if (allDues && allDues.length > 0) {
-          allDues.forEach(item => {
-            const amt = Number(item.amount || 2500);
-            totalPaidSum += amt;
-
-            const itemLevelRaw = item.metadata?.level || item.level || '';
-            const match = String(itemLevelRaw).match(/\d{3}/);
-            const lvl = match ? match[0] : studentHomeLevel;
-
-            if (['100', '200', '300', '400', '500'].includes(lvl) && !newMap[lvl]) {
-              const payDate = item.paid_at || item.created_at;
-              const dateStr = payDate ? new Date(payDate).toLocaleDateString('en-GB', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric'
-              }) : 'Current Session';
-              const timeStr = payDate ? new Date(payDate).toLocaleTimeString('en-GB') : '12:00:00';
-
-              newMap[lvl] = {
-                receiptNo: item.reference || `NACOS-DUES-${cleanMatric || 'FUTO'}-${lvl}L`,
-                transactionId: item.provider_payment_id || item.id || `BCH-${Date.now()}`,
-                date: dateStr,
-                time: timeStr,
-                paymentDate: `${dateStr} (${timeStr} GMT+1)`,
-                amount: item.amount ? `₦${Number(item.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
-                rawAmount: amt,
-                paymentMethod: 'Bachs Online Gateway (Verified)',
-                status: 'Verified & Cleared',
-                session: item.metadata?.academic_session || item.session || currentUser?.academic_session || '2026-2027',
-                level: `${lvl} LEVEL`,
-                levelNum: lvl,
-                studentName: (currentUser?.full_name || currentUser?.name || 'Student Member').trim(),
-                matricNo: cleanMatric || '20241450682',
-                department: currentUser?.department || 'Computer Science'
-              };
-            }
-          });
+        const { data: allDbPayments } = await query.order('created_at', { ascending: false });
+        if (allDbPayments && allDbPayments.length > 0) {
+          allDbPayments.forEach(p => processItem(p));
         }
       }
     } catch (err) {
@@ -187,77 +208,81 @@ const Dues = () => {
         const { data: legacyDues } = await supabase
           .from('dues_payments')
           .select('*')
-          .eq('student_id', userId)
-          .in('status', ['successful', 'verified', 'cleared', 'paid']);
+          .eq('student_id', userId);
 
         if (legacyDues && legacyDues.length > 0) {
-          legacyDues.forEach(item => {
-            const amt = Number(item.amount || 2500);
-            const itemLevelRaw = item.level || '';
-            const match = String(itemLevelRaw).match(/\d{3}/);
-            const lvl = match ? match[0] : studentHomeLevel;
-
-            if (['100', '200', '300', '400', '500'].includes(lvl) && !newMap[lvl]) {
-              totalPaidSum += amt;
-              const payDate = item.created_at || new Date().toISOString();
-              const dateStr = new Date(payDate).toLocaleDateString('en-GB', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric'
-              });
-              const timeStr = new Date(payDate).toLocaleTimeString('en-GB');
-
-              newMap[lvl] = {
-                receiptNo: item.payment_reference || `NACOS/DUES/${cleanMatric || 'FUTO'}-${lvl}L`,
-                transactionId: item.id || `LEG-${Date.now()}`,
-                date: dateStr,
-                time: timeStr,
-                paymentDate: `${dateStr} (${timeStr} GMT+1)`,
-                amount: item.amount ? `₦${Number(item.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
-                rawAmount: amt,
-                paymentMethod: item.payment_method || 'Bachs Payment Gateway',
-                status: 'Verified & Cleared',
-                session: item.session || currentUser?.academic_session || '2026-2027',
-                level: `${lvl} LEVEL`,
-                levelNum: lvl,
-                studentName: (currentUser?.full_name || currentUser?.name || 'Student Member').trim(),
-                matricNo: cleanMatric || '20241450682',
-                department: currentUser?.department || 'Computer Science'
-              };
-            }
-          });
+          legacyDues.forEach(item => processItem(item));
         }
       }
     } catch (err) {
       console.warn('Legacy dues check error:', err);
     }
 
-    // 3. Fallback to profile flags for student's active level if marked cleared
-    if (!newMap[studentHomeLevel] && (
+    // 3. Departmental dues table
+    try {
+      if (cleanMatric && supabase) {
+        const { data: deptDues } = await supabase
+          .from('departmental_dues')
+          .select('*')
+          .eq('matric_number', cleanMatric);
+
+        if (deptDues && deptDues.length > 0) {
+          deptDues.forEach(item => processItem(item));
+        }
+      }
+    } catch (err) {
+      console.warn('Departmental dues table check error:', err);
+    }
+
+    // 4. Local storage verified payments database
+    try {
+      const localPays = getLocalPaymentsDatabase();
+      if (Array.isArray(localPays)) {
+        const userLocal = localPays.filter(p => 
+          (p.student_matric && p.student_matric.toUpperCase() === cleanMatric) ||
+          (p.registration_number && p.registration_number.toUpperCase() === cleanMatric)
+        );
+        userLocal.forEach(p => processItem(p));
+      }
+    } catch (err) {
+      console.warn('Local payments check error:', err);
+    }
+
+    // 5. Fallback to profile flags for student's active level if marked cleared
+    if (
       currentUser?.dues_cleared === true ||
       currentUser?.has_paid_dues === true ||
       ['cleared', 'successful', 'verified', 'paid'].includes(String(currentUser?.payment_status).toLowerCase())
-    )) {
-      totalPaidSum += 2500;
-      newMap[studentHomeLevel] = {
-        receiptNo: currentUser.receipt_no || currentUser.payment_reference || `FUTO/DUES/${cleanMatric || '2026'}`,
-        transactionId: `TX-${Date.now()}`,
-        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-        time: new Date().toLocaleTimeString('en-GB'),
-        paymentDate: currentUser.dues_paid_at || 'Current Session',
-        amount: currentUser.dues_amount || '₦2,500.00',
-        rawAmount: 2500,
-        paymentMethod: currentUser.payment_method || 'Bachs Payment Gateway',
-        status: 'Verified & Cleared',
-        session: currentUser.academic_session || '2026-2027',
-        level: `${studentHomeLevel} LEVEL`,
-        levelNum: studentHomeLevel,
-        studentName: (currentUser?.full_name || currentUser?.name || 'Student Member').trim(),
-        matricNo: cleanMatric || '20241450682',
-        department: currentUser?.department || 'Computer Science'
-      };
+    ) {
+      const existingPaidForLevel = allRecords.find(r => r.levelNum === studentHomeLevel && r.isPaid);
+      if (!existingPaidForLevel) {
+        processItem({
+          id: `prof-${cleanMatric}-${studentHomeLevel}`,
+          reference: currentUser.receipt_no || currentUser.payment_reference || `NACOS/DUES/${cleanMatric || 'FUTO'}-${studentHomeLevel}L`,
+          amount: currentUser.dues_amount || 2500,
+          status: 'successful',
+          level: studentHomeLevel,
+          session: currentUser.academic_session || '2026/2027',
+          paid_at: currentUser.dues_paid_at || new Date().toISOString()
+        });
+      }
     }
 
+    // Deduplicate records by receiptNo or transactionId
+    const seenKeys = new Set();
+    const uniqueRecords = [];
+    for (const rec of allRecords) {
+      const key = rec.receiptNo || rec.transactionId || rec.id;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        uniqueRecords.push(rec);
+      }
+    }
+
+    // Sort latest first
+    uniqueRecords.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    setPaymentHistoryList(uniqueRecords);
     setLevelDuesMap(newMap);
     setTotalLifetimeDues(totalPaidSum);
 
@@ -506,14 +531,6 @@ const Dues = () => {
     setIsPosReceiptOpen(true);
   };
 
-  // Filtered List of Paid Dues (strictly reflects database records)
-  // Per user audio: "once someone has made a payment for a particular level, they can see it appear in that table, in that order. If they have not made any payment for that level, it will NOT appear in that table."
-  const paidDuesRows = ['100', '200', '300', '400', '500']
-    .filter(lvl => Boolean(levelDuesMap[lvl]))
-    .map(lvl => levelDuesMap[lvl]);
-
-  const rawMatric = user.registration_number || user.matric || 'N/A';
-
   return (
     <PortalLayout>
       <div className="space-y-6">
@@ -568,6 +585,57 @@ const Dues = () => {
           </div>
         )}
 
+        {/* Level Clearance Status Summary Strip */}
+        <div className="p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 shadow-xs print:hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <div>
+              <h2 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-[#0e8040] dark:text-[#4bd043]" />
+                <span>Academic Level Clearance Standing</span>
+              </h2>
+              <p className="text-[11px] text-gray-500 dark:text-green-200/70">
+                Departmental clearance records across your progressive academic standing.
+              </p>
+            </div>
+            <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+              Total Cleared Dues: <span className="text-[#0e8040] dark:text-[#4bd043] font-bold">₦{totalLifetimeDues.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {progressiveLevels.map((lvl) => {
+              const isLvlPaid = Boolean(levelDuesMap[lvl]);
+              return (
+                <div
+                  key={lvl}
+                  className={`p-3 rounded-lg border text-left ${isLvlPaid
+                    ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20'
+                    : 'border-gray-200 dark:border-[#138601]/20 bg-gray-50/50 dark:bg-[#041801]/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-gray-900 dark:text-white">
+                      {lvl} Level
+                    </span>
+                    {isLvlPaid ? (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-[#0e8040] dark:text-[#4bd043]">
+                        <CheckCircle className="w-3 h-3" /> Paid
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                        <Clock className="w-3 h-3" /> Unpaid
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-gray-500 dark:text-green-200/70 truncate">
+                    {isLvlPaid ? 'Clearance Active' : 'Payment Required'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* ==================================================================== */}
         {/* SCHOOL FEES HISTORY TABLE (Matching User Image 1 Exactly)             */}
         {/* ==================================================================== */}
@@ -578,7 +646,7 @@ const Dues = () => {
               School Fees History
             </h2>
             <span className="text-xs font-semibold text-gray-500 dark:text-green-200/70">
-              Total Cleared: <strong className="text-[#0e8040] dark:text-[#4bd043]">₦{totalLifetimeDues.toLocaleString()}</strong>
+              Total Records: <strong className="text-gray-900 dark:text-white">{paymentHistoryList.length}</strong>
             </span>
           </div>
 
@@ -595,11 +663,22 @@ const Dues = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-[#138601]/15 text-gray-800 dark:text-gray-100">
-                {paidDuesRows.length > 0 ? (
-                  paidDuesRows.map((row, idx) => (
+                {paymentHistoryList.length > 0 ? (
+                  paymentHistoryList.map((row, idx) => (
                     <tr key={idx} className="hover:bg-gray-50/60 dark:hover:bg-[#041801]/40 transition-colors">
                       <td className="py-4 px-5 font-mono font-medium text-gray-900 dark:text-white text-xs">
-                        {row.receiptNo}
+                        <div className="flex items-center gap-2">
+                          <span>{row.receiptNo}</span>
+                          {row.isPaid ? (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-[#0e8040] dark:bg-emerald-950/60 dark:text-[#4bd043]">
+                              PAID
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                              PENDING
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-4 px-4 font-semibold text-gray-900 dark:text-white">
                         {row.rawAmount ? Number(row.rawAmount).toLocaleString() : '2,500'}
@@ -608,7 +687,7 @@ const Dues = () => {
                         {row.level}
                       </td>
                       <td className="py-4 px-4 text-gray-600 dark:text-gray-300">
-                        Full Payment
+                        {row.paymentType || 'Full Payment'}
                       </td>
                       <td className="py-4 px-4 font-mono text-gray-600 dark:text-gray-300">
                         {row.session}

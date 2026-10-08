@@ -76,20 +76,22 @@ const Dashboard = () => {
     // 1. Authoritative Bachs Live Payments Table
     try {
       if (supabase && (cleanMatric || userId)) {
-        let query = supabase
-          .from('payments')
-          .select('*')
-          .in('status', ['successful']);
+        let query = supabase.from('payments').select('*');
 
         if (cleanMatric && userId) {
           query = query.or(`registration_number.eq.${cleanMatric},student_id.eq.${userId}`);
         } else if (cleanMatric) {
           query = query.eq('registration_number', cleanMatric);
+        } else if (userId) {
+          query = query.eq('student_id', userId);
         }
 
         const { data: payments } = await query;
         if (payments && payments.length > 0) {
           payments.forEach(p => {
+            const isConfirmed = ['successful', 'paid', 'verified', 'cleared', 'completed'].includes(String(p.status).toLowerCase()) || Boolean(p.paid_at);
+            if (!isConfirmed) return;
+
             const amt = Number(p.amount || 0);
             totalSum += amt;
 
@@ -98,10 +100,10 @@ const Dashboard = () => {
             const lvl = match ? match[0] : currentLvl;
 
             if (matrix[lvl]) {
-              if (p.payment_type === 'DEPARTMENTAL_DUES') {
+              if (p.payment_type === 'DEPARTMENTAL_DUES' || String(p.payment_type || '').toLowerCase().includes('due')) {
                 matrix[lvl].dues = true;
                 matrix[lvl].duesAmount = amt;
-              } else if (p.payment_type === 'ID_CARD') {
+              } else if (p.payment_type === 'ID_CARD' || String(p.payment_type || '').toLowerCase().includes('id')) {
                 matrix[lvl].idCard = true;
               }
             }
