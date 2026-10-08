@@ -286,17 +286,12 @@ export function renderPaymentConfirmationEmail({
   const preheader = `Official Receipt: ${safeType} - ${currency} ${formattedAmount} [Ref: ${safeRef}]`;
 
   const contentHtml = `
-    <!-- A5 Proportion POS Thermal Slip Container -->
-    <div style="max-width: 440px; margin: 0 auto; background-color: #ffffff; border: 1px solid #d1d5db; border-radius: 6px; padding: 24px 20px; font-family: 'Courier New', Courier, monospace, 'SFMono-Regular', Consolas; font-size: 12px; color: #111827; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);">
+    <!-- A4 Proportion POS Thermal Slip Container -->
+    <div style="max-width: 440px; margin: 0 auto; background-color: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; padding: 24px 22px; font-family: 'Courier New', Courier, monospace, 'SFMono-Regular', Consolas; font-size: 12px; color: #111827; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);">
       
-      <!-- POS Header -->
-      <div style="text-align: center; margin-bottom: 12px;">
-        <div style="font-size: 11px; font-weight: bold; letter-spacing: 2px;">================================</div>
-        <div style="font-size: 15px; font-weight: 900; letter-spacing: 0.5px; margin: 4px 0 2px;">NACOS FUTO</div>
-        <div style="font-size: 11px; font-weight: 700;">NIGERIA ASSOC. OF COMPUTING STUDENTS</div>
-        <div style="font-size: 10px; color: #374151;">FEDERAL UNIVERSITY OF TECHNOLOGY, OWERRI</div>
-        <div style="font-size: 10px; color: #4b5563;">DEPT OF COMPUTER SCIENCE &bull; SICT</div>
-        <div style="font-size: 11px; font-weight: bold; letter-spacing: 2px; margin-top: 4px;">================================</div>
+      <!-- Top Logo Centered (No text at top as requested) -->
+      <div style="text-align: center; margin-bottom: 14px;">
+        <img src="https://res.cloudinary.com/a2mmcttn/image/upload/v1788569315/nacos/general/full-logo-light.png" alt="NACOS FUTO" width="160" style="display: inline-block; max-height: 48px; width: auto; object-fit: contain;" />
       </div>
 
       <!-- Slip Type Badge -->
@@ -369,7 +364,7 @@ export function renderPaymentConfirmationEmail({
           <td align="right" style="padding: 6px 0 2px; font-weight: 700;">${currency} ${formattedAmount}</td>
         </tr>
         <tr style="font-size: 10px; color: #6b7280;">
-          <td style="padding: 2px 0;">E-Portal Verification</td>
+          <td style="padding: 2px 0;">E-Portal Clearance Levy</td>
           <td align="center" style="padding: 2px 0;">1</td>
           <td align="right" style="padding: 2px 0;">₦0.00</td>
         </tr>
@@ -390,19 +385,11 @@ export function renderPaymentConfirmationEmail({
         </table>
       </div>
 
-      <!-- Barcode simulation -->
-      <div style="text-align: center; font-family: monospace; letter-spacing: 3px; font-size: 11px; margin: 14px 0 4px; color: #374151;">
-        ||| | ||||| || |||| ||||| ||| ||||| ||
-        <div style="font-size: 9px; letter-spacing: 0; color: #6b7280; margin-top: 2px;">*${safeRef}*</div>
-      </div>
-
       <!-- Footer Notice -->
       <div style="border-top: 1px dashed #9ca3af; padding-top: 8px; margin-top: 8px; text-align: center; font-size: 9px; color: #6b7280; line-height: 1.4;">
         *** OFFICIAL NACOS RECEIPT &bull; RETAIN FOR CLEARANCE ***<br />
         THANK YOU FOR SUPPORTING YOUR DEPARTMENT
       </div>
-
-    </div>
 
     </div>
   `;
