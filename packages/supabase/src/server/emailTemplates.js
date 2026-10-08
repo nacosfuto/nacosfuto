@@ -108,7 +108,7 @@ export function buildBaseEmailLayout({ title, preheader, contentHtml }) {
               </p>
               <p style="color: #94a3b8; margin: 0; font-size: 11px; line-height: 1.5;">
                 Federal University of Technology, Owerri (FUTO), Imo State, Nigeria<br>
-                Need assistance? Contact <a href="mailto:support@nacosfuto.org.ng" style="color: #16a34a; text-decoration: underline;">support@nacosfuto.org.ng</a>
+                Need assistance? Contact <a href="mailto:support@nacosfuto.com.ng" style="color: #16a34a; text-decoration: underline;">support@nacosfuto.com.ng</a>
               </p>
             </td>
           </tr>

@@ -266,18 +266,6 @@ const PosThermalReceipt = ({
             <br />
             THANK YOU FOR SUPPORTING YOUR DEPARTMENT
           </div>
-
-          {/* Secondary In-Receipt Print Button (Hidden on Print) */}
-          <div className="mt-4 pt-3 border-t border-dashed border-gray-300 print:hidden">
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="w-full py-2.5 px-4 rounded-lg text-xs font-bold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm active:scale-95"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Print to Printer</span>
-            </button>
-          </div>
         </div>
 
       </div>

@@ -76,7 +76,7 @@ export function getEmailConfig(overrideEnv = {}) {
   }
 
   // Reply-To Address (Separate support / contact mailbox)
-  const resendReplyTo = (env.RESEND_REPLY_TO || env.REPLY_TO_EMAIL || env.REPLY_TO || '').trim();
+  const resendReplyTo = (env.RESEND_REPLY_TO || env.REPLY_TO_EMAIL || env.REPLY_TO || 'support@nacosfuto.com.ng').trim();
   const isReplyToValid = Boolean(resendReplyTo && isValidEmail(resendReplyTo));
 
   // Format RFC 5322 "Display Name <email@domain.com>"

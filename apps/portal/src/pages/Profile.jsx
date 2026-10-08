@@ -258,7 +258,7 @@ const Profile = () => {
 
     // 4. Set explicit administrator contact error
     setLockedError(
-      'Profile Update Locked: Official student bio-data cannot be updated after initial registration. Changes to your full name, registration number, department, or academic records require administrative clearance. Please contact the departmental administrator at nacosfuto@gmail.com or visit the NACOS Secretariat.'
+      'Profile Update Locked: Official student bio-data cannot be updated after initial registration. Changes to your full name, registration number, department, or academic records require administrative clearance. Please contact the departmental administrator at support@nacosfuto.com.ng or visit the NACOS Secretariat.'
     );
 
     // Scroll to the error alert for immediate user feedback
@@ -269,7 +269,7 @@ const Profile = () => {
   const handlePhotoClick = (e) => {
     e.preventDefault();
     setLockedError(
-      'Profile Photo Locked: Official passport photographs cannot be changed after initial registration. Please contact the departmental administrator at nacosfuto@gmail.com or visit the NACOS Secretariat with your school ID to request a verified photo update.'
+      'Profile Photo Locked: Official passport photographs cannot be changed after initial registration. Please contact the departmental administrator at support@nacosfuto.com.ng or visit the NACOS Secretariat with your school ID to request a verified photo update.'
     );
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -311,7 +311,7 @@ const Profile = () => {
 
                 <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-red-200/80 dark:border-red-900/50">
                   <a
-                    href={`mailto:nacosfuto@gmail.com?subject=Bio-Data%20Update%20Request%20-%20${encodeURIComponent(displayMatric)}&body=Dear%20NACOS%20Administrator,%0A%0AI%20am%20requesting%20an%20official%20update%20to%20my%20student%20bio-data%20records:%0A-%20Student%20Name:%20${encodeURIComponent(displayName)}%0A-%20Reg%20Number:%20${encodeURIComponent(displayMatric)}%0A-%20Department:%20${encodeURIComponent(user.dept)}%0A%0AChanges%20Requested:%0A[Please%20specify%20changes%20here]%0A%0AThank%20you.`}
+                    href={`mailto:support@nacosfuto.com.ng?subject=Bio-Data%20Update%20Request%20-%20${encodeURIComponent(displayMatric)}&body=Dear%20NACOS%20Administrator,%0A%0AI%20am%20requesting%20an%20official%20update%20to%20my%20student%20bio-data%20records:%0A-%20Student%20Name:%20${encodeURIComponent(displayName)}%0A-%20Reg%20Number:%20${encodeURIComponent(displayMatric)}%0A-%20Department:%20${encodeURIComponent(user.dept)}%0A%0AChanges%20Requested:%0A[Please%20specify%20changes%20here]%0A%0AThank%20you.`}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors shadow-xs"
                   >
                     <Mail className="w-3.5 h-3.5" />

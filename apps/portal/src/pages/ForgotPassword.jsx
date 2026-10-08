@@ -379,7 +379,7 @@ const ForgotPassword = () => {
                 <div className="mt-4 p-3 rounded bg-white border border-amber-200 text-xs text-gray-600 space-y-1">
                   <p className="font-semibold text-gray-800">Please contact administration:</p>
                   <p>&bull; NACOS Secretariat, SICT Building, FUTO</p>
-                  <p>&bull; Email: <a href="mailto:ict.nacosfuto@gmail.com" className="text-[#138601] font-semibold hover:underline">ict.nacosfuto@gmail.com</a></p>
+                  <p>&bull; Email: <a href="mailto:support@nacosfuto.com.ng" className="text-[#138601] font-semibold hover:underline">support@nacosfuto.com.ng</a></p>
                 </div>
               </div>
               <div className="pt-2">

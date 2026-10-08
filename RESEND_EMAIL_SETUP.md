@@ -88,7 +88,7 @@ Configure these variables in your root `.env` (local) and in the Vercel Project 
 | `RESEND_API_KEY` | Server-only Resend API key | `re_1234567890abcdef` |
 | `RESEND_FROM_EMAIL` | Verified sender address (Source of Truth) | `noreply@nacosfuto.org.ng` |
 | `RESEND_FROM_NAME` | Display name in recipient inboxes | `NACOS FUTO` |
-| `RESEND_REPLY_TO` | Separate address where student replies are directed | `support@nacosfuto.org.ng` |
+| `RESEND_REPLY_TO` | Separate address where student replies are directed | `support@nacosfuto.com.ng` |
 
 ### Sender (`RESEND_FROM_EMAIL`) vs. Reply-To (`RESEND_REPLY_TO`)
 - **`RESEND_FROM_EMAIL` (The Sender)**:
@@ -96,7 +96,7 @@ Configure these variables in your root `.env` (local) and in the Vercel Project 
   - **Does not need to be an active, functioning mailbox** for Resend to send from it, as long as the parent domain has verified DNS records (DKIM/SPF) in Resend.
 - **`RESEND_REPLY_TO` (The Reply Destination)**:
   - This is where an email client will automatically address any responses when a recipient clicks **"Reply"**.
-  - **Must be a real, monitored email mailbox** (e.g., `support@nacosfuto.org.ng` or Google Workspace / shared team inbox) that the NACOS secretariat and executive committee can actively read and respond to.
+  - **Must be a real, monitored email mailbox** (e.g., `support@nacosfuto.com.ng` or Google Workspace / shared team inbox) that the NACOS secretariat and executive committee can actively read and respond to.
   - The Reply-To address is never displayed as the primary sender in email clients, preserving the professional `noreply@...` transactional branding.
 
 > [!NOTE]
@@ -142,7 +142,7 @@ The platform is deployed on Vercel with a single unified Serverless Function (`a
    - `RESEND_API_KEY` = `<your-production-resend-api-key>`
    - `RESEND_FROM_EMAIL` = `noreply@nacosfuto.org.ng`
    - `RESEND_FROM_NAME` = `NACOS FUTO`
-   - `RESEND_REPLY_TO` = `support@nacosfuto.org.ng`
+   - `RESEND_REPLY_TO` = `support@nacosfuto.com.ng`
 4. Redeploy the project:
    - Trigger a new deployment via git push or click **Redeploy** on the latest build.
 
@@ -159,7 +159,7 @@ Expected response:
   "resendConfigured": true,
   "senderEmail": "noreply@nacosfuto.org.ng",
   "senderName": "NACOS FUTO",
-  "replyTo": "support@nacosfuto.org.ng",
+  "replyTo": "support@nacosfuto.com.ng",
   "replyToConfigured": true
 }
 ```
