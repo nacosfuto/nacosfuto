@@ -303,12 +303,32 @@ const IdCard = () => {
     let channel = null;
     try {
       channel = new BroadcastChannel('nacos_payment_sync');
-      channel.onmessage = (event) => {
+      channel.onmessage = async (event) => {
         if (event.data?.status === 'successful') {
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
           setIsVerifyingPayment(false);
           showNotification('Payment confirmed in new window! Processing ID Card on the spot.');
-          loadStudentAndApplication();
+          await loadStudentAndApplication();
+
+          const lvl = student?.level ? `${student.level} Level` : '300 Level';
+          const feeAmt = Number(event.data.amount || settings.id_card_fee || 500);
+          setReceiptData({
+            receiptNo: event.data.reference || `NACOS/IDCARD/${Date.now().toString().slice(-6)}`,
+            transactionId: `BCH-${Date.now()}`,
+            date: new Date().toLocaleDateString('en-GB'),
+            time: new Date().toLocaleTimeString('en-GB'),
+            studentName: (student?.full_name || student?.name || 'Student Member').trim(),
+            matricNo: student?.matric || student?.registration_number || '20241450682',
+            department: student?.department || 'Computer Science',
+            level: lvl,
+            session: settings.academic_session || '2026/2027',
+            amount: feeAmt,
+            rawAmount: feeAmt,
+            paymentType: 'Student ID Card Issuance',
+            paymentMethod: 'Bachs Online Gateway (Confirmed)',
+            status: 'APPROVED'
+          });
+          setIsReceiptOpen(true);
         }
       };
     } catch (e) {}
@@ -341,7 +361,7 @@ const IdCard = () => {
       if (channel) channel.close();
       window.removeEventListener('storage', handleStorageEvent);
     };
-  }, [searchParams]);
+  }, [searchParams, student, settings]);
 
   useEffect(() => {
     return () => {
@@ -377,6 +397,26 @@ const IdCard = () => {
           setSearchParams(searchParams, { replace: true });
           
           await loadStudentAndApplication();
+
+          const lvl = student?.level ? `${student.level} Level` : '300 Level';
+          const feeAmt = Number(data.payment?.amount || settings.id_card_fee || 500);
+          setReceiptData({
+            receiptNo: data.payment?.reference || reference || `NACOS/IDCARD/${Date.now().toString().slice(-6)}`,
+            transactionId: data.payment?.transaction_id || `BCH-${Date.now()}`,
+            date: new Date().toLocaleDateString('en-GB'),
+            time: new Date().toLocaleTimeString('en-GB'),
+            studentName: (student?.full_name || student?.name || 'Student Member').trim(),
+            matricNo: student?.matric || student?.registration_number || '20241450682',
+            department: student?.department || 'Computer Science',
+            level: lvl,
+            session: settings.academic_session || '2026/2027',
+            amount: feeAmt,
+            rawAmount: feeAmt,
+            paymentType: 'Student ID Card Issuance',
+            paymentMethod: 'Bachs Online Gateway (Confirmed)',
+            status: 'APPROVED'
+          });
+          setIsReceiptOpen(true);
           return;
         }
       } catch (err) {
@@ -772,25 +812,25 @@ const IdCard = () => {
 
   return (
     <PortalLayout>
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className="space-y-6">
 
-        {/* Title Header Banner */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 shadow-xs">
+        {/* Top Header matching Dues.jsx */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <ShieldCheck className="w-5 h-5 text-[#138601] dark:text-[#4bd043]" />
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-                Student ID Card Application & Issuance
+                Student ID Card Application &amp; Issuance
               </h1>
             </div>
-            <p className="text-xs text-gray-500 dark:text-green-100/70">
-              Department of Computer Science • Federal University of Technology, Owerri
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
+              Official digital identity cards, status clearance and electronic POS receipts for Department of Computer Science.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {application && (
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold ${isStateExpired
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${isStateExpired
                   ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-700/50'
                   : isState7
                     ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700/50'
@@ -804,6 +844,118 @@ const IdCard = () => {
                 </span>
               </span>
             )}
+            {isState1 && (
+              <button
+                type="button"
+                onClick={handleApply}
+                disabled={isApplying}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Apply for ID Card</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Global Notification Banner */}
+        {notification.message && (
+          <div className={`p-4 rounded-xl text-xs font-semibold flex items-center gap-2.5 shadow-xs transition-all ${notification.type === 'error'
+              ? 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800'
+              : 'bg-green-50 text-green-800 border border-green-200 dark:bg-green-950/60 dark:text-green-300 dark:border-green-800'
+            }`}>
+            {notification.type === 'error' ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle className="w-4 h-4 shrink-0" />}
+            <span>{notification.message}</span>
+          </div>
+        )}
+
+        {/* ==================================================================== */}
+        {/* ID CARD PAYMENT HISTORY TABLE (Positioned Above ID Card Stage)         */}
+        {/* ==================================================================== */}
+        <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200/80 dark:border-[#138601]/30 shadow-xs overflow-hidden">
+          <div className="p-5 border-b border-gray-100 dark:border-[#138601]/25 flex items-center justify-between">
+            <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
+              <span>ID Card Payment History</span>
+            </h2>
+            <span className="text-xs font-semibold text-gray-500 dark:text-green-200/70">
+              Total Records: <strong className="text-gray-900 dark:text-white">{idCardPayments.length}</strong>
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead>
+                <tr className="border-b border-gray-200/70 dark:border-[#138601]/20 bg-gray-50/50 dark:bg-[#041801]/60 text-gray-500 dark:text-green-200/70 font-semibold text-[11px] sm:text-xs">
+                  <th className="py-3.5 px-5">Invoice #</th>
+                  <th className="py-3.5 px-4">Amount ₦</th>
+                  <th className="py-3.5 px-4">Level</th>
+                  <th className="py-3.5 px-4">Payment Type</th>
+                  <th className="py-3.5 px-4">Session</th>
+                  <th className="py-3.5 px-5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-[#138601]/15 text-gray-800 dark:text-gray-100">
+                {idCardPayments.length > 0 ? (
+                  idCardPayments.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50/60 dark:hover:bg-[#041801]/40 transition-colors">
+                      <td className="py-4 px-5 font-mono font-medium text-gray-900 dark:text-white text-xs">
+                        <div className="flex items-center gap-2">
+                          <span>{row.receiptNo}</span>
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-[#0e8040] dark:bg-emerald-950/60 dark:text-[#4bd043]">
+                            PAID
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 font-semibold text-gray-900 dark:text-white">
+                        {row.amount ? Number(row.amount).toLocaleString() : '500'}
+                      </td>
+                      <td className="py-4 px-4 font-bold text-gray-700 dark:text-green-200">
+                        {row.level}
+                      </td>
+                      <td className="py-4 px-4 text-gray-600 dark:text-gray-300">
+                        {row.paymentType || 'Student ID Card'}
+                      </td>
+                      <td className="py-4 px-4 font-mono text-gray-600 dark:text-gray-300">
+                        {row.session}
+                      </td>
+                      <td className="py-4 px-5 text-right space-y-1.5 sm:space-y-0 sm:space-x-2">
+                        {isState7 && (
+                          <button
+                            type="button"
+                            onClick={handleViewIdCard}
+                            className="inline-block px-3 py-1.5 rounded-md text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200/80 dark:border-[#138601]/30 transition-colors cursor-pointer"
+                          >
+                            View ID Card
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenReceipt(row)}
+                          className="inline-block px-3 py-1.5 rounded-md text-xs font-semibold text-[#0e8040] hover:text-[#0b6a34] bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/40 transition-colors cursor-pointer"
+                        >
+                          Print Receipt
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="py-10 px-5 text-center space-y-2">
+                      <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-[#041801] text-gray-400 dark:text-green-200/50 flex items-center justify-center mx-auto">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <p className="font-semibold text-gray-800 dark:text-gray-200 text-xs sm:text-sm">
+                        No ID Card Payment Records Found
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-green-200/60 max-w-sm mx-auto">
+                        Complete your student ID card payment above to activate your official credential and download your digital identity card.
+                      </p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -858,17 +1010,6 @@ const IdCard = () => {
                 <span>Renew ID Card for Session {settings.academic_session}</span>
               </button>
             </div>
-          </div>
-        )}
-
-        {/* Global Notification Banner */}
-        {notification.message && (
-          <div className={`p-4 rounded-xl text-xs font-semibold flex items-center gap-2.5 shadow-xs transition-all ${notification.type === 'error'
-              ? 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800'
-              : 'bg-green-50 text-green-800 border border-green-200 dark:bg-green-950/60 dark:text-green-300 dark:border-green-800'
-            }`}>
-            {notification.type === 'error' ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle className="w-4 h-4 shrink-0" />}
-            <span>{notification.message}</span>
           </div>
         )}
 
@@ -1489,94 +1630,6 @@ const IdCard = () => {
             </div>
           </div>
         )}
-
-        {/* ==================================================================== */}
-        {/* ID CARD PAYMENT HISTORY TABLE                                         */}
-        {/* ==================================================================== */}
-        <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200/80 dark:border-[#138601]/30 shadow-xs overflow-hidden mt-6">
-          <div className="p-5 border-b border-gray-100 dark:border-[#138601]/25 flex items-center justify-between">
-            <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
-              <span>ID Card Payment History</span>
-            </h2>
-            <span className="text-xs font-semibold text-gray-500 dark:text-green-200/70">
-              Total Records: <strong className="text-gray-900 dark:text-white">{idCardPayments.length}</strong>
-            </span>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs sm:text-sm">
-              <thead>
-                <tr className="border-b border-gray-200/70 dark:border-[#138601]/20 bg-gray-50/50 dark:bg-[#041801]/60 text-gray-500 dark:text-green-200/70 font-semibold text-[11px] sm:text-xs">
-                  <th className="py-3.5 px-5">Invoice #</th>
-                  <th className="py-3.5 px-4">Amount ₦</th>
-                  <th className="py-3.5 px-4">Level</th>
-                  <th className="py-3.5 px-4">Payment Type</th>
-                  <th className="py-3.5 px-4">Session</th>
-                  <th className="py-3.5 px-5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-[#138601]/15 text-gray-800 dark:text-gray-100">
-                {idCardPayments.length > 0 ? (
-                  idCardPayments.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50/60 dark:hover:bg-[#041801]/40 transition-colors">
-                      <td className="py-4 px-5 font-mono font-medium text-gray-900 dark:text-white text-xs">
-                        <div className="flex items-center gap-2">
-                          <span>{row.receiptNo}</span>
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-[#0e8040] dark:bg-emerald-950/60 dark:text-[#4bd043]">
-                            PAID
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 font-semibold text-gray-900 dark:text-white">
-                        {row.amount ? Number(row.amount).toLocaleString() : '500'}
-                      </td>
-                      <td className="py-4 px-4 font-bold text-gray-700 dark:text-green-200">
-                        {row.level}
-                      </td>
-                      <td className="py-4 px-4 text-gray-600 dark:text-gray-300">
-                        {row.paymentType || 'Student ID Card'}
-                      </td>
-                      <td className="py-4 px-4 font-mono text-gray-600 dark:text-gray-300">
-                        {row.session}
-                      </td>
-                      <td className="py-4 px-5 text-right space-y-1.5 sm:space-y-0 sm:space-x-2">
-                        <button
-                          type="button"
-                          onClick={handleViewIdCard}
-                          className="inline-block px-3 py-1.5 rounded-md text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200/80 dark:border-[#138601]/30 transition-colors cursor-pointer"
-                        >
-                          View ID Card
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenReceipt(row)}
-                          className="inline-block px-3 py-1.5 rounded-md text-xs font-semibold text-[#0e8040] hover:text-[#0b6a34] bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/40 transition-colors cursor-pointer"
-                        >
-                          Print Receipt
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="py-10 px-5 text-center space-y-2">
-                      <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-[#041801] text-gray-400 dark:text-green-200/50 flex items-center justify-center mx-auto">
-                        <FileText className="w-5 h-5" />
-                      </div>
-                      <p className="font-semibold text-gray-800 dark:text-gray-200 text-xs sm:text-sm">
-                        No ID Card Payment Records Found
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-green-200/60 max-w-sm mx-auto">
-                        Complete your student ID card payment above to activate your official credential and download your digital identity card.
-                      </p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
 
         {/* Official Paper Clearance Receipt Modal */}
         <PosThermalReceipt

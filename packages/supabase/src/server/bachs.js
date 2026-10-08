@@ -619,7 +619,7 @@ export async function createIdCardCheckout({ student, returnBaseUrl }) {
     title: 'NACOS Student ID Card Issuance',
     student,
     returnBaseUrl,
-    redirectPath: '/id-card?payment=verifying',
+    redirectPath: '/payment/success?paymentType=id_card',
     cancelPath: '/id-card?payment=cancelled'
   });
 }
@@ -641,7 +641,7 @@ export async function createDuesCheckout({ student, returnBaseUrl, academicSessi
     student,
     metadata: { academicSession: sessionToUse, level },
     returnBaseUrl,
-    redirectPath: '/dues?payment=verifying',
+    redirectPath: '/payment/success?paymentType=dues',
     cancelPath: '/dues?payment=cancelled'
   });
 }

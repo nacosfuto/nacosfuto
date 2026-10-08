@@ -809,16 +809,6 @@ const PortalLayout = ({ children }) => {
 
         {/* Drawer Scrollable Navigation Body */}
         <div className="flex-1 overflow-y-auto sidebar-scroll p-4 space-y-4">
-          {/* Header inside sidebar */}
-          <div className="px-2 pb-1 flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-green-300/70">
-              Menu Navigation
-            </span>
-            <span className="text-xs font-mono text-gray-400 dark:text-green-300/50">
-              {displayMatric}
-            </span>
-          </div>
-
           {/* Navigation Links */}
           <nav className="space-y-1.5">
             {navItems.map((item) => {

@@ -368,6 +368,7 @@ const Dues = () => {
             };
             setPosReceiptData(receiptPayload);
             setIsInvoiceSlip(false);
+            setIsPosReceiptOpen(true);
             return;
           }
         }
@@ -389,7 +390,7 @@ const Dues = () => {
     let channel = null;
     try {
       channel = new BroadcastChannel('nacos_payment_sync');
-      channel.onmessage = (event) => {
+      channel.onmessage = async (event) => {
         if (event.data?.status === 'successful') {
           if (pollTimerRef.current) clearInterval(pollTimerRef.current);
           setIsAwaitingGateway(false);
@@ -398,7 +399,29 @@ const Dues = () => {
             try {
               const parsed = JSON.parse(stored);
               setUser(parsed);
-              checkStatus(parsed);
+              await checkStatus(parsed);
+
+              const matric = parsed.registration_number || parsed.matric_number || parsed.matric || '20241450682';
+              const targetLevel = parsed.level || '300';
+              const receiptPayload = {
+                receiptNo: event.data.reference || parsed.receipt_no || `NACOS/DUES/${matric}-${targetLevel}L`,
+                transactionId: `BCH-${Date.now()}`,
+                date: new Date().toLocaleDateString('en-GB'),
+                time: new Date().toLocaleTimeString('en-GB'),
+                studentName: (parsed.full_name || parsed.name || 'Student Member').trim(),
+                matricNo: matric,
+                department: parsed.department || 'Computer Science',
+                level: `${targetLevel} LEVEL`,
+                session: formSession,
+                amount: event.data.amount ? `₦${Number(event.data.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+                rawAmount: event.data.amount || duesFee,
+                paymentType: 'Departmental Dues (Full Payment)',
+                paymentMethod: 'Bachs Online Gateway (Confirmed)',
+                status: 'APPROVED'
+              };
+              setPosReceiptData(receiptPayload);
+              setIsInvoiceSlip(false);
+              setIsPosReceiptOpen(true);
             } catch (e) {}
           }
         }
@@ -425,7 +448,7 @@ const Dues = () => {
       if (channel) channel.close();
       window.removeEventListener('storage', handleStorageEvent);
     };
-  }, [user]);
+  }, [user, duesFee, formSession]);
 
   // Handle URL return parameters if user navigated back in the same tab
   useEffect(() => {
@@ -554,7 +577,7 @@ const Dues = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-              School Fees &amp; Departmental Dues
+              Departmental Dues &amp; Levies
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
               Official clearance history and electronic POS receipts for Department of Computer Science.
@@ -601,13 +624,13 @@ const Dues = () => {
         )}
 
         {/* ==================================================================== */}
-        {/* SCHOOL FEES HISTORY TABLE (Matching User Image 1 Exactly)             */}
+        {/* DEPARTMENTAL DUES HISTORY TABLE                                      */}
         {/* ==================================================================== */}
         <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200/80 dark:border-[#138601]/30 shadow-xs overflow-hidden">
           
           <div className="p-5 border-b border-gray-100 dark:border-[#138601]/25 flex items-center justify-between">
             <h2 className="text-base font-bold text-gray-900 dark:text-white">
-              School Fees History
+              Departmental Dues History
             </h2>
             <span className="text-xs font-semibold text-gray-500 dark:text-green-200/70">
               Total Records: <strong className="text-gray-900 dark:text-white">{paymentHistoryList.length}</strong>

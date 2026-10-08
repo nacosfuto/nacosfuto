@@ -286,113 +286,123 @@ export function renderPaymentConfirmationEmail({
   const preheader = `Official Receipt: ${safeType} - ${currency} ${formattedAmount} [Ref: ${safeRef}]`;
 
   const contentHtml = `
-    <!-- Paper Sheet Container (Official Academic Receipt) -->
-    <div style="background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 28px 24px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+    <!-- A5 Proportion POS Thermal Slip Container -->
+    <div style="max-width: 440px; margin: 0 auto; background-color: #ffffff; border: 1px solid #d1d5db; border-radius: 6px; padding: 24px 20px; font-family: 'Courier New', Courier, monospace, 'SFMono-Regular', Consolas; font-size: 12px; color: #111827; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);">
       
-      <!-- Official Institutional Header -->
-      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-bottom: 2px solid #083002; padding-bottom: 16px; margin-bottom: 20px; text-align: center;">
+      <!-- POS Header -->
+      <div style="text-align: center; margin-bottom: 12px;">
+        <div style="font-size: 11px; font-weight: bold; letter-spacing: 2px;">================================</div>
+        <div style="font-size: 15px; font-weight: 900; letter-spacing: 0.5px; margin: 4px 0 2px;">NACOS FUTO</div>
+        <div style="font-size: 11px; font-weight: 700;">NIGERIA ASSOC. OF COMPUTING STUDENTS</div>
+        <div style="font-size: 10px; color: #374151;">FEDERAL UNIVERSITY OF TECHNOLOGY, OWERRI</div>
+        <div style="font-size: 10px; color: #4b5563;">DEPT OF COMPUTER SCIENCE &bull; SICT</div>
+        <div style="font-size: 11px; font-weight: bold; letter-spacing: 2px; margin-top: 4px;">================================</div>
+      </div>
+
+      <!-- Slip Type Badge -->
+      <div style="border-top: 1px dashed #9ca3af; border-bottom: 1px dashed #9ca3af; padding: 6px 0; text-align: center; font-weight: bold; font-size: 11px; margin-bottom: 12px;">
+        *** OFFICIAL PAYMENT RECEIPT ***
+      </div>
+
+      <!-- Receipt & Transaction Info -->
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 11px; margin-bottom: 8px;">
         <tr>
-          <td align="center">
-            <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
-              FEDERAL UNIVERSITY OF TECHNOLOGY, OWERRI (FUTO)
-            </div>
-            <div style="font-size: 16px; font-weight: 800; color: #083002; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
-              NIGERIA ASSOCIATION OF COMPUTING STUDENTS (NACOS)
-            </div>
-            <div style="font-size: 11px; font-weight: 600; color: #16a34a; text-transform: uppercase; margin-bottom: 12px;">
-              Department of Computer Science &bull; SICT Secretariat
-            </div>
-            <div style="display: inline-block; background-color: #083002; color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; padding: 5px 14px; border-radius: 4px;">
-              Official Payment Clearance Receipt
-            </div>
-          </td>
+          <td style="color: #6b7280; padding: 2px 0;">RECEIPT REF:</td>
+          <td align="right" style="font-weight: 700; font-family: monospace;">${safeRef}</td>
+        </tr>
+        <tr>
+          <td style="color: #6b7280; padding: 2px 0;">DATE / TIME:</td>
+          <td align="right">${dateFormatted}</td>
+        </tr>
+        <tr>
+          <td style="color: #6b7280; padding: 2px 0;">PAYMENT STATUS:</td>
+          <td align="right" style="font-weight: 900; color: #166534;">APPROVED / CLEARED</td>
+        </tr>
+        <tr>
+          <td style="color: #6b7280; padding: 2px 0;">CHANNEL:</td>
+          <td align="right">Bachs Online Gateway</td>
         </tr>
       </table>
 
-      <!-- Metadata 2-Column Grid -->
-      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 20px;">
-        <tr>
-          <td style="padding: 12px 16px; vertical-align: top; width: 55%;">
-            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Receipt / Invoice Ref</div>
-            <div style="font-size: 12px; font-weight: 700; color: #0f172a; font-family: monospace; word-break: break-all; margin-top: 2px;">${safeRef}</div>
-            <div style="font-size: 11px; color: #64748b; margin-top: 6px;">Payment Channel: <strong>Bachs Online Gateway</strong></div>
-          </td>
-          <td style="padding: 12px 16px; vertical-align: top; text-align: right; width: 45%;">
-            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Payment Status</div>
-            <div style="display: inline-block; background-color: #dcfce7; color: #166534; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 3px 8px; border-radius: 9999px; border: 1px solid #bbf7d0; margin-top: 2px;">
-              &check; APPROVED / CLEARED
-            </div>
-            <div style="font-size: 11px; color: #64748b; margin-top: 6px;">Date: <strong>${dateFormatted}</strong></div>
-          </td>
-        </tr>
-      </table>
+      <!-- Dashed Divider -->
+      <div style="border-top: 1px dashed #9ca3af; margin: 8px 0;"></div>
 
-      <!-- Student Particulars Card -->
-      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 20px; font-size: 12px;">
-        <tr style="background-color: #f1f5f9;">
-          <td colspan="2" style="padding: 8px 14px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
-            Student &amp; Academic Particulars
-          </td>
-        </tr>
+      <!-- Student Particulars -->
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 11px; margin-bottom: 8px;">
         <tr>
-          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; color: #64748b; width: 40%;">Full Name</td>
-          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; font-weight: 700; color: #0f172a; text-transform: uppercase;">${safeName}</td>
+          <td style="color: #6b7280; padding: 2px 0;">NAME:</td>
+          <td align="right" style="font-weight: 700; text-transform: uppercase;">${safeName}</td>
         </tr>
         ${safeReg ? `
         <tr>
-          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; color: #64748b;">Registration / Matric No</td>
-          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; font-family: monospace; font-weight: 700; color: #0f172a;">${safeReg}</td>
+          <td style="color: #6b7280; padding: 2px 0;">REG / MATRIC:</td>
+          <td align="right" style="font-weight: 700; font-family: monospace;">${safeReg}</td>
         </tr>` : ''}
         ${safeLevel ? `
         <tr>
-          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; color: #64748b;">Academic Level</td>
-          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #0f172a;">${safeLevel}</td>
+          <td style="color: #6b7280; padding: 2px 0;">LEVEL:</td>
+          <td align="right" style="font-weight: 700;">${safeLevel}</td>
         </tr>` : ''}
         <tr>
-          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; color: #64748b;">Department</td>
-          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; color: #0f172a;">Computer Science</td>
+          <td style="color: #6b7280; padding: 2px 0;">DEPARTMENT:</td>
+          <td align="right">Computer Science</td>
         </tr>
         <tr>
-          <td style="padding: 8px 14px; color: #64748b;">Academic Session</td>
-          <td style="padding: 8px 14px; font-weight: 600; color: #0f172a;">${safeSession}</td>
+          <td style="color: #6b7280; padding: 2px 0;">SESSION:</td>
+          <td align="right">${safeSession}</td>
         </tr>
       </table>
 
-      <!-- Itemized Fees Breakdown -->
-      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-bottom: 20px; font-size: 12px;">
-        <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-          <th align="left" style="padding: 10px 14px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase;">Description</th>
-          <th align="center" style="padding: 10px 14px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase;">Qty</th>
-          <th align="right" style="padding: 10px 14px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase;">Amount</th>
+      <!-- Double Dashed Divider -->
+      <div style="border-top: 2px dashed #6b7280; margin: 10px 0 6px;"></div>
+
+      <!-- Itemized Table -->
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 11px; margin-bottom: 8px;">
+        <tr style="border-bottom: 1px dashed #d1d5db; font-weight: bold;">
+          <th align="left" style="padding-bottom: 4px;">DESCRIPTION</th>
+          <th align="center" style="padding-bottom: 4px;">QTY</th>
+          <th align="right" style="padding-bottom: 4px;">AMOUNT</th>
         </tr>
         <tr>
-          <td style="padding: 10px 14px; font-weight: 600; color: #0f172a; border-bottom: 1px solid #f1f5f9;">${safeType}</td>
-          <td align="center" style="padding: 10px 14px; color: #64748b; border-bottom: 1px solid #f1f5f9;">1</td>
-          <td align="right" style="padding: 10px 14px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #f1f5f9;">${currency} ${formattedAmount}</td>
+          <td style="padding: 6px 0 2px; font-weight: 700;">${safeType}</td>
+          <td align="center" style="padding: 6px 0 2px;">1</td>
+          <td align="right" style="padding: 6px 0 2px; font-weight: 700;">${currency} ${formattedAmount}</td>
         </tr>
-        <tr>
-          <td style="padding: 8px 14px; font-size: 11px; color: #64748b; border-bottom: 1px solid #f1f5f9;">Electronic Portal Verification Levy</td>
-          <td align="center" style="padding: 8px 14px; font-size: 11px; color: #64748b; border-bottom: 1px solid #f1f5f9;">1</td>
-          <td align="right" style="padding: 8px 14px; font-size: 11px; color: #16a34a; border-bottom: 1px solid #f1f5f9;">Included</td>
+        <tr style="font-size: 10px; color: #6b7280;">
+          <td style="padding: 2px 0;">E-Portal Verification</td>
+          <td align="center" style="padding: 2px 0;">1</td>
+          <td align="right" style="padding: 2px 0;">₦0.00</td>
         </tr>
-        <tr style="background-color: #f0fdf4;">
-          <td colspan="2" style="padding: 12px 14px; font-weight: 800; font-size: 12px; color: #083002; text-transform: uppercase;">
-            TOTAL AMOUNT PAID
-          </td>
-          <td align="right" style="padding: 12px 14px; font-weight: 800; font-size: 15px; color: #15803d;">
-            ${currency} ${formattedAmount}
-          </td>
+        <tr style="font-size: 10px; color: #6b7280;">
+          <td style="padding: 2px 0;">Secretariat Tech Levy</td>
+          <td align="center" style="padding: 2px 0;">1</td>
+          <td align="right" style="padding: 2px 0;">₦0.00</td>
         </tr>
       </table>
 
-      <!-- Verification Seal & Notice -->
-      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-top: 1px dashed #cbd5e1; padding-top: 16px; margin-top: 8px;">
-        <tr>
-          <td style="font-size: 11px; color: #64748b; line-height: 1.5;">
-            <strong style="color: #0f172a;">Official Clearance Record:</strong> This digital receipt is valid proof of payment for departmental screening, examination clearance, and student verification. You may also view and print your physical copy directly from your student portal.
-          </td>
-        </tr>
-      </table>
+      <!-- Total Box -->
+      <div style="border-top: 2px solid #111827; border-bottom: 2px solid #111827; padding: 8px 0; margin: 8px 0;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 13px; font-weight: 900;">
+          <tr>
+            <td>TOTAL PAID:</td>
+            <td align="right">${currency} ${formattedAmount}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Barcode simulation -->
+      <div style="text-align: center; font-family: monospace; letter-spacing: 3px; font-size: 11px; margin: 14px 0 4px; color: #374151;">
+        ||| | ||||| || |||| ||||| ||| ||||| ||
+        <div style="font-size: 9px; letter-spacing: 0; color: #6b7280; margin-top: 2px;">*${safeRef}*</div>
+      </div>
+
+      <!-- Footer Notice -->
+      <div style="border-top: 1px dashed #9ca3af; padding-top: 8px; margin-top: 8px; text-align: center; font-size: 9px; color: #6b7280; line-height: 1.4;">
+        *** OFFICIAL NACOS RECEIPT &bull; RETAIN FOR CLEARANCE ***<br />
+        THANK YOU FOR SUPPORTING YOUR DEPARTMENT
+      </div>
+
+    </div>
 
     </div>
   `;
