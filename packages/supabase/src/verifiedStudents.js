@@ -682,17 +682,51 @@ export async function syncRosterStoreToSupabase(rosterList) {
 export async function adminGetAllVerifiedStudents() {
   try {
     if (supabase) {
-      const { data, error } = await supabase
-        .from('verified_students')
-        .select('*')
-        .order('registration_number', { ascending: true });
+      const [vsRes, idSettingsRes, profsRes] = await Promise.all([
+        supabase.from('verified_students').select('*').order('registration_number', { ascending: true }),
+        supabase.from('id_card_settings').select('payload').eq('id', 'store_verified_roster').maybeSingle(),
+        supabase.from('profiles').select('registration_number, id, full_name, email')
+      ]);
 
-      if (!error && Array.isArray(data)) {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem(VERIFIED_STORAGE_KEY, JSON.stringify(data));
-        }
-        return data;
+      const map = new Map();
+      if (Array.isArray(vsRes.data)) {
+        vsRes.data.forEach(s => {
+          if (s.registration_number) {
+            map.set(s.registration_number.toUpperCase(), { ...s });
+          }
+        });
       }
+
+      if (idSettingsRes.data?.payload?.roster && Array.isArray(idSettingsRes.data.payload.roster)) {
+        idSettingsRes.data.payload.roster.forEach(s => {
+          const reg = s.registration_number?.toUpperCase();
+          if (reg && !map.has(reg)) {
+            map.set(reg, { ...s });
+          }
+        });
+      }
+
+      const registeredRegs = new Set(
+        (Array.isArray(profsRes.data) ? profsRes.data : [])
+          .map(p => p.registration_number?.toUpperCase())
+          .filter(Boolean)
+      );
+
+      const merged = Array.from(map.values()).map(s => {
+        const isReg = registeredRegs.has(s.registration_number?.toUpperCase()) || Boolean(s.has_registered || s.is_registered);
+        return {
+          ...s,
+          has_registered: isReg,
+          is_registered: isReg
+        };
+      });
+
+      merged.sort((a, b) => (a.registration_number || '').localeCompare(b.registration_number || ''));
+
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(VERIFIED_STORAGE_KEY, JSON.stringify(merged));
+      }
+      return merged;
     }
   } catch (e) {
     console.warn('adminGetAllVerifiedStudents database notice:', e);
@@ -965,7 +999,7 @@ export async function adminAddVerifiedStudent(studentData) {
     created_at: new Date().toISOString()
   };
 
-  const roster = getLocalVerifiedStudents();
+  const roster = await adminGetAllVerifiedStudents();
   const existingIdx = roster.findIndex(s => s.registration_number?.toUpperCase() === cleanReg);
   if (existingIdx !== -1) {
     roster[existingIdx] = { ...roster[existingIdx], ...record };
@@ -1014,8 +1048,8 @@ export async function adminAddVerifiedStudent(studentData) {
  */
 export async function adminDeleteVerifiedStudent(regNo) {
   const cleanReg = regNo.trim().toUpperCase();
-  const roster = getLocalVerifiedStudents();
-  const filtered = roster.filter(s => s.registration_number.toUpperCase() !== cleanReg);
+  const roster = await adminGetAllVerifiedStudents();
+  const filtered = roster.filter(s => (s.registration_number || '').toUpperCase() !== cleanReg);
   saveLocalVerifiedStudents(filtered);
   await syncRosterStoreToSupabase(filtered);
 

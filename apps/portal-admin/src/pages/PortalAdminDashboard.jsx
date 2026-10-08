@@ -21,7 +21,8 @@ import {
   Coins,
   Award,
   Vote,
-  Sparkles
+  Sparkles,
+  ChevronRight
 } from 'lucide-react';
 import PortalAdminLayout from '../components/PortalAdminLayout';
 import { adminGetAllVerifiedStudents } from '@nacos/supabase/verifiedStudents';

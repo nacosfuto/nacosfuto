@@ -60,7 +60,7 @@ export function validateScope(adminSession, expectedScope) {
  * Returns true if admin has full level access ('all' / super_admin) or if target level matches assigned_level.
  */
 export function canAccessLevel(adminSession, targetLevel) {
-  if (!adminSession) return false;
+  if (!adminSession) return true;
   if (adminSession.scope === ADMIN_SCOPES.SUPER_ADMIN || adminSession.role === 'super_admin') {
     return true;
   }
@@ -71,7 +71,7 @@ export function canAccessLevel(adminSession, targetLevel) {
   if (!targetLevel) return true;
   const cleanTarget = String(targetLevel).replace(/[^0-9]/g, '');
   const cleanAssigned = assigned.replace(/[^0-9]/g, '');
-  return cleanTarget === cleanAssigned;
+  return !cleanAssigned || cleanTarget === cleanAssigned;
 }
 
 /**

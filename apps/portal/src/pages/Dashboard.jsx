@@ -17,10 +17,13 @@ import {
   Clock,
   Bell,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  AlertTriangle,
+  Megaphone
 } from 'lucide-react';
 import PortalLayout from '../components/PortalLayout';
-import { supabase, getLocalPaymentsDatabase, fetchResultsForStudent, fetchCourses } from '@nacos/supabase';
+import NoticeModal from '../components/NoticeModal';
+import { supabase, getLocalPaymentsDatabase, fetchResultsForStudent, fetchCourses, fetchUrgentNotices } from '@nacos/supabase';
 
 const Dashboard = () => {
   const [user, setUser] = useState(() => {
@@ -41,6 +44,10 @@ const Dashboard = () => {
   const [totalLifetimePayments, setTotalLifetimePayments] = useState(0);
   const [coursesCount, setCoursesCount] = useState(null);
   const [resultsPublishedCount, setResultsPublishedCount] = useState(null);
+
+  // Urgent Notices & Pop-up Bulletin state
+  const [urgentNotices, setUrgentNotices] = useState([]);
+  const [activeBulletinModalNotice, setActiveBulletinModalNotice] = useState(null);
 
   const [levelClearanceMatrix, setLevelClearanceMatrix] = useState({
     '100': { dues: false, duesAmount: 0, idCard: false },
@@ -303,6 +310,44 @@ const Dashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Live load urgent notices targeted at this student's level
+  useEffect(() => {
+    let isMounted = true;
+    const loadUrgent = async () => {
+      try {
+        const notices = await fetchUrgentNotices({ level: studentLevelNum });
+        if (isMounted) {
+          setUrgentNotices(Array.isArray(notices) ? notices : []);
+        }
+      } catch (e) {
+        console.warn('Urgent notices load notice:', e);
+      }
+    };
+
+    loadUrgent();
+
+    const handleNoticesUpdated = () => loadUrgent();
+    window.addEventListener('nacos_notices_updated', handleNoticesUpdated);
+
+    let channel = null;
+    if (supabase) {
+      channel = supabase
+        .channel('dashboard-urgent-bulletin-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
+          loadUrgent();
+        })
+        .subscribe();
+    }
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('nacos_notices_updated', handleNoticesUpdated);
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [studentLevelNum]);
+
   const getFirstName = () => {
     if (user.firstName && !user.firstName.toLowerCase().includes('president')) return user.firstName;
     if (user.first_name && !user.first_name.toLowerCase().includes('president')) return user.first_name;
@@ -377,6 +422,60 @@ const Dashboard = () => {
             >
               Pay Dues Now
             </Link>
+          </div>
+        )}
+
+        {/* Urgent Official Notices & Bulletins Banner */}
+        {urgentNotices.length > 0 && (
+          <div className="space-y-3">
+            {urgentNotices.map((notice) => (
+              <div
+                key={notice.id}
+                className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-red-500/10 via-amber-500/5 to-transparent dark:from-red-950/40 dark:via-amber-950/20 dark:to-[#041801] border-2 border-red-500/30 dark:border-red-600/40 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm"
+              >
+                <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5 animate-pulse">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1.5 flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase bg-red-600 text-white shadow-xs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                        Urgent Bulletin
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase bg-[#ede9fe] text-[#6d28d9] dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/40">
+                        {notice.target_audience}
+                      </span>
+                      {notice.published_date && (
+                        <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                          {notice.published_date}
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-sm sm:text-base font-black text-gray-900 dark:text-white uppercase tracking-tight">
+                      {notice.title}
+                    </h3>
+                    <p className="text-xs text-gray-700 dark:text-gray-200 line-clamp-2 leading-relaxed">
+                      {notice.content}
+                    </p>
+                    <div className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 pt-0.5">
+                      Issued by: <span className="text-gray-800 dark:text-white font-bold">{notice.author_unit}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-red-200/60 dark:border-red-900/40">
+                  <button
+                    type="button"
+                    onClick={() => setActiveBulletinModalNotice(notice)}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs cursor-pointer w-full md:w-auto"
+                  >
+                    <span>Read Full Notice</span>
+                    <ArrowUpRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -580,6 +679,13 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Pop-up Notice Modal on Demand */}
+      <NoticeModal
+        notice={activeBulletinModalNotice}
+        isOpen={Boolean(activeBulletinModalNotice)}
+        onClose={() => setActiveBulletinModalNotice(null)}
+      />
     </PortalLayout>
   );
 };

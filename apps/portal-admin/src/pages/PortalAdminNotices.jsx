@@ -21,7 +21,8 @@ import {
   adminCreateNotice, 
   adminUpdateNotice, 
   adminDeleteNotice,
-  adminTogglePopup 
+  adminTogglePopup,
+  supabase
 } from '@nacos/supabase';
 
 export default function PortalAdminNotices() {
@@ -71,7 +72,26 @@ export default function PortalAdminNotices() {
     loadData();
     const handleUpdate = () => loadData();
     window.addEventListener('nacos_notices_updated', handleUpdate);
-    return () => window.removeEventListener('nacos_notices_updated', handleUpdate);
+
+    let channel = null;
+    if (supabase) {
+      channel = supabase
+        .channel('admin-notices-live-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
+          loadData();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_settings' }, () => {
+          loadData();
+        })
+        .subscribe();
+    }
+
+    return () => {
+      window.removeEventListener('nacos_notices_updated', handleUpdate);
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, []);
 
   const handleOpenCreate = () => {
@@ -263,6 +283,13 @@ export default function PortalAdminNotices() {
                           </span>
                         )}
 
+                        {notice.is_urgent && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300 border border-red-300/50">
+                            <AlertCircle className="w-3 h-3" />
+                            <span>Urgent Alert</span>
+                          </span>
+                        )}
+
                         <span className="text-xs text-gray-400 dark:text-gray-400 ml-auto md:ml-0">
                           {notice.published_date}
                         </span>
@@ -427,7 +454,11 @@ export default function PortalAdminNotices() {
                     <input
                       type="checkbox"
                       checked={formData.is_popup}
-                      onChange={(e) => setFormData({ ...formData, is_popup: e.target.checked })}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        is_popup: e.target.checked,
+                        is_urgent: e.target.checked ? true : formData.is_urgent
+                      })}
                       className="w-4 h-4 text-[#138601] rounded accent-[#138601]"
                     />
                     <span className="text-xs font-bold text-purple-900 dark:text-purple-200">
@@ -436,6 +467,24 @@ export default function PortalAdminNotices() {
                   </label>
                   <p className="text-[11px] text-purple-700/80 dark:text-purple-300/70 ml-6">
                     When active, any student logging in matching the target audience will immediately be presented with the institutional pop-up dialog.
+                  </p>
+                </div>
+
+                {/* Mark as Urgent Checkbox */}
+                <div className="p-3.5 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 space-y-1">
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_urgent}
+                      onChange={(e) => setFormData({ ...formData, is_urgent: e.target.checked })}
+                      className="w-4 h-4 text-red-600 rounded accent-red-600"
+                    />
+                    <span className="text-xs font-bold text-red-900 dark:text-red-200">
+                      Mark as Urgent Notice (Banner on Student Dashboard)
+                    </span>
+                  </label>
+                  <p className="text-[11px] text-red-700/80 dark:text-red-300/70 ml-6">
+                    Highlights this directive prominently as an urgent bulletin banner at the top of the student dashboard.
                   </p>
                 </div>
 

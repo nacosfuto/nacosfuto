@@ -104,7 +104,7 @@ const PortalLayout = ({ children }) => {
       try {
         const studentLevel = user?.level || user?.currentLevel || user?.current_level;
         const notice = await fetchActivePopupNotice({ level: studentLevel });
-        if (isMounted && notice) {
+        if (isMounted) {
           setActivePopupNotice(notice);
         }
       } catch (err) {
@@ -112,7 +112,30 @@ const PortalLayout = ({ children }) => {
       }
     };
     checkPopup();
-    return () => { isMounted = false; };
+
+    const handleNoticeUpdate = () => checkPopup();
+    window.addEventListener('nacos_notices_updated', handleNoticeUpdate);
+
+    let channel = null;
+    if (supabase) {
+      channel = supabase
+        .channel('student-portal-notice-popup-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
+          checkPopup();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_settings' }, () => {
+          checkPopup();
+        })
+        .subscribe();
+    }
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('nacos_notices_updated', handleNoticeUpdate);
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, [user?.level, user?.id, user?.current_level, user?.currentLevel]);
 
   // Password change state

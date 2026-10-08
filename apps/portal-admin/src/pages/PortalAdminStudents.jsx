@@ -172,6 +172,14 @@ const AdminStudents = () => {
             loadData(true);
           }
         )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'id_card_settings' },
+          (payload) => {
+            console.log('[Live Registry Sync] id_card_settings changed:', payload.eventType);
+            loadData(true);
+          }
+        )
         .subscribe((status) => {
           setIsLiveConnected(status === 'SUBSCRIBED');
         });
@@ -246,7 +254,7 @@ const AdminStudents = () => {
   const filteredRoster = useMemo(() => {
     return verifiedRoster.filter(s => {
       // Level authority guard
-      if (!canAccessLevel(adminSession, s.level)) {
+      if (adminSession && !canAccessLevel(adminSession, s.level)) {
         return false;
       }
 
@@ -274,7 +282,7 @@ const AdminStudents = () => {
   const filteredAccounts = useMemo(() => {
     return activeAccounts.filter(s => {
       // Level authority guard
-      if (!canAccessLevel(adminSession, s.current_level)) {
+      if (adminSession && !canAccessLevel(adminSession, s.current_level)) {
         return false;
       }
 
