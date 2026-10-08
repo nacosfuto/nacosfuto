@@ -20,7 +20,8 @@ import {
   ChevronRight,
   RotateCcw,
   Lock,
-  Check
+  Check,
+  Plus
 } from 'lucide-react';
 import {
   getIdCardSettings,
@@ -46,6 +47,12 @@ import PosThermalReceipt from '../components/PosThermalReceipt';
 const masterTemplateAsset = idTemplateMaster;
 const frameAsset = idTemplateFrame;
 
+const withTimeout = (promise, ms = 3500) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timed out')), ms))
+  ]);
+
 const IdCard = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -57,6 +64,15 @@ const IdCard = () => {
   const [settings, setSettings] = useState({ id_card_fee: null, academic_session: '2026/2027' });
   const [application, setApplication] = useState(null);
   const [currentSide, setCurrentSide] = useState('front'); // 'front' | 'back'
+
+  const studentRef = useRef(student);
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    studentRef.current = student;
+  }, [student]);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   // Interaction feedback states
   const [isApplying, setIsApplying] = useState(false);
@@ -79,6 +95,11 @@ const IdCard = () => {
   useEffect(() => {
     loadStudentAndApplication();
 
+    // Safety fallback: guaranteed loading termination within 3 seconds
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 3000);
+
     const handleSettingsUpdated = (e) => {
       if (e.detail) setSettings(e.detail);
       else {
@@ -87,7 +108,10 @@ const IdCard = () => {
     };
 
     window.addEventListener('nacos_id_card_settings_updated', handleSettingsUpdated);
-    return () => window.removeEventListener('nacos_id_card_settings_updated', handleSettingsUpdated);
+    return () => {
+      clearTimeout(safetyTimeout);
+      window.removeEventListener('nacos_id_card_settings_updated', handleSettingsUpdated);
+    };
   }, []);
 
   const loadStudentAndApplication = async () => {
@@ -102,8 +126,8 @@ const IdCard = () => {
       let parsed = JSON.parse(stored);
       setStudent(parsed);
 
-      // Load settings dynamically
-      const cfg = await getIdCardSettings();
+      // Load settings dynamically with timeout
+      const cfg = await withTimeout(getIdCardSettings(), 3000).catch(() => null);
       if (cfg) setSettings(cfg);
 
       const matric = parsed.matric || parsed.registration_number;
@@ -119,7 +143,7 @@ const IdCard = () => {
           } else {
             profQuery = profQuery.eq('registration_number', cleanMatric);
           }
-          const { data: profRow } = await profQuery.maybeSingle();
+          const { data: profRow } = await withTimeout(profQuery.maybeSingle(), 3000).catch(() => ({ data: null }));
 
           if (profRow) {
             const freshPhoto = profRow.profile_photo_url || profRow.avatar_url || profRow.photo_url;
@@ -140,17 +164,20 @@ const IdCard = () => {
         }
       }
 
-      // Check payment status dynamically (level-aware)
-      const payStatus = await checkStudentPaymentStatus(cleanMatric, parsed?.level || parsed?.current_level);
+      // Check payment status dynamically (level-aware) with timeout
+      const payStatus = await withTimeout(
+        checkStudentPaymentStatus(cleanMatric, parsed?.level || parsed?.current_level),
+        3500
+      ).catch(() => ({ isPaid: false }));
 
-      // Load application
-      let app = await getStudentIdApplication(cleanMatric);
+      // Load application with timeout
+      let app = await withTimeout(getStudentIdApplication(cleanMatric), 3500).catch(() => null);
 
       // ON THE SPOT GENERATION:
       // If student has paid and is not expired:
       if (payStatus.isPaid && !payStatus.isExpired) {
         if (!app) {
-          const createRes = await createIdCardApplication(parsed);
+          const createRes = await withTimeout(createIdCardApplication(parsed), 3500).catch(() => ({ application: null }));
           app = createRes.application;
         }
 
@@ -167,14 +194,19 @@ const IdCard = () => {
             app.generated_at = app.generated_at || new Date().toISOString();
 
             if (supabase && app.id) {
-              await supabase.from('id_card_applications').update({
-                status: 'generated',
-                payment_status: 'paid',
-                passport_url: photoToUse,
-                id_card_number: app.id_card_number,
-                generated_at: app.generated_at,
-                updated_at: new Date().toISOString()
-              }).eq('id', app.id);
+              try {
+                await withTimeout(
+                  supabase.from('id_card_applications').update({
+                    status: 'generated',
+                    payment_status: 'paid',
+                    passport_url: photoToUse,
+                    id_card_number: app.id_card_number,
+                    generated_at: app.generated_at,
+                    updated_at: new Date().toISOString()
+                  }).eq('id', app.id),
+                  3000
+                ).catch(() => {});
+              } catch (_) {}
             }
           } else {
             // Payment verified, photo required
@@ -198,7 +230,11 @@ const IdCard = () => {
           } else {
             pQuery = pQuery.eq('student_id', parsed.id);
           }
-          const { data: dbPays } = await pQuery.order('created_at', { ascending: false });
+          const { data: dbPays } = await withTimeout(
+            pQuery.order('created_at', { ascending: false }),
+            3500
+          ).catch(() => ({ data: null }));
+
           if (dbPays && dbPays.length > 0) {
             dbPays.forEach(p => {
               const isIdType = p.payment_type === 'ID_CARD' ||
@@ -310,18 +346,20 @@ const IdCard = () => {
           showNotification('Payment confirmed in new window! Processing ID Card on the spot.');
           await loadStudentAndApplication();
 
-          const lvl = student?.level ? `${student.level} Level` : '300 Level';
-          const feeAmt = Number(event.data.amount || settings.id_card_fee || 500);
+          const currentStudent = studentRef.current;
+          const currentSettings = settingsRef.current;
+          const lvl = currentStudent?.level ? `${currentStudent.level} Level` : '300 Level';
+          const feeAmt = Number(event.data.amount || currentSettings?.id_card_fee || 500);
           setReceiptData({
             receiptNo: event.data.reference || `NACOS/IDCARD/${Date.now().toString().slice(-6)}`,
             transactionId: `BCH-${Date.now()}`,
             date: new Date().toLocaleDateString('en-GB'),
             time: new Date().toLocaleTimeString('en-GB'),
-            studentName: (student?.full_name || student?.name || 'Student Member').trim(),
-            matricNo: student?.matric || student?.registration_number || '20241450682',
-            department: student?.department || 'Computer Science',
+            studentName: (currentStudent?.full_name || currentStudent?.name || 'Student Member').trim(),
+            matricNo: currentStudent?.matric || currentStudent?.registration_number || '20241450682',
+            department: currentStudent?.department || 'Computer Science',
             level: lvl,
-            session: settings.academic_session || '2026/2027',
+            session: currentSettings?.academic_session || '2026/2027',
             amount: feeAmt,
             rawAmount: feeAmt,
             paymentType: 'Student ID Card Issuance',
@@ -361,7 +399,7 @@ const IdCard = () => {
       if (channel) channel.close();
       window.removeEventListener('storage', handleStorageEvent);
     };
-  }, [searchParams, student, settings]);
+  }, [searchParams]);
 
   useEffect(() => {
     return () => {
