@@ -178,11 +178,12 @@ const PaymentSuccess = () => {
             {/* Payment Method / Channel Pill Card */}
             <div className="p-3.5 rounded-2xl bg-[#f0f3fa] dark:bg-[#041a01] border border-[#e2e8f0] dark:border-[#138601]/30 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                {/* Mastercard Overlapping Circles Graphic */}
-                <div className="flex -space-x-1.5 shrink-0">
-                  <div className="w-5 h-5 rounded-full bg-[#eb001b] opacity-90 shadow-2xs" />
-                  <div className="w-5 h-5 rounded-full bg-[#f79e1b] opacity-90 shadow-2xs" />
-                </div>
+                {/* DICT Synergy Logo */}
+                <img
+                  src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png"
+                  alt="DICT Synergy"
+                  className="h-7 w-auto object-contain shrink-0"
+                />
 
                 <div className="space-y-0.5">
                   <span className="block font-bold text-xs text-gray-900 dark:text-white">
@@ -271,11 +272,6 @@ const PaymentSuccess = () => {
           </div>
 
         </div>
-
-        {/* Sync Info Notification */}
-        <p className="text-[11px] text-gray-500 dark:text-green-200/60 text-center max-w-xs">
-          Your NACOS portal window has automatically synchronized and generated your official A4 POS receipt.
-        </p>
 
         {/* Action Controls */}
         <div className="w-full flex flex-col gap-2.5 pt-1">
