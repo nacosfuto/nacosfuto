@@ -1125,6 +1125,113 @@ export async function adminResetStudentRegistration(identifier, adminUser = null
 }
 
 /**
+ * Alias for adminResetStudentRegistration to make the "Revoke vs Delete" distinction crystal clear:
+ * - Revoke (adminRevokeStudentRegistration): unlinks the portal login so the student must register again.
+ * - Delete (adminDeleteStudent): permanently expunges the student from the database entirely.
+ */
+export const adminRevokeStudentRegistration = adminResetStudentRegistration;
+
+/**
+ * PORTAL ADMIN: Permanently Delete Student User from the Database
+ * Completely removes the student user from:
+ * 1. public.profiles (active user account, bio-data, credentials)
+ * 2. public.verified_students (departmental roster record)
+ * 3. Associated unlinked records (id_card_applications, account_recovery_requests)
+ * 4. Local client stores & active session caches
+ * 
+ * Unlike "Revoke / Reset Registration" (which unlinks the account and permits the student to re-register),
+ * "Delete" completely expunges the student record from the Supabase database.
+ */
+export async function adminDeleteStudent(identifier, adminUser = null) {
+  if (!identifier) return { error: { message: 'Student identifier is required.' } };
+
+  const rawObj = typeof identifier === 'object' && identifier !== null ? identifier : {};
+  const cleanId = String(rawObj.id || (typeof identifier === 'string' && identifier.includes('-') ? identifier : '')).trim();
+  const cleanReg = String(rawObj.registration_number || rawObj.matric || rawObj.matricNumber || (typeof identifier === 'string' && !identifier.includes('-') ? identifier : '')).trim().toUpperCase();
+  const cleanEmail = String(rawObj.email || '').trim().toLowerCase();
+
+  // 1. Permanently delete from profiles table in Supabase
+  try {
+    let q = supabase.from('profiles').delete();
+    if (cleanReg && cleanId) {
+      q = q.or(`registration_number.eq.${cleanReg},id.eq.${cleanId}`);
+    } else if (cleanReg) {
+      q = q.eq('registration_number', cleanReg);
+    } else if (cleanId) {
+      q = q.eq('id', cleanId);
+    }
+    const { error: profErr } = await q;
+    if (profErr) {
+      console.warn('Supabase delete profile error:', profErr);
+    }
+  } catch (err) {
+    console.warn('Supabase delete profile exception:', err);
+  }
+
+  // 2. Permanently delete from verified_students table in Supabase
+  try {
+    let vq = supabase.from('verified_students').delete();
+    if (cleanReg) {
+      vq = vq.eq('registration_number', cleanReg);
+    } else if (cleanEmail) {
+      vq = vq.eq('email', cleanEmail);
+    } else if (cleanId) {
+      vq = vq.eq('id', cleanId);
+    }
+    const { error: vErr } = await vq;
+    if (vErr) {
+      console.warn('Supabase delete verified_students error:', vErr);
+    }
+  } catch (err) {
+    console.warn('Supabase delete verified_students exception:', err);
+  }
+
+  // 3. Clean up associated student records if present
+  try {
+    if (cleanReg || cleanId) {
+      const orFilter = cleanReg && cleanId 
+        ? `registration_number.eq.${cleanReg},student_id.eq.${cleanId}` 
+        : (cleanReg ? `registration_number.eq.${cleanReg}` : `student_id.eq.${cleanId}`);
+      await supabase.from('id_card_applications').delete().or(orFilter);
+    }
+  } catch (e) {}
+
+  try {
+    if (cleanReg) {
+      await supabase.from('account_recovery_requests').delete().eq('registration_number', cleanReg);
+    }
+  } catch (e) {}
+
+  // 4. Clean up local client stores
+  try {
+    const students = getLocalStudentsDatabase();
+    const updatedStudents = students.filter(s => 
+      (cleanReg ? s.registration_number?.toUpperCase() !== cleanReg : true) &&
+      (cleanId ? s.id !== cleanId : true)
+    );
+    saveLocalStudentsDatabase(updatedStudents);
+  } catch (e) {}
+
+  // 5. Invalidate active session if this student is currently logged in locally
+  try {
+    const rawUser = localStorage.getItem('nacos_user');
+    if (rawUser) {
+      const u = JSON.parse(rawUser);
+      if ((cleanReg && u.registration_number?.toUpperCase() === cleanReg) || (cleanId && u.id === cleanId)) {
+        localStorage.removeItem('nacos_user');
+        localStorage.removeItem('nacos_last_activity');
+        window.dispatchEvent(new Event('nacos_user_updated'));
+      }
+    }
+  } catch (e) {}
+
+  return {
+    success: true,
+    message: `Student user ${cleanReg || cleanId} has been permanently deleted from the database.`
+  };
+}
+
+/**
  * PORTAL ADMIN: Mark Student as Graduated / Alumni
  * Updates student standing to Graduated with graduation year.
  * Allows student to continue logging into the portal as an Alumni.

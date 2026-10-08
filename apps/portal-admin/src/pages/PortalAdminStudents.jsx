@@ -38,13 +38,16 @@ import {
   adminToggleVerifiedStudentStatus,
   adminAddVerifiedStudent,
   adminDeleteVerifiedStudent,
+  adminDeleteStudent,
+  adminRevokeStudentRegistration,
   submitAccountRecoveryRequest,
   getRecoveryRequests,
   reviewRecoveryRequest,
   adminRevokeStudentDues,
   adminRevokeStudentIdCard,
   adminResetStudentRegistration,
-  adminMarkStudentGraduation
+  adminMarkStudentGraduation,
+  supabase
 } from '@nacos/supabase';
 import { 
   parseAdmissionYear, 
@@ -77,7 +80,15 @@ const AdminStudents = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
+
+  // Live Synchronization State
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastSynced, setLastSynced] = useState(null);
 
   // Notifications
   const [feedback, setFeedback] = useState({ message: '', type: '' });
@@ -131,17 +142,82 @@ const AdminStudents = () => {
         console.error(e);
       }
     }
+
+    // 1. Live Supabase Realtime Subscription: Instantly synchronize registry when database changes
+    let channel = null;
+    if (supabase) {
+      channel = supabase
+        .channel('admin-student-registry-live-sync')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'profiles' },
+          (payload) => {
+            console.log('[Live Registry Sync] profiles changed:', payload.eventType);
+            loadData(true);
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'verified_students' },
+          (payload) => {
+            console.log('[Live Registry Sync] verified_students changed:', payload.eventType);
+            loadData(true);
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'account_recovery_requests' },
+          (payload) => {
+            console.log('[Live Registry Sync] recovery requests changed:', payload.eventType);
+            loadData(true);
+          }
+        )
+        .subscribe((status) => {
+          setIsLiveConnected(status === 'SUBSCRIBED');
+        });
+    }
+
+    // 2. Active Polling Heartbeat (every 15 seconds) as resilient fallback
+    const pollingInterval = setInterval(() => {
+      loadData(true);
+    }, 15000);
+
+    // 3. Re-sync on window focus / tab visibility change
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadData(true);
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+
+    return () => {
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
+      clearInterval(pollingInterval);
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+    };
   }, []);
 
-  const loadData = async () => {
-    const roster = await adminGetAllVerifiedStudents();
-    setVerifiedRoster(roster);
+  const loadData = async (silent = false) => {
+    if (!silent) setIsRefreshing(true);
+    try {
+      const roster = await adminGetAllVerifiedStudents();
+      setVerifiedRoster(Array.isArray(roster) ? roster : []);
 
-    const accounts = await adminGetAllStudents();
-    setActiveAccounts(accounts);
+      const accounts = await adminGetAllStudents();
+      setActiveAccounts(Array.isArray(accounts) ? accounts : []);
 
-    const recovery = await getRecoveryRequests();
-    setRecoveryRequests(Array.isArray(recovery) ? recovery : []);
+      const recovery = await getRecoveryRequests();
+      setRecoveryRequests(Array.isArray(recovery) ? recovery : []);
+      setLastSynced(new Date());
+    } catch (err) {
+      console.warn('[Registry Live Load Error]:', err);
+    } finally {
+      if (!silent) setIsRefreshing(false);
+    }
   };
 
   const showNotification = (message, type = 'success') => {
@@ -252,9 +328,9 @@ const AdminStudents = () => {
     }
   };
 
-  // Reset student registration (unlinks auth user and resets has_registered)
+  // Revoke student registration (unlinks auth user and resets has_registered so student must register again)
   const handleResetRegistration = async (student) => {
-    if (!window.confirm(`Are you sure you want to reset the registration for ${student.full_name} (${student.registration_number})? This will unlink their portal login so they can re-register.`)) {
+    if (!window.confirm(`Are you sure you want to REVOKE registration for ${student.full_name} (${student.registration_number})?\n\nThis will unlink their portal login so they must register again at /register.\n\n(Note: To completely delete this user from the database, use the Delete button instead).`)) {
       return;
     }
 
@@ -262,7 +338,7 @@ const AdminStudents = () => {
     if (res.error) {
       showNotification(res.error.message, 'error');
     } else {
-      showNotification(`Registration reset for ${student.full_name}. The student can now re-register.`);
+      showNotification(`Access revoked for ${student.full_name}. The student must now register again.`);
       loadData();
     }
   };
@@ -297,17 +373,17 @@ const AdminStudents = () => {
     }
   };
 
-  // Reset student registration from active accounts table (allows student to re-register)
+  // Revoke student registration from active accounts table (allows student to re-register)
   const handleAdminResetRegistrationAccount = async (student) => {
     const regNo = student.registration_number || student.matric || student.matric_number;
-    if (!window.confirm(`Are you sure you want to RESET registration for ${student.full_name} (${regNo})?\n\nThis will delete their login credentials and allow them to re-register cleanly at /register.`)) {
+    if (!window.confirm(`Are you sure you want to REVOKE registration for ${student.full_name} (${regNo})?\n\nThis will invalidate their login credentials and require them to register again at /register.\n\n(Note: To completely delete this user from the database, use the Delete button instead).`)) {
       return;
     }
     const res = await adminResetStudentRegistration(regNo, adminSession);
     if (res.error) {
       showNotification(res.error.message || 'Failed to reset registration', 'error');
     } else {
-      showNotification(res.message || `Registration for ${regNo} has been reset.`);
+      showNotification(res.message || `Registration for ${regNo} has been revoked. Student must register again.`);
       loadData();
     }
   };
@@ -338,15 +414,33 @@ const AdminStudents = () => {
     }
   };
 
-  // Delete from Roster
-  const handleDeleteFromRoster = async (student) => {
-    if (!window.confirm(`Are you sure you want to remove ${student.full_name} (${student.registration_number}) from the departmental roster?`)) {
-      return;
-    }
+  // Open Delete Confirmation Modal for either Active Account or Roster Student
+  const handleDeleteUserClick = (student) => {
+    setStudentToDelete(student);
+    setIsDeleteModalOpen(true);
+  };
 
-    await adminDeleteVerifiedStudent(student.registration_number);
-    showNotification(`Student removed from verified roster.`);
-    loadData();
+  // Permanently delete student user from the database
+  const handleConfirmDeleteUser = async () => {
+    if (!studentToDelete) return;
+    setIsDeleting(true);
+    try {
+      const reg = studentToDelete.registration_number || studentToDelete.matric || studentToDelete.matric_number || studentToDelete.id;
+      const name = studentToDelete.full_name || studentToDelete.name || reg;
+      const res = await adminDeleteStudent(studentToDelete, adminSession);
+      if (res.error) {
+        showNotification(res.error.message || 'Failed to delete student user from database', 'error');
+      } else {
+        showNotification(`Student ${name} (${reg}) has been permanently deleted from the database.`);
+        setIsDeleteModalOpen(false);
+        setStudentToDelete(null);
+        await loadData();
+      }
+    } catch (err) {
+      showNotification('Error deleting student user: ' + (err.message || 'Unknown error'), 'error');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // =========================================================================
@@ -578,11 +672,31 @@ const AdminStudents = () => {
             </p>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons & Live Database Sync */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Live Database Sync Status Indicator */}
+            <div 
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300"
+              title={lastSynced ? `Synchronized live with database at ${lastSynced.toLocaleTimeString()}` : 'Live Supabase real-time sync'}
+            >
+              <span className={`w-2 h-2 rounded-full ${isLiveConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+              <span>{isLiveConnected ? 'Live Sync Active' : 'Live Sync'}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => loadData(false)}
+              disabled={isRefreshing}
+              title="Synchronize registry immediately with live database"
+              className="px-3.5 py-2 min-h-[40px] text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 hover:bg-gray-200 dark:bg-[#041801] dark:hover:bg-[#062402] border border-gray-300 dark:border-[#138601]/40 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-60"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#138601]' : ''}`} />
+              <span>{isRefreshing ? 'Syncing...' : 'Sync Live'}</span>
+            </button>
+
             <button
               onClick={() => setIsImportModalOpen(true)}
-              className="px-4 py-2.5 min-h-[40px] text-xs font-semibold text-gray-800 dark:text-white bg-gray-100 hover:bg-gray-200 dark:bg-[#041801] dark:hover:bg-[#062402] border border-gray-300 dark:border-[#138601]/40 rounded transition-colors cursor-pointer inline-flex items-center gap-1.5"
+              className="px-4 py-2.5 min-h-[40px] text-xs font-semibold text-gray-800 dark:text-white bg-gray-100 hover:bg-gray-200 dark:bg-[#041801] dark:hover:bg-[#062402] border border-gray-300 dark:border-[#138601]/40 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5"
             >
               <FileSpreadsheet className="w-4 h-4 text-[#138601]" />
               <span>Import Roster (CSV)</span>
@@ -590,7 +704,7 @@ const AdminStudents = () => {
 
             <button
               onClick={() => setIsAddRosterModalOpen(true)}
-              className="px-4 py-2.5 min-h-[40px] text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded shadow-sm transition-colors cursor-pointer inline-flex items-center gap-1.5"
+              className="px-4 py-2.5 min-h-[40px] text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-lg shadow-sm transition-colors cursor-pointer inline-flex items-center gap-1.5"
             >
               <UserPlus className="w-4 h-4" />
               <span>Enroll Student</span>
@@ -841,10 +955,10 @@ const AdminStudents = () => {
                             {s.status === 'active' ? <XCircle className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
                           </button>
 
-                          {/* Delete from roster */}
+                          {/* Delete from roster & database */}
                           <button
-                            title="Delete Student from Roster"
-                            onClick={() => handleDeleteFromRoster(s)}
+                            title="Delete Student from Database"
+                            onClick={() => handleDeleteUserClick(s)}
                             className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-950/40 text-red-600 transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -973,7 +1087,7 @@ const AdminStudents = () => {
                             <ShieldAlert className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            title="Reset Registration (Allow re-registering at /register)"
+                            title="Revoke Access / Reset Registration (Student must register again)"
                             onClick={() => handleAdminResetRegistrationAccount(s)}
                             className="p-1.5 rounded hover:bg-orange-100 dark:hover:bg-orange-950/40 text-orange-600 dark:text-orange-400"
                           >
@@ -994,6 +1108,15 @@ const AdminStudents = () => {
                             }`}
                           >
                             {s.is_active ? <XCircle className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                          </button>
+
+                          {/* Permanently Delete User from Database */}
+                          <button
+                            title="Permanently Delete User from Database"
+                            onClick={() => handleDeleteUserClick(s)}
+                            className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-950/60 text-red-600 dark:text-red-400 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
@@ -1586,6 +1709,92 @@ const AdminStudents = () => {
                   className="px-4 py-2 rounded text-xs font-semibold bg-gray-100 dark:bg-[#041801] text-gray-800 dark:text-white cursor-pointer"
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================================
+            MODAL 6: PERMANENT USER DELETION FROM DATABASE
+            ========================================================================= */}
+        {isDeleteModalOpen && studentToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="max-w-md w-full p-6 rounded-2xl bg-white dark:bg-[#072802] border border-red-200 dark:border-red-900/60 shadow-2xl space-y-4">
+              <div className="flex items-start gap-3.5">
+                <div className="p-3 rounded-xl bg-red-100 dark:bg-red-950/80 text-red-600 dark:text-red-400 shrink-0">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                    Permanently Delete User from Database?
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-green-200/70">
+                    This action completely purges this user record from Supabase.
+                  </p>
+                </div>
+              </div>
+
+              {/* Target Student Details Card */}
+              <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/20 space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-green-200/60 font-medium">Student Name:</span>
+                  <span className="font-bold text-gray-900 dark:text-white">{studentToDelete.full_name || studentToDelete.name || 'Student'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-green-200/60 font-medium">Reg Number:</span>
+                  <span className="font-mono font-bold text-gray-900 dark:text-white">{studentToDelete.registration_number || studentToDelete.matric || studentToDelete.matric_number || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-green-200/60 font-medium">Official Email:</span>
+                  <span className="text-gray-800 dark:text-gray-200 truncate max-w-[220px]">{studentToDelete.email || 'N/A'}</span>
+                </div>
+              </div>
+
+              {/* Crucial Revoke vs Delete Explanatory Box */}
+              <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 text-[11px] text-amber-900 dark:text-amber-200 space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>Important: Revoke vs. Delete</span>
+                </div>
+                <p className="leading-relaxed">
+                  • <strong>Revoke (Reset):</strong> Only unlinks portal credentials. The student remains in the verified database and can register again at <code>/register</code>.
+                </p>
+                <p className="leading-relaxed">
+                  • <strong>Delete:</strong> Completely expunges the student from the database (both <code>profiles</code> and <code>verified_students</code> tables). The user will no longer exist in the system at all.
+                </p>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="pt-2 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => {
+                    setIsDeleteModalOpen(false);
+                    setStudentToDelete(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 hover:bg-gray-200 dark:bg-[#041801] dark:hover:bg-[#062402] transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleConfirmDeleteUser}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 active:scale-95 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Deleting from Database...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete from Database</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
