@@ -652,6 +652,68 @@ const IdCard = () => {
     downloadIdCardAsPdf(source, `${rawName}-${rawId}`, application?.id_card_back_url);
   };
 
+  const handleDownloadZip = async () => {
+    if (!student || !canvasRef.current) return;
+    try {
+      showNotification('Packaging ID card front & back into ZIP bundle...', 'info');
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      const rawName = (student.name || student.full_name || 'Student').replace(/[^a-zA-Z0-9]/g, '-');
+      const rawId = (application?.id_card_number || student?.matric || student?.registration_number || 'NACOS-ID').replace(/[^a-zA-Z0-9]/g, '-');
+
+      // 1. Front Side PNG from canvas
+      const frontDataUrl = canvasRef.current.toDataURL('image/png');
+      const frontBase64 = frontDataUrl.replace(/^data:image\/(png|jpeg);base64,/, '');
+      zip.file(`${rawName}_${rawId}_Front.png`, frontBase64, { base64: true });
+
+      // 2. Back Side Image
+      const backUrl = application?.id_card_back_url || ID_CARD_TEMPLATE.masterBackUrl || idTemplateBack;
+      if (backUrl) {
+        try {
+          const resp = await fetch(backUrl);
+          if (resp.ok) {
+            const blob = await resp.blob();
+            zip.file(`${rawName}_${rawId}_Back.jpg`, blob);
+          } else {
+            throw new Error('Direct fetch failed');
+          }
+        } catch (fetchErr) {
+          await new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+              const tempCanvas = document.createElement('canvas');
+              tempCanvas.width = canvasRef.current.width || 662;
+              tempCanvas.height = canvasRef.current.height || 1075;
+              const ctx = tempCanvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+              const backBase64 = tempCanvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+              zip.file(`${rawName}_${rawId}_Back.png`, backBase64, { base64: true });
+              resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = backUrl;
+          });
+        }
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `NACOS_ID_Card_${rawId}_Bundle.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showNotification('ID Card bundle (Front & Back) downloaded as ZIP successfully!');
+    } catch (err) {
+      console.error('ZIP bundle generation error:', err);
+      showNotification('Could not generate ZIP bundle. Please use PNG or PDF download.', 'error');
+    }
+  };
+
   if (loading) {
     return (
       <PortalLayout>
@@ -1296,6 +1358,16 @@ const IdCard = () => {
                 >
                   <Download className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
                   <span>Both Sides (PNG)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadZip}
+                  className="px-4 py-2.5 min-h-[40px] text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                  title="Download Front & Back as ZIP Archive"
+                >
+                  <Download className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
+                  <span>Download Bundle (ZIP)</span>
                 </button>
 
                 <button

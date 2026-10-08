@@ -847,58 +847,6 @@ const PortalLayout = ({ children }) => {
             })}
           </nav>
         </div>
-
-        {/* External Portals & Actions */}
-        <div className="p-4 pt-3 border-t shrink-0 space-y-3 border-gray-100 dark:border-[#138601]/20">
-          <div className="grid grid-cols-2 gap-2">
-            <a
-              href={getAppUrls().website}
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => setSidebarOpen(false)}
-              className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded text-xs font-semibold border transition-colors ${
-                isDark
-                  ? 'bg-[#041801] text-gray-200 border-[#138601]/30 hover:bg-[#138601]/20'
-                  : 'bg-[#f8fafc] text-gray-700 border-gray-200 hover:bg-gray-100'
-              }`}
-            >
-              <Globe className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
-              <span>Website</span>
-            </a>
-
-            <a
-              href={getAppUrls().adminHub}
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => setSidebarOpen(false)}
-              className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded text-xs font-semibold border transition-colors ${
-                isDark
-                  ? 'bg-[#041801] text-[#4bd043] border-[#138601]/30 hover:bg-[#138601]/20'
-                  : 'bg-green-50 text-[#138601] border-green-200 hover:bg-green-100'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Admin Hub</span>
-            </a>
-          </div>
-
-          {/* Bottom Semester Progress Bar */}
-          <div className={`p-4 rounded border mt-2 shrink-0 space-y-2.5 ${
-            isDark ? 'bg-[#041801]/60 border-[#138601]/30' : 'bg-[#f8fafc] border-gray-200/80'
-          }`}>
-            <div className="flex items-center justify-between text-xs font-semibold text-gray-700 dark:text-green-200">
-              <span>Semester 1 of 2</span>
-              <span className="text-[#138601] dark:text-[#4bd043]">2025/2026</span>
-            </div>
-            {/* Clean Progress Track */}
-            <div className="w-full h-1.5 bg-gray-200 dark:bg-[#041801] rounded-full overflow-hidden">
-              <div className="h-full bg-[#138601] w-3/5 rounded-full"></div>
-            </div>
-            <div className="text-[11px] text-gray-500 dark:text-green-200/70 font-normal">
-              First Semester Examinations
-            </div>
-          </div>
-        </div>
       </aside>
 
       {/* MAIN BODY VIEW - Elements can now take up the full screen */}

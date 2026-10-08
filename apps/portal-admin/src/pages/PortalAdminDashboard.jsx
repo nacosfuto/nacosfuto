@@ -203,7 +203,6 @@ export const PortalAdminDashboard = () => {
       value: stats.whitelistTotal,
       subtitle: 'Eligible CS ground-truth records',
       icon: Users,
-      color: 'from-emerald-500/20 to-teal-500/20 border-emerald-500/30 text-emerald-400',
       link: '/students'
     },
     {
@@ -211,7 +210,6 @@ export const PortalAdminDashboard = () => {
       value: stats.activeAccounts,
       subtitle: 'Registered live student accounts',
       icon: GraduationCap,
-      color: 'from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-400',
       link: '/students'
     },
     {
@@ -219,7 +217,6 @@ export const PortalAdminDashboard = () => {
       value: `₦${Number(duesStats.rate).toLocaleString()}`,
       subtitle: `${duesStats.clearedCount} Cleared • ₦${Number(duesStats.totalRevenue).toLocaleString()} Rev`,
       icon: CreditCard,
-      color: 'from-lime-500/20 to-emerald-500/20 border-lime-500/30 text-lime-400',
       link: '/settings'
     },
     {
@@ -227,7 +224,6 @@ export const PortalAdminDashboard = () => {
       value: stats.pendingIdCards,
       subtitle: 'Awaiting officer review',
       icon: Clock,
-      color: 'from-amber-500/20 to-orange-500/20 border-amber-500/30 text-amber-400',
       link: '/id-cards'
     },
     {
@@ -235,7 +231,6 @@ export const PortalAdminDashboard = () => {
       value: stats.approvedIdCards,
       subtitle: 'Digitally verified cards',
       icon: CheckCircle2,
-      color: 'from-purple-500/20 to-pink-500/20 border-purple-500/30 text-purple-400',
       link: '/id-cards'
     }
   ];
@@ -279,27 +274,30 @@ export const PortalAdminDashboard = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {statCards.map((stat, i) => {
             const Icon = stat.icon;
+            const isEven = i % 2 === 0;
             return (
               <Link
                 key={i}
                 to={stat.link}
-                className={`p-5 rounded-2xl border transition-all hover:-translate-y-1 hover:shadow-lg ${
-                  isDark ? 'bg-[#083002]/40 backdrop-blur border-[#138601]/25 text-white' : 'bg-white border-gray-200 shadow-sm text-gray-900'
+                className={`p-5 rounded-2xl border transition-all hover:-translate-y-0.5 hover:border-[#138601] shadow-xs ${
+                  isDark
+                    ? isEven ? 'bg-[#083002]/60 border-[#138601]/30 text-white' : 'bg-[#041801]/80 border-[#138601]/20 text-white'
+                    : isEven ? 'bg-white border-gray-200 text-gray-900' : 'bg-gray-50/80 border-gray-200 text-gray-900'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-gray-500 dark:text-green-200/70 uppercase tracking-wider">
                     {stat.title}
                   </span>
-                  <div className={`p-2 rounded-xl border bg-gradient-to-br ${stat.color}`}>
+                  <div className="p-2 rounded-xl bg-gray-100 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 text-[#138601] dark:text-[#4bd043]">
                     <Icon className="w-4 h-4" />
                   </div>
                 </div>
                 <div className="mt-4">
-                  <div className="text-3xl font-extrabold tracking-tight text-inherit">
+                  <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
                     {loading ? '...' : stat.value}
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-green-200/70 mt-1 font-normal">
                     {stat.subtitle}
                   </p>
                 </div>
@@ -442,7 +440,7 @@ export const PortalAdminDashboard = () => {
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-500 dark:text-gray-400">Total ID Applications:</span>
-                <span className="font-bold text-purple-600 dark:text-purple-400">{idCardsList.length} Submissions</span>
+                <span className="font-bold text-[#138601] dark:text-[#4bd043]">{idCardsList.length} Submissions</span>
               </div>
             </div>
           </div>

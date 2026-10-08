@@ -310,9 +310,9 @@ export async function fetchResultsForStudent(matricOrRegNo) {
     (r.registration_number && r.registration_number.toLowerCase() === cleanId)
   );
 
-  // If none matched specific matric, return default sample results for demonstration
+  // Return only matched records for this specific student; if none exist, return []
   return { 
-    data: matched.length > 0 ? matched : all, 
+    data: matched, 
     error: null 
   };
 }

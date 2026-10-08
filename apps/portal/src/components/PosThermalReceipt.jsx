@@ -96,10 +96,10 @@ const PosThermalReceipt = ({
               type="button"
               onClick={handlePrint}
               className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer shadow-sm active:scale-95"
-              title="Print Receipt to Printer"
+              title="Print Receipt"
             >
               <Printer className="w-4 h-4" />
-              <span>Print to Printer</span>
+              <span>Print Receipt</span>
             </button>
 
             <button
@@ -155,7 +155,7 @@ const PosThermalReceipt = ({
               </div>
 
               <div className="inline-block px-3 py-1 bg-emerald-900 text-white text-[11px] font-bold uppercase tracking-wider rounded-md mt-1">
-                {isInvoice ? 'Official Proforma Invoice Slip' : 'Official Payment Clearance Receipt'}
+                {isInvoice ? 'Official Proforma Invoice' : 'Official Payment Receipt'}
               </div>
             </div>
 
@@ -325,13 +325,14 @@ const PosThermalReceipt = ({
 
         {/* Bottom Helper Bar (Suppressed on Print) */}
         <div className="pt-2 text-center text-slate-400 text-[11px] print:hidden shrink-0 flex items-center justify-between">
-          <span>Official Paper Size: <strong>A4 / Standard Sheet</strong></span>
+          <span>Official Payment Receipt (A4)</span>
           <button
             type="button"
             onClick={handlePrint}
-            className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer underline"
+            className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer underline flex items-center gap-1"
           >
-            Click here to print with your printer
+            <Printer className="w-3 h-3" />
+            <span>Print Receipt</span>
           </button>
         </div>
 

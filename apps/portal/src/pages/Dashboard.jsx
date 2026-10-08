@@ -20,7 +20,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import PortalLayout from '../components/PortalLayout';
-import { supabase, getLocalPaymentsDatabase } from '@nacos/supabase';
+import { supabase, getLocalPaymentsDatabase, fetchResultsForStudent, fetchCourses } from '@nacos/supabase';
 
 const Dashboard = () => {
   const [user, setUser] = useState(() => {
@@ -39,6 +39,8 @@ const Dashboard = () => {
   const [isPaid, setIsPaid] = useState(false);
   const [verified, setVerified] = useState(false); // true once DB confirms student exists
   const [totalLifetimePayments, setTotalLifetimePayments] = useState(0);
+  const [coursesCount, setCoursesCount] = useState(null);
+  const [resultsPublishedCount, setResultsPublishedCount] = useState(null);
 
   const [levelClearanceMatrix, setLevelClearanceMatrix] = useState({
     '100': { dues: false, duesAmount: 0, idCard: false },
@@ -186,6 +188,37 @@ const Dashboard = () => {
     setLevelClearanceMatrix(matrix);
     setTotalLifetimePayments(totalSum);
     setIsPaid(Boolean(matrix[currentLvl]?.dues));
+
+    // Live sync published results count for student
+    try {
+      const studentId = cleanMatric || userId;
+      if (studentId) {
+        const res = await fetchResultsForStudent(studentId);
+        if (res && res.data && res.data.length > 0) {
+          const distinctSemesters = new Set(res.data.map(r => `${r.level}-${r.semester}`));
+          setResultsPublishedCount(distinctSemesters.size);
+        } else {
+          setResultsPublishedCount(0);
+        }
+      } else {
+        setResultsPublishedCount(0);
+      }
+    } catch (e) {
+      setResultsPublishedCount(0);
+    }
+
+    // Live sync courses count for current level
+    try {
+      const lvlNum = parseInt(currentLvl, 10) || 100;
+      const cRes = await fetchCourses({ level: lvlNum });
+      if (cRes && cRes.data && cRes.data.length > 0) {
+        setCoursesCount(cRes.data.length);
+      } else {
+        setCoursesCount(0);
+      }
+    } catch (e) {
+      setCoursesCount(0);
+    }
   };
 
   // Verify student exists in Supabase database
@@ -286,24 +319,20 @@ const Dashboard = () => {
 
   const firstName = getFirstName();
 
-  // Dynamic course count based on level
+  // Dynamic course display
   const getCoursesCount = () => {
-    const levelStr = String(user.level || user.current_level || '100');
-    const levelNum = parseInt(levelStr, 10);
-    if (levelNum === 200) return '14 courses';
-    if (levelNum === 300) return '14 courses';
-    if (levelNum === 400) return '8 courses';
-    if (levelNum === 500) return '10 courses';
-    return '16 courses';
+    if (isGraduated) return 'Degree Conferred (B.Tech)';
+    if (coursesCount !== null && coursesCount > 0) return `${coursesCount} Courses Synced`;
+    return 'FUTO Portal Enrolment';
   };
 
-  // Dynamic published results count based on level
+  // Dynamic published results display
   const getResultsCount = () => {
-    const levelStr = String(user.level || user.current_level || '100');
-    const levelNum = parseInt(levelStr, 10);
-    if (levelNum >= 300) return '4 semesters';
-    if (levelNum >= 200) return '2 semesters';
-    return '0 results';
+    if (isGraduated) return 'Complete Graduate Record';
+    if (resultsPublishedCount !== null && resultsPublishedCount > 0) {
+      return `${resultsPublishedCount} ${resultsPublishedCount === 1 ? 'Semester' : 'Semesters'} Published`;
+    }
+    return 'Awaiting Senate Release';
   };
 
   const isGraduated = Boolean(user.is_graduated || user.level === 'Graduated' || user.status === 'graduated');
@@ -312,7 +341,7 @@ const Dashboard = () => {
 
   return (
     <PortalLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 font-sans">
 
         {/* Welcome Header */}
         <div className="pb-1">
@@ -321,12 +350,12 @@ const Dashboard = () => {
               Welcome, {firstName}!
             </h1>
             {isGraduated && (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-[#041801] text-gray-800 dark:text-green-200 border border-gray-200 dark:border-[#138601]/30">
                 Alumni • Class of {graduationYear}
               </span>
             )}
           </div>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 mt-0.5">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 mt-0.5 font-normal">
             {isGraduated 
               ? 'Department of Computer Science • Federal University of Technology, Owerri (Alumni Member)'
               : 'Department of Computer Science • Federal University of Technology, Owerri'}
@@ -344,7 +373,7 @@ const Dashboard = () => {
             </div>
             <Link
               to="/dues"
-              className="px-3 py-1.5 rounded font-bold text-xs bg-red-600 hover:bg-red-700 text-white transition-colors shrink-0"
+              className="px-3 py-1.5 rounded-lg font-bold text-xs bg-red-600 hover:bg-red-700 text-white transition-colors shrink-0"
             >
               Pay Dues Now
             </Link>
@@ -375,7 +404,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* 3 Clean Summary Cards */}
+        {/* 3 Clean Alternating Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
           {/* Card 1: Courses Registered / Degree Conferred */}
@@ -384,53 +413,51 @@ const Dashboard = () => {
               <BookOpen className="w-6 h-6" />
             </div>
             <div className="mt-3 space-y-1.5">
-              <h4 className="text-xs sm:text-sm font-normal text-gray-700 dark:text-gray-200">
+              <h4 className="text-xs sm:text-sm font-normal text-gray-600 dark:text-gray-300">
                 {isGraduated ? 'Academic Standing' : 'Courses Registered'}
               </h4>
               <div className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
-                {isGraduated ? 'Degree Conferred (B.Tech)' : getCoursesCount()}
+                {getCoursesCount()}
               </div>
             </div>
           </div>
 
           {/* Card 2: Results Published / Transcript */}
-          <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 flex flex-col justify-between min-h-[125px] shadow-xs">
+          <div className="p-5 rounded-2xl bg-gray-50/70 dark:bg-[#083002]/90 border border-gray-200 dark:border-[#138601]/30 flex flex-col justify-between min-h-[125px] shadow-xs">
             <div className="text-[#138601] dark:text-[#4bd043]">
               <BarChart3 className="w-6 h-6" />
             </div>
             <div className="mt-3 space-y-1.5">
-              <h4 className="text-xs sm:text-sm font-normal text-gray-700 dark:text-gray-200">
+              <h4 className="text-xs sm:text-sm font-normal text-gray-600 dark:text-gray-300">
                 {isGraduated ? 'Academic Transcript' : 'Results Published'}
               </h4>
               <div className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
-                {isGraduated ? 'Complete Graduate Record' : getResultsCount()}
+                {getResultsCount()}
               </div>
             </div>
           </div>
 
           {/* Card 3: Total Payments (100L Till Date) */}
           <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 flex flex-col justify-between min-h-[125px] shadow-xs">
-            <div className={isPaid && !isRevoked ? 'text-[#083002] dark:text-[#4bd043]' : 'text-amber-600 dark:text-amber-400'}>
+            <div className="text-[#138601] dark:text-[#4bd043]">
               <Wallet className="w-6 h-6" />
             </div>
             <div className="mt-3 space-y-1.5">
               <div className="flex items-center justify-between">
-                <h4 className={`text-xs sm:text-sm font-normal ${isPaid && !isRevoked ? 'text-gray-800 dark:text-white' : 'text-gray-700 dark:text-gray-200'
-                  }`}>
+                <h4 className="text-xs sm:text-sm font-normal text-gray-600 dark:text-gray-300">
                   Total Paid (100L Till Date)
                 </h4>
-                <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-md ${
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
                   isRevoked
-                    ? 'bg-red-100 text-red-800 dark:bg-red-950/70 dark:text-red-300'
+                    ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/70 dark:text-red-300'
                     : isPaid
-                      ? 'bg-white/80 dark:bg-[#041801]/60 text-[#138601] dark:text-[#4bd043]'
-                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300'
+                      ? 'bg-green-50 text-[#138601] border-green-200 dark:bg-[#041801] dark:text-[#4bd043] dark:border-[#138601]/30'
+                      : 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-[#041801] dark:text-gray-300 dark:border-gray-700'
                   }`}>
                   {isRevoked ? 'Revoked (Pay Again)' : isPaid ? `${studentLevelNum}L Cleared` : `${studentLevelNum}L Pending`}
                 </span>
               </div>
-              <div className={`text-sm sm:text-base font-bold ${isPaid && !isRevoked ? 'text-gray-900 dark:text-white' : 'text-amber-700 dark:text-amber-400'
-                }`}>
+              <div className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
                 ₦{totalLifetimePayments.toLocaleString()}
               </div>
             </div>
@@ -438,100 +465,7 @@ const Dashboard = () => {
 
         </div>
 
-        {/* Academic Level Clearance Matrix (100L – 500L) */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <ShieldCheck className="w-4.5 h-4.5 text-[#138601] dark:text-[#4bd043]" />
-                Academic Level Clearance &amp; Payment Matrix (100L – 500L)
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-green-200/80 mt-0.5">
-                Authoritative record of your Departmental Dues and Student ID Card validity synchronized with the database.
-              </p>
-            </div>
-            <div className="text-xs font-semibold px-3 py-1 rounded-lg bg-gray-100 dark:bg-[#041801] text-gray-700 dark:text-green-200 border border-gray-200 dark:border-[#138601]/20 self-start sm:self-auto">
-              Current Academic Standing: <span className="font-bold text-[#138601] dark:text-[#4bd043]">{isGraduated ? `Graduated (Class of ${graduationYear})` : `${studentLevelNum} Level`}</span>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            {['100', '200', '300', '400', '500'].map((lvl) => {
-              const info = levelClearanceMatrix[lvl] || { dues: false, idCard: false };
-              const isCurrent = studentLevelNum === lvl;
-
-              return (
-                <div
-                  key={lvl}
-                  className={`p-4 rounded-xl border flex flex-col justify-between space-y-3 transition-all ${isCurrent
-                      ? 'border-[#138601] bg-[#138601]/5 dark:bg-[#138601]/10 ring-1 ring-[#138601]/20'
-                      : 'border-gray-200/80 dark:border-[#138601]/20 bg-gray-50/50 dark:bg-[#041801]/60'
-                    }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-gray-900 dark:text-white">
-                      {lvl} Level
-                    </span>
-                    {isCurrent && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#138601] text-white">
-                        Active
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="space-y-2 text-xs">
-                    {/* Dues Status */}
-                    <div>
-                      <span className="text-[10px] text-gray-500 dark:text-green-200/70 block mb-0.5 font-medium">Departmental Dues</span>
-                      {info.dues ? (
-                        <div className="flex items-center gap-1 text-[11px] font-semibold text-[#138601] dark:text-[#4bd043]">
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          <span>Cleared {info.duesAmount ? `(₦${info.duesAmount.toLocaleString()})` : ''}</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>Outstanding</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* ID Card Status */}
-                    <div>
-                      <span className="text-[10px] text-gray-500 dark:text-green-200/70 block mb-0.5 font-medium">Student ID Card</span>
-                      {info.idCard ? (
-                        <div className="flex items-center gap-1 text-[11px] font-semibold text-[#138601] dark:text-[#4bd043]">
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          <span>Active / Issued</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>Not Applied</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-gray-100 dark:border-[#138601]/20 flex items-center justify-between text-[11px]">
-                    <Link
-                      to="/dues"
-                      className="font-semibold text-[#138601] dark:text-[#4bd043] hover:underline"
-                    >
-                      {info.dues ? 'Receipt' : 'Pay Dues'}
-                    </Link>
-                    <Link
-                      to="/id-card"
-                      className="text-gray-600 dark:text-green-200/80 hover:underline"
-                    >
-                      ID Card
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
 
         {/* Quick Student Actions */}
         <div className="space-y-3">
@@ -540,27 +474,24 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
             <Link
               to="/dues"
-              className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#138601] transition-all group shadow-xs"
+              className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#138601] transition-all group shadow-xs"
             >
               <div className="flex items-center space-x-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 ${isPaid
-                    ? 'bg-[#f1f3f5] dark:bg-[#041801] text-gray-700 dark:text-[#4bd043] group-hover:bg-[#138601] group-hover:text-white'
-                    : 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 group-hover:bg-amber-600 group-hover:text-white'
-                  }`}>
+                <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-[#041801] flex items-center justify-center text-gray-700 dark:text-[#4bd043] group-hover:bg-[#138601] group-hover:text-white transition-colors shrink-0">
                   <CreditCard className="w-4.5 h-4.5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">Dues Clearance Receipt</h4>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${isPaid
-                        ? 'bg-green-100 text-green-800 dark:bg-[#138601]/20 dark:text-[#4bd043]'
-                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300'
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${isPaid
+                        ? 'bg-green-50 text-[#138601] border-green-200 dark:bg-[#041801] dark:text-[#4bd043] dark:border-[#138601]/30'
+                        : 'bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700'
                       }`}>
-                      {isPaid ? 'Cleared' : 'Not Paid'}
+                      {isPaid ? 'Cleared' : 'Pending'}
                     </span>
                   </div>
                   <p className="text-[11px] sm:text-xs text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
-                    {isPaid ? 'View verified electronic receipt' : 'Clearance required • Pending payment'}
+                    {isPaid ? 'View verified electronic receipt' : 'Clearance required • Pay dues'}
                   </p>
                 </div>
               </div>
@@ -569,10 +500,10 @@ const Dashboard = () => {
 
             <Link
               to="/id-card"
-              className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#138601] transition-all group shadow-xs"
+              className="flex items-center justify-between p-4 rounded-xl bg-gray-50/70 dark:bg-[#083002]/90 border border-gray-200 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#138601] transition-all group shadow-xs"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-[#f1f3f5] dark:bg-[#041801] flex items-center justify-center text-gray-700 dark:text-[#4bd043] group-hover:bg-[#138601] group-hover:text-white transition-colors shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#041801] flex items-center justify-center text-gray-700 dark:text-[#4bd043] group-hover:bg-[#138601] group-hover:text-white transition-colors shrink-0 border border-gray-200/60 dark:border-[#138601]/20">
                   <User className="w-4.5 h-4.5" />
                 </div>
                 <div>
@@ -585,10 +516,10 @@ const Dashboard = () => {
 
             <Link
               to="/results"
-              className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#138601] transition-all group shadow-xs"
+              className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#138601] transition-all group shadow-xs"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-[#f1f3f5] dark:bg-[#041801] flex items-center justify-center text-gray-700 dark:text-[#4bd043] group-hover:bg-[#138601] group-hover:text-white transition-colors shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-[#041801] flex items-center justify-center text-gray-700 dark:text-[#4bd043] group-hover:bg-[#138601] group-hover:text-white transition-colors shrink-0">
                   <GraduationCap className="w-4.5 h-4.5" />
                 </div>
                 <div>
@@ -601,10 +532,10 @@ const Dashboard = () => {
 
             <Link
               to="/courses"
-              className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#138601] transition-all group shadow-xs"
+              className="flex items-center justify-between p-4 rounded-xl bg-gray-50/70 dark:bg-[#083002]/90 border border-gray-200 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#138601] transition-all group shadow-xs"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-[#f1f3f5] dark:bg-[#041801] flex items-center justify-center text-gray-700 dark:text-[#4bd043] group-hover:bg-[#138601] group-hover:text-white transition-colors shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#041801] flex items-center justify-center text-gray-700 dark:text-[#4bd043] group-hover:bg-[#138601] group-hover:text-white transition-colors shrink-0 border border-gray-200/60 dark:border-[#138601]/20">
                   <BookOpen className="w-4.5 h-4.5" />
                 </div>
                 <div>
@@ -617,10 +548,10 @@ const Dashboard = () => {
 
             <Link
               to="/profile"
-              className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#138601] transition-all group shadow-xs"
+              className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#138601] transition-all group shadow-xs"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-[#f1f3f5] dark:bg-[#041801] flex items-center justify-center text-gray-700 dark:text-[#4bd043] group-hover:bg-[#138601] group-hover:text-white transition-colors shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-[#041801] flex items-center justify-center text-gray-700 dark:text-[#4bd043] group-hover:bg-[#138601] group-hover:text-white transition-colors shrink-0">
                   <User className="w-4.5 h-4.5" />
                 </div>
                 <div>
@@ -633,10 +564,10 @@ const Dashboard = () => {
 
             <Link
               to="/notices"
-              className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#138601] transition-all group shadow-xs"
+              className="flex items-center justify-between p-4 rounded-xl bg-gray-50/70 dark:bg-[#083002]/90 border border-gray-200 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#138601] transition-all group shadow-xs"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-[#f1f3f5] dark:bg-[#041801] flex items-center justify-center text-gray-700 dark:text-[#4bd043] group-hover:bg-[#138601] group-hover:text-white transition-colors shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#041801] flex items-center justify-center text-gray-700 dark:text-[#4bd043] group-hover:bg-[#138601] group-hover:text-white transition-colors shrink-0 border border-gray-200/60 dark:border-[#138601]/20">
                   <Bell className="w-4.5 h-4.5" />
                 </div>
                 <div>
