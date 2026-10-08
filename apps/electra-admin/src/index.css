@@ -1,27 +1,60 @@
 @import "tailwindcss";
 
+/* ─── Global UI Theme Tokens (Strictly Light Mode & Electra Purple Palette) ─── */
 :root {
   --container-max-width: 90rem;
   --gutter-mobile: 16px;
-  --gutter-tablet: 20px;
-  --gutter-desktop: 24px;
+  --gutter-tablet: 24px;
+  --gutter-desktop: 32px;
 
-  /* Universal Border Radius System from Global UI */
-  --radius: 5px;
-  --radius-sm: 5px;
-  --radius-md: 5px;
-  --radius-lg: 5px;
-  --radius-xl: 5px;
-  --radius-2xl: 5px;
-  --radius-3xl: 5px;
+  /* Universal Border Radius System */
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-3xl: 32px;
   --radius-full: 9999px;
+
+  /* Extracted Electric Purple Palette */
+  --purple-brand: #684BFD;
+  --purple-brand-hover: #5537F8;
+  --purple-deep: #4C45E1;
+  --purple-tint: #F5F3FF;
+  --purple-pill: #EDE9FE;
+  --purple-border: #DDD6FE;
+  --purple-glow: rgba(104, 75, 253, 0.25);
+
+  /* Light Mode Canvas Tokens */
+  --bg-main: #F8FAFC;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F1F5F9;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+  --border-subtle: #E2E8F0;
 }
 
 @layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
   body {
-    background-color: #0a0b0d;
-    color: #ffffff;
+    background-color: var(--bg-main);
+    color: var(--text-primary);
     font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4, .font-display {
@@ -49,30 +82,21 @@
   }
 }
 
-/* Enforce Global UI Radius */
-.rounded-sm  { border-radius: var(--radius) !important; }
-.rounded     { border-radius: var(--radius) !important; }
-.rounded-md  { border-radius: var(--radius) !important; }
-.rounded-lg  { border-radius: var(--radius) !important; }
-.rounded-xl  { border-radius: var(--radius) !important; }
-.rounded-2xl { border-radius: var(--radius) !important; }
-.rounded-3xl { border-radius: var(--radius) !important; }
-
-/* Custom Scrollbar */
+/* Custom Scrollbar for Light Mode */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a0b0d;
+  background: #F1F5F9;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #22252a;
+  background: #CBD5E1;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #c6ff00;
+  background: #684BFD;
 }

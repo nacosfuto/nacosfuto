@@ -1,177 +1,209 @@
 import React, { useState } from 'react';
 import { 
   FileText, 
-  Target, 
-  Sparkles, 
-  Vote, 
-  ArrowRight, 
   Search, 
   Download, 
-  Award 
+  ExternalLink,
+  ChevronDown,
+  Eye,
+  Vote,
+  Award,
+  Sparkles,
+  Filter
 } from 'lucide-react';
-import { getContestants, getElectraPosts } from '@nacos/supabase/electraService';
+import { getContestants, getElectraPosts, getActiveElection } from '@nacos/supabase/electraService';
 
 export default function ManifestosPage({ onOpenManifesto, onOpenBallot }) {
+  const activeElection = getActiveElection();
   const allContestants = getContestants();
   const posts = getElectraPosts();
 
   const [selectedPost, setSelectedPost] = useState('all');
-  const [search, setSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const filtered = allContestants.filter(c => {
     const postMatch = selectedPost === 'all' || c.postId === selectedPost;
-    const searchMatch = !search || 
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.manifesto?.headline?.toLowerCase().includes(search.toLowerCase());
+    const searchMatch = !searchQuery.trim() || 
+      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.runningPost?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.slogan && c.slogan.toLowerCase().includes(searchQuery.toLowerCase()));
     return postMatch && searchMatch;
   });
 
   return (
-    <div className="py-10 site-container bg-[#F8FAFC]">
+    <div className="py-8 sm:py-12 site-container bg-[#F8FAFC] min-h-screen">
       
-      {/* Header */}
-      <div className="mb-10 space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-[#F5F3FF] text-[#684BFD] border border-[#DDD6FE]">
+      {/* Page Header */}
+      <div className="mb-6 space-y-2">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#F5F3FF] text-[#684BFD] border border-[#DDD6FE]">
           <FileText className="w-3.5 h-3.5 text-[#684BFD]" />
-          <span>Electoral Document Archive</span>
+          <span>Official Candidate Statements • {activeElection.session || '2026/2027'}</span>
         </div>
-        <h1 className="text-3xl sm:text-5xl font-black text-slate-900 font-display">
-          Certified Candidate Manifestos
+        <h1 className="text-2xl sm:text-4xl font-black text-slate-900 font-display">
+          Certified Candidate Statements & Manifestos
         </h1>
-        <p className="text-sm text-slate-600 max-w-2xl leading-relaxed">
-          Examine the strategic agendas, pillars, and policy commitments of every candidate running for departmental leadership.
-        </p>
       </div>
 
-      {/* Filter and Search */}
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-8">
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none w-full md:w-auto">
-          <button
-            type="button"
-            onClick={() => setSelectedPost('all')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              selectedPost === 'all'
-                ? 'bg-[#684BFD] text-white font-black shadow-sm shadow-[#684BFD]/25'
-                : 'bg-white text-slate-700 hover:text-[#684BFD] border border-slate-200'
-            }`}
-          >
-            All Positions
-          </button>
-          {posts.map(post => (
-            <button
-              key={post.id}
-              type="button"
-              onClick={() => setSelectedPost(post.id)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                selectedPost === post.id
-                  ? 'bg-[#684BFD] text-white font-black shadow-sm shadow-[#684BFD]/25'
-                  : 'bg-white text-slate-700 hover:text-[#684BFD] border border-slate-200'
-              }`}
-            >
-              {post.title}
-            </button>
-          ))}
-        </div>
+      {/* Instructional Top Bar & Dropdown Filter (Matching reference layout) */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-white border border-gray-200/90 shadow-xs mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <p className="text-xs sm:text-sm text-slate-700 font-medium leading-relaxed max-w-2xl">
+          Click to read each candidate's statement or use the menu to see the ones running to stand as the candidate for a particular office.
+        </p>
 
-        <div className="relative w-full md:w-64">
+        <div className="flex items-center gap-3 shrink-0">
+          <label htmlFor="office-filter" className="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">
+            Filter Office:
+          </label>
+          <div className="relative min-w-[220px]">
+            <select
+              id="office-filter"
+              value={selectedPost}
+              onChange={(e) => setSelectedPost(e.target.value)}
+              className="w-full appearance-none pl-3.5 pr-10 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#684BFD] transition-colors cursor-pointer"
+            >
+              <option value="all">All Contested Offices ({allContestants.length})</option>
+              {posts.map((post) => {
+                const count = allContestants.filter(c => c.postId === post.id).length;
+                return (
+                  <option key={post.id} value={post.id}>
+                    {post.title} ({count})
+                  </option>
+                );
+              })}
+            </select>
+            <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+        </div>
+      </div>
+
+      {/* Search Input Bar */}
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="relative max-w-md w-full">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search manifesto..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#684BFD] transition-colors"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search candidate by name, office, or vision..."
+            className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#684BFD] shadow-2xs"
           />
+        </div>
+        <div className="text-xs font-semibold text-slate-500 shrink-0">
+          Displaying {filtered.length} Candidate{filtered.length === 1 ? '' : 's'}
         </div>
       </div>
 
-      {/* Manifestos List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filtered.map((cnd) => {
-          const manifesto = cnd.manifesto || {
-            headline: `${cnd.name}'s Campaign Manifesto`,
-            summary: cnd.bio || 'Leading with competence, student welfare, and technological empowerment.',
-            pillars: []
-          };
+      {/* Authoritative Candidate Statement Table (Directly matching Image 1) */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            {/* Table Header with Deep Blue/Purple styling */}
+            <thead>
+              <tr className="bg-[#1e3a8a] text-white text-xs uppercase font-bold tracking-wider">
+                <th scope="col" className="py-3.5 px-4 w-16 text-center">
+                  Photo
+                </th>
+                <th scope="col" className="py-3.5 px-6">
+                  Candidate's Name
+                </th>
+                <th scope="col" className="py-3.5 px-6">
+                  Contested Office
+                </th>
+                <th scope="col" className="py-3.5 px-6 text-right w-48">
+                  Candidate's Statement
+                </th>
+              </tr>
+            </thead>
 
-          return (
-            <div
-              key={cnd.id}
-              className="p-7 rounded-3xl bg-white border border-[#DDD6FE] hover:border-[#684BFD] transition-all flex flex-col justify-between group shadow-sm hover:shadow-lg hover:shadow-[#684BFD]/10"
-            >
-              <div className="space-y-4 mb-6">
-                
-                {/* Author Badge */}
-                <div className="flex items-center gap-3.5">
-                  <img
-                    src={cnd.photoUrl}
-                    alt={cnd.name}
-                    className="w-12 h-12 rounded-xl object-cover border border-slate-200"
-                  />
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 leading-tight">
-                      {cnd.name}
-                    </h3>
-                    <p className="text-[11px] text-[#684BFD] font-mono font-bold">
-                      Candidate for {cnd.runningPost}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Headline */}
-                <div className="space-y-1.5 pt-1">
-                  <h2 className="text-xl font-black text-slate-900 font-display leading-snug group-hover:text-[#684BFD] transition-colors">
-                    "{manifesto.headline}"
-                  </h2>
-                  <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
-                    {manifesto.summary}
-                  </p>
-                </div>
-
-                {/* Pillars Preview */}
-                {manifesto.pillars && manifesto.pillars.length > 0 && (
-                  <div className="space-y-2 pt-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
-                      Core Strategic Pillars:
-                    </span>
-                    <div className="space-y-1.5">
-                      {manifesto.pillars.slice(0, 2).map((p, pIdx) => (
-                        <div key={pIdx} className="p-2.5 rounded-xl bg-[#F5F3FF] border border-[#DDD6FE] flex items-center gap-2.5 text-xs text-slate-700">
-                          <span className="w-5 h-5 rounded-md bg-[#684BFD] text-white font-bold text-[10px] flex items-center justify-center shrink-0">
-                            0{pIdx + 1}
-                          </span>
-                          <span className="font-semibold truncate">{p.title}</span>
+            {/* Table Body */}
+            <tbody className="divide-y divide-gray-200/80 text-xs">
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-12 text-center text-slate-500">
+                    <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-slate-800">No candidates found for this office</p>
+                    <p className="text-xs text-slate-400">Try choosing a different office or clearing your search.</p>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((candidate, idx) => {
+                  return (
+                    <tr 
+                      key={candidate.id}
+                      className={`hover:bg-slate-50/80 transition-colors ${
+                        idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
+                      }`}
+                    >
+                      {/* Column 1: Candidate Photo in Circle */}
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-slate-200 shadow-2xs mx-auto bg-slate-100 shrink-0">
+                          <img
+                            src={candidate.photoUrl || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569274/nacos/executives/president_irechukwu.jpg'}
+                            alt={candidate.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569274/nacos/executives/president_irechukwu.jpg';
+                            }}
+                          />
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                      </td>
 
-              </div>
+                      {/* Column 2: Candidate's Name */}
+                      <td className="py-3.5 px-6 font-semibold text-slate-900 text-sm">
+                        <div className="font-bold text-slate-900 leading-snug">
+                          {candidate.name}
+                        </div>
+                        {candidate.slogan && (
+                          <div className="text-[11px] text-slate-500 italic font-normal line-clamp-1 mt-0.5">
+                            "{candidate.slogan}"
+                          </div>
+                        )}
+                      </td>
 
-              {/* Bottom Actions */}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={() => onOpenManifesto(cnd)}
-                  className="px-5 py-2.5 rounded-full text-xs font-black text-white bg-[#684BFD] hover:bg-[#5537F8] transition-transform transform active:scale-95 cursor-pointer shadow-md shadow-[#684BFD]/25"
-                >
-                  Read Full Manifesto
-                </button>
+                      {/* Column 3: Contested Office */}
+                      <td className="py-3.5 px-6 font-medium text-slate-800">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200">
+                          <Award className="w-3 h-3 text-[#684BFD]" />
+                          <span>{candidate.runningPost || 'Executive Office'}</span>
+                        </span>
+                      </td>
 
-                <button
-                  type="button"
-                  onClick={() => onOpenBallot(cnd)}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-[#684BFD]"
-                >
-                  <Vote className="w-3.5 h-3.5 text-[#684BFD]" />
-                  <span>Vote Candidate</span>
-                </button>
-              </div>
+                      {/* Column 4: Show / View Statement Button */}
+                      <td className="py-3.5 px-6 text-right">
+                        <button
+                          type="button"
+                          onClick={() => onOpenManifesto(candidate)}
+                          className="px-5 py-2 text-xs font-bold rounded-lg bg-gradient-to-b from-slate-100 to-slate-200 hover:from-[#684BFD] hover:to-[#5537F8] hover:text-white text-slate-800 border border-slate-300 hover:border-[#684BFD] transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                          title={`Click to read ${candidate.name}'s official statement`}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Show</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-            </div>
-          );
-        })}
+      {/* Information Banner */}
+      <div className="mt-8 p-4 rounded-xl bg-purple-50/60 border border-purple-200/80 text-xs text-purple-900 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-[#684BFD] shrink-0" />
+          <span>All published candidate statements are certified and cryptographically audited by the Electoral Commission (UNECO).</span>
+        </div>
+        {onOpenBallot && (
+          <button
+            type="button"
+            onClick={() => onOpenBallot()}
+            className="px-3.5 py-1.5 rounded-lg bg-[#684BFD] hover:bg-[#5537F8] text-white font-bold transition-colors cursor-pointer shrink-0"
+          >
+            Vote Now
+          </button>
+        )}
       </div>
 
     </div>

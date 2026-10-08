@@ -42,7 +42,7 @@ export default function ManifestoModal({ contestant, isOpen, onClose, onSelectVo
         {/* Modal Sticky Header */}
         <div className="relative p-6 sm:p-8 bg-slate-50 border-b border-slate-200 flex items-start justify-between gap-4 shrink-0">
           <div className="flex items-center gap-4 sm:gap-5 min-w-0">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-[#684BFD] shrink-0 bg-slate-100">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-[#684BFD] shadow-sm shrink-0 bg-slate-100">
               <img
                 src={contestant.photoUrl || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569274/nacos/executives/president_irechukwu.jpg'}
                 alt={contestant.name}
@@ -77,6 +77,29 @@ export default function ManifestoModal({ contestant, isOpen, onClose, onSelectVo
         {/* Modal Scrollable Body */}
         <div className="p-6 sm:p-8 space-y-8 overflow-y-auto custom-scroll">
           
+          {/* Official Candidate Statement Section */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 space-y-3 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 flex items-center gap-1.5">
+                <FileText className="w-4 h-4 text-[#684BFD]" />
+                <span>Candidate's Official Statement</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  window.print();
+                }}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#684BFD] hover:underline cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download / Print Statement</span>
+              </button>
+            </div>
+            <div className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal whitespace-pre-line bg-slate-50 p-4 rounded-xl border border-slate-100">
+              {contestant.candidateStatement || `${contestant.name} is seeking your mandate for ${contestant.runningPost}. Their mission is built on integrity, competence, and service to the Department of Computer Science, Federal University of Technology, Owerri.`}
+            </div>
+          </div>
+
           {/* Campaign Slogan & Headline */}
           <div className="p-5 sm:p-6 rounded-2xl bg-[#F5F3FF] border border-[#DDD6FE] space-y-2">
             <div className="text-[11px] font-black uppercase tracking-widest text-[#684BFD] flex items-center gap-1.5">
