@@ -324,4 +324,30 @@ h1, h2, h3, h4, h5, h6, .font-heading, .font-display {
   border-radius: 5px;
 }
 
+/* ─── Thermal POS Receipt Print Styles ─── */
+@media print {
+  body:has(#thermal-pos-slip-paper) * {
+    visibility: hidden;
+  }
+  body:has(#thermal-pos-slip-paper) #thermal-pos-slip-paper,
+  body:has(#thermal-pos-slip-paper) #thermal-pos-slip-paper * {
+    visibility: visible;
+  }
+  body:has(#thermal-pos-slip-paper) #thermal-pos-slip-paper {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+    width: 330px !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 16px !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+}
+
+
 

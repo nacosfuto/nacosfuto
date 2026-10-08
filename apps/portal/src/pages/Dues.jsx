@@ -1,32 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   CheckCircle,
   AlertCircle,
   Clock,
-  QrCode,
   ShieldCheck,
   ShieldAlert,
   Printer,
   Download,
   CreditCard,
+  Plus,
+  RefreshCw,
+  X,
+  FileText,
+  ChevronDown,
+  ExternalLink,
   Check
 } from 'lucide-react';
 import PortalLayout from '../components/PortalLayout';
-import logoDark from '../assets/full-logo-dark.png';
-import logoLight from '../assets/full-logo-light.png';
 import { useTheme } from '../context/ThemeContext';
-import { supabase, getLocalPaymentsDatabase, recordStudentPayment, getDuesSettings } from '@nacos/supabase';
+import { supabase, recordStudentPayment, getDuesSettings } from '@nacos/supabase';
 import StepUpAuthModal from '../components/StepUpAuthModal';
+import PosThermalReceipt from '../components/PosThermalReceipt';
+
+/**
+ * Determine Progressive Levels for a student.
+ * Students in 100L only see 100L. Students in 200L see 100L and 200L.
+ * Students never see future levels beyond their current standing.
+ */
+export const getProgressiveLevels = (u) => {
+  if (!u) return ['100'];
+  if (u.is_graduated || String(u.level).toLowerCase().includes('graduat')) {
+    return ['100', '200', '300', '400', '500'];
+  }
+  const raw = String(u.level || u.current_level || '100');
+  const match = raw.match(/(\d{3})/);
+  let lvlNum = match ? parseInt(match[1], 10) : 100;
+
+  if ((!lvlNum || lvlNum < 100) && u.admission_year) {
+    const yearsDiff = new Date().getFullYear() - parseInt(u.admission_year, 10) + 1;
+    lvlNum = Math.min(500, Math.max(100, yearsDiff * 100));
+  }
+
+  const validMax = Math.min(500, Math.max(100, Math.floor(lvlNum / 100) * 100));
+  const allLevels = ['100', '200', '300', '400', '500'];
+  const maxIdx = allLevels.indexOf(String(validMax));
+  return maxIdx !== -1 ? allLevels.slice(0, maxIdx + 1) : ['100'];
+};
 
 const Dues = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [isPrinting, setIsPrinting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  const [duesFee, setDuesFee] = useState(null);
+  const [duesFee, setDuesFee] = useState(2500);
   const [isStepUpOpen, setIsStepUpOpen] = useState(false);
 
   const [user, setUser] = useState(() => {
@@ -41,8 +69,6 @@ const Dues = () => {
     return {};
   });
 
-  const [paymentData, setPaymentData] = useState(null);
-  const [isPaid, setIsPaid] = useState(false);
   const [isRevoked, setIsRevoked] = useState(false);
   const [revocationReason, setRevocationReason] = useState('');
   const [totalLifetimeDues, setTotalLifetimeDues] = useState(0);
@@ -56,23 +82,35 @@ const Dues = () => {
     '500': null
   });
 
-  // Level the student is paying dues for — pre-filled from their profile
-  const deriveLevel = (u) => {
-    const raw = String(u?.level || u?.current_level || '100');
-    const num = parseInt(raw, 10);
-    if ([100, 200, 300, 400, 500].includes(num)) return String(num);
-    const match = raw.match(/(\d{3})/);
-    return match ? match[1] : '100';
-  };
-  const [selectedLevel, setSelectedLevel] = useState(() => deriveLevel(user));
+  // Allowed levels based on progressive student level
+  const progressiveLevels = getProgressiveLevels(user);
 
-  // Check payment status from Bachs payments table, local storage, and database across all levels
-  const checkStatus = async (currentUser, targetLvl = null) => {
-    const activeLevel = targetLvl || selectedLevel;
+  // New Invoice Modal state
+  const [isNewInvoiceOpen, setIsNewInvoiceOpen] = useState(false);
+  const [formSession, setFormSession] = useState('2026/2027');
+  const [formPaymentType, setFormPaymentType] = useState('Departmental Dues - Full Payment');
+  const [formLevel, setFormLevel] = useState(() => {
+    // Default to student's current level
+    const pLevels = getProgressiveLevels(user);
+    return pLevels[pLevels.length - 1] || '100';
+  });
+
+  // Cross-tab Gateway Waiting & Polling State
+  const [isAwaitingGateway, setIsAwaitingGateway] = useState(false);
+  const [gatewayRef, setGatewayRef] = useState('');
+  const pollTimerRef = useRef(null);
+
+  // Real Thermal POS Receipt Modal State
+  const [isPosReceiptOpen, setIsPosReceiptOpen] = useState(false);
+  const [posReceiptData, setPosReceiptData] = useState(null);
+  const [isInvoiceSlip, setIsInvoiceSlip] = useState(false);
+
+  // Check payment status from Bachs payments table and Supabase across all levels
+  const checkStatus = async (currentUser) => {
     const matric = currentUser?.registration_number || currentUser?.matric || currentUser?.matricNumber || '';
     const cleanMatric = String(matric).trim().toUpperCase();
     const userId = currentUser?.id;
-    const studentHomeLevel = deriveLevel(currentUser);
+    const studentHomeLevel = String(currentUser?.level || currentUser?.current_level || '100').match(/\d{3}/)?.[0] || '100';
 
     const newMap = {
       '100': null,
@@ -113,18 +151,27 @@ const Dues = () => {
               const payDate = item.paid_at || item.created_at;
               const dateStr = payDate ? new Date(payDate).toLocaleDateString('en-GB', {
                 day: 'numeric',
-                month: 'long',
+                month: 'short',
                 year: 'numeric'
-              }) + ' (' + new Date(payDate).toLocaleTimeString('en-GB') + ' GMT+1)' : 'Current Session';
+              }) : 'Current Session';
+              const timeStr = payDate ? new Date(payDate).toLocaleTimeString('en-GB') : '12:00:00';
 
               newMap[lvl] = {
-                receiptNo: item.reference,
-                paymentDate: dateStr,
+                receiptNo: item.reference || `NACOS-DUES-${cleanMatric || 'FUTO'}-${lvl}L`,
+                transactionId: item.provider_payment_id || item.id || `BCH-${Date.now()}`,
+                date: dateStr,
+                time: timeStr,
+                paymentDate: `${dateStr} (${timeStr} GMT+1)`,
                 amount: item.amount ? `₦${Number(item.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
                 rawAmount: amt,
-                paymentMethod: 'Bachs Payment Gateway (Verified Live)',
+                paymentMethod: 'Bachs Online Gateway (Verified)',
                 status: 'Verified & Cleared',
-                session: item.metadata?.academic_session || item.session || currentUser?.academic_session || '2026/2027 Academic Session'
+                session: item.metadata?.academic_session || item.session || currentUser?.academic_session || '2026-2027',
+                level: `${lvl} LEVEL`,
+                levelNum: lvl,
+                studentName: (currentUser?.full_name || currentUser?.name || 'Student Member').trim(),
+                matricNo: cleanMatric || '20241450682',
+                department: currentUser?.department || 'Computer Science'
               };
             }
           });
@@ -152,20 +199,30 @@ const Dues = () => {
 
             if (['100', '200', '300', '400', '500'].includes(lvl) && !newMap[lvl]) {
               totalPaidSum += amt;
-              const dateStr = item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB', {
+              const payDate = item.created_at || new Date().toISOString();
+              const dateStr = new Date(payDate).toLocaleDateString('en-GB', {
                 day: 'numeric',
-                month: 'long',
+                month: 'short',
                 year: 'numeric'
-              }) + ' (' + new Date(item.created_at).toLocaleTimeString('en-GB') + ' GMT+1)' : 'Current Session';
+              });
+              const timeStr = new Date(payDate).toLocaleTimeString('en-GB');
 
               newMap[lvl] = {
-                receiptNo: item.payment_reference || `NACOS-FUTO-${cleanMatric || userId.slice(0, 8).toUpperCase()}`,
-                paymentDate: dateStr,
+                receiptNo: item.payment_reference || `NACOS/DUES/${cleanMatric || 'FUTO'}-${lvl}L`,
+                transactionId: item.id || `LEG-${Date.now()}`,
+                date: dateStr,
+                time: timeStr,
+                paymentDate: `${dateStr} (${timeStr} GMT+1)`,
                 amount: item.amount ? `₦${Number(item.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
                 rawAmount: amt,
                 paymentMethod: item.payment_method || 'Bachs Payment Gateway',
                 status: 'Verified & Cleared',
-                session: item.session || currentUser?.academic_session || '2026/2027 Academic Session'
+                session: item.session || currentUser?.academic_session || '2026-2027',
+                level: `${lvl} LEVEL`,
+                levelNum: lvl,
+                studentName: (currentUser?.full_name || currentUser?.name || 'Student Member').trim(),
+                matricNo: cleanMatric || '20241450682',
+                department: currentUser?.department || 'Computer Science'
               };
             }
           });
@@ -175,7 +232,7 @@ const Dues = () => {
       console.warn('Legacy dues check error:', err);
     }
 
-    // 3. Fallback to profile flags for student's active level if not yet recorded
+    // 3. Fallback to profile flags for student's active level if marked cleared
     if (!newMap[studentHomeLevel] && (
       currentUser?.dues_cleared === true ||
       currentUser?.has_paid_dues === true ||
@@ -183,93 +240,163 @@ const Dues = () => {
     )) {
       totalPaidSum += 2500;
       newMap[studentHomeLevel] = {
-        receiptNo: currentUser.receipt_no || currentUser.payment_reference || `NACOS-FUTO-${cleanMatric || '2026'}-CLEARED`,
-        paymentDate: currentUser.dues_paid_at || currentUser.payment_date || 'Current Session',
+        receiptNo: currentUser.receipt_no || currentUser.payment_reference || `FUTO/DUES/${cleanMatric || '2026'}`,
+        transactionId: `TX-${Date.now()}`,
+        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+        time: new Date().toLocaleTimeString('en-GB'),
+        paymentDate: currentUser.dues_paid_at || 'Current Session',
         amount: currentUser.dues_amount || '₦2,500.00',
         rawAmount: 2500,
         paymentMethod: currentUser.payment_method || 'Bachs Payment Gateway',
         status: 'Verified & Cleared',
-        session: currentUser.academic_session || '2026/2027 Academic Session'
+        session: currentUser.academic_session || '2026-2027',
+        level: `${studentHomeLevel} LEVEL`,
+        levelNum: studentHomeLevel,
+        studentName: (currentUser?.full_name || currentUser?.name || 'Student Member').trim(),
+        matricNo: cleanMatric || '20241450682',
+        department: currentUser?.department || 'Computer Science'
       };
     }
 
     setLevelDuesMap(newMap);
     setTotalLifetimeDues(totalPaidSum);
 
-    // Check if clearance has been revoked
+    // Revocation status check
     const userIsRevoked = String(currentUser?.payment_status).toLowerCase() === 'revoked' || currentUser?.dues_revoked === true;
     if (userIsRevoked) {
       setIsRevoked(true);
       setRevocationReason(currentUser?.dues_revocation_reason || 'Departmental dues clearance was officially revoked by administration. A new dues payment is required to restore clearance.');
-      setIsPaid(false);
-      setPaymentData(null);
-      return;
     } else {
       setIsRevoked(false);
       setRevocationReason('');
     }
-
-    // Apply status for currently selected level
-    const currentLvlPayment = newMap[activeLevel];
-    if (currentLvlPayment) {
-      setIsPaid(true);
-      setPaymentData(currentLvlPayment);
-    } else {
-      setIsPaid(false);
-      setPaymentData(null);
-    }
   };
 
-  // Bachs Verification Polling when returning from Bachs checkout
+  // Cross-tab Polling & Listener
+  const startAwaitingPaymentSync = (ref, checkoutId, targetLevel) => {
+    let attempts = 0;
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+
+    const checkPayment = async () => {
+      attempts++;
+      try {
+        const queryParams = new URLSearchParams();
+        if (ref) queryParams.set('reference', ref);
+        if (checkoutId) queryParams.set('checkoutId', checkoutId);
+        const matric = user?.registration_number || user?.matric;
+        if (matric) queryParams.set('registrationNumber', matric);
+        queryParams.set('paymentType', 'DEPARTMENTAL_DUES');
+
+        const resp = await fetch(`/api/payments/status?${queryParams.toString()}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.isPaid || data.status === 'successful') {
+            clearInterval(pollTimerRef.current);
+            setIsAwaitingGateway(false);
+
+            // Update user record in session
+            const updatedUser = {
+              ...user,
+              dues_cleared: true,
+              has_paid_dues: true,
+              payment_status: 'cleared',
+              receipt_no: data.reference || ref,
+              dues_paid_at: new Date().toISOString()
+            };
+            localStorage.setItem('nacos_user', JSON.stringify(updatedUser));
+            setUser(updatedUser);
+            window.dispatchEvent(new Event('nacos_user_updated'));
+
+            await checkStatus(updatedUser);
+
+            // Auto-open Real POS Receipt
+            const receiptPayload = {
+              receiptNo: data.reference || ref || `NACOS/DUES/${matric}-${targetLevel}L`,
+              transactionId: data.payment?.provider_payment_id || `BCH-${Date.now()}`,
+              date: new Date().toLocaleDateString('en-GB'),
+              time: new Date().toLocaleTimeString('en-GB'),
+              studentName: (user.full_name || user.name || 'Student Member').trim(),
+              matricNo: matric || '20241450682',
+              department: user.department || 'Computer Science',
+              level: `${targetLevel} LEVEL`,
+              session: formSession,
+              amount: data.amount ? `₦${Number(data.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
+              rawAmount: data.amount || 2500,
+              paymentMethod: 'Bachs Online Gateway (Confirmed)',
+              status: 'APPROVED'
+            };
+            setPosReceiptData(receiptPayload);
+            setIsInvoiceSlip(false);
+            setIsPosReceiptOpen(true);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Cross-tab sync poll error:', err);
+      }
+
+      if (attempts > 60) {
+        clearInterval(pollTimerRef.current);
+        setIsAwaitingGateway(false);
+      }
+    };
+
+    pollTimerRef.current = setInterval(checkPayment, 2500);
+  };
+
+  useEffect(() => {
+    // Cross-tab broadcast listener (when payment succeeds in another tab)
+    let channel = null;
+    try {
+      channel = new BroadcastChannel('nacos_payment_sync');
+      channel.onmessage = (event) => {
+        if (event.data?.status === 'successful') {
+          if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+          setIsAwaitingGateway(false);
+          const stored = localStorage.getItem('nacos_user');
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored);
+              setUser(parsed);
+              checkStatus(parsed);
+            } catch (e) {}
+          }
+        }
+      };
+    } catch (e) {}
+
+    const handleStorageEvent = (e) => {
+      if (e.key === 'nacos_last_payment_success' || e.key === 'nacos_user') {
+        const stored = localStorage.getItem('nacos_user');
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            setUser(parsed);
+            checkStatus(parsed);
+          } catch (err) {}
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      if (channel) channel.close();
+      window.removeEventListener('storage', handleStorageEvent);
+    };
+  }, [user]);
+
+  // Handle URL return parameters if user navigated back in the same tab
   useEffect(() => {
     const paymentAction = searchParams.get('payment');
     const ref = searchParams.get('reference');
     const chkId = searchParams.get('checkout_id') || searchParams.get('checkoutId');
 
     if (paymentAction === 'verifying' && (ref || chkId)) {
-      let attempts = 0;
-      const interval = setInterval(async () => {
-        attempts++;
-        try {
-          const queryParams = new URLSearchParams();
-          if (ref) queryParams.set('reference', ref);
-          if (chkId) queryParams.set('checkoutId', chkId);
-          queryParams.set('paymentType', 'DEPARTMENTAL_DUES');
-
-          const resp = await fetch(`/api/payments/status?${queryParams.toString()}`);
-          if (resp.ok) {
-            const data = await resp.json();
-            if (data.isPaid || data.status === 'successful') {
-              clearInterval(interval);
-              setIsPaid(true);
-              const updatedUser = {
-                ...user,
-                dues_cleared: true,
-                has_paid_dues: true,
-                payment_status: 'cleared',
-                receipt_no: data.reference || ref || chkId,
-                dues_paid_at: new Date().toISOString()
-              };
-              localStorage.setItem('nacos_user', JSON.stringify(updatedUser));
-              setUser(updatedUser);
-              window.dispatchEvent(new Event('nacos_user_updated'));
-              searchParams.delete('payment');
-              searchParams.delete('reference');
-              searchParams.delete('checkout_id');
-              searchParams.delete('checkoutId');
-              setSearchParams(searchParams, { replace: true });
-              await checkStatus(updatedUser);
-            }
-          }
-        } catch (e) {}
-
-        if (attempts > 20) {
-          clearInterval(interval);
-        }
-      }, 2500);
-
-      return () => clearInterval(interval);
-    } else if (paymentAction === 'cancelled') {
+      setIsAwaitingGateway(true);
+      setGatewayRef(chkId || ref);
+      startAwaitingPaymentSync(ref, chkId, formLevel);
       searchParams.delete('payment');
       searchParams.delete('reference');
       searchParams.delete('checkout_id');
@@ -279,75 +406,76 @@ const Dues = () => {
   }, [searchParams]);
 
   useEffect(() => {
-    const handleUserUpdate = () => {
+    const init = async () => {
       const stored = localStorage.getItem('nacos_user');
+      let currentUser = user;
       if (stored) {
         try {
-          const parsed = JSON.parse(stored);
-          setUser(parsed);
-          setSelectedLevel(deriveLevel(parsed));
-          checkStatus(parsed);
-        } catch (e) {
-          console.error(e);
-        }
+          currentUser = JSON.parse(stored);
+          setUser(currentUser);
+        } catch (e) {}
       }
-    };
+      await checkStatus(currentUser);
 
-    const syncDuesFee = () => {
-      getDuesSettings().then(ds => {
+      try {
+        const ds = await getDuesSettings();
         if (ds?.dues_amount && !isNaN(Number(ds.dues_amount))) {
           setDuesFee(Number(ds.dues_amount));
         }
-      });
+        if (ds?.academic_session) {
+          setFormSession(ds.academic_session);
+        }
+      } catch (e) {}
     };
 
-    handleUserUpdate();
-    syncDuesFee();
-
-    window.addEventListener('storage', handleUserUpdate);
-    window.addEventListener('storage', syncDuesFee);
-    window.addEventListener('nacos_user_updated', handleUserUpdate);
-    window.addEventListener('nacos_dues_settings_updated', syncDuesFee);
-
-    return () => {
-      window.removeEventListener('storage', handleUserUpdate);
-      window.removeEventListener('storage', syncDuesFee);
-      window.removeEventListener('nacos_user_updated', handleUserUpdate);
-      window.removeEventListener('nacos_dues_settings_updated', syncDuesFee);
-    };
+    init();
   }, []);
 
-  // Open Step-Up Modal before proceeding to payment
-  const handlePayDues = () => {
+  // Initiate Dues Payment
+  const handleOpenNewInvoice = () => {
+    setIsNewInvoiceOpen(true);
+  };
+
+  const handleSubmitNewInvoice = () => {
     setIsStepUpOpen(true);
   };
 
-  // Authoritative Checkout Handler after Step-Up Identity Verification
+  // Authoritative Checkout Handler: Opens Gateway in New Tab
   const executeCheckout = async (actionToken) => {
     setIsProcessing(true);
     try {
       const resp = await fetch('/api/payments/dues/create-checkout', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': actionToken ? `Bearer ${actionToken}` : ''
         },
         body: JSON.stringify({
           student: user,
-          academicSession: user?.academic_session || '2026/2027',
-          level: selectedLevel,
+          academicSession: formSession,
+          level: formLevel,
           stepUpToken: actionToken
         })
       });
 
       const data = await resp.json();
+
       if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
+        // 1. OPEN IN NEW TAB
+        window.open(data.checkoutUrl, '_blank');
+
+        // 2. Close New Invoice Form
+        setIsNewInvoiceOpen(false);
+
+        // 3. Keep current portal tab active with live listening
+        setIsAwaitingGateway(true);
+        setGatewayRef(data.providerCheckoutId || data.reference || '');
+        startAwaitingPaymentSync(data.reference, data.providerCheckoutId, formLevel);
         return;
       }
 
       // Safe local fallback
-      const matric = user?.registration_number || user?.matric || user?.matricNumber || '20241450682';
+      const matric = user?.registration_number || user?.matric || '20241450682';
       const res = await recordStudentPayment(matric, duesFee);
       if (res.success) {
         const updatedUser = {
@@ -356,12 +484,13 @@ const Dues = () => {
           has_paid_dues: true,
           payment_status: 'cleared',
           receipt_no: res.payment.payment_reference,
-          dues_paid_at: new Date().toLocaleDateString('en-GB') + ' (' + new Date().toLocaleTimeString('en-GB') + ' GMT+1)'
+          dues_paid_at: new Date().toISOString()
         };
         localStorage.setItem('nacos_user', JSON.stringify(updatedUser));
         setUser(updatedUser);
         window.dispatchEvent(new Event('nacos_user_updated'));
         await checkStatus(updatedUser);
+        setIsNewInvoiceOpen(false);
       }
     } catch (e) {
       console.error('Payment error:', e);
@@ -370,213 +499,51 @@ const Dues = () => {
     }
   };
 
-  // Derive dynamic live student information
-  const rawName = (
-    user.full_name ||
-    user.fullName ||
-    [user.surname, user.first_name, user.middle_name].filter(Boolean).join(' ') ||
-    user.name ||
-    ''
-  ).trim();
-  const studentName = rawName.toLowerCase().includes('president') || rawName.toLowerCase().includes('irechukwu')
-    ? 'Emmanuel Irechukwu'
-    : (rawName || 'Student Member');
-
-  const matricNo = user.registration_number || user.matric || user.matricNumber || 'N/A';
-  const levelLabel = `${selectedLevel} Level`;
-  const department = user.department || 'Computer Science';
-  const session = user.academic_session || '2026/2027 Academic Session';
-
-  const paymentRecord = isPaid ? {
-    receiptNo: paymentData?.receiptNo || `NACOS-FUTO-${matricNo}-08941`,
-    session,
-    studentName,
-    matricNo,
-    level: levelLabel,
-    department,
-    amount: paymentData?.amount || `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
-    amountInWords: paymentData?.amount ? 'Paid in Full' : `₦${Number(duesFee).toLocaleString('en-NG')} Cleared`,
-    paymentDate: paymentData?.paymentDate || '12th November, 2024 (14:32:10 GMT+1)',
-    paymentMethod: paymentData?.paymentMethod || 'Bachs Payment Gateway (Verified Live)',
-    status: 'Verified & Cleared',
-    authorizedBy: 'NACOS FUTO Directorate of Finance'
-  } : {
-    receiptNo: 'PENDING PAYMENT',
-    session,
-    studentName,
-    matricNo,
-    level: levelLabel,
-    department,
-    amount: '₦0.00',
-    amountInWords: `Zero Naira (₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })} Outstanding)`,
-    paymentDate: 'Payment Not Received',
-    paymentMethod: 'Awaiting Payment',
-    status: 'Payment Pending (Unpaid)',
-    authorizedBy: 'NACOS FUTO Directorate of Finance'
+  // Open Real POS Receipt Modal for a specific row
+  const handleOpenPosReceipt = (row, isInvoice = false) => {
+    setPosReceiptData(row);
+    setIsInvoiceSlip(isInvoice);
+    setIsPosReceiptOpen(true);
   };
 
-  const handlePrint = () => {
-    setIsPrinting(true);
-    setTimeout(() => {
-      setIsPrinting(false);
-      window.print();
-    }, 400);
-  };
+  // Filtered List of Paid Dues (strictly reflects database records)
+  // Per user audio: "once someone has made a payment for a particular level, they can see it appear in that table, in that order. If they have not made any payment for that level, it will NOT appear in that table."
+  const paidDuesRows = ['100', '200', '300', '400', '500']
+    .filter(lvl => Boolean(levelDuesMap[lvl]))
+    .map(lvl => levelDuesMap[lvl]);
 
-  const handleDownloadReceipt = () => {
-    const filename = `NACOS_FUTO_Dues_Receipt_${matricNo}_${selectedLevel}L.html`;
-    const receiptHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NACOS FUTO Dues Receipt - ${studentName} (${matricNo})</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; margin: 0; padding: 40px 20px; color: #0f172a; }
-    .receipt-container { max-width: 720px; margin: 0 auto; background: #fff; border: 2px solid #138601; border-radius: 16px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); position: relative; }
-    .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 24px; margin-bottom: 28px; }
-    .org-title { font-size: 20px; font-weight: 800; color: #138601; margin: 0 0 4px 0; text-transform: uppercase; }
-    .org-sub { font-size: 13px; color: #475569; margin: 0; font-weight: 500; }
-    .badge { display: inline-block; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; background: #dcfce7; color: #166534; border: 1px solid #86efac; text-transform: uppercase; }
-    .badge-pending { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-    .item-label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600; margin-bottom: 4px; }
-    .item-value { font-size: 14px; font-weight: 700; color: #0f172a; }
-    .amount-box { border-top: 2px dashed #cbd5e1; border-bottom: 2px dashed #cbd5e1; padding: 20px 0; margin-bottom: 28px; display: flex; justify-content: space-between; align-items: center; }
-    .amount-val { font-size: 26px; font-weight: 800; color: #138601; }
-    .footer { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 20px; }
-    .security-stamp { font-family: monospace; font-size: 11px; background: #f1f5f9; padding: 8px 12px; border-radius: 6px; }
-    @media print {
-      body { background: transparent; padding: 0; }
-      .receipt-container { box-shadow: none; border-color: #138601; }
-      .no-print { display: none; }
-    }
-  </style>
-</head>
-<body>
-  <div class="receipt-container">
-    <div class="header">
-      <div>
-        <h1 class="org-title">Nigeria Association of Computing Students</h1>
-        <p class="org-sub">Department of Computer Science • Federal University of Technology, Owerri</p>
-      </div>
-      <div style="text-align: right;">
-        <span class="badge ${!isPaid ? 'badge-pending' : ''}">${isPaid ? 'Official Electronic Receipt' : 'Payment Pending Slip'}</span>
-        <div style="font-size: 11px; color: #64748b; margin-top: 6px; font-family: monospace;">${paymentRecord.receiptNo}</div>
-      </div>
-    </div>
-    <div class="grid">
-      <div><div class="item-label">Student Name</div><div class="item-value">${paymentRecord.studentName}</div></div>
-      <div><div class="item-label">Registration / Matric Number</div><div class="item-value" style="font-family: monospace;">${paymentRecord.matricNo}</div></div>
-      <div><div class="item-label">Department & Level</div><div class="item-value">${paymentRecord.department} (${paymentRecord.level})</div></div>
-      <div><div class="item-label">Academic Session</div><div class="item-value">${paymentRecord.session}</div></div>
-      <div><div class="item-label">Payment Date & Time</div><div class="item-value">${paymentRecord.paymentDate}</div></div>
-      <div><div class="item-label">Payment Method</div><div class="item-value">${paymentRecord.paymentMethod}</div></div>
-    </div>
-    <div class="amount-box">
-      <div>
-        <div class="item-label">Total Amount ${isPaid ? 'Paid' : 'Required'}</div>
-        <div class="amount-val">${paymentRecord.amount}</div>
-        <div style="font-size: 12px; color: #64748b; font-style: italic; margin-top: 2px;">${paymentRecord.amountInWords}</div>
-      </div>
-      <div style="text-align: right;">
-        <div class="security-stamp">STATUS: ${paymentRecord.status.toUpperCase()}<br>REF: ${paymentRecord.receiptNo}</div>
-      </div>
-    </div>
-    <div class="footer">
-      <div>Authorized by: ${paymentRecord.authorizedBy}</div>
-      <div>Official Cryptographic Digital Clearance • NACOS FUTO Portal</div>
-    </div>
-  </div>
-  <div class="no-print" style="text-align: center; margin-top: 24px;">
-    <button onclick="window.print()" style="background: #138601; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">Print This Document</button>
-  </div>
-</body>
-</html>`;
-    const blob = new Blob([receiptHtml], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleSelectLevel = (lvl) => {
-    setSelectedLevel(lvl);
-    const lvlPayment = levelDuesMap[lvl];
-    if (lvlPayment) {
-      setIsPaid(true);
-      setPaymentData(lvlPayment);
-    } else {
-      setIsPaid(false);
-      setPaymentData(null);
-    }
-  };
+  const rawMatric = user.registration_number || user.matric || 'N/A';
 
   return (
     <PortalLayout>
       <div className="space-y-6">
 
-        {/* Title Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 print:hidden">
+        {/* Top Header with "New Invoice" Action Button (Matching User Image 1) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
           <div>
-            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white tracking-tight">
-              Dues Clearance &amp; Receipts
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+              School Fees &amp; Departmental Dues
             </h1>
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-1">
-              Official departmental association dues payment clearance and electronic receipts across all levels.
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
+              Official clearance history and electronic POS receipts for Department of Computer Science.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {!isPaid && (
-              <button
-                type="button"
-                onClick={handlePayDues}
-                disabled={isProcessing || !duesFee}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] transition-colors cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <CreditCard className="w-4 h-4" />
-                <span>{isProcessing ? 'Processing...' : (duesFee ? `Pay Dues (₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })})` : 'Loading fee...')}</span>
-              </button>
-            )}
-
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={handlePrint}
-              disabled={isPrinting}
-              className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${isPaid
-                  ? 'text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs'
-                  : 'text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#083002] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200/80 dark:border-[#138601]/30'
-                }`}
+              onClick={handleOpenNewInvoice}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-sm active:scale-95"
             >
-              <Printer className="w-4 h-4" />
-              <span>
-                {isPrinting
-                  ? 'Generating...'
-                  : isPaid
-                    ? 'Print Official Receipt'
-                    : 'Print Payment Slip'}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDownloadReceipt}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#083002] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200/80 dark:border-[#138601]/30 transition-colors cursor-pointer shadow-xs"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download Receipt</span>
+              <Plus className="w-4 h-4" />
+              <span>New Invoice</span>
             </button>
           </div>
         </div>
 
         {/* Revocation Alert Banner */}
         {isRevoked && (
-          <div className="p-5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 text-red-900 dark:text-red-200 space-y-3 shadow-xs print:hidden">
+          <div className="p-5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 text-red-900 dark:text-red-200 space-y-3 shadow-xs print:hidden">
             <div className="flex items-start gap-3">
               <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
               <div className="space-y-1">
@@ -584,311 +551,308 @@ const Dues = () => {
                   Departmental Dues Clearance Revoked
                 </h3>
                 <p className="text-xs text-red-700 dark:text-red-200">
-                  {revocationReason || 'Your departmental clearance was revoked by administrative directive. A new payment is required to restore your clearance standing.'}
+                  {revocationReason || 'Your clearance standing was officially revoked by administration. A new dues payment is required to restore your clearance.'}
                 </p>
               </div>
             </div>
             <div className="pt-1 flex items-center gap-3">
               <button
                 type="button"
-                onClick={handlePayDues}
-                disabled={isProcessing || !duesFee}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors cursor-pointer shadow-xs"
+                onClick={handleOpenNewInvoice}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors cursor-pointer shadow-xs"
               >
                 <CreditCard className="w-4 h-4" />
-                <span>Pay Dues Now to Restore Clearance {duesFee ? `(₦${Number(duesFee).toLocaleString()})` : ''}</span>
+                <span>Pay Dues Now to Restore Clearance (₦{Number(duesFee).toLocaleString()})</span>
               </button>
             </div>
           </div>
         )}
 
-        {/* Level Clearance Selector Tabs (100L - 500L) */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 shadow-xs print:hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-            <div>
-              <h2 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white">
-                Academic Level Clearance Selector
-              </h2>
-              <p className="text-[11px] text-gray-500 dark:text-green-200/70">
-                Select an academic level to view clearance status, download receipts, or make dues payments.
-              </p>
-            </div>
-            <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-              Total Dues Paid: <span className="text-[#138601] dark:text-[#4bd043] font-bold">₦{totalLifetimeDues.toLocaleString()}</span>
-            </div>
+        {/* ==================================================================== */}
+        {/* SCHOOL FEES HISTORY TABLE (Matching User Image 1 Exactly)             */}
+        {/* ==================================================================== */}
+        <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200/80 dark:border-[#138601]/30 shadow-xs overflow-hidden">
+          
+          <div className="p-5 border-b border-gray-100 dark:border-[#138601]/25 flex items-center justify-between">
+            <h2 className="text-base font-bold text-gray-900 dark:text-white">
+              School Fees History
+            </h2>
+            <span className="text-xs font-semibold text-gray-500 dark:text-green-200/70">
+              Total Cleared: <strong className="text-[#0e8040] dark:text-[#4bd043]">₦{totalLifetimeDues.toLocaleString()}</strong>
+            </span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {['100', '200', '300', '400', '500'].map((lvl) => {
-              const isLvlPaid = Boolean(levelDuesMap[lvl]);
-              const isSelected = selectedLevel === lvl;
-              return (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead>
+                <tr className="border-b border-gray-200/70 dark:border-[#138601]/20 bg-gray-50/50 dark:bg-[#041801]/60 text-gray-500 dark:text-green-200/70 font-semibold text-[11px] sm:text-xs">
+                  <th className="py-3.5 px-5">Invoice #</th>
+                  <th className="py-3.5 px-4">Amount ₦</th>
+                  <th className="py-3.5 px-4">Level</th>
+                  <th className="py-3.5 px-4">Payment Type</th>
+                  <th className="py-3.5 px-4">Session</th>
+                  <th className="py-3.5 px-5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-[#138601]/15 text-gray-800 dark:text-gray-100">
+                {paidDuesRows.length > 0 ? (
+                  paidDuesRows.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50/60 dark:hover:bg-[#041801]/40 transition-colors">
+                      <td className="py-4 px-5 font-mono font-medium text-gray-900 dark:text-white text-xs">
+                        {row.receiptNo}
+                      </td>
+                      <td className="py-4 px-4 font-semibold text-gray-900 dark:text-white">
+                        {row.rawAmount ? Number(row.rawAmount).toLocaleString() : '2,500'}
+                      </td>
+                      <td className="py-4 px-4 font-bold text-gray-700 dark:text-green-200">
+                        {row.level}
+                      </td>
+                      <td className="py-4 px-4 text-gray-600 dark:text-gray-300">
+                        Full Payment
+                      </td>
+                      <td className="py-4 px-4 font-mono text-gray-600 dark:text-gray-300">
+                        {row.session}
+                      </td>
+                      <td className="py-4 px-5 text-right space-y-1.5 sm:space-y-0 sm:space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPosReceipt(row, true)}
+                          className="inline-block px-3 py-1.5 rounded-md text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200/80 dark:border-[#138601]/30 transition-colors cursor-pointer"
+                        >
+                          Print Invoice
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPosReceipt(row, false)}
+                          className="inline-block px-3 py-1.5 rounded-md text-xs font-semibold text-[#0e8040] hover:text-[#0b6a34] bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/40 transition-colors cursor-pointer"
+                        >
+                          Print Receipt
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="py-12 px-5 text-center space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-[#041801] text-gray-400 dark:text-green-200/50 flex items-center justify-center mx-auto">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">
+                          No Dues Payment History Found
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-green-200/60 max-w-sm mx-auto">
+                          You have not completed any departmental dues payments yet. Click <strong>"New Invoice"</strong> to generate your dues invoice and complete payment.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleOpenNewInvoice}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-colors cursor-pointer shadow-xs"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Create New Dues Invoice</span>
+                      </button>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+        {/* ==================================================================== */}
+        {/* NEW INVOICE MODAL / "SELECT SESSION" (Matching User Image 2 Exactly)  */}
+        {/* ==================================================================== */}
+        {isNewInvoiceOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+            <div className="relative max-w-2xl w-full bg-white dark:bg-[#083002] rounded-xl border border-gray-200 dark:border-[#138601]/40 shadow-2xl p-6 sm:p-8 space-y-6">
+              
+              {/* Modal Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-[#138601]/25">
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+                    Select Session
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-green-200/70 mt-0.5">
+                    Generate an official departmental dues clearance invoice.
+                  </p>
+                </div>
                 <button
-                  key={lvl}
                   type="button"
-                  onClick={() => handleSelectLevel(lvl)}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${isSelected
-                      ? 'border-[#138601] bg-[#138601]/10 dark:bg-[#138601]/20 shadow-xs'
-                      : 'border-gray-200/80 dark:border-[#138601]/20 hover:border-gray-300 dark:hover:border-[#138601]/40 bg-gray-50/50 dark:bg-[#041801]/60'
-                    }`}
+                  onClick={() => setIsNewInvoiceOpen(false)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white cursor-pointer"
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-gray-900 dark:text-white">
-                      {lvl} Level
-                    </span>
-                    {isLvlPaid ? (
-                      <span className="flex items-center gap-1 text-[10px] font-semibold text-[#138601] dark:text-[#4bd043]">
-                        <CheckCircle className="w-3 h-3" /> Paid
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-                        <Clock className="w-3 h-3" /> Unpaid
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[11px] text-gray-500 dark:text-green-200/70 truncate">
-                    {isLvlPaid ? 'Clearance Cleared' : 'Pending Payment'}
-                  </div>
+                  <X className="w-5 h-5" />
                 </button>
-              );
-            })}
-          </div>
-        </div>
+              </div>
 
-        {/* 3 Overview Info Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 print:hidden">
+              {/* Form Body (Matching Image 2 field-for-field) */}
+              <div className="space-y-5">
+                
+                {/* 1. Academic Session */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-2 sm:gap-4">
+                  <label className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    Academic Session
+                  </label>
+                  <div className="sm:col-span-2 relative">
+                    <select
+                      value={formSession}
+                      onChange={(e) => setFormSession(e.target.value)}
+                      className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0e8040] cursor-pointer"
+                    >
+                      <option value="2026/2027">2026/2027 Academic Session</option>
+                      <option value="2025/2026">2025/2026 Academic Session</option>
+                      <option value="2024/2025">2024/2025 Academic Session</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-400 dark:text-green-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
 
-          {/* Card 1: Clearance Status for Selected Level */}
-          <div className={`p-5 rounded-2xl bg-white dark:bg-[#083002] border space-y-1 shadow-xs ${isPaid
-              ? 'border-gray-200/80 dark:border-[#138601]/30'
-              : 'border-amber-200/80 dark:border-amber-700/40 bg-amber-50/30'
-            }`}>
-            <span className="text-xs font-medium text-gray-500 dark:text-green-200/80">
-              Clearance Status ({selectedLevel} Level)
-            </span>
-            <div className={`flex items-center gap-2 text-lg font-bold ${isPaid
-                ? 'text-[#138601] dark:text-[#4bd043]'
-                : 'text-amber-600 dark:text-amber-400'
-              }`}>
-              {isPaid ? (
-                <>
-                  <CheckCircle className="w-4.5 h-4.5" />
-                  <span>Dues Cleared</span>
-                </>
-              ) : (
-                <>
-                  <Clock className="w-4.5 h-4.5" />
-                  <span>Payment Pending</span>
-                </>
-              )}
+                {/* 2. Payment Type */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-2 sm:gap-4">
+                  <label className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    Payment Type
+                  </label>
+                  <div className="sm:col-span-2 relative">
+                    <select
+                      value={formPaymentType}
+                      onChange={(e) => setFormPaymentType(e.target.value)}
+                      className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0e8040] cursor-pointer"
+                    >
+                      <option value="Departmental Dues - Full Payment">
+                        Departmental Dues (Full Payment - ₦{Number(duesFee).toLocaleString()})
+                      </option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-400 dark:text-green-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* 3. Level (PROGRESSIVE DETERMINATION - Users cannot see levels ahead of them) */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-2 sm:gap-4">
+                  <label className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    Level
+                  </label>
+                  <div className="sm:col-span-2 relative">
+                    <select
+                      value={formLevel}
+                      onChange={(e) => setFormLevel(e.target.value)}
+                      className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-[#0e8040] dark:border-[#138601] bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0e8040] cursor-pointer font-medium"
+                    >
+                      {progressiveLevels.map((lvl) => (
+                        <option key={lvl} value={lvl}>
+                          {lvl} Level
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-400 dark:text-green-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Progressive Level notice */}
+                <div className="text-[11px] text-gray-500 dark:text-green-200/60 bg-gray-50 dark:bg-[#041801]/60 p-3 rounded-lg border border-gray-200/60 dark:border-[#138601]/20">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#0e8040] inline mr-1 -mt-0.5" />
+                  Progressive academic levels active: Showing clearance tiers available for your registered standing ({user.level || '100 Level'}).
+                </div>
+
+              </div>
+
+              {/* Modal Footer with "Submit" Button (Matching Image 2 green submit) */}
+              <div className="pt-4 border-t border-gray-100 dark:border-[#138601]/25 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsNewInvoiceOpen(false)}
+                  className="px-4 py-2.5 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#041801] transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitNewInvoice}
+                  disabled={isProcessing}
+                  className="px-6 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-xs inline-flex items-center gap-2"
+                >
+                  {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
+                  <span>Submit</span>
+                </button>
+              </div>
+
             </div>
-            <p className="text-xs text-gray-500 dark:text-green-200/70 font-normal">
-              {isPaid ? `Eligible for ${selectedLevel}L departmental clearance` : `Dues payment required for ${selectedLevel}L clearance`}
-            </p>
           </div>
+        )}
 
-          {/* Card 2: Current Level Dues Amount */}
-          <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 space-y-1 shadow-xs">
-            <span className="text-xs font-medium text-gray-500 dark:text-green-200/80">
-              {selectedLevel} Level Dues Fee
-            </span>
-            <div className="text-xl font-bold text-gray-900 dark:text-white">
-              {duesFee ? `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00'}
-            </div>
-            <p className="text-xs text-gray-500 dark:text-green-200/70 font-normal">
-              {session} {isPaid ? '• Paid & Verified' : '• Outstanding Balance'}
-            </p>
-          </div>
+        {/* ==================================================================== */}
+        {/* CROSS-TAB GATEWAY LISTENING OVERLAY (Opens Gateway in New Tab)        */}
+        {/* ==================================================================== */}
+        {isAwaitingGateway && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="max-w-md w-full bg-white dark:bg-[#083002] rounded-2xl border border-gray-200 dark:border-[#138601]/40 shadow-2xl p-6 sm:p-8 text-center space-y-5">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-[#041801] text-[#0e8040] dark:text-[#4bd043] flex items-center justify-center mx-auto border border-[#0e8040]/30 animate-pulse">
+                <RefreshCw className="w-8 h-8 animate-spin" />
+              </div>
 
-          {/* Card 3: Electronic Receipt Number */}
-          <div className={`p-5 rounded-2xl bg-white dark:bg-[#083002] border space-y-1 shadow-xs ${isPaid
-              ? 'border-gray-200/80 dark:border-[#138601]/30'
-              : 'border-amber-200/80 dark:border-amber-700/40'
-            }`}>
-            <span className="text-xs font-medium text-gray-500 dark:text-green-200/80">Electronic Receipt Number</span>
-            <div className={`text-xs sm:text-sm font-semibold font-mono ${isPaid
-                ? 'text-gray-900 dark:text-white'
-                : 'text-amber-700 dark:text-amber-400'
-              }`}>
-              {paymentRecord.receiptNo}
-            </div>
-            {isPaid ? (
-              <p className="text-xs text-[#138601] dark:text-[#4bd043] font-medium flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5" /> Cryptographically Signed
-              </p>
-            ) : (
-              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" /> Awaiting Payment Confirmation
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Official Printable Electronic Receipt Box */}
-        <div className="p-5 sm:p-8 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 space-y-5 shadow-xs print:border-none print:shadow-none print:p-0 overflow-hidden">
-
-          {/* Receipt Header */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-gray-100 dark:border-[#138601]/25 text-center sm:text-left">
-            <div className="flex items-center space-x-3">
-              <img src={isDark ? logoDark : logoLight} alt="NACOS Logo" className="h-8 w-auto object-contain" />
-              <div>
-                <h3 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white leading-tight">
-                  Nigeria Association of Computing Students
+              <div className="space-y-2">
+                <span className="inline-block px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-emerald-100 text-[#0e8040] dark:bg-emerald-950/70 dark:text-[#4bd043]">
+                  Bachs Gateway Opened in New Tab
+                </span>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Awaiting Payment Confirmation
                 </h3>
-                <p className="text-xs text-gray-500 dark:text-green-200 font-medium mt-0.5">Department of Computer Science • FUTO Chapter</p>
-              </div>
-            </div>
-
-            <div className="text-center sm:text-right">
-              {isPaid ? (
-                <div className="inline-block px-3 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-[#138601] border border-emerald-200 dark:bg-[#138601]/25 dark:border-[#138601]/40 dark:text-[#4bd043]">
-                  Official Electronic Receipt
-                </div>
-              ) : (
-                <div className="inline-block px-3 py-1 rounded-md text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300 dark:border-amber-700/50">
-                  Payment Pending
-                </div>
-              )}
-              <div className="text-[10px] text-gray-500 dark:text-green-200/70 mt-1 font-mono break-all max-w-[180px] sm:max-w-none mx-auto">
-                {isPaid ? paymentRecord.receiptNo : 'Awaiting Payment Reference'}
-              </div>
-            </div>
-          </div>
-
-          {/* Receipt Data Table */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6 text-xs">
-            <div>
-              <span className="text-gray-500 dark:text-green-200/70 block mb-0.5 text-[11px]">Student Full Name</span>
-              <span className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white break-words">{paymentRecord.studentName}</span>
-            </div>
-
-            <div>
-              <span className="text-gray-500 dark:text-green-200/70 block mb-0.5 text-[11px]">Matriculation Number</span>
-              <span className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white font-mono break-all">{paymentRecord.matricNo}</span>
-            </div>
-
-            <div>
-              <span className="text-gray-500 dark:text-green-200/70 block mb-0.5 text-[11px]">Department &amp; Level</span>
-              <span className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white break-words">{paymentRecord.department} ({paymentRecord.level})</span>
-            </div>
-
-            <div>
-              <span className="text-gray-500 dark:text-green-200/70 block mb-0.5 text-[11px]">Academic Session</span>
-              <span className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white">{paymentRecord.session}</span>
-            </div>
-
-            <div>
-              <span className="text-gray-500 dark:text-green-200/70 block mb-0.5 text-[11px]">Payment Date &amp; Time</span>
-              <span className={`font-semibold text-xs sm:text-sm break-words ${isPaid ? 'text-gray-900 dark:text-white' : 'text-amber-700 dark:text-amber-400 font-normal italic'
-                }`}>
-                {paymentRecord.paymentDate}
-              </span>
-            </div>
-
-            <div>
-              <span className="text-gray-500 dark:text-green-200/70 block mb-0.5 text-[11px]">Payment Method</span>
-              <span className={`font-semibold text-xs sm:text-sm break-words ${isPaid ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 font-normal italic'
-                }`}>
-                {paymentRecord.paymentMethod}
-              </span>
-            </div>
-
-            <div className="sm:col-span-2 pt-3.5 border-t border-gray-100 dark:border-[#138601]/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <span className="text-gray-500 dark:text-green-200/70 block mb-0.5 text-[11px]">Amount Paid</span>
-                <span className={`text-xl sm:text-2xl font-bold ${isPaid ? 'text-[#138601] dark:text-[#4bd043]' : 'text-amber-600 dark:text-amber-400'
-                  }`}>
-                  {paymentRecord.amount}
-                </span>
-                <span className="text-xs text-gray-500 dark:text-green-200/70 block italic font-normal mt-0.5">
-                  {paymentRecord.amountInWords}
-                </span>
-              </div>
-
-              <div className={`flex items-center space-x-2.5 p-3 rounded-xl border ${isPaid
-                  ? 'bg-[#f1f3f5] dark:bg-[#041801] border-gray-200/80 dark:border-[#138601]/30'
-                  : 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/30'
-                }`}>
-                <QrCode className={`w-8 h-8 ${isPaid ? 'text-gray-700 dark:text-[#4bd043]' : 'text-amber-600 dark:text-amber-400'
-                  }`} />
-                <div className="text-[11px] text-gray-600 dark:text-green-200/80 font-normal">
-                  <div className="font-semibold text-gray-900 dark:text-white">
-                    {isPaid ? 'Scan to Verify' : 'Payment Pending'}
-                  </div>
-                  <div>
-                    {isPaid ? 'Authenticity Token Valid' : 'Unverified • Invoice Slip'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Receipt Footer */}
-          <div className="pt-4 border-t border-gray-100 dark:border-[#138601]/20 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500 dark:text-green-200/70 gap-2 text-center sm:text-left font-normal">
-            <span>Authorized by: {paymentRecord.authorizedBy}</span>
-            <span>
-              {isPaid
-                ? 'This is a computer-generated receipt. No physical stamp required.'
-                : 'This is a pro-forma payment slip. Official clearance receipt will be issued upon payment.'}
-            </span>
-          </div>
-
-        </div>
-
-        {/* Action Callout when Unpaid */}
-        {!isPaid && (
-          <div className="p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 shadow-xs print:hidden">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-0.5">
-                <h4 className="text-xs sm:text-sm font-bold text-amber-900 dark:text-amber-200">
-                  Annual Departmental Dues Required — {levelLabel}
-                </h4>
-                <p className="text-xs text-amber-700 dark:text-amber-300/80">
-                  Pay your {duesFee ? `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })} ` : ''}departmental dues for <strong>{levelLabel}</strong> to complete academic clearance and unlock your verified electronic receipt.
+                <p className="text-xs text-gray-600 dark:text-green-100/80 leading-relaxed">
+                  We opened the official Bachs checkout window in a new tab. Please complete payment there. This page will <strong>automatically refresh and display your official receipt</strong> once payment is received.
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 shrink-0 w-full sm:w-auto">
-                {/* Inline level selector inside callout */}
-                <div className="flex items-center gap-2">
-                  <label className="text-xs font-semibold text-amber-800 dark:text-amber-300 whitespace-nowrap">Level:</label>
-                  <select
-                    value={selectedLevel}
-                    onChange={(e) => setSelectedLevel(e.target.value)}
-                    className="text-xs font-semibold px-3 py-2 border border-amber-300 dark:border-amber-600/60 rounded bg-white dark:bg-[#1a0c00] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
-                  >
-                    {['100', '200', '300', '400', '500'].map(l => (
-                      <option key={l} value={l}>{l} Level</option>
-                    ))}
-                  </select>
+              {gatewayRef && (
+                <div className="p-3 rounded-lg bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/20 text-xs font-mono text-gray-600 dark:text-green-200 break-all">
+                  Ref: <span className="font-bold text-[#0e8040] dark:text-[#4bd043]">{gatewayRef}</span>
                 </div>
+              )}
 
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
                   type="button"
-                  onClick={handlePayDues}
-                  disabled={isProcessing}
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                  onClick={() => checkStatus(user)}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-xs font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-colors cursor-pointer shadow-xs inline-flex items-center justify-center gap-2"
                 >
-                  <CreditCard className="w-4 h-4" />
-                  <span>{isProcessing ? 'Processing Payment...' : (duesFee ? `Pay ₦${Number(duesFee).toLocaleString()} — ${levelLabel}` : `Pay Dues — ${levelLabel}`)}</span>
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Check Status Now</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAwaitingGateway(false)}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#041801] transition-colors cursor-pointer"
+                >
+                  Close Waiting Notice
                 </button>
               </div>
             </div>
           </div>
         )}
 
-      </div>
+        {/* ==================================================================== */}
+        {/* REAL THERMAL POS RECEIPT MODAL                                       */}
+        {/* ==================================================================== */}
+        <PosThermalReceipt
+          isOpen={isPosReceiptOpen}
+          onClose={() => setIsPosReceiptOpen(false)}
+          data={posReceiptData}
+          isInvoice={isInvoiceSlip}
+        />
 
-      {/* Step-Up Authentication Modal */}
-      <StepUpAuthModal
-        isOpen={isStepUpOpen}
-        onClose={() => setIsStepUpOpen(false)}
-        onSuccess={(token) => executeCheckout(token)}
-        purpose="PAYMENT_CONFIRMATION"
-        title="Confirm Departmental Dues Payment"
-        description="Verify your identity before proceeding to Bachs payment checkout."
-        user={user}
-      />
+        {/* Step-Up Authentication Modal */}
+        <StepUpAuthModal
+          isOpen={isStepUpOpen}
+          onClose={() => setIsStepUpOpen(false)}
+          onSuccess={(token) => executeCheckout(token)}
+          purpose="PAYMENT_CONFIRMATION"
+          title="Confirm Departmental Dues Payment"
+          description={`Verify your identity before proceeding to Bachs payment checkout for ${formLevel} Level (${formSession}).`}
+          user={user}
+        />
+
+      </div>
     </PortalLayout>
   );
 };

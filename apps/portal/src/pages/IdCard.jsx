@@ -224,8 +224,28 @@ const IdCard = () => {
     setTimeout(() => setNotification({ message: '', type: '' }), 4500);
   };
 
-  // Bachs Verification Polling & URL Parameter Listener
+  // Bachs Verification Polling & URL Parameter Listener + Cross-Tab Sync
   useEffect(() => {
+    let channel = null;
+    try {
+      channel = new BroadcastChannel('nacos_payment_sync');
+      channel.onmessage = (event) => {
+        if (event.data?.status === 'successful') {
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          setIsVerifyingPayment(false);
+          showNotification('Payment confirmed in new window! Processing ID Card on the spot.');
+          loadStudentAndApplication();
+        }
+      };
+    } catch (e) {}
+
+    const handleStorageEvent = (e) => {
+      if (e.key === 'nacos_last_payment_success' || e.key === 'nacos_user') {
+        loadStudentAndApplication();
+      }
+    };
+    window.addEventListener('storage', handleStorageEvent);
+
     const paymentAction = searchParams.get('payment');
     const ref = searchParams.get('reference');
     const chkId = searchParams.get('checkout_id') || searchParams.get('checkoutId');
@@ -242,6 +262,11 @@ const IdCard = () => {
       searchParams.delete('checkoutId');
       setSearchParams(searchParams, { replace: true });
     }
+
+    return () => {
+      if (channel) channel.close();
+      window.removeEventListener('storage', handleStorageEvent);
+    };
   }, [searchParams]);
 
   useEffect(() => {
@@ -392,8 +417,14 @@ const IdCard = () => {
       }
 
       if (data.checkoutUrl) {
-        // Authoritative redirect to Bachs Checkout
-        window.location.href = data.checkoutUrl;
+        // Authoritative Bachs checkout opened in a NEW TAB
+        window.open(data.checkoutUrl, '_blank');
+        setIsPaying(false);
+        setIsVerifyingPayment(true);
+        setVerifyingReference(data.providerCheckoutId || data.reference || '');
+        startPaymentVerificationPolling(data.reference, data.providerCheckoutId);
+        showNotification('Bachs checkout opened in a new tab. Complete payment there to proceed.');
+        return;
       } else {
         setIsPaying(false);
         showNotification('Could not obtain checkout session from Bachs gateway.', 'error');

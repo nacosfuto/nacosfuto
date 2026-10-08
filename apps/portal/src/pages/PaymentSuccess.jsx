@@ -48,6 +48,15 @@ const PaymentSuccess = () => {
     };
 
     fetchPaymentDetails();
+
+    // Broadcast confirmation across browser tabs
+    try {
+      const channel = new BroadcastChannel('nacos_payment_sync');
+      channel.postMessage({ status: 'successful', reference });
+      setTimeout(() => channel.close(), 1000);
+    } catch (e) {}
+    localStorage.setItem('nacos_last_payment_success', JSON.stringify({ reference, timestamp: Date.now() }));
+    window.dispatchEvent(new Event('nacos_user_updated'));
   }, [reference]);
 
   return (

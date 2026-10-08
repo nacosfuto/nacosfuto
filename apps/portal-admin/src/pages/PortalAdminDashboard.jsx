@@ -56,10 +56,49 @@ export const PortalAdminDashboard = () => {
 
   useEffect(() => {
     loadDashboardData();
+
+    // 1. Supabase Real-time Subscriptions for Live Admin Updates
+    let channel = null;
+    if (supabase) {
+      try {
+        channel = supabase
+          .channel('portal-admin-live-feed')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
+            loadDashboardData(true);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+            loadDashboardData(true);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_applications' }, () => {
+            loadDashboardData(true);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'verified_students' }, () => {
+            loadDashboardData(true);
+          })
+          .subscribe();
+      } catch (err) {
+        console.warn('Realtime subscription notice:', err);
+      }
+    }
+
+    // 2. Continuous 8-second polling to ensure zero data drift
+    const pollInterval = setInterval(() => {
+      loadDashboardData(true);
+    }, 8000);
+
+    // 3. Tab focus reload
+    const handleFocus = () => loadDashboardData(true);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      if (channel && supabase) supabase.removeChannel(channel);
+      clearInterval(pollInterval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
-  const loadDashboardData = async () => {
-    setLoading(true);
+  const loadDashboardData = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const [whitelistRes, accountsRes, idCardsRes, duesSettingsRes] = await Promise.all([
         adminGetAllVerifiedStudents(),
