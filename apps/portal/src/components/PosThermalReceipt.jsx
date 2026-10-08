@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react';
 import { Printer, X } from 'lucide-react';
 import logoLight from '../assets/full-logo-light.png';
+import { printReceiptSlip } from '../utils/printReceipt';
 
 /**
  * Authentic A4/A5 Sized POS Style Receipt
  * - Top: Official NACOS FUTO brand logo centered at the top (no text at the top)
  * - Body: Monospace POS styling with dashed borders, receipt info, student particulars, itemized breakdown & total
  * - Clean: QR code & barcode sections completely removed as requested
- * - Print: Formatted for standard A4 portrait dimensions
+ * - Print: Formatted for standard A4 portrait dimensions using isolated iframe printer
  */
 const PosThermalReceipt = ({
   isOpen,
@@ -53,7 +54,7 @@ const PosThermalReceipt = ({
   const formattedAmount = numAmount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const handlePrint = () => {
-    window.print();
+    printReceiptSlip('official-pos-receipt-slip');
   };
 
   return (

@@ -278,23 +278,33 @@ const PaymentSuccess = () => {
         </p>
 
         {/* Action Controls */}
-        <div className="w-full flex items-center justify-center gap-3 pt-1">
-          <button
-            type="button"
-            onClick={handleCloseTab}
-            className="flex-1 py-3 px-5 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#0e8040] hover:bg-[#0b6a34] shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
-          >
-            <XCircle className="w-4 h-4" />
-            <span>Close This Window</span>
-          </button>
-
+        <div className="w-full flex flex-col gap-2.5 pt-1">
           <Link
-            to={isDues ? '/dues' : '/id-card'}
-            className="py-3 px-4 rounded-xl text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-[#072802] hover:bg-gray-100 dark:hover:bg-[#093503] border border-gray-200 dark:border-[#138601]/30 shadow-xs transition-colors inline-flex items-center justify-center gap-1.5"
+            to={`/receipt?reference=${encodeURIComponent(reference)}&type=${isDues ? 'dues' : 'id_card'}`}
+            className="w-full py-3 px-5 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#0e8040] hover:bg-[#0b6a34] shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
           >
-            <span>Back to Portal</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <Printer className="w-4 h-4" />
+            <span>View Official Receipt</span>
           </Link>
+
+          <div className="w-full flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={handleCloseTab}
+              className="flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#072802] hover:bg-gray-100 dark:hover:bg-[#093503] border border-gray-200 dark:border-[#138601]/30 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              <span>Close Tab</span>
+            </button>
+
+            <Link
+              to={isDues ? '/dues' : '/id-card'}
+              className="flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#072802] hover:bg-gray-100 dark:hover:bg-[#093503] border border-gray-200 dark:border-[#138601]/30 transition-colors inline-flex items-center justify-center gap-1.5"
+            >
+              <span>Back to Portal</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
 
       </div>

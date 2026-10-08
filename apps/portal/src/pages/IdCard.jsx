@@ -350,7 +350,7 @@ const IdCard = () => {
           const currentSettings = settingsRef.current;
           const lvl = currentStudent?.level ? `${currentStudent.level} Level` : '300 Level';
           const feeAmt = Number(event.data.amount || currentSettings?.id_card_fee || 500);
-          setReceiptData({
+          const payload = {
             receiptNo: event.data.reference || `NACOS/IDCARD/${Date.now().toString().slice(-6)}`,
             transactionId: `BCH-${Date.now()}`,
             date: new Date().toLocaleDateString('en-GB'),
@@ -364,9 +364,12 @@ const IdCard = () => {
             rawAmount: feeAmt,
             paymentType: 'Student ID Card Issuance',
             paymentMethod: 'Bachs Online Gateway (Confirmed)',
-            status: 'APPROVED'
+            status: 'APPROVED',
+            isInvoice: false
+          };
+          navigate(`/receipt?reference=${encodeURIComponent(payload.receiptNo)}&type=id_card`, {
+            state: { receiptData: payload }
           });
-          setIsReceiptOpen(true);
         }
       };
     } catch (e) {}
@@ -438,7 +441,7 @@ const IdCard = () => {
 
           const lvl = student?.level ? `${student.level} Level` : '300 Level';
           const feeAmt = Number(data.payment?.amount || settings.id_card_fee || 500);
-          setReceiptData({
+          const payload = {
             receiptNo: data.payment?.reference || reference || `NACOS/IDCARD/${Date.now().toString().slice(-6)}`,
             transactionId: data.payment?.transaction_id || `BCH-${Date.now()}`,
             date: new Date().toLocaleDateString('en-GB'),
@@ -452,9 +455,12 @@ const IdCard = () => {
             rawAmount: feeAmt,
             paymentType: 'Student ID Card Issuance',
             paymentMethod: 'Bachs Online Gateway (Confirmed)',
-            status: 'APPROVED'
+            status: 'APPROVED',
+            isInvoice: false
+          };
+          navigate(`/receipt?reference=${encodeURIComponent(payload.receiptNo)}&type=id_card`, {
+            state: { receiptData: payload }
           });
-          setIsReceiptOpen(true);
           return;
         }
       } catch (err) {
@@ -605,7 +611,7 @@ const IdCard = () => {
   };
 
   const handleOpenReceipt = (row) => {
-    setReceiptData({
+    const payload = {
       receiptNo: row.receiptNo,
       transactionId: row.transactionId,
       date: row.date,
@@ -619,9 +625,12 @@ const IdCard = () => {
       rawAmount: row.amount,
       paymentType: 'Student ID Card Issuance',
       paymentMethod: row.paymentMethod,
-      status: 'APPROVED'
+      status: 'APPROVED',
+      isInvoice: false
+    };
+    navigate(`/receipt?reference=${encodeURIComponent(row.receiptNo || row.id)}&type=id_card`, {
+      state: { receiptData: payload }
     });
-    setIsReceiptOpen(true);
   };
 
   const handleViewIdCard = () => {
@@ -1666,13 +1675,7 @@ const IdCard = () => {
           </div>
         )}
 
-        {/* Official Paper Clearance Receipt Modal */}
-        <PosThermalReceipt
-          isOpen={isReceiptOpen}
-          onClose={() => setIsReceiptOpen(false)}
-          data={receiptData}
-          isInvoice={false}
-        />
+
 
       </div>
 

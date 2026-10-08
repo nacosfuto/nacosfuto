@@ -328,75 +328,64 @@ h1, h2, h3, h4, h5, h6, .font-heading, .font-display {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 10mm 15mm;
+    margin: 15mm 20mm;
   }
 
-  /* Hide everything when printing receipt - Supports #official-pos-receipt-slip and #official-paper-receipt-slip */
-  body:has(#official-pos-receipt-slip) *,
-  body:has(#official-paper-receipt-slip) * {
-    visibility: hidden !important;
-  }
-
-  body:has(#official-pos-receipt-slip) #official-pos-receipt-slip,
-  body:has(#official-pos-receipt-slip) #official-pos-receipt-slip *,
-  body:has(#official-paper-receipt-slip) #official-paper-receipt-slip,
-  body:has(#official-paper-receipt-slip) #official-paper-receipt-slip * {
-    visibility: visible !important;
-  }
-
-  body:has(#official-pos-receipt-slip),
-  body:has(#official-paper-receipt-slip) {
-    background: #ffffff !important;
-    color: #000000 !important;
-  }
-
-  body:has(#official-pos-receipt-slip) #official-pos-receipt-slip,
-  body:has(#official-paper-receipt-slip) #official-paper-receipt-slip {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 10mm 15mm !important;
-    box-shadow: none !important;
-    border: none !important;
-    background: #ffffff !important;
-    color: #000000 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  /* Exclude buttons and non-printable elements */
-  body:has(#official-pos-receipt-slip) button,
-  body:has(#official-paper-receipt-slip) button {
+  /* When printing, hide all non-receipt chrome: sidebar, topbar, buttons, modals */
+  aside,
+  header,
+  nav,
+  footer,
+  button,
+  .print\:hidden,
+  [role="navigation"],
+  #receipt-close-btn,
+  #receipt-print-btn,
+  #page-receipt-print-btn {
     display: none !important;
     visibility: hidden !important;
   }
 
-  /* Support legacy thermal selector if ever present */
-  body:has(#thermal-pos-slip-paper) * {
-    visibility: hidden;
-  }
-  body:has(#thermal-pos-slip-paper) #thermal-pos-slip-paper,
-  body:has(#thermal-pos-slip-paper) #thermal-pos-slip-paper * {
-    visibility: visible;
-  }
-  body:has(#thermal-pos-slip-paper) #thermal-pos-slip-paper {
-    position: absolute;
-    left: 50%;
-    top: 0;
-    transform: translateX(-50%);
-    width: 100% !important;
-    max-width: 600px !important;
+  /* Reset document root to ensure normal document flow without clipping */
+  html,
+  body,
+  #root,
+  .site-container,
+  main {
     margin: 0 !important;
-    padding: 16px !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-width: 100% !important;
     box-shadow: none !important;
     border: none !important;
+  }
+
+  /* Center official POS receipt slip naturally on the printed A4 sheet */
+  #official-pos-receipt-slip,
+  #official-paper-receipt-slip {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 440px !important;
+    padding: 10mm 15mm !important;
+    box-shadow: none !important;
+    border: 1px dashed #333333 !important;
     background: #ffffff !important;
     color: #000000 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  #official-pos-receipt-slip *,
+  #official-paper-receipt-slip * {
+    visibility: visible !important;
+    color: #000000 !important;
   }
 }
 

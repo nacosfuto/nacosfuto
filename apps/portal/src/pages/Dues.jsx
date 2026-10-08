@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CheckCircle,
   AlertCircle,
@@ -49,6 +49,7 @@ export const getProgressiveLevels = (u) => {
 };
 
 const Dues = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isProcessing, setIsProcessing] = useState(false);
   const { theme } = useTheme();
@@ -366,9 +367,9 @@ const Dues = () => {
               paymentMethod: 'Bachs Online Gateway (Confirmed)',
               status: 'APPROVED'
             };
-            setPosReceiptData(receiptPayload);
-            setIsInvoiceSlip(false);
-            setIsPosReceiptOpen(true);
+            navigate(`/receipt?reference=${encodeURIComponent(receiptPayload.receiptNo)}&type=dues`, {
+              state: { receiptData: receiptPayload }
+            });
             return;
           }
         }
@@ -419,9 +420,9 @@ const Dues = () => {
                 paymentMethod: 'Bachs Online Gateway (Confirmed)',
                 status: 'APPROVED'
               };
-              setPosReceiptData(receiptPayload);
-              setIsInvoiceSlip(false);
-              setIsPosReceiptOpen(true);
+              navigate(`/receipt?reference=${encodeURIComponent(receiptPayload.receiptNo)}&type=dues`, {
+                state: { receiptData: receiptPayload }
+              });
             } catch (e) {}
           }
         }
@@ -562,11 +563,22 @@ const Dues = () => {
     }
   };
 
-  // Open Real POS Receipt Modal for a specific row
+  // Load Official In-Portal POS Receipt View for a specific row
   const handleOpenPosReceipt = (row, isInvoice = false) => {
-    setPosReceiptData(row);
-    setIsInvoiceSlip(isInvoice);
-    setIsPosReceiptOpen(true);
+    const payload = {
+      ...row,
+      isInvoice,
+      isPaid: !isInvoice,
+      paymentType: row.paymentType || 'Departmental Dues Clearance',
+      department: user?.department || 'Computer Science',
+      studentName: (user?.full_name || user?.name || 'Student Member').trim(),
+      matricNo: user?.matric || user?.registration_number || '20241450682',
+      session: row.session || formSession || '2026/2027',
+      level: row.level || '300 Level'
+    };
+    navigate(`/receipt?reference=${encodeURIComponent(row.receiptNo || row.id)}&type=dues${isInvoice ? '&invoice=true' : ''}`, {
+      state: { receiptData: payload }
+    });
   };
 
   return (
@@ -897,15 +909,7 @@ const Dues = () => {
           </div>
         )}
 
-        {/* ==================================================================== */}
-        {/* REAL THERMAL POS RECEIPT MODAL                                       */}
-        {/* ==================================================================== */}
-        <PosThermalReceipt
-          isOpen={isPosReceiptOpen}
-          onClose={() => setIsPosReceiptOpen(false)}
-          data={posReceiptData}
-          isInvoice={isInvoiceSlip}
-        />
+
 
         {/* Step-Up Authentication Modal */}
         <StepUpAuthModal
