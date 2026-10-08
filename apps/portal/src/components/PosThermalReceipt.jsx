@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Printer, X, QrCode } from 'lucide-react';
 
 /**
- * Authentic POS Thermal Receipt (A5 Proportion)
- * Pure, authentic POS receipt design without bloated surrounding frames.
- * Single simple "Print" button that triggers native printer dialog (window.print()).
+ * Authentic Responsive POS Thermal Receipt (A5 Proportion)
+ * Handheld POS docket proportions (max-w-[350px]) that scale responsively on all screens.
+ * Features a sticky action bar with Print and Close (X) buttons, Escape key listener, and backdrop click to close.
  */
 const PosThermalReceipt = ({
   isOpen,
@@ -12,6 +12,20 @@ const PosThermalReceipt = ({
   data,
   isInvoice = false
 }) => {
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen || !data) return null;
 
   const {
@@ -40,39 +54,49 @@ const PosThermalReceipt = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 print:p-0 print:bg-white print:static print:inset-auto">
-      
-      {/* Wrapper containing solely the A5 POS Receipt and simple action controls */}
-      <div className="relative w-full max-w-[440px] flex flex-col items-center gap-3 print:max-w-none print:w-full">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-sm flex justify-center items-start pt-4 sm:pt-8 pb-10 px-3 sm:px-4 print:p-0 print:bg-white print:static print:inset-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Electronic Payment Receipt"
+    >
+      {/* Wrapper containing the responsive A5 POS Receipt slip and action controls */}
+      <div className="relative w-full max-w-[340px] sm:max-w-[360px] flex flex-col items-center gap-2 print:max-w-none print:w-full">
         
-        {/* Simple Controls Bar (Print + Close) */}
-        <div className="w-full flex items-center justify-between px-1 print:hidden shrink-0">
+        {/* Top Action Bar (Always visible at top of viewport) */}
+        <div className="w-full flex items-center justify-between px-1 mb-1 print:hidden shrink-0">
           <button
             type="button"
             onClick={handlePrint}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-md transition-all cursor-pointer active:scale-95"
-            title="Print Receipt"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-[#0e8040] hover:bg-[#0b6a34] shadow-md transition-all cursor-pointer active:scale-95"
+            title="Print to printer"
+            id="pos-thermal-print-btn"
           >
-            <Printer className="w-4 h-4" />
-            <span>Print</span>
+            <Printer className="w-3.5 h-3.5" />
+            <span>Print Receipt</span>
           </button>
 
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full bg-white/20 hover:bg-white/40 text-white transition-colors cursor-pointer"
-            title="Close"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-semibold backdrop-blur-sm transition-colors cursor-pointer"
+            title="Close Receipt (Esc)"
+            id="pos-thermal-close-btn"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
+            <span>Close</span>
           </button>
         </div>
 
         {/* ========================================================= */}
-        {/* AUTHENTIC A5 POS RECEIPT SLIP                             */}
+        {/* AUTHENTIC RESPONSIVE POS THERMAL DOCKET SLIP              */}
         {/* ========================================================= */}
         <div
           id="official-pos-receipt-slip"
-          className="w-full bg-white text-gray-950 font-mono text-xs rounded-lg shadow-2xl p-6 sm:p-7 border border-gray-300 print:border-none print:shadow-none print:p-0 print:rounded-none"
+          className="w-full bg-white text-gray-950 font-mono text-[10.5px] rounded-lg shadow-2xl p-4 sm:p-5 border border-gray-300 print:border-none print:shadow-none print:p-0 print:rounded-none"
           style={{
             fontFamily: "'Courier New', Courier, monospace, 'SFMono-Regular', Consolas"
           }}
@@ -101,41 +125,41 @@ const PosThermalReceipt = ({
           `}</style>
 
           {/* POS Header */}
-          <div className="text-center space-y-1">
-            <div className="text-xs font-bold tracking-widest uppercase">
+          <div className="text-center space-y-0.5">
+            <div className="text-[10px] font-bold tracking-widest uppercase">
               ================================
             </div>
-            <div className="text-sm font-black tracking-tight uppercase">
+            <div className="text-xs sm:text-sm font-black tracking-tight uppercase">
               NACOS FUTO
             </div>
-            <div className="text-[11px] font-bold tracking-tight uppercase">
+            <div className="text-[10px] font-bold tracking-tight uppercase">
               NIGERIA ASSOC. OF COMPUTING STUDENTS
             </div>
-            <div className="text-[10px] uppercase">
+            <div className="text-[9px] uppercase">
               FEDERAL UNIVERSITY OF TECHNOLOGY, OWERRI
             </div>
-            <div className="text-[10px] text-gray-700 uppercase">
+            <div className="text-[9px] text-gray-700 uppercase">
               DEPT OF COMPUTER SCIENCE &bull; SICT
             </div>
-            <div className="text-xs font-bold tracking-widest uppercase pt-0.5">
+            <div className="text-[10px] font-bold tracking-widest uppercase pt-0.5">
               ================================
             </div>
           </div>
 
           {/* Slip Type Badge */}
-          <div className="my-2 py-1 border-y border-dashed border-gray-400 text-center font-bold uppercase tracking-wider text-[11px]">
+          <div className="my-1.5 py-1 border-y border-dashed border-gray-400 text-center font-bold uppercase tracking-wider text-[10px]">
             {isInvoice ? '*** PROFORMA INVOICE SLIP ***' : '*** OFFICIAL PAYMENT RECEIPT ***'}
           </div>
 
           {/* Receipt & Transaction Info */}
-          <div className="space-y-1 py-1 text-[11px]">
+          <div className="space-y-0.5 py-1 text-[10px]">
             <div className="flex justify-between">
               <span className="text-gray-600">RECEIPT NO:</span>
               <span className="font-bold">{receiptNo}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">TRANS REF:</span>
-              <span className="font-bold truncate max-w-[200px]">{transactionId}</span>
+              <span className="font-bold truncate max-w-[180px]">{transactionId}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">DATE:</span>
@@ -154,13 +178,13 @@ const PosThermalReceipt = ({
           </div>
 
           {/* Divider */}
-          <div className="my-1.5 border-t border-dashed border-gray-400"></div>
+          <div className="my-1 border-t border-dashed border-gray-400"></div>
 
           {/* Student Particulars */}
-          <div className="space-y-1 py-1 text-[11px]">
+          <div className="space-y-0.5 py-1 text-[10px]">
             <div className="flex justify-between">
               <span className="text-gray-600">NAME:</span>
-              <span className="font-bold uppercase text-right truncate max-w-[220px]">{studentName}</span>
+              <span className="font-bold uppercase text-right truncate max-w-[190px]">{studentName}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">REG / MATRIC:</span>
@@ -181,30 +205,30 @@ const PosThermalReceipt = ({
           </div>
 
           {/* Divider */}
-          <div className="my-1.5 border-t-2 border-dashed border-gray-400"></div>
+          <div className="my-1 border-t-2 border-dashed border-gray-400"></div>
 
           {/* Itemized Table */}
-          <div className="space-y-1.5 py-1 text-[11px]">
-            <div className="flex justify-between font-bold border-b border-dashed border-gray-300 pb-1">
+          <div className="space-y-1 py-1 text-[10px]">
+            <div className="flex justify-between font-bold border-b border-dashed border-gray-300 pb-0.5">
               <span>DESCRIPTION</span>
               <span>QTY</span>
               <span>AMOUNT</span>
             </div>
 
-            <div className="flex justify-between pt-1">
-              <span className="font-bold truncate max-w-[200px]">
+            <div className="flex justify-between pt-0.5">
+              <span className="font-bold truncate max-w-[170px]">
                 {paymentType || `Departmental Dues (${level})`}
               </span>
               <span>1</span>
               <span className="font-bold">₦{formattedAmount}</span>
             </div>
 
-            <div className="flex justify-between text-[10px] text-gray-600">
-              <span>E-Portal Verification</span>
+            <div className="flex justify-between text-[9px] text-gray-600">
+              <span>E-Portal Clearance Levy</span>
               <span>1</span>
               <span>₦0.00</span>
             </div>
-            <div className="flex justify-between text-[10px] text-gray-600">
+            <div className="flex justify-between text-[9px] text-gray-600">
               <span>Secretariat Tech Levy</span>
               <span>1</span>
               <span>₦0.00</span>
@@ -212,15 +236,15 @@ const PosThermalReceipt = ({
           </div>
 
           {/* Total Box */}
-          <div className="my-2 border-y-2 border-black py-2">
-            <div className="flex justify-between text-sm font-black">
+          <div className="my-1.5 border-y-2 border-black py-1.5">
+            <div className="flex justify-between text-xs sm:text-sm font-black">
               <span>TOTAL PAID:</span>
               <span>₦{formattedAmount}</span>
             </div>
           </div>
 
           {/* Payment Method */}
-          <div className="space-y-1 text-[10px] text-gray-700 py-1">
+          <div className="space-y-0.5 text-[9px] text-gray-700 py-0.5">
             <div className="flex justify-between">
               <span>PAYMENT METHOD:</span>
               <span className="font-bold uppercase">{paymentMethod}</span>
@@ -232,29 +256,41 @@ const PosThermalReceipt = ({
           </div>
 
           {/* QR Code & Verification */}
-          <div className="my-3 pt-2 border-t border-dashed border-gray-400 flex flex-col items-center text-center space-y-1">
-            <QrCode className="w-16 h-16 text-black" />
-            <div className="text-[10px] font-bold tracking-wider uppercase">
+          <div className="my-2 pt-1.5 border-t border-dashed border-gray-400 flex flex-col items-center text-center space-y-0.5">
+            <QrCode className="w-12 h-12 text-black" />
+            <div className="text-[9px] font-bold tracking-wider uppercase">
               SCAN TO VERIFY ELECTRONIC RECORD
             </div>
-            <div className="text-[9px] text-gray-500 font-mono">
+            <div className="text-[8.5px] text-gray-500 font-mono">
               portal.nacosfuto.com.ng/verify/{receiptNo}
             </div>
           </div>
 
           {/* POS Barcode Simulation */}
-          <div className="pt-1 text-center font-mono tracking-widest text-[11px] select-none text-gray-800">
+          <div className="pt-0.5 text-center font-mono tracking-widest text-[10px] select-none text-gray-800">
             ||| | ||||| || |||| ||||| ||| ||||| ||
-            <div className="text-[9px] tracking-normal text-gray-500 mt-0.5">
+            <div className="text-[8.5px] tracking-normal text-gray-500 mt-0.5">
               *{receiptNo}*
             </div>
           </div>
 
           {/* Footer Notice */}
-          <div className="mt-3 pt-2 border-t border-dashed border-gray-400 text-center text-[9px] text-gray-600 leading-tight">
+          <div className="mt-2 pt-1.5 border-t border-dashed border-gray-400 text-center text-[8.5px] text-gray-600 leading-tight">
             *** OFFICIAL NACOS RECEIPT &bull; RETAIN FOR CLEARANCE ***
             <br />
             THANK YOU FOR SUPPORTING YOUR DEPARTMENT
+          </div>
+
+          {/* Secondary In-Receipt Print Button (Hidden on Print) */}
+          <div className="mt-3 pt-2 border-t border-dashed border-gray-300 print:hidden">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="w-full py-2 px-3 rounded-lg text-xs font-bold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print to Printer</span>
+            </button>
           </div>
         </div>
 
