@@ -111,18 +111,32 @@ const PosThermalReceipt = ({
               margin: 15mm 20mm;
             }
             @media print {
-              body {
+              html, body {
                 background: #ffffff !important;
                 color: #000000 !important;
-                padding: 0 !important;
                 margin: 0 !important;
+                padding: 0 !important;
+              }
+              body * {
+                visibility: hidden !important;
+              }
+              #official-pos-receipt-slip, #official-pos-receipt-slip * {
+                visibility: visible !important;
               }
               #official-pos-receipt-slip {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
                 width: 100% !important;
                 max-width: 100% !important;
                 border: none !important;
                 box-shadow: none !important;
-                padding: 0 !important;
+                padding: 10mm 15mm !important;
+                margin: 0 !important;
+              }
+              button, .print\\:hidden {
+                display: none !important;
+                visibility: hidden !important;
               }
             }
           `}</style>

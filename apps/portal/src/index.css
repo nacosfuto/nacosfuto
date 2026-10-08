@@ -331,21 +331,26 @@ h1, h2, h3, h4, h5, h6, .font-heading, .font-display {
     margin: 10mm 15mm;
   }
 
-  /* Hide everything when printing receipt */
+  /* Hide everything when printing receipt - Supports #official-pos-receipt-slip and #official-paper-receipt-slip */
+  body:has(#official-pos-receipt-slip) *,
   body:has(#official-paper-receipt-slip) * {
-    visibility: hidden;
+    visibility: hidden !important;
   }
 
+  body:has(#official-pos-receipt-slip) #official-pos-receipt-slip,
+  body:has(#official-pos-receipt-slip) #official-pos-receipt-slip *,
   body:has(#official-paper-receipt-slip) #official-paper-receipt-slip,
   body:has(#official-paper-receipt-slip) #official-paper-receipt-slip * {
-    visibility: visible;
+    visibility: visible !important;
   }
 
+  body:has(#official-pos-receipt-slip),
   body:has(#official-paper-receipt-slip) {
     background: #ffffff !important;
     color: #000000 !important;
   }
 
+  body:has(#official-pos-receipt-slip) #official-pos-receipt-slip,
   body:has(#official-paper-receipt-slip) #official-paper-receipt-slip {
     position: absolute !important;
     left: 0 !important;
@@ -353,13 +358,20 @@ h1, h2, h3, h4, h5, h6, .font-heading, .font-display {
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
-    padding: 10mm 12mm !important;
+    padding: 10mm 15mm !important;
     box-shadow: none !important;
     border: none !important;
     background: #ffffff !important;
     color: #000000 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Exclude buttons and non-printable elements */
+  body:has(#official-pos-receipt-slip) button,
+  body:has(#official-paper-receipt-slip) button {
+    display: none !important;
+    visibility: hidden !important;
   }
 
   /* Support legacy thermal selector if ever present */
