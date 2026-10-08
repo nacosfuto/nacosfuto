@@ -343,7 +343,10 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
         paymentType: friendlyType,
         amount: paymentRecord.amount,
         currency: paymentRecord.currency || 'NGN',
-        paidAt: now
+        paidAt: now,
+        regNumber: paymentRecord.registration_number || paymentRecord.metadata?.registration_number || '',
+        level: paymentRecord.metadata?.level ? `${paymentRecord.metadata.level} Level` : '',
+        session: paymentRecord.metadata?.academic_session || '2026/2027'
       }).catch(e => console.warn('[Bachs Email Receipt Warning]:', e.message));
     }
   } catch (err) {

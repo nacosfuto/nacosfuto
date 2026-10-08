@@ -324,8 +324,45 @@ h1, h2, h3, h4, h5, h6, .font-heading, .font-display {
   border-radius: 5px;
 }
 
-/* ─── Thermal POS Receipt Print Styles ─── */
+/* ─── Official Paper Receipt & Institutional Clearance Print Styles ─── */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 15mm;
+  }
+
+  /* Hide everything when printing receipt */
+  body:has(#official-paper-receipt-slip) * {
+    visibility: hidden;
+  }
+
+  body:has(#official-paper-receipt-slip) #official-paper-receipt-slip,
+  body:has(#official-paper-receipt-slip) #official-paper-receipt-slip * {
+    visibility: visible;
+  }
+
+  body:has(#official-paper-receipt-slip) {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  body:has(#official-paper-receipt-slip) #official-paper-receipt-slip {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 10mm 12mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Support legacy thermal selector if ever present */
   body:has(#thermal-pos-slip-paper) * {
     visibility: hidden;
   }
@@ -338,16 +375,19 @@ h1, h2, h3, h4, h5, h6, .font-heading, .font-display {
     left: 50%;
     top: 0;
     transform: translateX(-50%);
-    width: 330px !important;
-    max-width: 100% !important;
+    width: 100% !important;
+    max-width: 600px !important;
     margin: 0 !important;
     padding: 16px !important;
     box-shadow: none !important;
     border: none !important;
     background: #ffffff !important;
     color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
+
 
 
 

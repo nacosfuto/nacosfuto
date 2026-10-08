@@ -462,8 +462,8 @@ export async function sendPasswordResetEmail({ to, code, expiryMinutes = 10, stu
 /**
  * High-Level Reusable Function: Send Payment Confirmation Email
  */
-export async function sendPaymentConfirmationEmail({ to, customerName = 'Student', reference, paymentType, amount, currency, paidAt, replyTo }, overrideEnv = {}) {
-  const template = renderPaymentConfirmationEmail({ customerName, reference, paymentType, amount, currency, paidAt });
+export async function sendPaymentConfirmationEmail({ to, customerName = 'Student', reference, paymentType, amount, currency, paidAt, regNumber, level, session, replyTo }, overrideEnv = {}) {
+  const template = renderPaymentConfirmationEmail({ customerName, reference, paymentType, amount, currency, paidAt, regNumber, level, session });
   return sendEmail({
     to,
     subject: template.subject,

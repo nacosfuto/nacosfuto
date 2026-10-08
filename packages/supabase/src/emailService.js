@@ -139,7 +139,10 @@ export async function sendPaymentConfirmationEmail(toEmail, paymentDetails = {})
     paymentType: paymentDetails.paymentType,
     amount: paymentDetails.amount,
     currency: paymentDetails.currency || 'NGN',
-    paidAt: paymentDetails.paidAt || new Date().toISOString()
+    paidAt: paymentDetails.paidAt || new Date().toISOString(),
+    regNumber: paymentDetails.regNumber || paymentDetails.registrationNumber || '',
+    level: paymentDetails.level || '',
+    session: paymentDetails.session || paymentDetails.academicSession || '2026/2027'
   });
 
   return sendEmailViaApi({

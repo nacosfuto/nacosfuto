@@ -147,13 +147,23 @@ const Dues = () => {
       const match = String(itemLevelRaw).match(/\d{3}/);
       const lvl = match ? match[0] : studentHomeLevel;
 
-      const isIdCard = item.payment_type === 'ID_CARD' || String(item.purpose || '').toLowerCase().includes('id card');
-      const paymentTypeLabel = isIdCard ? 'Student ID Card' : 'Departmental Dues (Full Payment)';
+      const isIdCard = item.payment_type === 'ID_CARD' || 
+        String(item.purpose || '').toLowerCase().includes('id card') ||
+        String(item.title || '').toLowerCase().includes('id card') ||
+        String(item.payment_title || '').toLowerCase().includes('id card');
+
+      // STRICT USER RULE: ID Card payments NEVER show on Dues page
+      if (isIdCard) return;
+
+      // STRICT USER RULE: Only successful payments are allowed to show on the dashboard table
+      if (!isPaid) return;
+
+      const paymentTypeLabel = 'Departmental Dues (Full Payment)';
       const session = item.metadata?.academic_session || item.session || currentUser?.academic_session || '2026/2027';
 
       const formatted = {
         id: item.id || item.reference || `pay-${Math.random()}`,
-        receiptNo: item.reference || item.payment_reference || `NACOS/${isIdCard ? 'IDCARD' : 'DUES'}/${cleanMatric}-${lvl}L`,
+        receiptNo: item.reference || item.payment_reference || `NACOS/DUES/${cleanMatric}-${lvl}L`,
         transactionId: item.provider_payment_id || item.id || `BCH-${Date.now()}`,
         date: dateStr,
         time: timeStr,
@@ -161,8 +171,8 @@ const Dues = () => {
         amount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
         rawAmount: amt,
         paymentMethod: item.provider ? `${item.provider} Online Gateway` : (item.payment_method || 'Bachs Online Gateway (Verified)'),
-        status: isPaid ? 'Verified & Cleared' : 'Payment Pending',
-        isPaid: isPaid,
+        status: 'Verified & Cleared',
+        isPaid: true,
         session: session,
         level: `${lvl} LEVEL`,
         levelNum: lvl,
@@ -175,7 +185,7 @@ const Dues = () => {
 
       allRecords.push(formatted);
 
-      if (isPaid && ['100', '200', '300', '400', '500'].includes(lvl) && !newMap[lvl]) {
+      if (['100', '200', '300', '400', '500'].includes(lvl) && !newMap[lvl]) {
         newMap[lvl] = formatted;
       }
     };
@@ -334,7 +344,12 @@ const Dues = () => {
 
             await checkStatus(updatedUser);
 
-            // Auto-open Real POS Receipt
+            // Update notification and prepare receipt without abrupt screen takeover
+            setNotification({
+              type: 'success',
+              message: `Payment confirmed! Departmental dues clearance for ${targetLevel} Level has been approved and recorded.`
+            });
+
             const receiptPayload = {
               receiptNo: data.reference || ref || `NACOS/DUES/${matric}-${targetLevel}L`,
               transactionId: data.payment?.provider_payment_id || `BCH-${Date.now()}`,
@@ -347,12 +362,12 @@ const Dues = () => {
               session: formSession,
               amount: data.amount ? `₦${Number(data.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
               rawAmount: data.amount || 2500,
+              paymentType: 'Departmental Dues (Full Payment)',
               paymentMethod: 'Bachs Online Gateway (Confirmed)',
               status: 'APPROVED'
             };
             setPosReceiptData(receiptPayload);
             setIsInvoiceSlip(false);
-            setIsPosReceiptOpen(true);
             return;
           }
         }
@@ -584,57 +599,6 @@ const Dues = () => {
             </div>
           </div>
         )}
-
-        {/* Level Clearance Status Summary Strip */}
-        <div className="p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 shadow-xs print:hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-            <div>
-              <h2 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-[#0e8040] dark:text-[#4bd043]" />
-                <span>Academic Level Clearance Standing</span>
-              </h2>
-              <p className="text-[11px] text-gray-500 dark:text-green-200/70">
-                Departmental clearance records across your progressive academic standing.
-              </p>
-            </div>
-            <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-              Total Cleared Dues: <span className="text-[#0e8040] dark:text-[#4bd043] font-bold">₦{totalLifetimeDues.toLocaleString()}</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {progressiveLevels.map((lvl) => {
-              const isLvlPaid = Boolean(levelDuesMap[lvl]);
-              return (
-                <div
-                  key={lvl}
-                  className={`p-3 rounded-lg border text-left ${isLvlPaid
-                    ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20'
-                    : 'border-gray-200 dark:border-[#138601]/20 bg-gray-50/50 dark:bg-[#041801]/40'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-gray-900 dark:text-white">
-                      {lvl} Level
-                    </span>
-                    {isLvlPaid ? (
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-[#0e8040] dark:text-[#4bd043]">
-                        <CheckCircle className="w-3 h-3" /> Paid
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-                        <Clock className="w-3 h-3" /> Unpaid
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-gray-500 dark:text-green-200/70 truncate">
-                    {isLvlPaid ? 'Clearance Active' : 'Payment Required'}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
 
         {/* ==================================================================== */}
         {/* SCHOOL FEES HISTORY TABLE (Matching User Image 1 Exactly)             */}

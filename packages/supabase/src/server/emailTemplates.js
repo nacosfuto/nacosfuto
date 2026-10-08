@@ -258,7 +258,7 @@ export function renderPasswordResetEmail({ code, expiryMinutes = 10, studentName
 }
 
 /**
- * Payment Confirmation Email Template (Reusable for Bachs payments)
+ * Payment Confirmation Email Template (Styled as Official Institutional Paper Receipt)
  */
 export function renderPaymentConfirmationEmail({
   customerName = 'Student',
@@ -266,78 +266,158 @@ export function renderPaymentConfirmationEmail({
   paymentType = 'Payment',
   amount,
   currency = 'NGN',
-  paidAt = new Date().toISOString()
+  paidAt = new Date().toISOString(),
+  regNumber = '',
+  level = '',
+  session = '2026/2027'
 }) {
   const safeName = sanitizeHtml(customerName);
   const safeRef = sanitizeHtml(reference);
   const safeType = sanitizeHtml(paymentType.replace(/_/g, ' '));
-  const formattedAmount = Number(amount || 0).toLocaleString();
+  const safeReg = sanitizeHtml(regNumber);
+  const safeLevel = sanitizeHtml(level);
+  const safeSession = sanitizeHtml(session);
+  const formattedAmount = Number(amount || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const dateFormatted = new Date(paidAt).toLocaleString('en-NG', {
     dateStyle: 'medium',
     timeStyle: 'short'
   });
 
-  const preheader = `Payment receipt for ${safeType}: ${currency} ${formattedAmount} (Ref: ${safeRef})`;
+  const preheader = `Official Receipt: ${safeType} - ${currency} ${formattedAmount} [Ref: ${safeRef}]`;
 
   const contentHtml = `
-    <h2 style="color: #0f172a; margin: 0 0 12px; font-size: 20px; font-weight: 700;">Payment Receipt Confirmed</h2>
-    <p style="color: #475569; margin: 0 0 20px; font-size: 14px; line-height: 1.6;">
-      Hello ${safeName},
-    </p>
-    <p style="color: #475569; margin: 0 0 24px; font-size: 14px; line-height: 1.6;">
-      Your payment has been successfully received and recorded by the <strong>NACOS FUTO Portal</strong>. Here are the transaction details:
-    </p>
+    <!-- Paper Sheet Container (Official Academic Receipt) -->
+    <div style="background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 28px 24px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+      
+      <!-- Official Institutional Header -->
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-bottom: 2px solid #083002; padding-bottom: 16px; margin-bottom: 20px; text-align: center;">
+        <tr>
+          <td align="center">
+            <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+              FEDERAL UNIVERSITY OF TECHNOLOGY, OWERRI (FUTO)
+            </div>
+            <div style="font-size: 16px; font-weight: 800; color: #083002; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+              NIGERIA ASSOCIATION OF COMPUTING STUDENTS (NACOS)
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: #16a34a; text-transform: uppercase; margin-bottom: 12px;">
+              Department of Computer Science &bull; SICT Secretariat
+            </div>
+            <div style="display: inline-block; background-color: #083002; color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; padding: 5px 14px; border-radius: 4px;">
+              Official Payment Clearance Receipt
+            </div>
+          </td>
+        </tr>
+      </table>
 
-    <!-- Receipt Details Table -->
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin: 0 0 24px; overflow: hidden;">
-      <tr>
-        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">Description</td>
-        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #0f172a; font-weight: 600; text-align: right;">${safeType}</td>
-      </tr>
-      <tr>
-        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">Amount Paid</td>
-        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 15px; color: #15803d; font-weight: 700; text-align: right;">${currency} ${formattedAmount}</td>
-      </tr>
-      <tr>
-        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">Transaction Reference</td>
-        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #0f172a; font-family: monospace; text-align: right;">${safeRef}</td>
-      </tr>
-      <tr>
-        <td style="padding: 14px 18px; font-size: 13px; color: #64748b;">Date & Time</td>
-        <td style="padding: 14px 18px; font-size: 13px; color: #0f172a; text-align: right;">${dateFormatted}</td>
-      </tr>
-    </table>
+      <!-- Metadata 2-Column Grid -->
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 20px;">
+        <tr>
+          <td style="padding: 12px 16px; vertical-align: top; width: 55%;">
+            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Receipt / Invoice Ref</div>
+            <div style="font-size: 12px; font-weight: 700; color: #0f172a; font-family: monospace; word-break: break-all; margin-top: 2px;">${safeRef}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 6px;">Payment Channel: <strong>Bachs Online Gateway</strong></div>
+          </td>
+          <td style="padding: 12px 16px; vertical-align: top; text-align: right; width: 45%;">
+            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Payment Status</div>
+            <div style="display: inline-block; background-color: #dcfce7; color: #166534; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 3px 8px; border-radius: 9999px; border: 1px solid #bbf7d0; margin-top: 2px;">
+              &check; APPROVED / CLEARED
+            </div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 6px;">Date: <strong>${dateFormatted}</strong></div>
+          </td>
+        </tr>
+      </table>
 
-    <div style="background-color: #f0fdf4; border-radius: 8px; padding: 14px 18px; margin: 0 0 20px;">
-      <p style="color: #166534; margin: 0; font-size: 13px; line-height: 1.5;">
-        ✅ Your status has been automatically updated in the portal. You can view your updated receipt and records anytime in your portal dashboard.
-      </p>
+      <!-- Student Particulars Card -->
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 20px; font-size: 12px;">
+        <tr style="background-color: #f1f5f9;">
+          <td colspan="2" style="padding: 8px 14px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
+            Student &amp; Academic Particulars
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; color: #64748b; width: 40%;">Full Name</td>
+          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; font-weight: 700; color: #0f172a; text-transform: uppercase;">${safeName}</td>
+        </tr>
+        ${safeReg ? `
+        <tr>
+          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; color: #64748b;">Registration / Matric No</td>
+          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; font-family: monospace; font-weight: 700; color: #0f172a;">${safeReg}</td>
+        </tr>` : ''}
+        ${safeLevel ? `
+        <tr>
+          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; color: #64748b;">Academic Level</td>
+          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #0f172a;">${safeLevel}</td>
+        </tr>` : ''}
+        <tr>
+          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; color: #64748b;">Department</td>
+          <td style="padding: 8px 14px; border-bottom: 1px solid #f1f5f9; color: #0f172a;">Computer Science</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 14px; color: #64748b;">Academic Session</td>
+          <td style="padding: 8px 14px; font-weight: 600; color: #0f172a;">${safeSession}</td>
+        </tr>
+      </table>
+
+      <!-- Itemized Fees Breakdown -->
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-bottom: 20px; font-size: 12px;">
+        <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+          <th align="left" style="padding: 10px 14px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase;">Description</th>
+          <th align="center" style="padding: 10px 14px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase;">Qty</th>
+          <th align="right" style="padding: 10px 14px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase;">Amount</th>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; font-weight: 600; color: #0f172a; border-bottom: 1px solid #f1f5f9;">${safeType}</td>
+          <td align="center" style="padding: 10px 14px; color: #64748b; border-bottom: 1px solid #f1f5f9;">1</td>
+          <td align="right" style="padding: 10px 14px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #f1f5f9;">${currency} ${formattedAmount}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 14px; font-size: 11px; color: #64748b; border-bottom: 1px solid #f1f5f9;">Electronic Portal Verification Levy</td>
+          <td align="center" style="padding: 8px 14px; font-size: 11px; color: #64748b; border-bottom: 1px solid #f1f5f9;">1</td>
+          <td align="right" style="padding: 8px 14px; font-size: 11px; color: #16a34a; border-bottom: 1px solid #f1f5f9;">Included</td>
+        </tr>
+        <tr style="background-color: #f0fdf4;">
+          <td colspan="2" style="padding: 12px 14px; font-weight: 800; font-size: 12px; color: #083002; text-transform: uppercase;">
+            TOTAL AMOUNT PAID
+          </td>
+          <td align="right" style="padding: 12px 14px; font-weight: 800; font-size: 15px; color: #15803d;">
+            ${currency} ${formattedAmount}
+          </td>
+        </tr>
+      </table>
+
+      <!-- Verification Seal & Notice -->
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-top: 1px dashed #cbd5e1; padding-top: 16px; margin-top: 8px;">
+        <tr>
+          <td style="font-size: 11px; color: #64748b; line-height: 1.5;">
+            <strong style="color: #0f172a;">Official Clearance Record:</strong> This digital receipt is valid proof of payment for departmental screening, examination clearance, and student verification. You may also view and print your physical copy directly from your student portal.
+          </td>
+        </tr>
+      </table>
+
     </div>
   `;
 
   const text = [
-    'NACOS FUTO - PAYMENT CONFIRMATION RECEIPT',
-    '=========================================',
+    'NACOS FUTO - OFFICIAL PAYMENT CLEARANCE RECEIPT',
+    '=================================================',
     '',
-    `Hello ${customerName},`,
-    '',
-    'Your payment has been successfully confirmed.',
-    '',
-    `Description: ${paymentType.replace(/_/g, ' ')}`,
-    `Amount Paid: ${currency} ${formattedAmount}`,
+    `Student Name: ${customerName}`,
+    ...(regNumber ? [`Reg Number: ${regNumber}`] : []),
+    `Item Description: ${paymentType.replace(/_/g, ' ')}`,
+    `Total Amount: ${currency} ${formattedAmount}`,
     `Reference: ${reference}`,
-    `Date: ${dateFormatted}`,
+    `Date & Time: ${dateFormatted}`,
+    'Payment Channel: Bachs Online Gateway',
+    'Status: APPROVED & CLEARED',
     '',
-    'Your portal account has been updated.',
-    '',
-    '-----------------------------------------',
+    'This is an official payment confirmation and clearance document issued by NACOS FUTO.',
     'Department of Computer Science',
     'Federal University of Technology, Owerri (FUTO)'
   ].join('\n');
 
   return {
-    subject: `NACOS FUTO Payment Receipt: ${safeType} [${safeRef}]`,
-    html: buildBaseEmailLayout({ title: 'Payment Receipt Confirmed', preheader, contentHtml }),
+    subject: `NACOS FUTO Official Receipt: ${safeType} [${safeRef}]`,
+    html: buildBaseEmailLayout({ title: 'Official Payment Clearance Receipt', preheader, contentHtml }),
     text
   };
 }
