@@ -48,197 +48,20 @@ export function getLocalVerifiedStudents() {
   const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(VERIFIED_STORAGE_KEY) : null;
   if (stored) {
     try {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        // Scrub out any legacy mock seed records (e.g. vs-seed-*)
+        const cleaned = parsed.filter(s => !String(s.id || '').startsWith('vs-seed-'));
+        if (cleaned.length !== parsed.length && typeof localStorage !== 'undefined') {
+          localStorage.setItem(VERIFIED_STORAGE_KEY, JSON.stringify(cleaned));
+        }
+        return cleaned;
+      }
     } catch (e) {
       console.error('Failed to parse verified students storage', e);
     }
   }
-
-  // Pre-seed with authoritative canonical departmental roster
-  const seeded = [
-    {
-      id: 'vs-seed-20241450682',
-      registration_number: '20241450682',
-      surname: 'Anyanwu',
-      first_name: 'Nestor',
-      middle_name: 'Ifeanyi',
-      last_name: 'Anyanwu',
-      full_name: 'Anyanwu Nestor Ifeanyi',
-      email: 'neorxpro@gmail.com',
-      phone_number: '+234 814 506 8200',
-      department: 'Computer Science',
-      faculty: 'School of Information & Communication Tech (SICT)',
-      level: '100 Level',
-      admission_year: 2024,
-      programme: 'B.Tech Computer Science',
-      programme_duration: 5,
-      academic_session: '2024/2025',
-      status: 'active',
-      has_registered: true,
-      auth_user_id: 'student-seed-nestor-2024',
-      registered_at: '2024-10-15T09:00:00Z',
-      created_at: '2024-10-01T08:00:00Z'
-    },
-    {
-      id: 'vs-seed-20241429481',
-      registration_number: '20241429481',
-      full_name: 'Nestor Anyanwu',
-      email: 'nestor.anyanwu@futo.edu.ng',
-      phone_number: '+234 801 234 5678',
-      department: 'Computer Science',
-      faculty: 'School of Information & Communication Tech (SICT)',
-      level: '100 Level',
-      admission_year: 2024,
-      programme: 'B.Tech Computer Science',
-      programme_duration: 5,
-      academic_session: '2024/2025',
-      status: 'active',
-      has_registered: false,
-      auth_user_id: null,
-      registered_at: null,
-      created_at: '2024-10-01T08:00:00Z'
-    },
-    {
-      id: 'vs-seed-20251545321',
-      registration_number: '20251545321',
-      full_name: 'Chioma Eze',
-      email: 'chioma.eze@futo.edu.ng',
-      phone_number: '+234 809 876 5432',
-      department: 'Computer Science',
-      faculty: 'School of Information & Communication Tech (SICT)',
-      level: '100 Level',
-      admission_year: 2025,
-      programme: 'B.Sc Software Engineering',
-      programme_duration: 4,
-      academic_session: '2025/2026',
-      status: 'active',
-      has_registered: false,
-      auth_user_id: null,
-      registered_at: null,
-      created_at: '2025-10-01T08:00:00Z'
-    },
-    {
-      id: 'vs-seed-20261699999',
-      registration_number: '20261699999',
-      full_name: 'Emeka Okoro',
-      email: 'emeka.okoro@futo.edu.ng',
-      phone_number: '+234 812 345 6789',
-      department: 'Computer Science',
-      faculty: 'School of Information & Communication Tech (SICT)',
-      level: '100 Level',
-      admission_year: 2026,
-      programme: 'B.Tech Computer Science',
-      programme_duration: 5,
-      academic_session: '2026/2027',
-      status: 'active',
-      has_registered: false,
-      auth_user_id: null,
-      registered_at: null,
-      created_at: '2026-08-01T08:00:00Z'
-    },
-    {
-      id: 'vs-seed-20221239481',
-      registration_number: '20221239481',
-      full_name: 'David Okonkwo',
-      email: 'david.okonkwo@futo.edu.ng',
-      phone_number: '+234 814 592 0184',
-      department: 'Computer Science',
-      faculty: 'School of Information & Communication Tech (SICT)',
-      level: '300 Level',
-      admission_year: 2022,
-      programme: 'B.Tech Computer Science',
-      programme_duration: 5,
-      academic_session: '2024/2025',
-      status: 'active',
-      has_registered: false,
-      auth_user_id: null,
-      registered_at: null,
-      created_at: '2022-10-01T08:00:00Z'
-    },
-    {
-      id: 'vs-seed-20231384920',
-      registration_number: '20231384920',
-      full_name: 'Amarachi Blessing Nwosu',
-      email: 'amarachi.nwosu@futo.edu.ng',
-      phone_number: '+234 802 998 7711',
-      department: 'Computer Science',
-      faculty: 'School of Information & Communication Tech (SICT)',
-      level: '200 Level',
-      admission_year: 2023,
-      programme: 'B.Tech Computer Science',
-      programme_duration: 5,
-      academic_session: '2024/2025',
-      status: 'active',
-      has_registered: false,
-      auth_user_id: null,
-      registered_at: null,
-      created_at: '2023-10-01T08:00:00Z'
-    },
-    {
-      id: 'vs-seed-20211248201',
-      registration_number: '20211248201',
-      full_name: 'Somtochukwu Michael Obi',
-      email: 'somto.obi@futo.edu.ng',
-      phone_number: '+234 806 332 1980',
-      department: 'Computer Science',
-      faculty: 'School of Information & Communication Tech (SICT)',
-      level: '400 Level',
-      admission_year: 2021,
-      programme: 'B.Tech Computer Science',
-      programme_duration: 5,
-      academic_session: '2024/2025',
-      status: 'active',
-      has_registered: false,
-      auth_user_id: null,
-      registered_at: null,
-      created_at: '2021-10-01T08:00:00Z'
-    },
-    {
-      id: 'vs-seed-20201012948',
-      registration_number: '20201012948',
-      full_name: 'Emmanuel Irechukwu',
-      first_name: 'Emmanuel',
-      surname: 'Irechukwu',
-      email: 'president.futo@nacos.org.ng',
-      phone_number: '+234 803 112 3456',
-      department: 'Computer Science',
-      faculty: 'School of Information & Communication Tech (SICT)',
-      level: '500 Level',
-      admission_year: 2021,
-      programme: 'B.Tech Computer Science',
-      programme_duration: 5,
-      academic_session: '2025/2026',
-      status: 'active',
-      has_registered: true,
-      auth_user_id: 'student-seed-pres',
-      registered_at: '2021-10-10T09:00:00Z',
-      created_at: '2021-10-01T08:00:00Z'
-    }
-  ];
-
-  // Auto-migrate legacy Chapter President (FUTO) in verified roster
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored);
-      let updated = false;
-      const migrated = parsed.map(s => {
-        if (s.registration_number === '20201012948' && (s.full_name?.includes('President') || s.name?.includes('President'))) {
-          updated = true;
-          return { ...s, full_name: 'Emmanuel Irechukwu', first_name: 'Emmanuel', surname: 'Irechukwu', admission_year: 2021, level: '500 Level' };
-        }
-        return s;
-      });
-      if (updated && typeof localStorage !== 'undefined') {
-        localStorage.setItem(VERIFIED_STORAGE_KEY, JSON.stringify(migrated));
-        return migrated;
-      }
-    } catch (e) {}
-  }
-
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(VERIFIED_STORAGE_KEY, JSON.stringify(seeded));
-  }
-  return seeded;
+  return [];
 }
 
 export function saveLocalVerifiedStudents(list) {

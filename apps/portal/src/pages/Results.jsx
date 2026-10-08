@@ -225,18 +225,18 @@ const Results = () => {
     <PortalLayout>
       <div className="space-y-6 font-sans">
         
-        {/* Header Title */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 shadow-xs">
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white tracking-tight">
-              Semester Result Checker
-            </h1>
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-1">
-              Official semester grades, quality points, and cumulative CGPA standings up to your current standing ({currentLevel} Level).
-            </p>
-          </div>
+        {/* Header Title (Rendered when results exist) */}
+        {allSemesters.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 shadow-xs">
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white tracking-tight">
+                Semester Result Checker
+              </h1>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-1">
+                Official semester grades, quality points, and cumulative CGPA standings up to your current standing ({currentLevel} Level).
+              </p>
+            </div>
 
-          {allSemesters.length > 0 && (
             <button
               type="button"
               onClick={handleDownload}
@@ -246,44 +246,19 @@ const Results = () => {
               <Download className="w-4 h-4" />
               <span>{isDownloading ? 'Preparing Statement...' : 'Download Statement (PDF)'}</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* When No Results Are Published Yet in Database */}
+        {/* Simple & Clean Result State (Matching Reference Design) */}
         {allSemesters.length === 0 ? (
-          <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 text-center space-y-4 shadow-xs">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 flex items-center justify-center text-[#138601] dark:text-[#4bd043]">
-              <GraduationCap className="w-7 h-7" />
-            </div>
-
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-gray-100 dark:bg-[#041801] text-gray-700 dark:text-green-200 border border-gray-200 dark:border-[#138601]/30">
-              <Clock className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
-              <span>Awaiting Departmental Senate Release</span>
-            </div>
-
-            <div className="max-w-md mx-auto space-y-1.5">
-              <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
-                Your results will show up here when available
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 leading-relaxed font-normal">
-                Semester examination scores undergo official board approval before release. Once confirmed and published by the Departmental Examination Officer, your grade breakdown and cumulative CGPA standings will automatically synchronize here.
+          <div className="min-h-[55vh] flex flex-col items-center justify-center text-center p-6 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 shadow-xs">
+            <div className="max-w-lg mx-auto space-y-3">
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#002b49] dark:text-white tracking-tight">
+                Keep track of your performance
+              </h1>
+              <p className="text-sm sm:text-base text-[#002b49]/80 dark:text-green-200/80 font-normal">
+                Your results and CGPA will show up here when it’s uploaded
               </p>
-            </div>
-
-            {/* Alternating grey / white informational items */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl mx-auto pt-2 text-left">
-              <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#041801]/60 border border-gray-200/80 dark:border-[#138601]/25">
-                <span className="text-[11px] font-bold text-gray-900 dark:text-white block">Standard 5.0 Scale</span>
-                <span className="text-[10px] text-gray-500 dark:text-green-200/70">FUTO grading system</span>
-              </div>
-              <div className="p-3.5 rounded-xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/25">
-                <span className="text-[11px] font-bold text-gray-900 dark:text-white block">Verified Statements</span>
-                <span className="text-[10px] text-gray-500 dark:text-green-200/70">Official downloadable PDF</span>
-              </div>
-              <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#041801]/60 border border-gray-200/80 dark:border-[#138601]/25">
-                <span className="text-[11px] font-bold text-gray-900 dark:text-white block">Automatic CGPA</span>
-                <span className="text-[10px] text-gray-500 dark:text-green-200/70">Updated per semester</span>
-              </div>
             </div>
           </div>
         ) : (
