@@ -28,7 +28,7 @@ import PortalAdminLayout from '../components/PortalAdminLayout';
 import { adminGetAllVerifiedStudents } from '@nacos/supabase/verifiedStudents';
 import { adminGetAllStudents } from '@nacos/supabase/auth';
 import { portalAdminGetApplications } from '@nacos/supabase/idCard';
-import { getDuesSettings, getDynamicAcademicSession, supabase } from '@nacos/supabase';
+import { getDuesSettings, getDynamicAcademicSession, adminGetAllDuesPayments, supabase } from '@nacos/supabase';
 import { getAppUrls } from '@nacos/config/urls';
 import { useTheme } from '../context/ThemeContext';
 
@@ -108,11 +108,12 @@ export const PortalAdminDashboard = () => {
   const loadDashboardData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const [whitelistRes, accountsRes, idCardsRes, duesSettingsRes] = await Promise.all([
+      const [whitelistRes, accountsRes, idCardsRes, duesSettingsRes, duesPaymentsRes] = await Promise.all([
         adminGetAllVerifiedStudents().catch(() => []),
         adminGetAllStudents().catch(() => []),
         portalAdminGetApplications({ status: 'ALL' }).catch(() => []),
-        getDuesSettings().catch(() => ({ dues_amount: 2500, academic_session: getDynamicAcademicSession() }))
+        getDuesSettings().catch(() => ({ dues_amount: 2500, academic_session: getDynamicAcademicSession() })),
+        adminGetAllDuesPayments().catch(() => [])
       ]);
 
       const whitelist = Array.isArray(whitelistRes) 
@@ -127,16 +128,23 @@ export const PortalAdminDashboard = () => {
         ? idCardsRes 
         : (idCardsRes?.applications || idCardsRes?.data || []);
 
-      const pending = idCards.filter(c => 
-        ['submitted', 'pending', 'PENDING', 'pending_payment', 'payment_confirmed', 'photo_required', 'ready_to_submit', 'processing', 'generated', 'draft'].includes(c.status)
-      ).length;
+      const duesPayments = Array.isArray(duesPaymentsRes) ? duesPaymentsRes : [];
 
+      // Authoritative ID Card status counts matching PortalAdminIdCards
       const approved = idCards.filter(c => 
-        c.status === 'APPROVED' || c.status === 'approved'
+        String(c.status).toUpperCase() === 'APPROVED'
       ).length;
 
       const rejected = idCards.filter(c => 
-        c.status === 'REJECTED' || c.status === 'rejected' || c.status === 'REVOKED' || c.status === 'revoked'
+        ['REJECTED', 'REVOKED'].includes(String(c.status).toUpperCase())
+      ).length;
+
+      const generated = idCards.filter(c => 
+        String(c.status).toUpperCase() === 'GENERATED'
+      ).length;
+
+      const pending = idCards.filter(c => 
+        ['PENDING', 'SUBMITTED', 'PENDING_PAYMENT', 'PHOTO_REQUIRED', 'READY_TO_SUBMIT', 'PROCESSING', 'DRAFT'].includes(String(c.status).toUpperCase())
       ).length;
 
       setVerifiedList(whitelist);
@@ -146,43 +154,52 @@ export const PortalAdminDashboard = () => {
       setStats({
         whitelistTotal: whitelist.length,
         activeAccounts: accounts.length,
-        pendingIdCards: pending,
+        totalIdCards: idCards.length,
+        pendingIdCards: pending + generated,
         approvedIdCards: approved,
-        rejectedIdCards: rejected
+        rejectedIdCards: rejected,
+        generatedIdCards: generated
       });
 
-      // Calculate authoritative dues summary
-      let clearedDuesCount = 0;
-      let totalDuesRev = 0;
-      let onlineDuesCount = 0;
-      let manualDuesCount = 0;
-
-      if (accounts && accounts.length > 0) {
-        clearedDuesCount = accounts.filter(a => a.dues_cleared === true || a.has_paid_dues === true).length;
-      }
-
+      // Authoritative Dues calculation matching PortalAdminDues.jsx exactly
       const activeDuesRate = Number(duesSettingsRes?.dues_amount || 2500);
 
-      if (supabase) {
-        try {
-          const { data: duesPays } = await supabase
-            .from('payments')
-            .select('amount, status, provider, metadata')
-            .eq('payment_type', 'DEPARTMENTAL_DUES')
-            .eq('status', 'successful');
+      const paymentMapByReg = new Map();
+      const paymentMapByStudentId = new Map();
 
-          if (duesPays && duesPays.length > 0) {
-            clearedDuesCount = Math.max(clearedDuesCount, duesPays.length);
-            totalDuesRev = duesPays.reduce((sum, p) => sum + (Number(p.amount) || activeDuesRate), 0);
-            manualDuesCount = duesPays.filter(p => p.metadata?.cleared_manually || p.provider?.toLowerCase().includes('manual')).length;
-            onlineDuesCount = duesPays.length - manualDuesCount;
-          } else {
-            totalDuesRev = clearedDuesCount * activeDuesRate;
+      duesPayments.forEach(p => {
+        if (p.status === 'successful') {
+          if (p.registration_number) {
+            paymentMapByReg.set(p.registration_number.toUpperCase().trim(), p);
           }
-        } catch (_) {
-          totalDuesRev = clearedDuesCount * activeDuesRate;
+          if (p.student_id) {
+            paymentMapByStudentId.set(p.student_id, p);
+          }
         }
-      }
+      });
+
+      const studentDuesRows = accounts.map(st => {
+        const reg = (st.registration_number || st.matricNumber || '').toUpperCase().trim();
+        const stId = st.id || st.student_id;
+
+        const directPayment = (reg && paymentMapByReg.get(reg)) || (stId && paymentMapByStudentId.get(stId));
+        const hasPaid = !!directPayment || st.dues_cleared === true || st.has_paid_dues === true;
+        const isManual = directPayment?.metadata?.cleared_manually || directPayment?.provider?.toLowerCase().includes('manual') || false;
+
+        return {
+          hasPaid,
+          isManual,
+          amount: directPayment?.amount || (hasPaid ? activeDuesRate : 0)
+        };
+      });
+
+      const clearedDuesCount = studentDuesRows.filter(r => r.hasPaid).length;
+      const manualDuesCount = studentDuesRows.filter(r => r.hasPaid && r.isManual).length;
+      const onlineDuesCount = clearedDuesCount - manualDuesCount;
+
+      const totalDuesRev = duesPayments
+        .filter(p => p.status === 'successful')
+        .reduce((sum, p) => sum + (Number(p.amount) || activeDuesRate), 0) || (clearedDuesCount * activeDuesRate);
 
       setDuesStats({
         rate: activeDuesRate,
@@ -250,16 +267,17 @@ export const PortalAdminDashboard = () => {
     {
       title: 'ID Card Applications',
       value: idCardsList.length,
-      subtitle: `${stats.approvedIdCards} Approved • ${stats.pendingIdCards} Pending`,
+      subtitle: `${stats.approvedIdCards} Approved • ${stats.pendingIdCards} Pending Review`,
       icon: ShieldCheck,
       link: '/id-cards'
     },
     {
-      title: 'Electoral Ballots',
-      value: 'ELECTRA',
-      subtitle: 'Decentralized voting ready',
+      title: 'ELECTRA Commission',
+      value: 'Elections',
+      subtitle: 'Manage Year-by-Year Elections',
       icon: Vote,
-      link: urls.electra
+      link: urls.electraAdmin,
+      isExternal: true
     }
   ];
 
@@ -303,16 +321,14 @@ export const PortalAdminDashboard = () => {
           {statCards.map((stat, i) => {
             const Icon = stat.icon;
             const isEven = i % 2 === 0;
-            return (
-              <Link
-                key={i}
-                to={stat.link}
-                className={`p-5 rounded-2xl border transition-all hover:-translate-y-0.5 hover:border-[#138601] shadow-xs ${
-                  isDark
-                    ? isEven ? 'bg-[#083002]/60 border-[#138601]/30 text-white' : 'bg-[#041801]/80 border-[#138601]/20 text-white'
-                    : isEven ? 'bg-white border-gray-200 text-gray-900' : 'bg-gray-50/80 border-gray-200 text-gray-900'
-                }`}
-              >
+            const cardClasses = `p-5 rounded-2xl border transition-all hover:-translate-y-0.5 hover:border-[#138601] shadow-xs cursor-pointer block ${
+              isDark
+                ? isEven ? 'bg-[#083002]/60 border-[#138601]/30 text-white' : 'bg-[#041801]/80 border-[#138601]/20 text-white'
+                : isEven ? 'bg-white border-gray-200 text-gray-900' : 'bg-gray-50/80 border-gray-200 text-gray-900'
+            }`;
+
+            const cardContent = (
+              <>
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-gray-500 dark:text-green-200/70 uppercase tracking-wider">
                     {stat.title}
@@ -329,6 +345,30 @@ export const PortalAdminDashboard = () => {
                     {stat.subtitle}
                   </p>
                 </div>
+              </>
+            );
+
+            if (stat.isExternal) {
+              return (
+                <a
+                  key={i}
+                  href={stat.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cardClasses}
+                >
+                  {cardContent}
+                </a>
+              );
+            }
+
+            return (
+              <Link
+                key={i}
+                to={stat.link}
+                className={cardClasses}
+              >
+                {cardContent}
               </Link>
             );
           })}

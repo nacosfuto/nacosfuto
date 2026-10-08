@@ -826,21 +826,58 @@ export async function adminImportVerifiedStudents(rawRecords) {
     saveLocalVerifiedStudents(updatedRoster);
     await syncRosterStoreToSupabase(updatedRoster);
 
-    // Sync imported batch to Supabase profiles & verified roster
-    for (const item of toInsert) {
+    // 1. Direct Supabase verified_students batch upsert in chunks of 50
+    if (supabase) {
       try {
-        await adminAddStudent({
-          matricNumber: item.registration_number,
-          fullName: item.full_name,
-          email: item.email,
-          phone: item.phone_number,
-          department: item.department,
-          faculty: item.faculty,
-          programme: item.programme,
-          programmeDuration: item.programme_duration,
-          initialPassword: 'password'
-        });
-      } catch (e) {}
+        const vsRows = toInsert.map(s => ({
+          registration_number: s.registration_number,
+          full_name: s.full_name,
+          email: s.email,
+          phone_number: s.phone_number,
+          department: s.department,
+          faculty: s.faculty,
+          level: s.level,
+          admission_year: s.admission_year,
+          programme: s.programme,
+          programme_duration: s.programme_duration,
+          academic_session: s.academic_session,
+          status: 'active',
+          has_registered: false
+        }));
+
+        for (let c = 0; c < vsRows.length; c += 50) {
+          const chunk = vsRows.slice(c, c + 50);
+          await supabase.from('verified_students').upsert(chunk, { onConflict: 'registration_number' });
+        }
+      } catch (err) {
+        console.warn('Batch upsert into verified_students table error:', err);
+      }
+    }
+
+    // 2. Concurrently provision student profile records in batches of 10
+    const chunkSize = 10;
+    for (let c = 0; c < toInsert.length; c += chunkSize) {
+      const chunk = toInsert.slice(c, c + chunkSize);
+      await Promise.all(
+        chunk.map(item =>
+          adminAddStudent({
+            matricNumber: item.registration_number,
+            fullName: item.full_name,
+            email: item.email,
+            phone: item.phone_number,
+            department: item.department,
+            faculty: item.faculty,
+            programme: item.programme,
+            programmeDuration: item.programme_duration,
+            initialPassword: 'password'
+          }).catch(e => console.warn('Student account creation warning:', e))
+        )
+      );
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('nacos_verified_students_updated'));
+      window.dispatchEvent(new Event('nacos_user_updated'));
     }
   }
 

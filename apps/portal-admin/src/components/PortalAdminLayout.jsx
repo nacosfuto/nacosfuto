@@ -20,7 +20,8 @@ import {
   ExternalLink,
   Bell,
   Award,
-  Lock
+  Lock,
+  Vote
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { getPortalAdminSession, logoutPortalAdmin } from '@nacos/auth';
@@ -417,6 +418,24 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
                 <span>Main Student Portal</span>
               </div>
               <ExternalLink className="w-3 h-3 opacity-80 group-hover:translate-x-0.5 transition-transform" />
+            </a>
+
+            <a
+              href={getAppUrls().electraAdmin}
+              target="_blank"
+              rel="noreferrer"
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                isDark
+                  ? 'bg-purple-950/40 border-purple-800/40 text-purple-200 hover:bg-purple-900/40'
+                  : 'bg-purple-50 border-purple-200 text-[#684BFD] hover:bg-purple-100'
+              }`}
+              title="Open Dedicated ELECTRA Election Commission Console"
+            >
+              <div className="flex items-center gap-2">
+                <Vote className="w-3.5 h-3.5 text-[#684BFD]" />
+                <span>Electra Commission</span>
+              </div>
+              <ExternalLink className="w-3 h-3 opacity-80" />
             </a>
 
             <div className="grid grid-cols-2 gap-1.5">

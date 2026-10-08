@@ -246,6 +246,47 @@ export default function PortalAdminNotices() {
           </div>
         </div>
 
+        {/* Active Pop-up Banner (Single Active Popup Rule) */}
+        {(() => {
+          const activePopup = notices.find(n => Boolean(n.is_popup));
+          return (
+            <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
+              activePopup 
+                ? 'bg-purple-50 dark:bg-[#083002] border-purple-200 dark:border-[#138601]/40 text-purple-900 dark:text-purple-200' 
+                : 'bg-gray-50 dark:bg-[#041801] border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300'
+            }`}>
+              <div className="flex items-start sm:items-center gap-2.5">
+                <span className={`w-2 h-2 rounded-full mt-1 sm:mt-0 shrink-0 ${activePopup ? 'bg-[#684BFD] animate-ping' : 'bg-gray-400'}`} />
+                <div>
+                  <div className="font-bold flex items-center gap-2">
+                    <span>{activePopup ? 'Active Student Login Pop-up:' : 'No Active Login Pop-up Configured'}</span>
+                    {activePopup && (
+                      <span className="font-mono uppercase text-[#684BFD] dark:text-[#a78bfa] underline font-extrabold truncate max-w-xs sm:max-w-md">
+                        {activePopup.title}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                    {activePopup
+                      ? 'This notice pops up immediately when eligible students sign in. Only one notice can be active at a time.'
+                      : 'Students browse notices via the Notices & Bulletin section. Click "Set as Login Pop-up" on any notice to enable.'}
+                  </p>
+                </div>
+              </div>
+
+              {activePopup && (
+                <button
+                  type="button"
+                  onClick={() => handleTogglePopup(activePopup)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#041801] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/20 hover:bg-gray-100 transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
+                >
+                  Unset Pop-up
+                </button>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Notices Table / Grid */}
         <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200 dark:border-[#138601]/25 shadow-xs overflow-hidden">
           {isLoading ? (

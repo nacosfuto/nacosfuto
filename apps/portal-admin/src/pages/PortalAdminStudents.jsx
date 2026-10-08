@@ -455,32 +455,46 @@ const AdminStudents = () => {
   // ACTIONS: BULK CSV IMPORT & DUPLICATE VALIDATION
   // =========================================================================
 
-  // Parse CSV text
+  // Parse CSV text with quote and comma boundary handling
+  const parseCSVLine = (line) => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"' || char === "'") {
+        if (inQuotes && line[i + 1] === char) {
+          current += char;
+          i++; // skip escaped quote
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim().replace(/^["']|["']$/g, ''));
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim().replace(/^["']|["']$/g, ''));
+    return result;
+  };
+
   const parseCSVText = (text) => {
     const lines = text.split(/\r\n|\n/).filter(l => l.trim().length > 0);
     if (lines.length < 2) return [];
 
-    // Header row
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
+    const headers = parseCSVLine(lines[0]);
     const records = [];
 
     for (let i = 1; i < lines.length; i++) {
-      // Regex to handle quoted CSV columns
-      const rowRegex = /(?:,|\n|^)("(?:(?:"")*[^"]*)*"|[^",\n]*|(?:\n|$))/g;
-      const values = [];
-      let match;
-      while ((match = rowRegex.exec(lines[i])) !== null) {
-        let val = match[1];
-        if (val === undefined) break;
-        val = val.replace(/^["']|["']$/g, '').trim();
-        values.push(val);
-        if (rowRegex.lastIndex >= lines[i].length) break;
-      }
-
-      if (values.length >= 3) {
+      const values = parseCSVLine(lines[i]);
+      if (values.some(v => v.length > 0)) {
         const item = {};
         headers.forEach((h, idx) => {
-          item[h] = values[idx] || '';
+          if (h) {
+            item[h] = values[idx] !== undefined ? values[idx] : '';
+          }
         });
         records.push(item);
       }
