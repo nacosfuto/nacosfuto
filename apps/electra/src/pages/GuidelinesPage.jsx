@@ -37,35 +37,35 @@ export default function GuidelinesPage() {
     <div className="py-10 site-container max-w-5xl bg-[#F8FAFC]">
       
       {/* Header */}
-      <div className="mb-10 space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-[#F5F3FF] text-[#684BFD] border border-[#DDD6FE]">
-          <Scale className="w-3.5 h-3.5 text-[#684BFD]" />
+      <div className="mb-8 space-y-2">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-[4px] text-xs font-bold bg-green-50 text-[#138601] border border-green-200">
+          <Scale className="w-3.5 h-3.5 text-[#138601]" />
           <span>Electoral Commission Regulatory Code</span>
         </div>
-        <h1 className="text-3xl sm:text-5xl font-black text-slate-900 font-display">
+        <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 font-display">
           ELECTRA Voting Guidelines & Ethics
         </h1>
-        <p className="text-sm text-slate-600 max-w-2xl leading-relaxed">
-          The constitution and certified rules established by the NACOS FUTO Electoral Commission (DEC 2026).
+        <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
+          The constitution and certified rules established by the NACOS FUTO Electoral Commission (UNECO).
         </p>
       </div>
 
       {/* Rules List */}
-      <div className="space-y-4 mb-12">
+      <div className="space-y-4 mb-10">
         {rules.map((rule, idx) => (
           <div
             key={idx}
-            className="p-6 rounded-3xl bg-white border border-[#DDD6FE] space-y-2 hover:border-[#684BFD] transition-colors shadow-sm"
+            className="p-5 rounded-[5px] bg-white border border-slate-200 space-y-2 hover:border-[#138601] transition-colors shadow-2xs"
           >
             <div className="flex items-center gap-3">
-              <span className="w-7 h-7 rounded-xl bg-[#684BFD] text-white font-black text-xs flex items-center justify-center shrink-0">
+              <span className="w-6 h-6 rounded-[4px] bg-[#138601] text-white font-bold text-xs flex items-center justify-center shrink-0">
                 0{idx + 1}
               </span>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-sm font-bold text-slate-900">
                 {rule.title}
               </h3>
             </div>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pl-10">
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pl-9">
               {rule.detail}
             </p>
           </div>
@@ -73,8 +73,8 @@ export default function GuidelinesPage() {
       </div>
 
       {/* Commission Disclaimer Box */}
-      <div className="p-7 rounded-3xl bg-amber-50 border border-amber-200 flex items-start gap-4">
-        <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0">
+      <div className="p-5 rounded-[5px] bg-amber-50 border border-amber-200 flex items-start gap-4">
+        <div className="w-9 h-9 rounded-[4px] bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0">
           <AlertTriangle className="w-5 h-5" />
         </div>
         <div className="space-y-1">

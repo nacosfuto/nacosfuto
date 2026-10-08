@@ -10,13 +10,11 @@ import {
   ExternalLink,
   KeyRound
 } from 'lucide-react';
-import { getVoterBallot } from '@nacos/supabase/electraService';
 
 export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
   const [matricNumber, setMatricNumber] = useState('');
   const [fullName, setFullName] = useState('');
   const [level, setLevel] = useState('300 Level');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -60,36 +58,33 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-md bg-white border border-[#DDD6FE] rounded-3xl p-6 sm:p-8 shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-[5px] p-6 sm:p-8 shadow-2xl overflow-hidden">
         
-        {/* Glow Accent */}
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#684BFD]/15 rounded-full blur-3xl pointer-events-none" />
-
         {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-6 right-6 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
+          className="absolute top-5 right-5 p-1.5 rounded-[5px] bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
         {/* Header */}
-        <div className="space-y-2 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-[#684BFD] text-white flex items-center justify-center mb-3 shadow-md shadow-[#684BFD]/25">
-            <KeyRound className="w-6 h-6 stroke-[2.2]" />
+        <div className="space-y-1.5 mb-6">
+          <div className="w-10 h-10 rounded-[5px] bg-green-50 text-[#138601] flex items-center justify-center mb-3 border border-green-200">
+            <KeyRound className="w-5 h-5 stroke-[2.2]" />
           </div>
-          <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">
-            Connect NACOS Account
+          <h2 className="text-xl font-bold text-slate-900 font-display tracking-tight">
+            Voter Accreditation & Sign In
           </h2>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Verify your ground-truth Computer Science enrollment to unlock your one-man-one-vote cryptographic ballot.
+            Verify your official student registration to unlock your secure, single-ballot voting session.
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+          <div className="mb-4 p-3 rounded-[5px] bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -105,21 +100,21 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
               placeholder="e.g. 20241429481"
               value={matricNumber}
               onChange={(e) => setMatricNumber(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-sm font-mono placeholder:text-slate-400 focus:outline-none focus:border-[#684BFD] transition-colors"
+              className="w-full px-3.5 py-2.5 rounded-[5px] bg-slate-50 border border-slate-300 text-slate-900 text-xs font-mono placeholder:text-slate-400 focus:outline-none focus:border-[#138601] transition-colors"
               required
             />
           </div>
 
           <div>
             <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              Full Legal Name (Optional)
+              Full Student Name (Optional)
             </label>
             <input
               type="text"
               placeholder="e.g. Chinedu Okafor"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-[#684BFD] transition-colors"
+              className="w-full px-3.5 py-2.5 rounded-[5px] bg-slate-50 border border-slate-300 text-slate-900 text-xs placeholder:text-slate-400 focus:outline-none focus:border-[#138601] transition-colors"
             />
           </div>
 
@@ -130,7 +125,7 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
             <select
               value={level}
               onChange={(e) => setLevel(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-[#684BFD] transition-colors"
+              className="w-full px-3.5 py-2.5 rounded-[5px] bg-slate-50 border border-slate-300 text-slate-900 text-xs focus:outline-none focus:border-[#138601] transition-colors"
             >
               <option value="100 Level">100 Level (Freshmen)</option>
               <option value="200 Level">200 Level (Sophomore)</option>
@@ -144,7 +139,7 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 rounded-full text-sm font-black text-white bg-[#684BFD] hover:bg-[#5537F8] transition-all transform active:scale-95 shadow-lg shadow-[#684BFD]/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-2.5 rounded-[5px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isLoading ? (
                 <span>Verifying Institutional Record...</span>
@@ -158,40 +153,33 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
           </div>
         </form>
 
-        {/* Quick Demo Pre-fills */}
-        <div className="mt-6 pt-4 border-t border-slate-100">
-          <span className="text-[10px] text-slate-400 block mb-2 font-medium">
-            Demo quick verification shortcuts:
+        {/* Demo Shortcuts */}
+        <div className="mt-5 pt-3 border-t border-slate-100">
+          <span className="text-[10px] text-slate-400 block mb-1.5 font-medium">
+            Demo accreditation shortcuts:
           </span>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
               onClick={() => handleQuickDemo('300 Level', '20231429810', 'Nestor Anyanwu')}
-              className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:text-[#684BFD] hover:border-[#684BFD] border border-slate-200 transition-all cursor-pointer"
+              className="text-[10px] px-2 py-0.5 rounded-[3px] bg-slate-100 text-slate-700 hover:text-[#138601] hover:border-[#138601] border border-slate-200 transition-all cursor-pointer"
             >
               300L Voter
             </button>
             <button
               type="button"
               onClick={() => handleQuickDemo('400 Level', '20221428512', 'Chioma Okoli')}
-              className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:text-[#684BFD] hover:border-[#684BFD] border border-slate-200 transition-all cursor-pointer"
+              className="text-[10px] px-2 py-0.5 rounded-[3px] bg-slate-100 text-slate-700 hover:text-[#138601] hover:border-[#138601] border border-slate-200 transition-all cursor-pointer"
             >
               400L Voter
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickDemo('100 Level', '20261439900', 'Somtochukwu Eze')}
-              className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:text-[#684BFD] hover:border-[#684BFD] border border-slate-200 transition-all cursor-pointer"
-            >
-              100L Voter
             </button>
           </div>
         </div>
 
         {/* Footnote */}
         <p className="mt-4 text-[10px] text-slate-400 text-center flex items-center justify-center gap-1">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Zero third-party trackers • Cryptographic single-ballot verification</span>
+          <ShieldCheck className="w-3.5 h-3.5 text-[#138601]" />
+          <span>Cryptographic single-ballot verification</span>
         </p>
 
       </div>

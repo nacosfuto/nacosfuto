@@ -369,7 +369,7 @@ export default function App() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-extrabold text-xl text-slate-900 font-display tracking-tight">ELECTRA</span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-[#684BFD] border border-purple-200">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-50 text-[#138601] border border-green-200">
                     Admin Commission
                   </span>
                 </div>
@@ -383,7 +383,7 @@ export default function App() {
                 href={urls.electra}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold bg-[#684BFD]/10 hover:bg-[#684BFD]/15 text-[#684BFD] border border-[#684BFD]/20 transition-all"
+                className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold bg-[#138601]/10 hover:bg-[#138601]/15 text-[#138601] border border-[#138601]/20 transition-all"
               >
                 <span>Live Voter Portal</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -413,7 +413,7 @@ export default function App() {
               <select
                 value={selectedElectionId}
                 onChange={(e) => setSelectedElectionId(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-1.5 rounded-lg text-xs font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#684BFD] cursor-pointer"
+                className="appearance-none pl-3 pr-8 py-1.5 rounded-lg text-xs font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#138601] cursor-pointer"
               >
                 {allElections.map(el => (
                   <option key={el.id} value={el.id}>
@@ -442,7 +442,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => handlePromoteToActive(currentElection.id)}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#684BFD] hover:bg-[#5537F8] text-white shadow-xs cursor-pointer transition-all"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#138601] hover:bg-[#0f6c01] text-white shadow-xs cursor-pointer transition-all"
               >
                 Set This Session as Active
               </button>
@@ -494,7 +494,7 @@ export default function App() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shadow-xs ${
                   isSel
-                    ? 'bg-[#684BFD] text-white shadow-[#684BFD]/20'
+                    ? 'bg-[#138601] text-white shadow-[#138601]/20'
                     : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200'
                 }`}
               >
@@ -522,7 +522,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleOpenCreateElection}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold text-white bg-[#684BFD] hover:bg-[#5537F8] transition-all cursor-pointer shadow-sm"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all cursor-pointer shadow-sm"
               >
                 <Plus className="w-4 h-4 stroke-[2.5]" />
                 <span>Create New Year Election</span>
@@ -540,7 +540,7 @@ export default function App() {
                     key={el.id}
                     className={`rounded-2xl border bg-white p-6 shadow-sm transition-all flex flex-col justify-between ${
                       isActive 
-                        ? 'border-[#684BFD] ring-2 ring-[#684BFD]/20' 
+                        ? 'border-[#138601] ring-2 ring-[#138601]/20' 
                         : isSelected
                         ? 'border-slate-400'
                         : 'border-slate-200 hover:border-slate-300'
@@ -581,7 +581,7 @@ export default function App() {
                         </div>
                         <div className="flex justify-between">
                           <span>Turnout:</span>
-                          <span className="font-bold text-[#684BFD]">{el.certifiedTurnout || 'In Progress'}</span>
+                          <span className="font-bold text-[#138601]">{el.certifiedTurnout || 'In Progress'}</span>
                         </div>
                         {el.winnerSummary && (
                           <div className="pt-1 border-t border-slate-200 text-[11px] text-slate-500 italic">
@@ -603,7 +603,7 @@ export default function App() {
                           }}
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
                             isSelected
-                              ? 'bg-[#684BFD] text-white'
+                              ? 'bg-[#138601] text-white'
                               : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                           }`}
                         >
@@ -626,7 +626,7 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => handlePromoteToActive(el.id)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-50 hover:bg-purple-100 text-[#684BFD] border border-purple-200 cursor-pointer transition-all"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-green-50 hover:bg-green-100 text-[#138601] border border-green-200 cursor-pointer transition-all"
                           >
                             Set Active
                           </button>
@@ -741,7 +741,7 @@ export default function App() {
                 <div className="text-3xl font-black text-slate-900 font-display mt-1">
                   {contestants.length}
                 </div>
-                <span className="text-[10px] font-bold text-[#684BFD] mt-2 block">Across {posts.length} Executive Posts</span>
+                <span className="text-[10px] font-bold text-[#138601] mt-2 block">Across {posts.length} Executive Posts</span>
               </div>
               <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
                 <span className="text-xs font-semibold text-slate-500">Electoral Platform</span>
@@ -769,7 +769,7 @@ export default function App() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {results.resultsByPost.map(({ post, leadingCandidate, totalVotes }) => (
                   <div key={post.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                    <span className="text-[10px] font-bold uppercase text-[#684BFD] tracking-wider block">
+                    <span className="text-[10px] font-bold uppercase text-[#138601] tracking-wider block">
                       {post.title}
                     </span>
                     {leadingCandidate ? (
@@ -777,7 +777,7 @@ export default function App() {
                         <img 
                           src={leadingCandidate.photoUrl} 
                           alt={leadingCandidate.name} 
-                          className="w-10 h-10 rounded-full object-cover border border-purple-200" 
+                          className="w-10 h-10 rounded-full object-cover border border-green-200" 
                         />
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-slate-900 truncate">{leadingCandidate.name}</p>
@@ -815,7 +815,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleOpenAddModal}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold text-white bg-[#684BFD] hover:bg-[#5537F8] transition-all cursor-pointer shadow-sm"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all cursor-pointer shadow-sm"
               >
                 <Plus className="w-4 h-4 stroke-[2.5]" />
                 <span>Certify Candidate</span>
@@ -834,10 +834,10 @@ export default function App() {
                       <img
                         src={cnd.photoUrl}
                         alt={cnd.name}
-                        className="w-14 h-14 rounded-full object-cover bg-slate-100 border-2 border-purple-200 shrink-0"
+                        className="w-14 h-14 rounded-full object-cover bg-slate-100 border-2 border-green-200 shrink-0"
                       />
                       <div className="min-w-0">
-                        <span className="text-[10px] font-bold uppercase text-[#684BFD] block truncate">
+                        <span className="text-[10px] font-bold uppercase text-[#138601] block truncate">
                           {cnd.runningPost}
                         </span>
                         <h3 className="text-base font-bold text-slate-900 truncate">{cnd.name}</h3>
@@ -852,7 +852,7 @@ export default function App() {
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs space-y-1.5">
                       <div className="flex justify-between text-slate-500">
                         <span>Total Votes Cast:</span>
-                        <span className="font-bold text-[#684BFD] font-mono">{cnd.votesCount || 0}</span>
+                        <span className="font-bold text-[#138601] font-mono">{cnd.votesCount || 0}</span>
                       </div>
                       <div className="flex justify-between text-slate-500">
                         <span>Statement Filed:</span>
@@ -904,7 +904,7 @@ export default function App() {
               {posts.map(post => (
                 <div key={post.id} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-purple-50 text-[#684BFD] border border-purple-200">
+                    <span className="px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-green-50 text-[#138601] border border-green-200">
                       {post.code}
                     </span>
                     <span className="text-xs font-semibold text-slate-400">Order #{post.order}</span>
@@ -937,7 +937,7 @@ export default function App() {
                 onClick={reloadData}
                 className="px-4 py-2 rounded-lg text-xs font-bold bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 shadow-sm flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-[#684BFD]" />
+                <RefreshCw className="w-3.5 h-3.5 text-[#138601]" />
                 <span>Refresh Tallies</span>
               </button>
             </div>
@@ -947,7 +947,7 @@ export default function App() {
                 <div key={post.id} className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
                   <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                     <h3 className="text-base font-bold text-slate-900">{post.title}</h3>
-                    <span className="text-xs font-mono text-[#684BFD] font-bold bg-purple-50 px-2.5 py-1 rounded-md border border-purple-200">
+                    <span className="text-xs font-mono text-[#138601] font-bold bg-green-50 px-2.5 py-1 rounded-md border border-green-200">
                       {totalVotes} Ballots
                     </span>
                   </div>
@@ -958,11 +958,11 @@ export default function App() {
                         <div key={cnd.id} className="space-y-1.5">
                           <div className="flex justify-between text-xs">
                             <span className="font-semibold text-slate-800">{cnd.name}</span>
-                            <span className="font-mono text-[#684BFD] font-bold">{cnd.votesCount || 0} ({cnd.percentage}%)</span>
+                            <span className="font-mono text-[#138601] font-bold">{cnd.votesCount || 0} ({cnd.percentage}%)</span>
                           </div>
                           <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-[#684BFD] rounded-full transition-all duration-500"
+                              className="h-full bg-[#138601] rounded-full transition-all duration-500"
                               style={{ width: `${cnd.percentage}%` }}
                             />
                           </div>
@@ -1012,7 +1012,7 @@ export default function App() {
                   value={electionForm.title}
                   onChange={(e) => setElectionForm({ ...electionForm, title: e.target.value })}
                   placeholder="e.g. NACOS FUTO 2027/2028 General Elections"
-                  className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                  className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#138601]"
                 />
               </div>
 
@@ -1027,7 +1027,7 @@ export default function App() {
                     value={electionForm.session}
                     onChange={(e) => setElectionForm({ ...electionForm, session: e.target.value })}
                     placeholder="e.g. 2027/2028"
-                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-[#138601]"
                   />
                 </div>
 
@@ -1041,7 +1041,7 @@ export default function App() {
                     value={electionForm.year}
                     onChange={(e) => setElectionForm({ ...electionForm, year: e.target.value })}
                     placeholder="2027"
-                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-[#138601]"
                   />
                 </div>
               </div>
@@ -1055,7 +1055,7 @@ export default function App() {
                     type="datetime-local"
                     value={electionForm.startDate}
                     onChange={(e) => setElectionForm({ ...electionForm, startDate: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#138601]"
                   />
                 </div>
 
@@ -1067,7 +1067,7 @@ export default function App() {
                     type="datetime-local"
                     value={electionForm.endDate}
                     onChange={(e) => setElectionForm({ ...electionForm, endDate: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#138601]"
                   />
                 </div>
               </div>
@@ -1081,17 +1081,17 @@ export default function App() {
                   value={electionForm.description}
                   onChange={(e) => setElectionForm({ ...electionForm, description: e.target.value })}
                   placeholder="Official commission notes for this academic session election..."
-                  className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                  className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#138601]"
                 />
               </div>
 
-              <div className="p-3.5 rounded-xl bg-purple-50 border border-purple-200">
+              <div className="p-3.5 rounded-xl bg-green-50 border border-green-200">
                 <label className="flex items-center gap-2.5 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={electionForm.makeActiveNow}
                     onChange={(e) => setElectionForm({ ...electionForm, makeActiveNow: e.target.checked })}
-                    className="w-4 h-4 text-[#684BFD] rounded border-slate-300 focus:ring-[#684BFD]"
+                    className="w-4 h-4 text-[#138601] rounded border-slate-300 focus:ring-[#138601]"
                   />
                   <div>
                     <span className="text-xs font-bold text-slate-900 block">
@@ -1114,7 +1114,7 @@ export default function App() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg text-xs font-bold text-white bg-[#684BFD] hover:bg-[#5537F8] shadow-sm cursor-pointer"
+                  className="px-5 py-2 rounded-lg text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-sm cursor-pointer"
                 >
                   {editingElection ? 'Save Changes' : 'Create Election'}
                 </button>
@@ -1163,7 +1163,7 @@ export default function App() {
                     value={candidateForm.name}
                     onChange={(e) => setCandidateForm({ ...candidateForm, name: e.target.value })}
                     placeholder="e.g. Chukwuebuka Anyanwu"
-                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#138601]"
                   />
                 </div>
 
@@ -1174,7 +1174,7 @@ export default function App() {
                   <select
                     value={candidateForm.postId}
                     onChange={(e) => setCandidateForm({ ...candidateForm, postId: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#138601]"
                   >
                     {posts.map(post => (
                       <option key={post.id} value={post.id}>{post.title}</option>
@@ -1193,7 +1193,7 @@ export default function App() {
                     value={candidateForm.matricNumber}
                     onChange={(e) => setCandidateForm({ ...candidateForm, matricNumber: e.target.value })}
                     placeholder="e.g. 20231429810"
-                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-[#138601]"
                   />
                 </div>
 
@@ -1204,7 +1204,7 @@ export default function App() {
                   <select
                     value={candidateForm.level}
                     onChange={(e) => setCandidateForm({ ...candidateForm, level: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                    className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#138601]"
                   >
                     <option value="100 Level">100 Level</option>
                     <option value="200 Level">200 Level</option>
@@ -1224,7 +1224,7 @@ export default function App() {
                   value={candidateForm.slogan}
                   onChange={(e) => setCandidateForm({ ...candidateForm, slogan: e.target.value })}
                   placeholder="e.g. Technology That Empowers, Leadership That Listens"
-                  className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                  className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#138601]"
                 />
               </div>
 
@@ -1237,13 +1237,13 @@ export default function App() {
                   value={candidateForm.photoUrl}
                   onChange={(e) => setCandidateForm({ ...candidateForm, photoUrl: e.target.value })}
                   placeholder="https://..."
-                  className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                  className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#138601]"
                 />
               </div>
 
               {/* Candidate Statement Section */}
               <div className="pt-2 border-t border-slate-100">
-                <h4 className="text-xs font-bold uppercase text-[#684BFD] tracking-wider mb-3">
+                <h4 className="text-xs font-bold uppercase text-[#138601] tracking-wider mb-3">
                   Candidate's Statement (Image 1 Feature)
                 </h4>
                 
@@ -1257,7 +1257,7 @@ export default function App() {
                       value={candidateForm.candidateStatement}
                       onChange={(e) => setCandidateForm({ ...candidateForm, candidateStatement: e.target.value })}
                       placeholder="I, [Name], hereby declare my candidacy for... [Full statement to be displayed in reader modal]"
-                      className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                      className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#138601]"
                     />
                   </div>
 
@@ -1270,7 +1270,7 @@ export default function App() {
                       value={candidateForm.statementPdfUrl}
                       onChange={(e) => setCandidateForm({ ...candidateForm, statementPdfUrl: e.target.value })}
                       placeholder="https://.../statement.pdf"
-                      className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                      className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#138601]"
                     />
                   </div>
                 </div>
@@ -1292,7 +1292,7 @@ export default function App() {
                       value={candidateForm.manifestoHeadline}
                       onChange={(e) => setCandidateForm({ ...candidateForm, manifestoHeadline: e.target.value })}
                       placeholder="e.g. The Catalyst Agenda: 4 Pillars for Modern Computing"
-                      className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                      className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#138601]"
                     />
                   </div>
 
@@ -1305,7 +1305,7 @@ export default function App() {
                       value={candidateForm.manifestoSummary}
                       onChange={(e) => setCandidateForm({ ...candidateForm, manifestoSummary: e.target.value })}
                       placeholder="Brief overview of key policies..."
-                      className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#684BFD]"
+                      className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#138601]"
                     />
                   </div>
                 </div>
@@ -1321,7 +1321,7 @@ export default function App() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg text-xs font-bold text-white bg-[#684BFD] hover:bg-[#5537F8] shadow-sm cursor-pointer"
+                  className="px-5 py-2 rounded-lg text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-sm cursor-pointer"
                 >
                   {editingCandidate ? 'Save Changes' : 'Certify Candidate'}
                 </button>

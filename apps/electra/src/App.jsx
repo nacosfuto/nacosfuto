@@ -162,7 +162,7 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans selection:bg-[#684BFD] selection:text-white">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans selection:bg-[#138601] selection:text-white">
       
       {/* Top Navbar */}
       <ElectraNavbar
@@ -224,40 +224,6 @@ export default function App() {
           console.log('Ballot cast receipt:', receipt);
         }}
       />
-
-      {/* Light Mode Footer with Purple Accents */}
-      <footer className="mt-20 border-t border-slate-200 bg-white py-12 text-xs text-slate-500">
-        <div className="site-container flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-[#684BFD] text-white flex items-center justify-center font-black shadow-md shadow-[#684BFD]/25">
-              <Vote className="w-5 h-5 stroke-[2.2]" />
-            </div>
-            <div>
-              <span className="font-extrabold text-slate-900 text-sm font-display tracking-wide">
-                ELECTRA
-              </span>
-              <p className="text-[10px] text-slate-500">
-                Official Electoral Engine • NACOS FUTO
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-6 text-slate-600">
-            <Link to="/" className="hover:text-[#684BFD] font-medium transition-colors">Live Polls</Link>
-            <Link to="/contestants" className="hover:text-[#684BFD] font-medium transition-colors">Contestants</Link>
-            <Link to="/manifestos" className="hover:text-[#684BFD] font-medium transition-colors">Manifestos</Link>
-            <Link to="/results" className="hover:text-[#684BFD] font-medium transition-colors">Audit Results</Link>
-            <Link to="/guidelines" className="hover:text-[#684BFD] font-medium transition-colors">Guidelines</Link>
-            <a href={urls.electraAdmin} className="text-[#684BFD] font-bold hover:underline">Commission Admin</a>
-          </div>
-
-          <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Cryptographically Verified Ballots</span>
-          </div>
-        </div>
-      </footer>
-
     </div>
   );
 }

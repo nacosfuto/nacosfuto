@@ -432,22 +432,38 @@ const AdminStudents = () => {
   const handleConfirmDeleteUser = async () => {
     if (!studentToDelete) return;
     setIsDeleting(true);
+    const reg = (studentToDelete.registration_number || studentToDelete.reg_no || studentToDelete.matric || studentToDelete.matric_number || studentToDelete.id || '').toUpperCase();
+    const targetId = studentToDelete.id;
+    const name = studentToDelete.full_name || studentToDelete.name || reg;
+
+    // Optimistically remove from local state immediately
+    setVerifiedRoster(prev => prev.filter(s => {
+      const sReg = (s.registration_number || s.reg_no || s.matric || s.matric_number || '').toUpperCase();
+      return (!reg || sReg !== reg) && (!targetId || s.id !== targetId);
+    }));
+    setActiveAccounts(prev => prev.filter(s => {
+      const sReg = (s.registration_number || s.reg_no || s.matric || s.matric_number || '').toUpperCase();
+      return (!reg || sReg !== reg) && (!targetId || s.id !== targetId);
+    }));
+
     try {
-      const reg = studentToDelete.registration_number || studentToDelete.matric || studentToDelete.matric_number || studentToDelete.id;
-      const name = studentToDelete.full_name || studentToDelete.name || reg;
       const res = await adminDeleteStudent(studentToDelete, adminSession);
-      if (res.error) {
+      if (res?.error) {
         showNotification(res.error.message || 'Failed to delete student user from database', 'error');
+        await loadData(true);
       } else {
         showNotification(`Student ${name} (${reg}) has been permanently deleted from the database.`);
         setIsDeleteModalOpen(false);
         setStudentToDelete(null);
-        await loadData();
+        await loadData(true);
       }
     } catch (err) {
       showNotification('Error deleting student user: ' + (err.message || 'Unknown error'), 'error');
+      await loadData(true);
     } finally {
       setIsDeleting(false);
+      setIsDeleteModalOpen(false);
+      setStudentToDelete(null);
     }
   };
 

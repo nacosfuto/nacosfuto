@@ -3,64 +3,54 @@ import {
   X, 
   FileText, 
   Award, 
-  Target, 
-  CheckCircle2, 
-  Vote, 
-  Share2, 
-  User, 
-  GraduationCap,
-  Sparkles,
-  Download
+  Download, 
+  ExternalLink,
+  Eye,
+  Vote,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function ManifestoModal({ contestant, isOpen, onClose, onSelectVote }) {
   if (!isOpen || !contestant) return null;
 
-  const manifesto = contestant.manifesto || {
-    headline: `${contestant.name}'s Campaign Manifesto`,
-    summary: contestant.bio || 'Building a more inclusive, high-tech, and accountable computing students association.',
-    pillars: [
-      {
-        title: 'Academic Excellence & Practical Tech Pipelines',
-        detail: 'Connecting classroom theory to high-value software internships and global developer certifications.'
-      },
-      {
-        title: 'Equitable Student Welfare & Infrastructure',
-        detail: 'Advocating for student needs, lab computer maintenance, and uninterrupted study environments.'
-      }
-    ],
-    personalNote: 'Together, let us build a legacy of excellence for NACOS FUTO.'
+  // Document URL: Backblaze B2, Supabase Storage, or Cloudinary PDF URL
+  const documentUrl = contestant.manifestoPdfUrl || 
+                      contestant.manifestoUrl || 
+                      contestant.documentUrl || 
+                      `https://jvxbyataifjsotudtqly.supabase.co/storage/v1/object/public/documents/manifestos/${contestant.id || 'candidate'}.pdf`;
+
+  const handleOpenPdf = () => {
+    window.open(documentUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-md animate-fade-in overflow-y-auto">
-      <div className="relative w-full max-w-3xl bg-white border border-[#DDD6FE] rounded-3xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto">
+      <div className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-[5px] shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
         
-        {/* Glow Accent */}
-        <div className="absolute top-0 right-1/4 w-96 h-32 bg-[#684BFD]/15 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Modal Sticky Header */}
-        <div className="relative p-6 sm:p-8 bg-slate-50 border-b border-slate-200 flex items-start justify-between gap-4 shrink-0">
-          <div className="flex items-center gap-4 sm:gap-5 min-w-0">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-[#684BFD] shadow-sm shrink-0 bg-slate-100">
+        {/* Modal Header */}
+        <div className="relative p-5 sm:p-6 bg-slate-50 border-b border-slate-200 flex items-start justify-between gap-4 shrink-0">
+          <div className="flex items-center gap-4 min-w-0">
+            {/* Profile Photo: Squared with subtle rounded curves (5px) as requested */}
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-[5px] overflow-hidden border border-slate-200 shadow-2xs shrink-0 bg-slate-100">
               <img
                 src={contestant.photoUrl || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569274/nacos/executives/president_irechukwu.jpg'}
                 alt={contestant.name}
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569274/nacos/executives/president_irechukwu.jpg';
+                }}
               />
             </div>
             <div className="min-w-0">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-[#F5F3FF] text-[#684BFD] border border-[#DDD6FE] mb-1.5 shadow-sm">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[4px] text-[11px] font-bold uppercase tracking-wider bg-green-50 text-[#138601] border border-green-200 mb-1">
                 <Award className="w-3.5 h-3.5" />
-                <span>Aspiring {contestant.runningPost}</span>
+                <span>{contestant.runningPost || 'Contested Office'}</span>
               </div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 font-display truncate">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 font-display truncate">
                 {contestant.name}
               </h2>
-              <p className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                <span>{contestant.level}</span>
-                <span>•</span>
-                <span className="font-mono text-[#684BFD] font-bold">{contestant.matricNumber}</span>
+              <p className="text-xs text-slate-500 font-mono">
+                Candidate Official Document
               </p>
             </div>
           </div>
@@ -68,142 +58,87 @@ export default function ManifestoModal({ contestant, isOpen, onClose, onSelectVo
           <button
             type="button"
             onClick={onClose}
-            className="p-2.5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer shrink-0"
+            className="p-1.5 rounded-[5px] bg-slate-200 hover:bg-slate-300 text-slate-700 transition-colors cursor-pointer shrink-0"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Modal Scrollable Body */}
-        <div className="p-6 sm:p-8 space-y-8 overflow-y-auto custom-scroll">
+        {/* Modal Body: Clean Direct PDF/Document Box (No complications, no fake body text) */}
+        <div className="p-6 sm:p-8 space-y-6 overflow-y-auto">
           
-          {/* Official Candidate Statement Section */}
-          <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 space-y-3 shadow-2xs">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-[#684BFD]" />
-                <span>Candidate's Official Statement</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  window.print();
-                }}
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#684BFD] hover:underline cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download / Print Statement</span>
-              </button>
+          <div className="p-6 rounded-[5px] bg-slate-50 border border-slate-200 text-center space-y-4">
+            <div className="w-14 h-14 rounded-[5px] bg-white border border-slate-200 text-[#138601] flex items-center justify-center mx-auto shadow-2xs">
+              <FileText className="w-7 h-7" />
             </div>
-            <div className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal whitespace-pre-line bg-slate-50 p-4 rounded-xl border border-slate-100">
-              {contestant.candidateStatement || `${contestant.name} is seeking your mandate for ${contestant.runningPost}. Their mission is built on integrity, competence, and service to the Department of Computer Science, Federal University of Technology, Owerri.`}
-            </div>
-          </div>
 
-          {/* Campaign Slogan & Headline */}
-          <div className="p-5 sm:p-6 rounded-2xl bg-[#F5F3FF] border border-[#DDD6FE] space-y-2">
-            <div className="text-[11px] font-black uppercase tracking-widest text-[#684BFD] flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Official Campaign Vision</span>
-            </div>
-            <h3 className="text-lg sm:text-xl font-black text-slate-900 font-display leading-snug">
-              "{manifesto.headline}"
-            </h3>
-            <p className="text-sm text-slate-700 leading-relaxed pt-1">
-              {manifesto.summary}
-            </p>
-          </div>
-
-          {/* Core Policy Pillars */}
-          <div className="space-y-4">
-            <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-              <Target className="w-4 h-4 text-[#684BFD]" />
-              <span>Key Pillars & Policy Roadmap</span>
-            </h4>
-
-            <div className="grid grid-cols-1 gap-3.5">
-              {manifesto.pillars?.map((pillar, idx) => (
-                <div
-                  key={idx}
-                  className="p-5 rounded-2xl bg-white border border-[#DDD6FE] hover:border-[#684BFD] transition-colors space-y-2 shadow-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-lg bg-[#684BFD] text-white font-black text-xs flex items-center justify-center shrink-0">
-                      0{idx + 1}
-                    </span>
-                    <h5 className="text-sm font-bold text-slate-900">
-                      {pillar.title}
-                    </h5>
-                  </div>
-                  <p className="text-xs text-slate-600 leading-relaxed pl-9">
-                    {pillar.detail}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Personal Message */}
-          {manifesto.personalNote && (
-            <div className="p-5 rounded-2xl bg-slate-50 border-l-4 border-l-[#684BFD] border-y border-r border-slate-200 space-y-1.5">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                Candidate's Personal Pledge
-              </span>
-              <p className="text-xs text-slate-700 italic leading-relaxed">
-                "{manifesto.personalNote}"
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-slate-900">
+                Official Candidate Statement & Manifesto
+              </h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Certified PDF document submitted by {contestant.name} for the office of {contestant.runningPost}.
               </p>
             </div>
-          )}
 
-          {/* Attached PDF / File */}
-          {contestant.manifestoPdfUrl && (
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-200">
-              <div className="flex items-center gap-3">
-                <FileText className="w-5 h-5 text-[#684BFD]" />
-                <span className="text-xs font-semibold text-slate-700">
-                  Full Certified Manifesto Document (.PDF)
-                </span>
-              </div>
+            {/* Quick Action Buttons */}
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleOpenPdf}
+                className="px-5 py-2.5 rounded-[5px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs cursor-pointer flex items-center gap-2 transition-colors"
+              >
+                <Eye className="w-4 h-4" />
+                <span>View Full PDF Document</span>
+              </button>
+              
               <a
-                href={contestant.manifestoPdfUrl}
+                href={documentUrl}
+                download={`${contestant.name}_Manifesto.pdf`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-200 text-xs font-bold text-slate-900 hover:text-[#684BFD]"
+                className="px-5 py-2.5 rounded-[5px] text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 shadow-2xs cursor-pointer flex items-center gap-2 transition-colors"
               >
-                <Download className="w-3.5 h-3.5" />
+                <Download className="w-4 h-4" />
                 <span>Download PDF</span>
               </a>
             </div>
+          </div>
+
+          {/* Simple summary or quote if present */}
+          {contestant.slogan && (
+            <div className="p-3.5 rounded-[5px] bg-green-50/50 border border-green-200/60 text-center text-xs text-slate-700 italic">
+              "{contestant.slogan}"
+            </div>
           )}
 
+          {/* Notice */}
+          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+            <ShieldCheck className="w-4 h-4 text-[#138601] shrink-0" />
+            <span>Document verified and authenticated by the NACOS Electoral Commission (UNECO).</span>
+          </div>
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="p-5 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
-          <div className="text-xs text-slate-500">
-            Certified by Electoral Commission (DEC 2026)
-          </div>
+        <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-[5px] text-xs font-semibold text-slate-600 hover:bg-slate-200 bg-slate-100 cursor-pointer"
+          >
+            Close
+          </button>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+          {onSelectVote && (
             <button
               type="button"
-              onClick={onClose}
-              className="w-1/2 sm:w-auto px-5 py-2.5 rounded-full text-xs font-bold text-slate-700 bg-slate-200 hover:bg-slate-300 transition-colors cursor-pointer"
+              onClick={() => onSelectVote(contestant)}
+              className="px-5 py-2 rounded-[5px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs cursor-pointer flex items-center gap-1.5"
             >
-              Close
+              <Vote className="w-4 h-4" />
+              <span>Vote for {contestant.name.split(' ')[0]}</span>
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                onSelectVote?.(contestant);
-                onClose();
-              }}
-              className="w-1/2 sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-xs font-black text-white bg-[#684BFD] hover:bg-[#5537F8] transition-all transform active:scale-95 cursor-pointer shadow-lg shadow-[#684BFD]/25"
-            >
-              <Vote className="w-4 h-4 stroke-[2.2]" />
-              <span>Vote {contestant.name.split(' ')[0]}</span>
-            </button>
-          </div>
+          )}
         </div>
 
       </div>

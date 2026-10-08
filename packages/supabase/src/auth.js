@@ -1146,84 +1146,134 @@ export async function adminDeleteStudent(identifier, adminUser = null) {
   if (!identifier) return { error: { message: 'Student identifier is required.' } };
 
   const rawObj = typeof identifier === 'object' && identifier !== null ? identifier : {};
-  const cleanId = String(rawObj.id || (typeof identifier === 'string' && identifier.includes('-') ? identifier : '')).trim();
-  const cleanReg = String(rawObj.registration_number || rawObj.matric || rawObj.matricNumber || (typeof identifier === 'string' && !identifier.includes('-') ? identifier : '')).trim().toUpperCase();
+  const cleanId = String(rawObj.id || rawObj.auth_user_id || rawObj.student_id || (typeof identifier === 'string' && identifier.includes('-') ? identifier : '')).trim();
+  const cleanReg = String(
+    rawObj.registration_number || 
+    rawObj.reg_no || 
+    rawObj.regNumber || 
+    rawObj.matric_number || 
+    rawObj.matric || 
+    rawObj.matricNumber || 
+    (typeof identifier === 'string' && !identifier.includes('-') ? identifier : '')
+  ).trim().toUpperCase();
   const cleanEmail = String(rawObj.email || '').trim().toLowerCase();
 
-  // 1. Permanently delete from profiles table in Supabase
+  // 1. Delete associated payments & results to prevent foreign key constraint blocks
   try {
-    let q = supabase.from('profiles').delete();
-    if (cleanReg && cleanId) {
-      q = q.or(`registration_number.eq.${cleanReg},id.eq.${cleanId}`);
-    } else if (cleanReg) {
-      q = q.eq('registration_number', cleanReg);
-    } else if (cleanId) {
-      q = q.eq('id', cleanId);
-    }
-    const { error: profErr } = await q;
-    if (profErr) {
-      console.warn('Supabase delete profile error:', profErr);
-    }
+    if (cleanReg) await supabase.from('payments').delete().eq('registration_number', cleanReg);
+    if (cleanId && cleanId.includes('-')) await supabase.from('payments').delete().eq('student_id', cleanId);
+    if (cleanReg) await supabase.from('dues_payments').delete().eq('registration_number', cleanReg);
+    if (cleanId && cleanId.includes('-')) await supabase.from('dues_payments').delete().eq('student_id', cleanId);
+    if (cleanReg) await supabase.from('results').delete().eq('registration_number', cleanReg);
+    if (cleanReg) await supabase.from('student_results').delete().eq('registration_number', cleanReg);
+  } catch (e) {
+    console.warn('Scrubbing associated records exception:', e);
+  }
+
+  // 2. Permanently delete from profiles table in Supabase
+  try {
+    if (cleanReg) await supabase.from('profiles').delete().eq('registration_number', cleanReg);
+    if (cleanId && cleanId.includes('-')) await supabase.from('profiles').delete().eq('id', cleanId);
+    if (cleanEmail) await supabase.from('profiles').delete().eq('email', cleanEmail);
   } catch (err) {
     console.warn('Supabase delete profile exception:', err);
   }
 
-  // 2. Permanently delete from verified_students table in Supabase
+  // 3. Permanently delete from verified_students table in Supabase
   try {
-    let vq = supabase.from('verified_students').delete();
-    if (cleanReg) {
-      vq = vq.eq('registration_number', cleanReg);
-    } else if (cleanEmail) {
-      vq = vq.eq('email', cleanEmail);
-    } else if (cleanId) {
-      vq = vq.eq('id', cleanId);
-    }
-    const { error: vErr } = await vq;
-    if (vErr) {
-      console.warn('Supabase delete verified_students error:', vErr);
-    }
+    if (cleanReg) await supabase.from('verified_students').delete().eq('registration_number', cleanReg);
+    if (cleanEmail) await supabase.from('verified_students').delete().eq('email', cleanEmail);
+    if (cleanId && cleanId.includes('-')) await supabase.from('verified_students').delete().eq('id', cleanId);
   } catch (err) {
     console.warn('Supabase delete verified_students exception:', err);
   }
 
-  // 3. Clean up associated student records if present
+  // 4. Clean up id_card_applications and account_recovery_requests
   try {
-    if (cleanReg || cleanId) {
-      const orFilter = cleanReg && cleanId 
-        ? `registration_number.eq.${cleanReg},student_id.eq.${cleanId}` 
-        : (cleanReg ? `registration_number.eq.${cleanReg}` : `student_id.eq.${cleanId}`);
-      await supabase.from('id_card_applications').delete().or(orFilter);
-    }
+    if (cleanReg) await supabase.from('id_card_applications').delete().eq('matric_number', cleanReg);
+    if (cleanReg) await supabase.from('id_card_applications').delete().eq('registration_number', cleanReg);
+    if (cleanId && cleanId.includes('-')) await supabase.from('id_card_applications').delete().eq('student_id', cleanId);
+    if (cleanReg) await supabase.from('account_recovery_requests').delete().eq('registration_number', cleanReg);
   } catch (e) {}
 
+  // 5. CRUCIAL: Remove student from store_verified_roster in id_card_settings
   try {
-    if (cleanReg) {
-      await supabase.from('account_recovery_requests').delete().eq('registration_number', cleanReg);
-    }
-  } catch (e) {}
+    const { data: idSettingsRes } = await supabase
+      .from('id_card_settings')
+      .select('payload')
+      .eq('id', 'store_verified_roster')
+      .maybeSingle();
 
-  // 4. Clean up local client stores
+    if (idSettingsRes?.payload?.roster && Array.isArray(idSettingsRes.payload.roster)) {
+      const filteredRoster = idSettingsRes.payload.roster.filter(s => {
+        const sReg = String(s.registration_number || s.reg_no || s.regNumber || s.matric_number || s.matric || '').trim().toUpperCase();
+        const sEmail = String(s.email || '').trim().toLowerCase();
+        const sId = String(s.id || '').trim();
+        if (cleanReg && sReg === cleanReg) return false;
+        if (cleanId && sId === cleanId) return false;
+        if (cleanEmail && sEmail === cleanEmail) return false;
+        return true;
+      });
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_verified_roster',
+        payload: { roster: filteredRoster },
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    }
+  } catch (e) {
+    console.warn('Error updating store_verified_roster on delete:', e);
+  }
+
+  // 6. Clean up local client stores
   try {
     const students = getLocalStudentsDatabase();
-    const updatedStudents = students.filter(s => 
-      (cleanReg ? s.registration_number?.toUpperCase() !== cleanReg : true) &&
-      (cleanId ? s.id !== cleanId : true)
-    );
+    const updatedStudents = students.filter(s => {
+      const sReg = String(s.registration_number || s.matric || s.matric_number || '').trim().toUpperCase();
+      const sId = String(s.id || '').trim();
+      return (!cleanReg || sReg !== cleanReg) && (!cleanId || sId !== cleanId);
+    });
     saveLocalStudentsDatabase(updatedStudents);
+
+    const keysToClean = ['nacos_verified_students_db', 'nacos_verified_students_cache'];
+    keysToClean.forEach(k => {
+      const raw = localStorage.getItem(k);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            const filtered = parsed.filter(s => {
+              const sReg = String(s.registration_number || s.reg_no || s.regNumber || s.matric_number || s.matric || '').trim().toUpperCase();
+              const sId = String(s.id || '').trim();
+              const sEmail = String(s.email || '').trim().toLowerCase();
+              if (cleanReg && sReg === cleanReg) return false;
+              if (cleanId && sId === cleanId) return false;
+              if (cleanEmail && sEmail === cleanEmail) return false;
+              return true;
+            });
+            localStorage.setItem(k, JSON.stringify(filtered));
+          }
+        } catch (err) {}
+      }
+    });
   } catch (e) {}
 
-  // 5. Invalidate active session if this student is currently logged in locally
+  // 7. Invalidate active session if this student is currently logged in locally
   try {
     const rawUser = localStorage.getItem('nacos_user');
     if (rawUser) {
       const u = JSON.parse(rawUser);
-      if ((cleanReg && u.registration_number?.toUpperCase() === cleanReg) || (cleanId && u.id === cleanId)) {
+      const uReg = String(u.registration_number || u.matric || '').trim().toUpperCase();
+      if ((cleanReg && uReg === cleanReg) || (cleanId && u.id === cleanId)) {
         localStorage.removeItem('nacos_user');
         localStorage.removeItem('nacos_last_activity');
-        window.dispatchEvent(new Event('nacos_user_updated'));
       }
     }
   } catch (e) {}
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('nacos_user_updated'));
+    window.dispatchEvent(new Event('nacos_verified_students_updated'));
+  }
 
   return {
     success: true,
