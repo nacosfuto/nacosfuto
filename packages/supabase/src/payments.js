@@ -150,10 +150,12 @@ export async function getDuesSettings() {
         .maybeSingle();
 
       if (!error && duesRow && duesRow.id_card_fee && !isNaN(Number(duesRow.id_card_fee))) {
+        const rawSession = duesRow.academic_session || getActiveAcademicSession();
+        const cleanSession = typeof rawSession === 'string' ? rawSession : (rawSession?.sessionName || getActiveAcademicSession());
         return {
           id: 'dues',
           dues_amount: Number(duesRow.id_card_fee),
-          academic_session: duesRow.academic_session || getActiveAcademicSession(),
+          academic_session: cleanSession,
           is_open: duesRow.is_application_open ?? true,
           updated_at: duesRow.updated_at
         };

@@ -96,9 +96,15 @@ export const DashboardDuesTracker = ({ onSettingsUpdated }) => {
       ]);
 
       if (settingsRes) {
-        setDuesSettings(settingsRes);
+        const sessionStr = typeof settingsRes.academic_session === 'string'
+          ? settingsRes.academic_session
+          : (settingsRes.academic_session?.sessionName || getDynamicAcademicSession());
+        setDuesSettings({
+          ...settingsRes,
+          academic_session: sessionStr
+        });
         setNewRate(settingsRes.dues_amount || 2500);
-        setNewSession(settingsRes.academic_session || getDynamicAcademicSession());
+        setNewSession(sessionStr);
       }
 
       setDuesPayments(paymentsRes || []);
@@ -413,7 +419,7 @@ export const DashboardDuesTracker = ({ onSettingsUpdated }) => {
                 </span>
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Session <strong>{duesSettings.academic_session}</strong> • Universal Bachs Payment & Institutional Bursary Ledger
+                Session <strong>{typeof duesSettings?.academic_session === 'string' ? duesSettings.academic_session : (duesSettings?.academic_session?.sessionName || getDynamicAcademicSession())}</strong> • Universal Bachs Payment & Institutional Bursary Ledger
               </p>
             </div>
           </div>

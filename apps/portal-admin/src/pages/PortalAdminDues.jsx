@@ -120,9 +120,13 @@ export default function PortalAdminDues() {
       }
     }
 
-    const unsubscribeSession = onAcademicSessionChange((newSession) => {
-      setSessionFilter(newSession);
-      setDuesSettings(prev => ({ ...prev, academic_session: newSession }));
+    const unsubscribeSession = onAcademicSessionChange((payload) => {
+      const sessionStr = typeof payload === 'string'
+        ? payload
+        : (payload?.sessionName || payload?.session || getActiveAcademicSession());
+      setSessionFilter(sessionStr);
+      setDuesSettings(prev => ({ ...prev, academic_session: sessionStr }));
+      setNewSession(sessionStr);
     });
 
     return () => {
@@ -150,9 +154,15 @@ export default function PortalAdminDues() {
       ]);
 
       if (settingsRes) {
-        setDuesSettings(settingsRes);
+        const sessionStr = typeof settingsRes.academic_session === 'string'
+          ? settingsRes.academic_session
+          : (settingsRes.academic_session?.sessionName || getActiveAcademicSession());
+        setDuesSettings({
+          ...settingsRes,
+          academic_session: sessionStr
+        });
         setNewRate(settingsRes.dues_amount || 2500);
-        setNewSession(settingsRes.academic_session || getActiveAcademicSession());
+        setNewSession(sessionStr);
       }
 
       if (Array.isArray(sessionsRes) && sessionsRes.length > 0) {
@@ -183,15 +193,25 @@ export default function PortalAdminDues() {
 
   // Combine registered accounts with dues payments map for authoritative ground truth
   const studentRows = useMemo(() => {
-    const isSpecificSession = sessionFilter && sessionFilter !== 'ALL';
-    const targetSession = isSpecificSession ? sessionFilter : (duesSettings?.academic_session || getActiveAcademicSession());
+    const rawFilterSession = sessionFilter;
+    const filterSessionStr = typeof rawFilterSession === 'string'
+      ? rawFilterSession
+      : (rawFilterSession?.sessionName || getActiveAcademicSession());
+    const isSpecificSession = filterSessionStr && filterSessionStr !== 'ALL';
+
+    const rawSettingsSession = duesSettings?.academic_session;
+    const settingsSessionStr = typeof rawSettingsSession === 'string'
+      ? rawSettingsSession
+      : (rawSettingsSession?.sessionName || getActiveAcademicSession());
+    const targetSession = isSpecificSession ? filterSessionStr : settingsSessionStr;
 
     const paymentMapByReg = new Map();
     const paymentMapByStudentId = new Map();
 
     duesPayments.forEach(p => {
       if (p.status === 'successful') {
-        const pSession = p.academic_session || p.metadata?.academic_session;
+        const rawPSess = p.academic_session || p.metadata?.academic_session;
+        const pSession = typeof rawPSess === 'string' ? rawPSess : (rawPSess?.sessionName || '');
         // If filtering for a specific session, only match payments made for that session
         if (isSpecificSession && pSession && pSession !== targetSession) {
           return;
@@ -231,7 +251,10 @@ export default function PortalAdminDues() {
       const derivedLevel = progression ? `${progression.levelNumber} Level` : (st.level || st.current_level || '100 Level');
       const cleanLevel = derivedLevel.replace(/[^0-9]/g, '') || '100';
 
-      const paymentSession = directPayment?.academic_session || directPayment?.metadata?.academic_session || targetSession;
+      const rawPaymentSession = directPayment?.academic_session || directPayment?.metadata?.academic_session || targetSession;
+      const paymentSession = typeof rawPaymentSession === 'string'
+        ? rawPaymentSession
+        : (rawPaymentSession?.sessionName || String(rawPaymentSession || ''));
       const displayLevel = directPayment?.level || `${cleanLevel} Level`;
 
       return {
@@ -280,8 +303,18 @@ export default function PortalAdminDues() {
 
   // Aggregate Metrics
   const metrics = useMemo(() => {
-    const isSpecificSession = sessionFilter && sessionFilter !== 'ALL';
-    const targetSession = isSpecificSession ? sessionFilter : (duesSettings?.academic_session || getActiveAcademicSession());
+    const rawFilterSession = sessionFilter;
+    const filterSessionStr = typeof rawFilterSession === 'string'
+      ? rawFilterSession
+      : (rawFilterSession?.sessionName || getActiveAcademicSession());
+    const isSpecificSession = filterSessionStr && filterSessionStr !== 'ALL';
+
+    const rawSettingsSession = duesSettings?.academic_session;
+    const settingsSessionStr = typeof rawSettingsSession === 'string'
+      ? rawSettingsSession
+      : (rawSettingsSession?.sessionName || getActiveAcademicSession());
+    const targetSession = isSpecificSession ? filterSessionStr : settingsSessionStr;
+
     const totalStudents = studentRows.length;
     const clearedStudents = studentRows.filter(r => r.hasPaid).length;
     const unpaidStudents = totalStudents - clearedStudents;
@@ -290,7 +323,8 @@ export default function PortalAdminDues() {
     const relevantPayments = duesPayments.filter(p => {
       if (p.status !== 'successful') return false;
       if (isSpecificSession) {
-        const pSess = p.academic_session || p.metadata?.academic_session;
+        const rawPSess = p.academic_session || p.metadata?.academic_session;
+        const pSess = typeof rawPSess === 'string' ? rawPSess : (rawPSess?.sessionName || '');
         return pSess === targetSession;
       }
       return true;
@@ -320,18 +354,19 @@ export default function PortalAdminDues() {
       showNotification('Please enter a valid dues fee amount.', 'error');
       return;
     }
-    if (!newSession.trim()) {
+    const sessionStr = typeof newSession === 'string' ? newSession.trim() : (newSession?.sessionName || '').trim();
+    if (!sessionStr) {
       showNotification('Please provide a valid academic session (e.g. 2026/2027).', 'error');
       return;
     }
 
     setIsSavingRate(true);
     try {
-      const res = await updateDuesFee(rateNum, newSession.trim());
+      const res = await updateDuesFee(rateNum, sessionStr);
       if (res?.error) {
         showNotification(res.error, 'error');
       } else {
-        showNotification(`Dues fee updated to ₦${rateNum.toLocaleString()} for session ${newSession.trim()}.`, 'success');
+        showNotification(`Dues fee updated to ₦${rateNum.toLocaleString()} for session ${sessionStr}.`, 'success');
         setIsRateModalOpen(false);
         await loadDuesData();
       }
@@ -511,7 +546,7 @@ export default function PortalAdminDues() {
               </span>
               <span className="text-xs text-gray-400">•</span>
               <span className="text-xs font-mono text-gray-500 dark:text-gray-400">
-                Session: {duesSettings.academic_session || '2026/2027'}
+                Session: {typeof duesSettings?.academic_session === 'string' ? duesSettings.academic_session : (duesSettings?.academic_session?.sessionName || '2026/2027')}
               </span>
             </div>
             <h1 className="text-lg sm:text-xl font-black mt-1 tracking-tight">
@@ -860,7 +895,7 @@ export default function PortalAdminDues() {
 
                       {/* Session */}
                       <td className="py-3.5 px-4 font-mono text-[11px] font-semibold text-gray-600 dark:text-gray-300">
-                        {row.session}
+                        {typeof row.session === 'string' ? row.session : (row.session?.sessionName || '—')}
                       </td>
 
                       {/* Amount */}
@@ -1254,7 +1289,7 @@ export default function PortalAdminDues() {
               </div>
               <div className="flex justify-between py-1.5 border-b border-gray-100">
                 <span className="text-gray-500 font-medium">Academic Session:</span>
-                <span className="font-semibold text-gray-900">{duesSettings.academic_session || '2026/2027'}</span>
+                <span className="font-semibold text-gray-900">{typeof duesSettings?.academic_session === 'string' ? duesSettings.academic_session : (duesSettings?.academic_session?.sessionName || '2026/2027')}</span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-gray-100">
                 <span className="text-gray-500 font-medium">Payment Channel:</span>

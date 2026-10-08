@@ -174,7 +174,8 @@ export const PortalAdminDashboard = () => {
       });
 
       // Authoritative Dues calculation scoped to active academic session
-      const activeSession = duesSettingsRes?.academic_session || getActiveAcademicSession();
+      const rawSession = duesSettingsRes?.academic_session || getActiveAcademicSession();
+      const activeSession = typeof rawSession === 'string' ? rawSession : (rawSession?.sessionName || getActiveAcademicSession());
       const activeDuesRate = Number(duesSettingsRes?.dues_amount || 2500);
 
       // Only count payments belonging to the active academic session

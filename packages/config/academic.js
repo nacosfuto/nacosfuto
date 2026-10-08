@@ -147,7 +147,23 @@ export function onAcademicSessionChange(callback) {
   if (typeof window === 'undefined' || typeof callback !== 'function') {
     return () => {};
   }
-  const handler = (e) => callback(e.detail);
+  const handler = (e) => {
+    const detail = e.detail || {};
+    const sessionName = typeof detail === 'string'
+      ? detail
+      : (detail.sessionName || getAcademicSession());
+    const startYear = typeof detail === 'object' && detail.startYear != null
+      ? detail.startYear
+      : parseSessionYears(sessionName).startYear;
+
+    callback({
+      startYear,
+      sessionName,
+      session: sessionName,
+      toString() { return sessionName; },
+      valueOf() { return sessionName; }
+    }, sessionName);
+  };
   window.addEventListener(SESSION_EVENT_NAME, handler);
   return () => window.removeEventListener(SESSION_EVENT_NAME, handler);
 }
