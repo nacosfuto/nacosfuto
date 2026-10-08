@@ -31,12 +31,12 @@ export async function studentSignupStep1(registrationNumber) {
  * @param {{ firstName: string, lastName: string, middleName?: string }} names 
  * @returns {Promise<{ success: boolean, step2Token?: string, channels?: Array<{ type: string, label: string, masked: string }>, noVerifiedContact?: boolean, error?: string, message?: string }>}
  */
-export async function studentSignupStep2(step1Token, { firstName, lastName, middleName }) {
+export async function studentSignupStep2(step1Token, { firstName, lastName, middleName, email }) {
   try {
     const res = await fetch('/api/auth/student/signup-step2', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ step1Token, firstName, lastName, middleName })
+      body: JSON.stringify({ step1Token, firstName, lastName, middleName, email })
     });
     const data = await res.json();
     return data;

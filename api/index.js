@@ -42,7 +42,8 @@ import {
   handleCompleteResetPassword,
   handleSensitiveActionRequest,
   handleSensitiveActionVerify,
-  handleSensitiveActionVerifyPassword
+  handleSensitiveActionVerifyPassword,
+  handleAdminDeleteStudent
 } from '../packages/supabase/src/server/studentAuthApi.js';
 import {
   handleElectoralAccreditation,
@@ -728,6 +729,16 @@ export default async function handler(req, res) {
 
     if (route === '/api/cloudinary/delete' && method === 'POST') {
       return res.status(200).json({ result: 'ok' });
+    }
+
+    // =========================================================================
+    // 8. ADMIN STUDENT REGISTRY MANAGEMENT (/api/admin/students/*)
+    // =========================================================================
+    if (route === '/api/admin/students/delete' && method === 'POST') {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      const body = await parseRequestBody(req);
+      const result = await handleAdminDeleteStudent(body);
+      return res.status(result.success ? 200 : 400).json(result);
     }
 
     // Default 404 for unmapped API routes

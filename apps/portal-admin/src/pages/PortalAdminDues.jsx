@@ -38,8 +38,16 @@ import {
   adminRevokeDuesClearance,
   adminGetAllStudents,
   adminGetAllVerifiedStudents,
+  fetchAcademicSessionsFromDatabase,
   supabase
 } from '@nacos/supabase';
+import {
+  getActiveAcademicSession,
+  SUPPORTED_ACADEMIC_SESSIONS,
+  calculateAcademicProgression,
+  extractEntryYearFromRegNumber,
+  onAcademicSessionChange
+} from '@nacos/config/academic';
 import { useTheme } from '../context/ThemeContext';
 
 export default function PortalAdminDues() {
@@ -51,17 +59,19 @@ export default function PortalAdminDues() {
   const [refreshing, setRefreshing] = useState(false);
   const [duesSettings, setDuesSettings] = useState({
     dues_amount: 2500,
-    academic_session: getDynamicAcademicSession(),
+    academic_session: getActiveAcademicSession(),
     is_open: true
   });
   const [duesPayments, setDuesPayments] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [verifiedStudents, setVerifiedStudents] = useState([]);
+  const [availableSessions, setAvailableSessions] = useState(SUPPORTED_ACADEMIC_SESSIONS);
 
   // Filter & Search States
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL'); // ALL | CLEARED | UNPAID | MANUAL
   const [levelFilter, setLevelFilter] = useState('ALL'); // ALL | 100 | 200 | 300 | 400 | 500
+  const [sessionFilter, setSessionFilter] = useState(getActiveAcademicSession()); // ALL | specific academic session
 
   // Modals & Feedback
   const [feedback, setFeedback] = useState({ message: '', type: '' });
@@ -110,8 +120,14 @@ export default function PortalAdminDues() {
       }
     }
 
+    const unsubscribeSession = onAcademicSessionChange((newSession) => {
+      setSessionFilter(newSession);
+      setDuesSettings(prev => ({ ...prev, academic_session: newSession }));
+    });
+
     return () => {
       if (channel && supabase) supabase.removeChannel(channel);
+      if (typeof unsubscribeSession === 'function') unsubscribeSession();
     };
   }, []);
 
@@ -125,17 +141,23 @@ export default function PortalAdminDues() {
     else setRefreshing(true);
 
     try {
-      const [settingsRes, paymentsRes, accountsRes, verifiedRes] = await Promise.all([
-        getDuesSettings().catch(() => ({ dues_amount: 2500, academic_session: getDynamicAcademicSession() })),
+      const [settingsRes, paymentsRes, accountsRes, verifiedRes, sessionsRes] = await Promise.all([
+        getDuesSettings().catch(() => ({ dues_amount: 2500, academic_session: getActiveAcademicSession() })),
         adminGetAllDuesPayments().catch(() => []),
         adminGetAllStudents().catch(() => []),
-        adminGetAllVerifiedStudents().catch(() => [])
+        adminGetAllVerifiedStudents().catch(() => []),
+        fetchAcademicSessionsFromDatabase().catch(() => [])
       ]);
 
       if (settingsRes) {
         setDuesSettings(settingsRes);
         setNewRate(settingsRes.dues_amount || 2500);
-        setNewSession(settingsRes.academic_session || getDynamicAcademicSession());
+        setNewSession(settingsRes.academic_session || getActiveAcademicSession());
+      }
+
+      if (Array.isArray(sessionsRes) && sessionsRes.length > 0) {
+        const names = sessionsRes.map(s => s.session_name || s).filter(Boolean);
+        setAvailableSessions(Array.from(new Set([...names, ...SUPPORTED_ACADEMIC_SESSIONS])));
       }
 
       setDuesPayments(Array.isArray(paymentsRes) ? paymentsRes : []);
@@ -161,16 +183,30 @@ export default function PortalAdminDues() {
 
   // Combine registered accounts with dues payments map for authoritative ground truth
   const studentRows = useMemo(() => {
+    const isSpecificSession = sessionFilter && sessionFilter !== 'ALL';
+    const targetSession = isSpecificSession ? sessionFilter : (duesSettings?.academic_session || getActiveAcademicSession());
+
     const paymentMapByReg = new Map();
     const paymentMapByStudentId = new Map();
 
     duesPayments.forEach(p => {
       if (p.status === 'successful') {
+        const pSession = p.academic_session || p.metadata?.academic_session;
+        // If filtering for a specific session, only match payments made for that session
+        if (isSpecificSession && pSession && pSession !== targetSession) {
+          return;
+        }
+
         if (p.registration_number) {
-          paymentMapByReg.set(p.registration_number.toUpperCase().trim(), p);
+          const regKey = p.registration_number.toUpperCase().trim();
+          if (!paymentMapByReg.has(regKey) || (pSession === targetSession)) {
+            paymentMapByReg.set(regKey, p);
+          }
         }
         if (p.student_id) {
-          paymentMapByStudentId.set(p.student_id, p);
+          if (!paymentMapByStudentId.has(p.student_id) || (pSession === targetSession)) {
+            paymentMapByStudentId.set(p.student_id, p);
+          }
         }
       }
     });
@@ -182,10 +218,21 @@ export default function PortalAdminDues() {
       const stId = st.id || st.student_id;
 
       const directPayment = (reg && paymentMapByReg.get(reg)) || (stId && paymentMapByStudentId.get(stId));
-      const hasPaid = !!directPayment || st.dues_cleared === true || st.has_paid_dues === true;
+      
+      // Determine session-aware clearance:
+      // If specific session is selected, clearance requires a payment specifically for that session
+      const hasPaid = !!directPayment || (
+        !isSpecificSession && (st.dues_cleared === true || st.has_paid_dues === true)
+      );
 
-      const levelStr = st.level || st.current_level || '100 Level';
-      const cleanLevel = levelStr.replace(/[^0-9]/g, '') || '100';
+      // Determine level dynamically via central progression engine
+      const entryYear = extractEntryYearFromRegNumber(reg) || (st.entry_year ? Number(st.entry_year) : null);
+      const progression = entryYear ? calculateAcademicProgression(entryYear, targetSession) : null;
+      const derivedLevel = progression ? `${progression.levelNumber} Level` : (st.level || st.current_level || '100 Level');
+      const cleanLevel = derivedLevel.replace(/[^0-9]/g, '') || '100';
+
+      const paymentSession = directPayment?.academic_session || directPayment?.metadata?.academic_session || targetSession;
+      const displayLevel = directPayment?.level || `${cleanLevel} Level`;
 
       return {
         id: st.id || reg || `st-${Math.random()}`,
@@ -193,8 +240,9 @@ export default function PortalAdminDues() {
         name: st.full_name || `${st.surname || ''} ${st.first_name || ''}`.trim() || 'Student',
         email: st.email || '—',
         registrationNumber: reg || 'Pending',
-        level: `${cleanLevel} Level`,
+        level: displayLevel,
         rawLevel: cleanLevel,
+        session: paymentSession,
         department: st.department || 'Computer Science',
         hasPaid,
         payment: directPayment,
@@ -205,7 +253,7 @@ export default function PortalAdminDues() {
         isManual: directPayment?.metadata?.cleared_manually || directPayment?.provider?.toLowerCase().includes('manual') || false
       };
     });
-  }, [accounts, duesPayments, duesSettings]);
+  }, [accounts, duesPayments, duesSettings, sessionFilter]);
 
   // Filtered rows based on search and filters
   const filteredRows = useMemo(() => {
@@ -222,7 +270,8 @@ export default function PortalAdminDues() {
         const matchReg = row.registrationNumber.toLowerCase().includes(q);
         const matchEmail = row.email.toLowerCase().includes(q);
         const matchRef = (row.reference || '').toLowerCase().includes(q);
-        if (!matchName && !matchReg && !matchEmail && !matchRef) return false;
+        const matchSess = (row.session || '').toLowerCase().includes(q);
+        if (!matchName && !matchReg && !matchEmail && !matchRef && !matchSess) return false;
       }
 
       return true;
@@ -231,14 +280,23 @@ export default function PortalAdminDues() {
 
   // Aggregate Metrics
   const metrics = useMemo(() => {
+    const isSpecificSession = sessionFilter && sessionFilter !== 'ALL';
+    const targetSession = isSpecificSession ? sessionFilter : (duesSettings?.academic_session || getActiveAcademicSession());
     const totalStudents = studentRows.length;
     const clearedStudents = studentRows.filter(r => r.hasPaid).length;
     const unpaidStudents = totalStudents - clearedStudents;
     const activeRate = Number(duesSettings?.dues_amount || 2500);
 
-    const totalRevenue = duesPayments
-      .filter(p => p.status === 'successful')
-      .reduce((sum, p) => sum + (Number(p.amount) || activeRate), 0) || (clearedStudents * activeRate);
+    const relevantPayments = duesPayments.filter(p => {
+      if (p.status !== 'successful') return false;
+      if (isSpecificSession) {
+        const pSess = p.academic_session || p.metadata?.academic_session;
+        return pSess === targetSession;
+      }
+      return true;
+    });
+
+    const totalRevenue = relevantPayments.reduce((sum, p) => sum + (Number(p.amount) || activeRate), 0);
 
     const clearanceRate = totalStudents > 0 ? Math.round((clearedStudents / totalStudents) * 100) : 0;
     const manualCleared = studentRows.filter(r => r.hasPaid && r.isManual).length;
@@ -252,7 +310,7 @@ export default function PortalAdminDues() {
       manualCleared,
       activeRate
     };
-  }, [studentRows, duesPayments, duesSettings]);
+  }, [studentRows, duesPayments, duesSettings, sessionFilter]);
 
   // Update Dues Fee & Academic Session
   const handleSaveRateAndSession = async (e) => {
@@ -332,7 +390,7 @@ export default function PortalAdminDues() {
         studentName: clearanceForm.studentName || 'Student',
         studentEmail: clearanceForm.studentEmail,
         amount: Number(clearanceForm.amount) || metrics.activeRate || 2500,
-        academicSession: duesSettings.academic_session || getDynamicAcademicSession(),
+        academicSession: (sessionFilter && sessionFilter !== 'ALL') ? sessionFilter : (duesSettings.academic_session || getActiveAcademicSession()),
         level: clearanceForm.level,
         paymentMethod: clearanceForm.paymentMethod,
         reference: clearanceForm.reference.trim(),
@@ -385,7 +443,7 @@ export default function PortalAdminDues() {
       return;
     }
 
-    const headers = ['Full Name', 'Matric Number', 'Email', 'Level', 'Department', 'Dues Status', 'Amount Paid (NGN)', 'Payment Method', 'Payment Reference', 'Cleared Date'];
+    const headers = ['Full Name', 'Matric Number', 'Email', 'Level', 'Session', 'Department', 'Dues Status', 'Amount Paid (NGN)', 'Payment Method', 'Payment Reference', 'Cleared Date'];
     const csvContent = [
       headers.join(','),
       ...filteredRows.map(r => [
@@ -393,6 +451,7 @@ export default function PortalAdminDues() {
         `"${r.registrationNumber}"`,
         `"${r.email}"`,
         `"${r.level}"`,
+        `"${r.session || duesSettings.academic_session}"`,
         `"${r.department}"`,
         r.hasPaid ? 'CLEARED' : 'UNPAID',
         r.hasPaid ? (r.amount || metrics.activeRate) : 0,
@@ -670,6 +729,21 @@ export default function PortalAdminDues() {
             ))}
           </div>
 
+          {/* Academic Session Filter Dropdown */}
+          <div className="flex items-center gap-2">
+            <Calendar className="w-3.5 h-3.5 text-gray-400" />
+            <select
+              value={sessionFilter}
+              onChange={(e) => setSessionFilter(e.target.value)}
+              className="py-1.5 px-3 rounded-xl text-xs font-semibold bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 focus:border-[#138601] focus:outline-none cursor-pointer"
+            >
+              <option value="ALL">All Academic Sessions</option>
+              {availableSessions.map((sess) => (
+                <option key={sess} value={sess}>{sess} Session</option>
+              ))}
+            </select>
+          </div>
+
           {/* Level Filter Dropdown */}
           <div className="flex items-center gap-2">
             <Filter className="w-3.5 h-3.5 text-gray-400" />
@@ -716,13 +790,14 @@ export default function PortalAdminDues() {
               <p className="text-xs text-gray-500 max-w-sm mx-auto">
                 No students match your active filters or search terms. Try clearing the filters or search query.
               </p>
-              {(searchQuery || statusFilter !== 'ALL' || levelFilter !== 'ALL') && (
+              {(searchQuery || statusFilter !== 'ALL' || levelFilter !== 'ALL' || sessionFilter !== 'ALL') && (
                 <button
                   type="button"
                   onClick={() => {
                     setSearchQuery('');
                     setStatusFilter('ALL');
                     setLevelFilter('ALL');
+                    setSessionFilter('ALL');
                   }}
                   className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-gray-200 hover:bg-gray-200 cursor-pointer"
                 >
@@ -738,6 +813,7 @@ export default function PortalAdminDues() {
                     <th className="py-3 px-4">Student</th>
                     <th className="py-3 px-4">Matric / Reg No</th>
                     <th className="py-3 px-4">Level</th>
+                    <th className="py-3 px-4">Session</th>
                     <th className="py-3 px-4">Amount</th>
                     <th className="py-3 px-4">Channel / Reference</th>
                     <th className="py-3 px-4">Date Cleared</th>
@@ -756,8 +832,8 @@ export default function PortalAdminDues() {
                         <div className="flex items-center gap-2.5">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs uppercase shrink-0 ${
                             row.hasPaid 
-                              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-[#138601] dark:text-[#4bd043]'
-                              : 'bg-gray-100 dark:bg-white/10 text-gray-500'
+                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-[#138601] dark:text-[#4bd043]'
+                            : 'bg-gray-100 dark:bg-white/10 text-gray-500'
                           }`}>
                             {row.name[0] || 'S'}
                           </div>
@@ -780,6 +856,11 @@ export default function PortalAdminDues() {
                       {/* Level */}
                       <td className="py-3.5 px-4 font-medium text-gray-700 dark:text-gray-300">
                         {row.level}
+                      </td>
+
+                      {/* Session */}
+                      <td className="py-3.5 px-4 font-mono text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+                        {row.session}
                       </td>
 
                       {/* Amount */}

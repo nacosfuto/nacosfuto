@@ -14,6 +14,7 @@ import PortalLayout from '../components/PortalLayout';
 import { printReceiptSlip } from '../utils/printReceipt';
 import logoLight from '../assets/full-logo-light.png';
 import { supabase } from '@nacos/supabase';
+import { getActiveAcademicSession } from '@nacos/config/academic';
 
 /**
  * Official In-Portal Payment & Clearance Receipt Page
@@ -141,8 +142,8 @@ const Receipt = () => {
           studentName: currentUser?.full_name || currentUser?.name || 'Student Member',
           matricNo: cleanMatric || '20241450682',
           department: currentUser?.department || 'Computer Science',
-          level: currentUser?.level ? `${currentUser.level} Level` : '300 Level',
-          session: dbPayment?.metadata?.academic_session || currentUser?.academic_session || '2026/2027',
+          level: dbPayment?.level || dbPayment?.metadata?.level || (currentUser?.level ? `${currentUser.level} Level` : '100 Level'),
+          session: dbPayment?.academic_session || dbPayment?.metadata?.academic_session || dbPayment?.session || currentUser?.academic_session || getActiveAcademicSession(),
           amount: amt,
           rawAmount: amt,
           paymentType: isIdCardType ? 'Student ID Card Issuance' : 'Departmental Dues Clearance',

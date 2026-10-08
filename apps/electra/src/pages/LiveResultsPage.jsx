@@ -23,10 +23,10 @@ import {
 } from '@nacos/supabase/electraService';
 
 export default function LiveResultsPage() {
-  const activeElection = getActiveElection();
-  const electionId = activeElection.id;
+  const [activeElection, setActiveElection] = useState(() => getActiveElection());
+  const electionId = activeElection?.id || null;
 
-  const [resultsData, setResultsData] = useState(() => getLiveElectionResults());
+  const [resultsData, setResultsData] = useState(() => getLiveElectionResults(electionId));
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('connecting'); // 'connected' | 'connecting' | 'disconnected'
   const [recentUpdates, setRecentUpdates] = useState({}); // { [candidateId]: timestamp }
@@ -37,6 +37,23 @@ export default function LiveResultsPage() {
   const fetchAuthoritative = useCallback(async (showSpinner = false) => {
     if (showSpinner) setIsRefreshing(true);
     try {
+      if (!electionId) {
+        const { election: liveEl } = await fetchLiveElectraData();
+        if (liveEl) {
+          setActiveElection(liveEl);
+          const data = await apiGetAuthoritativeResults(liveEl.id);
+          if (data && data.success && data.resultsByPost) {
+            setResultsData({
+              totalBallots: data.totalBallots || 0,
+              resultsByPost: data.resultsByPost || [],
+              turnoutByLevel: data.turnoutByLevel || {},
+              lastUpdated: data.lastUpdated || new Date().toISOString()
+            });
+          }
+        }
+        return;
+      }
+
       const data = await apiGetAuthoritativeResults(electionId);
       if (data && data.success && data.resultsByPost) {
         setResultsData(prev => ({
@@ -146,17 +163,21 @@ export default function LiveResultsPage() {
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // 4. Local synchronisation event listener
+    // 4. Local synchronisation event listeners
     const handleLocalUpdate = () => {
       fetchAuthoritative();
     };
     window.addEventListener('nacos_electra_election_updated', handleLocalUpdate);
+    window.addEventListener('nacos_electra_contestants_updated', handleLocalUpdate);
+    window.addEventListener('nacos_electra_posts_updated', handleLocalUpdate);
 
     return () => {
       clearTimeout(timer);
       unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('nacos_electra_election_updated', handleLocalUpdate);
+      window.removeEventListener('nacos_electra_contestants_updated', handleLocalUpdate);
+      window.removeEventListener('nacos_electra_posts_updated', handleLocalUpdate);
     };
   }, [electionId, fetchAuthoritative, handleRealtimeUpdate]);
 
@@ -295,7 +316,24 @@ export default function LiveResultsPage() {
 
       {/* Results by Contested Position */}
       <div className="space-y-6">
-        {resultsByPost.map(({ post, totalVotes, candidates, leadingCandidate }) => (
+        {!activeElection ? (
+          <div className="py-16 text-center rounded-[5px] bg-white border border-slate-200 p-8 shadow-2xs">
+            <BarChart3 className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+            <h3 className="text-base font-bold text-slate-900 mb-1">No Active Election Session</h3>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              Live results are offline because no election is currently active. Official tallies will be broadcast here once an election is opened.
+            </p>
+          </div>
+        ) : resultsByPost.length === 0 ? (
+          <div className="py-16 text-center rounded-[5px] bg-white border border-slate-200 p-8 shadow-2xs">
+            <BarChart3 className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+            <h3 className="text-base font-bold text-slate-900 mb-1">No results recorded yet</h3>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              No offices or votes have been recorded for {activeElection.title}. Live tallies will update immediately when electors submit ballots.
+            </p>
+          </div>
+        ) : (
+          resultsByPost.map(({ post, totalVotes, candidates, leadingCandidate }) => (
           <div
             key={post.id}
             className="p-5 sm:p-6 rounded-[5px] bg-white border border-slate-200 shadow-2xs space-y-5"
@@ -387,7 +425,7 @@ export default function LiveResultsPage() {
             </div>
 
           </div>
-        ))}
+        )))}
       </div>
 
     </div>

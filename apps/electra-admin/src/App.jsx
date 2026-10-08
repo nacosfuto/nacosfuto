@@ -32,7 +32,8 @@ import {
   UploadCloud,
   FileUp,
   Newspaper,
-  Pin
+  Pin,
+  UserCheck
 } from 'lucide-react';
 import { 
   getAllElections,
@@ -75,11 +76,11 @@ export default function App() {
   const [allElections, setAllElections] = useState(() => getAllElections());
   const [activeElection, setActiveElection] = useState(() => getActiveElection());
   // The election currently being viewed/managed in the admin console
-  const [selectedElectionId, setSelectedElectionId] = useState(() => getActiveElection()?.id || 'election-2026-general');
+  const [selectedElectionId, setSelectedElectionId] = useState(() => getActiveElection()?.id || getAllElections()[0]?.id || '');
   
   // Scoped Data State for the currently selected election
-  const currentElection = allElections.find(e => e.id === selectedElectionId) || activeElection;
-  const isViewingActive = currentElection?.id === activeElection?.id;
+  const currentElection = allElections.find(e => e.id === selectedElectionId) || activeElection || allElections[0] || null;
+  const isViewingActive = currentElection && activeElection ? currentElection.id === activeElection.id : false;
 
   const [posts, setPosts] = useState(() => getElectraPosts());
   const [contestants, setContestants] = useState(() => getContestants(null, selectedElectionId));
@@ -230,7 +231,7 @@ export default function App() {
   const handleSavePost = async (e) => {
     e.preventDefault();
     try {
-      await adminSavePost(postForm, editingPost?.id);
+      await adminSavePost({ ...postForm, electionId: selectedElectionId }, editingPost?.id);
       setIsPostModalOpen(false);
       reloadData();
       showToast(editingPost ? 'Position updated successfully' : 'New executive position added');
@@ -337,6 +338,45 @@ export default function App() {
     setIsCandidateModalOpen(true);
   };
 
+  // Upload candidate photo directly to Backblaze B2 bucket
+  const [isUploadingPhotoB2, setIsUploadingPhotoB2] = useState(false);
+  const [photoB2Progress, setPhotoB2Progress] = useState(0);
+
+  const handlePhotoB2Upload = async (file) => {
+    if (!file) return;
+    setIsUploadingPhotoB2(true);
+    setPhotoB2Progress(0);
+
+    try {
+      const candidateId = editingCandidate?.id || `cnd-${Date.now()}`;
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storageKey = `electra/candidates/${candidateId}_${Date.now()}_${safeName}`;
+
+      const res = await storageService.upload(file, {
+        storageKey,
+        fileName: file.name,
+        mimeType: file.type || 'image/jpeg',
+        onProgress: (pct) => setPhotoB2Progress(pct)
+      });
+
+      if (res && res.success) {
+        const publicUrl = res.publicUrl || `/api/download?key=${encodeURIComponent(storageKey)}&name=${encodeURIComponent(file.name)}`;
+        setCandidateForm(prev => ({
+          ...prev,
+          photoUrl: publicUrl
+        }));
+        showToast('Candidate photo uploaded and secured in Backblaze B2!');
+      } else {
+        throw new Error(res?.error || 'Failed to upload photo to Backblaze B2 bucket.');
+      }
+    } catch (err) {
+      console.error('[Electra Admin] B2 photo upload error:', err);
+      showToast(err.message || 'Photo upload to B2 failed.', 'error');
+    } finally {
+      setIsUploadingPhotoB2(false);
+    }
+  };
+
   // Upload candidate manifesto document directly to Backblaze B2
   const handleManifestoB2Upload = async (file) => {
     if (!file) return;
@@ -413,7 +453,7 @@ export default function App() {
         manifestoHeadline: candidateForm.manifestoHeadline,
         manifestoSummary: candidateForm.manifestoSummary,
         manifestoPillars: pillars,
-        electionId: selectedElectionId
+        electionId: selectedElectionId || currentElection?.id || activeElection?.id || null
       };
 
       await adminSaveContestant(payload, editingCandidate?.id);
@@ -515,7 +555,7 @@ export default function App() {
       try {
         await adminDeleteElection(id);
         const fresh = getAllElections();
-        setSelectedElectionId(fresh[0]?.id || 'election-2026-general');
+        setSelectedElectionId(fresh[0]?.id || '');
         reloadData();
         showToast('Election deleted successfully');
       } catch (e) {
@@ -558,7 +598,7 @@ export default function App() {
   const handleSaveNews = async (e) => {
     e.preventDefault();
     try {
-      await adminSaveElectraNews(newsForm, editingNews?.id);
+      await adminSaveElectraNews({ ...newsForm, electionId: selectedElectionId }, editingNews?.id);
       setIsNewsModalOpen(false);
       reloadData();
       showToast(editingNews ? 'News release updated' : 'New electoral notice published');
@@ -853,6 +893,9 @@ export default function App() {
                 className="appearance-none pl-3 pr-8 py-1.5 rounded-[5px] text-xs font-bold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-white/5 border border-gray-300 dark:border-[#138601]/40 focus:outline-none focus:ring-1 focus:ring-[#138601] cursor-pointer"
                 title="Select Academic Session to Manage"
               >
+                {allElections.length === 0 && (
+                  <option value="">No Elections Configured</option>
+                )}
                 {allElections.map(el => (
                   <option key={el.id} value={el.id} className="dark:bg-[#083002] text-gray-900 dark:text-white">
                     {el.session} • {el.title} {el.status === 'active' ? '(ACTIVE)' : `(${el.status.toUpperCase()})`}
@@ -1304,76 +1347,88 @@ export default function App() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {contestants.map((cnd) => (
-                <div
-                  key={cnd.id}
-                  className={`p-5 rounded-[5px] border flex flex-col justify-between shadow-xs transition-all ${
-                    isDark ? 'bg-[#083002]/60 border-[#138601]/25 text-white' : 'bg-white border-gray-200 text-gray-900'
-                  }`}
-                >
-                  <div className="space-y-3 mb-4">
-                    <div className="flex items-start gap-3.5">
-                      <img
-                        src={cnd.photoUrl}
-                        alt={cnd.name}
-                        className="w-14 h-14 rounded-full object-cover bg-gray-100 border-2 border-[#138601]/30 shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold uppercase text-[#138601] dark:text-[#4bd043] block truncate">
-                          {cnd.runningPost}
-                        </span>
-                        <h3 className="text-base font-bold truncate">{cnd.name}</h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{cnd.level} • {cnd.matricNumber}</p>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-gray-600 dark:text-gray-300 italic line-clamp-2">
-                      "{cnd.slogan || 'Official manifesto on file'}"
-                    </p>
-
-                    <div className="p-3 rounded-[5px] bg-gray-50 dark:bg-[#041801]/60 border border-gray-200 dark:border-white/5 text-xs space-y-1.5">
-                      <div className="flex justify-between text-gray-500 dark:text-gray-400">
-                        <span>Total Ballots Cast:</span>
-                        <span className="font-bold text-[#138601] dark:text-[#4bd043] font-mono">{cnd.votesCount || 0}</span>
-                      </div>
-                      <div className="flex justify-between text-gray-500 dark:text-gray-400">
-                        <span>Manifesto Filed:</span>
-                        <span className="font-bold text-gray-800 dark:text-gray-200">
-                          {cnd.candidateStatement ? 'Yes (Text Available)' : 'Pending'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-gray-500 dark:text-gray-400">
-                        <span>PDF Document:</span>
-                        <span className="font-semibold text-gray-800 dark:text-gray-200">
-                          {cnd.statementPdfUrl || cnd.manifestoPdfUrl ? 'Attached' : 'None'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-gray-100 dark:border-white/10 flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditModal(cnd)}
-                      className="px-3 py-1.5 rounded-[4px] text-xs font-bold bg-gray-100 dark:bg-white/10 hover:bg-gray-200 text-gray-700 dark:text-gray-200 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>Edit</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteCandidate(cnd.id, cnd.name)}
-                      className="px-3 py-1.5 rounded-[4px] text-xs font-bold text-rose-700 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 border border-rose-200 dark:border-rose-800/40 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
-                    </button>
-                  </div>
+            {contestants.length === 0 ? (
+              <div className="p-12 text-center border-2 border-dashed border-gray-300 dark:border-white/10 rounded-[5px] space-y-3">
+                <div className="w-12 h-12 rounded-full bg-green-50 dark:bg-green-950/40 text-[#138601] dark:text-[#4bd043] mx-auto flex items-center justify-center">
+                  <UserCheck className="w-6 h-6" />
                 </div>
-              ))}
-            </div>
+                <h3 className="text-base font-bold">No Candidates Certified Yet</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+                  No certified candidates found for election session ({currentElection?.session || 'Current'}). Click "Certify Candidate" above to register the first candidate.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {contestants.map((cnd) => (
+                  <div
+                    key={cnd.id}
+                    className={`p-5 rounded-[5px] border flex flex-col justify-between shadow-xs transition-all ${
+                      isDark ? 'bg-[#083002]/60 border-[#138601]/25 text-white' : 'bg-white border-gray-200 text-gray-900'
+                    }`}
+                  >
+                    <div className="space-y-3 mb-4">
+                      <div className="flex items-start gap-3.5">
+                        <img
+                          src={cnd.photoUrl}
+                          alt={cnd.name}
+                          className="w-14 h-14 rounded-full object-cover bg-gray-100 border-2 border-[#138601]/30 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-bold uppercase text-[#138601] dark:text-[#4bd043] block truncate">
+                            {cnd.runningPost}
+                          </span>
+                          <h3 className="text-base font-bold truncate">{cnd.name}</h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{cnd.level} • {cnd.matricNumber}</p>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-gray-600 dark:text-gray-300 italic line-clamp-2">
+                        "{cnd.slogan || 'Official manifesto on file'}"
+                      </p>
+
+                      <div className="p-3 rounded-[5px] bg-gray-50 dark:bg-[#041801]/60 border border-gray-200 dark:border-white/5 text-xs space-y-1.5">
+                        <div className="flex justify-between text-gray-500 dark:text-gray-400">
+                          <span>Total Ballots Cast:</span>
+                          <span className="font-bold text-[#138601] dark:text-[#4bd043] font-mono">{cnd.votesCount || 0}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-500 dark:text-gray-400">
+                          <span>Manifesto Filed:</span>
+                          <span className="font-bold text-gray-800 dark:text-gray-200">
+                            {cnd.candidateStatement ? 'Yes (Text Available)' : 'Pending'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-gray-500 dark:text-gray-400">
+                          <span>PDF Document:</span>
+                          <span className="font-semibold text-gray-800 dark:text-gray-200">
+                            {cnd.statementPdfUrl || cnd.manifestoPdfUrl ? 'Attached' : 'None'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-gray-100 dark:border-white/10 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(cnd)}
+                        className="px-3 py-1.5 rounded-[4px] text-xs font-bold bg-gray-100 dark:bg-white/10 hover:bg-gray-200 text-gray-700 dark:text-gray-200 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCandidate(cnd.id, cnd.name)}
+                        className="px-3 py-1.5 rounded-[4px] text-xs font-bold text-rose-700 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 border border-rose-200 dark:border-rose-800/40 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -1873,27 +1928,52 @@ export default function App() {
                 />
               </div>
 
-              {/* Candidate Profile Photo (Cloudinary) */}
-              <div className="space-y-2">
+              {/* Candidate Profile Photo (Cloudinary & Backblaze B2) */}
+              <div className="space-y-3">
                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
-                  Profile Photo (Cloudinary CDN)
+                  Profile Photo (Cloudinary CDN or Backblaze B2)
                 </label>
                 <MediaUpload
                   currentImageUrl={candidateForm.photoUrl}
                   currentPublicId={candidateForm.photoPublicId}
                   folder={CLOUDINARY_FOLDERS.ELECTRA_CANDIDATES}
                   aspectRatio="square"
-                  label="Upload Candidate Portrait Photo"
+                  label="Upload Candidate Portrait Photo (Cloudinary)"
                   helperText="JPG, PNG, or WebP up to 5MB (stored in nacos/electra/candidates)"
-                  onUploadSuccess={({ secure_url, public_id }) => {
+                  onUploadSuccess={(uploadRes) => {
+                    const finalPhoto = uploadRes?.secure_url || uploadRes?.secureUrl || uploadRes?.url || '';
+                    const finalPubId = uploadRes?.public_id || uploadRes?.publicId || '';
                     setCandidateForm(prev => ({
                       ...prev,
-                      photoUrl: secure_url,
-                      photoPublicId: public_id
+                      photoUrl: finalPhoto,
+                      photoPublicId: finalPubId
                     }));
                     showToast('Candidate profile photo uploaded to Cloudinary!');
                   }}
                 />
+
+                {/* Backblaze B2 Photo Upload Button */}
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="file"
+                    id="candidate-photo-b2-upload"
+                    accept="image/jpeg,image/png,image/webp,image/jpg"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handlePhotoB2Upload(file);
+                    }}
+                    disabled={isUploadingPhotoB2}
+                  />
+                  <label
+                    htmlFor="candidate-photo-b2-upload"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] border border-gray-300 dark:border-white/20 bg-gray-50 dark:bg-black/30 hover:bg-gray-100 dark:hover:bg-white/10 text-xs font-semibold text-gray-700 dark:text-gray-200 cursor-pointer transition-colors"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5 text-[#138601]" />
+                    <span>{isUploadingPhotoB2 ? `Uploading to B2... ${photoB2Progress}%` : 'Or Upload Photo to Backblaze B2 Bucket'}</span>
+                  </label>
+                </div>
+
                 <div>
                   <label className="block text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">
                     Or Direct Photo URL
@@ -1902,7 +1982,7 @@ export default function App() {
                     type="url"
                     value={candidateForm.photoUrl}
                     onChange={(e) => setCandidateForm({ ...candidateForm, photoUrl: e.target.value })}
-                    placeholder="https://res.cloudinary.com/..."
+                    placeholder="https://res.cloudinary.com/... or https://f005.backblazeb2.com/..."
                     className="w-full px-3.5 py-2 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-1 focus:ring-[#138601]"
                   />
                 </div>

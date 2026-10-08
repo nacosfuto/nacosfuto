@@ -31,7 +31,7 @@ export default function InPersonVotingPage() {
     },
     {
       title: 'Active Matriculation / Registration Number',
-      desc: 'Your 11-digit FUTO registration number (e.g. 20231429810) for cryptographic terminal accreditation.'
+      desc: 'Your official FUTO registration / matriculation number for cryptographic terminal accreditation.'
     }
   ];
 

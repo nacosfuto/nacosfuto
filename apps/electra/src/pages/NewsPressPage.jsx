@@ -23,6 +23,10 @@ export default function NewsPressPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
+    fetchLiveElectraData().then(data => {
+      setNewsList(data.newsList || getElectraNews());
+    }).catch(() => {});
+
     const handleUpdate = () => {
       setNewsList(getElectraNews());
     };

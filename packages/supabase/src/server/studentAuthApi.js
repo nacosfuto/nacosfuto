@@ -15,7 +15,6 @@
 import crypto from 'crypto';
 import { supabase } from '../client.js';
 import { dispatchEmail } from './emailDispatcher.js';
-import { validateRegistrationNumberFormat } from '@nacos/config/academic';
 
 const AUTH_SECRET = process.env.SESSION_SECRET || process.env.VITE_SUPABASE_ANON_KEY || 'nacos_futo_auth_signature_key_2026';
 const SALT = 'nacos_futo_salt_2026';
@@ -219,10 +218,6 @@ export async function handleSignupStep1({ registrationNumber }) {
   }
 
   const cleanReg = registrationNumber.trim().toUpperCase();
-  const formatValidation = validateRegistrationNumberFormat(cleanReg);
-  if (!formatValidation.valid) {
-    return { success: false, error: formatValidation.error || 'Invalid registration number format.' };
-  }
 
   // 1. Check official student record in backend
   const officialRecord = await getOfficialStudentRecord(cleanReg);
@@ -267,7 +262,7 @@ export async function handleSignupStep1({ registrationNumber }) {
 // 2. STEP 2: NAME & CONTACT VERIFICATION
 // =============================================================================
 
-export async function handleSignupStep2({ step1Token, firstName, lastName, middleName }) {
+export async function handleSignupStep2({ step1Token, firstName, lastName, middleName, email }) {
   const verifiedToken = verifyAuthToken(step1Token);
   if (!verifiedToken || verifiedToken.step !== 1 || verifiedToken.purpose !== 'SIGNUP') {
     return { success: false, error: 'Invalid or expired verification session. Please restart from Step 1.' };
@@ -325,15 +320,42 @@ export async function handleSignupStep2({ step1Token, firstName, lastName, middl
   // Check verified contact details on file
   const officialEmail = (officialRecord.email || '').trim().toLowerCase();
   const officialPhone = (officialRecord.phone_number || '').trim();
+  const suppliedEmail = (email || '').trim().toLowerCase();
 
   const channels = [];
+  let effectiveEmail = officialEmail;
+
   if (officialEmail && officialEmail.includes('@')) {
     channels.push({
       type: 'email',
       label: 'Official Email',
       masked: maskEmail(officialEmail)
     });
+  } else if (suppliedEmail && suppliedEmail.includes('@')) {
+    // Student provided email during registration since official record had no email
+    if (supabase) {
+      try {
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id, registration_number')
+          .eq('email', suppliedEmail)
+          .maybeSingle();
+        if (existingProfile && existingProfile.registration_number?.toUpperCase() !== cleanReg) {
+          return {
+            success: false,
+            error: 'This email address is already associated with another student account.'
+          };
+        }
+      } catch (_) {}
+    }
+    effectiveEmail = suppliedEmail;
+    channels.push({
+      type: 'email',
+      label: 'Student Email',
+      masked: maskEmail(suppliedEmail)
+    });
   }
+
   if (officialPhone && officialPhone.replace(/\D/g, '').length >= 10) {
     channels.push({
       type: 'phone',
@@ -342,12 +364,12 @@ export async function handleSignupStep2({ step1Token, firstName, lastName, middl
     });
   }
 
-  // Edge case: No verified contact on official record
+  // If student record has no email and student has not provided one yet, prompt for email
   if (channels.length === 0) {
     return {
       success: false,
-      noVerifiedContact: true,
-      message: 'Your official departmental record does not contain verified contact details. Please contact the NACOS Departmental Administrator to update your record before completing registration.'
+      requiresEmail: true,
+      message: 'Please provide your email address to receive your verification code and activate your account.'
     };
   }
 
@@ -357,8 +379,9 @@ export async function handleSignupStep2({ step1Token, firstName, lastName, middl
     purpose: 'SIGNUP',
     registrationNumber: cleanReg,
     studentId: officialRecord.id,
-    hasEmail: Boolean(officialEmail),
+    hasEmail: Boolean(effectiveEmail),
     hasPhone: Boolean(officialPhone),
+    providedEmail: effectiveEmail || null,
     exp: Date.now() + 20 * 60 * 1000
   });
 
@@ -392,12 +415,13 @@ export async function handleSendOtp({ stepToken, channel = 'email', purpose = 'S
   }
 
   const cleanChannel = channel === 'sms' || channel === 'phone' ? 'phone' : 'email';
-  const destination = cleanChannel === 'email' ? officialRecord.email : officialRecord.phone_number;
+  const candidateEmail = (verifiedToken.providedEmail || officialRecord.email || '').trim().toLowerCase();
+  const destination = cleanChannel === 'email' ? candidateEmail : officialRecord.phone_number;
 
   if (!destination) {
     return {
       success: false,
-      error: `No verified ${cleanChannel} is associated with your official student record. Please contact the departmental administrator.`
+      error: `No verified ${cleanChannel} is associated with your student record. Please enter your email or contact the administrator.`
     };
   }
 
@@ -674,6 +698,7 @@ export async function handleVerifyOtp({ stepToken, otpCode, purpose = 'SIGNUP' }
     purpose,
     registrationNumber: cleanReg,
     studentId: verifiedToken.studentId,
+    providedEmail: verifiedToken.providedEmail || null,
     verifiedAt: Date.now(),
     exp: Date.now() + ACTION_TOKEN_EXPIRY_MINUTES * 60 * 1000
   });
@@ -722,6 +747,7 @@ export async function handleCompleteSignup({ authorizationToken, password }) {
 
   const passwordHash = hashPasswordServer(password);
   const nowIso = new Date().toISOString();
+  const candidateEmail = (verifiedToken.providedEmail || officialRecord.email || '').trim().toLowerCase() || null;
 
   // Create or Update student profile in public.profiles
   const profileRecord = {
@@ -733,7 +759,7 @@ export async function handleCompleteSignup({ authorizationToken, password }) {
     middle_name: officialRecord.middle_name || '',
     last_name: officialRecord.last_name || officialRecord.surname || '',
     full_name: officialRecord.full_name || `${officialRecord.first_name} ${officialRecord.last_name || officialRecord.surname}`,
-    email: officialRecord.email,
+    email: candidateEmail,
     phone_number: officialRecord.phone_number || '',
     admission_year: officialRecord.admission_year || 2024,
     department: officialRecord.department || 'Computer Science',
@@ -747,33 +773,39 @@ export async function handleCompleteSignup({ authorizationToken, password }) {
     updated_at: nowIso
   };
 
-  if (supabase) {
-    try {
-      // 1. Create or update profile in public.profiles
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .or(`registration_number.eq.${cleanReg},id.eq.${profileRecord.id}`)
-        .limit(1)
-        .maybeSingle();
+    if (supabase) {
+      try {
+        // 1. Create or update profile in public.profiles
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .or(`registration_number.eq.${cleanReg},id.eq.${profileRecord.id}`)
+          .limit(1)
+          .maybeSingle();
 
-      if (existingProfile) {
-        profileRecord.id = existingProfile.id;
-        await supabase.from('profiles').update(profileRecord).eq('id', existingProfile.id);
-      } else {
-        await supabase.from('profiles').insert([profileRecord]);
-      }
+        if (existingProfile) {
+          profileRecord.id = existingProfile.id;
+          await supabase.from('profiles').update(profileRecord).eq('id', existingProfile.id);
+        } else {
+          await supabase.from('profiles').insert([profileRecord]);
+        }
 
-      // 2. Mark verified_students as registered
-      await supabase
-        .from('verified_students')
-        .update({
+        // 2. Mark verified_students as registered and persist email if provided
+        const vsUpdatePayload = {
           has_registered: true,
           is_registered: true,
           registered_at: nowIso,
           updated_at: nowIso
-        })
-        .eq('registration_number', cleanReg);
+        };
+        if (candidateEmail) {
+          vsUpdatePayload.email = candidateEmail;
+          vsUpdatePayload.masked_email = maskEmail(candidateEmail);
+        }
+
+        await supabase
+          .from('verified_students')
+          .update(vsUpdatePayload)
+          .eq('registration_number', cleanReg);
 
       // 3. Mark verification session consumed
       await supabase
@@ -822,7 +854,7 @@ export async function handleForgotPasswordStep1({ registrationNumber }) {
   if (!officialRecord) {
     return {
       success: false,
-      error: 'Registration number not found in departmental records. Please verify your details.'
+      error: 'We could not find a student record with this registration number. Please verify your details.'
     };
   }
 
@@ -1040,3 +1072,132 @@ export async function handleSensitiveActionVerifyPassword({ registrationNumber, 
     message: 'Identity confirmed.'
   };
 }
+
+// =============================================================================
+// 7. ADMIN: AUTHORITATIVE STUDENT DELETION (REGISTRY & PORTAL ACCOUNT)
+// =============================================================================
+
+export async function handleAdminDeleteStudent({ registrationNumber, studentId, email, adminSession = null }) {
+  const cleanReg = String(registrationNumber || '').trim().toUpperCase();
+  const cleanId = String(studentId || '').trim();
+  const cleanEmail = String(email || '').trim().toLowerCase();
+
+  if (!cleanReg && !cleanId && !cleanEmail) {
+    return { success: false, error: 'Registration number or student ID is required for deletion.' };
+  }
+
+  try {
+    let authUserId = null;
+
+    // 1. Try finding auth user ID from profiles or verified_students
+    if (supabase) {
+      if (cleanReg) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('id, email')
+          .ilike('registration_number', cleanReg)
+          .maybeSingle();
+        if (prof?.id) authUserId = prof.id;
+
+        if (!authUserId) {
+          const { data: vs } = await supabase
+            .from('verified_students')
+            .select('auth_user_id')
+            .ilike('registration_number', cleanReg)
+            .maybeSingle();
+          if (vs?.auth_user_id) authUserId = vs.auth_user_id;
+        }
+      }
+
+      if (!authUserId && cleanId && cleanId.includes('-')) {
+        authUserId = cleanId;
+      }
+
+      // 2. Try calling PostgreSQL RPC admin_delete_student_completely if installed
+      try {
+        const { data: rpcRes, error: rpcErr } = await supabase.rpc('admin_delete_student_completely', {
+          p_registration_number: cleanReg || null,
+          p_student_id: cleanId || null,
+          p_email: cleanEmail || null
+        });
+        if (!rpcErr && rpcRes && rpcRes.success) {
+          return {
+            success: true,
+            message: `Student ${cleanReg || cleanId} has been permanently deleted from the database.`,
+            details: rpcRes
+          };
+        }
+      } catch (rpcEx) {
+        // Fall back to direct table queries below
+      }
+
+      // 3. Fallback table operations
+      // Safely delete non-election dependent records
+      if (cleanReg) {
+        await supabase.from('id_card_applications').delete().or(`registration_number.ilike.${cleanReg},matric_number.ilike.${cleanReg}`);
+        await supabase.from('account_recovery_requests').delete().ilike('registration_number', cleanReg);
+        await supabase.from('student_auth').delete().ilike('registration_number', cleanReg);
+      }
+
+      // Delete from profiles
+      if (cleanReg) {
+        await supabase.from('profiles').delete().ilike('registration_number', cleanReg);
+      }
+      if (cleanId && cleanId.includes('-')) {
+        await supabase.from('profiles').delete().eq('id', cleanId);
+      }
+      if (cleanEmail) {
+        await supabase.from('profiles').delete().ilike('email', cleanEmail);
+      }
+
+      // Delete from verified_students
+      if (cleanReg) {
+        await supabase.from('verified_students').delete().ilike('registration_number', cleanReg);
+      }
+      if (cleanId && cleanId.includes('-')) {
+        await supabase.from('verified_students').delete().eq('id', cleanId);
+      }
+
+      // Scrub store_verified_roster from id_card_settings
+      try {
+        const { data: settingsRow } = await supabase
+          .from('id_card_settings')
+          .select('payload')
+          .eq('id', 'store_verified_roster')
+          .maybeSingle();
+        if (settingsRow?.payload?.roster && Array.isArray(settingsRow.payload.roster)) {
+          const filtered = settingsRow.payload.roster.filter(s => {
+            const sReg = String(s.registration_number || s.matric || '').trim().toUpperCase();
+            return !cleanReg || sReg !== cleanReg;
+          });
+          await supabase.from('id_card_settings').upsert({
+            id: 'store_verified_roster',
+            payload: { roster: filtered },
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+        }
+      } catch (_) {}
+
+      // Delete Supabase Auth user if authUserId exists and auth admin is available
+      if (authUserId && supabase.auth?.admin?.deleteUser) {
+        try {
+          await supabase.auth.admin.deleteUser(authUserId);
+        } catch (authErr) {
+          console.warn('Notice: Supabase auth.admin.deleteUser:', authErr.message);
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: `Student ${cleanReg || cleanId} successfully removed from the database.`
+    };
+  } catch (err) {
+    console.error('handleAdminDeleteStudent error:', err);
+    return {
+      success: false,
+      error: err.message || 'Database deletion failed. Please try again.'
+    };
+  }
+}
+

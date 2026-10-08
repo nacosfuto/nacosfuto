@@ -18,6 +18,7 @@ import {
   getActiveElection, 
   getElectraPosts, 
   getContestants,
+  fetchLiveElectraData,
   apiGetVotingSessionStatus,
   apiSubmitElectoralBallot
 } from '@nacos/supabase/electraService';
@@ -29,9 +30,10 @@ export default function VoteNowPage({
   onOpenAccreditation 
 }) {
   const navigate = useNavigate();
-  const election = getActiveElection();
-  const posts = getElectraPosts();
-  const allContestants = getContestants();
+  const [election, setElection] = useState(() => getActiveElection());
+  const [posts, setPosts] = useState(() => getElectraPosts());
+  const [allContestants, setAllContestants] = useState(() => getContestants());
+  const [isLoading, setIsLoading] = useState(true);
 
   // Ballot selections: { [postId]: contestantId }
   const [selections, setSelections] = useState({});
@@ -40,6 +42,39 @@ export default function VoteNowPage({
   const [votedPositions, setVotedPositions] = useState([]);
   const [submittedReceipt, setSubmittedReceipt] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(false);
+
+  // Sync live election data on mount
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+
+    fetchLiveElectraData().then(data => {
+      if (!isMounted) return;
+      setElection(data.election);
+      setPosts(data.posts || []);
+      setAllContestants(data.contestants || []);
+      setIsLoading(false);
+    }).catch(err => {
+      console.warn('[VoteNowPage] Live sync warning:', err);
+      if (isMounted) setIsLoading(false);
+    });
+
+    const handleUpdate = () => {
+      setElection(getActiveElection());
+      setPosts(getElectraPosts());
+      setAllContestants(getContestants());
+    };
+
+    window.addEventListener('nacos_electra_election_updated', handleUpdate);
+    window.addEventListener('nacos_electra_posts_updated', handleUpdate);
+    window.addEventListener('nacos_electra_contestants_updated', handleUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('nacos_electra_election_updated', handleUpdate);
+      window.removeEventListener('nacos_electra_posts_updated', handleUpdate);
+      window.removeEventListener('nacos_electra_contestants_updated', handleUpdate);
+    };
+  }, []);
 
   // Check voting session status on mount or token change
   useEffect(() => {
@@ -143,7 +178,7 @@ export default function VoteNowPage({
             Official Ballot: Vote Now
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-2xl">
-            {election.title || 'NACOS FUTO General Elections'}. Review each contested executive office below, select your preferred candidates using the radio buttons, and submit your official ballot at the bottom of the page.
+            {election?.title || 'NACOS FUTO General Elections'}. Review each contested executive office below, select your preferred candidates using the radio buttons, and submit your official ballot at the bottom of the page.
           </p>
         </div>
 
@@ -270,7 +305,29 @@ export default function VoteNowPage({
         )}
 
         {/* ── CONTESTED OFFICES BALLOT ── */}
-        <form onSubmit={handleSubmitBallot} className="space-y-8">
+        {isLoading ? (
+          <div className="py-20 text-center">
+            <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-xs text-slate-500 font-medium">Loading official ballot from election ledger...</p>
+          </div>
+        ) : !election ? (
+          <div className="bg-white border rounded-[4px] p-8 text-center shadow-xs space-y-3">
+            <Lock className="w-10 h-10 text-slate-400 mx-auto" />
+            <h2 className="text-lg font-bold text-slate-900">Electoral Ballot Box Closed</h2>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              There is currently no active election session open for balloting. Balloting will be enabled once an election is activated by the Electoral Commission.
+            </p>
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="bg-white border rounded-[4px] p-8 text-center shadow-xs space-y-3">
+            <Vote className="w-10 h-10 text-slate-400 mx-auto" />
+            <h2 className="text-lg font-bold text-slate-900">No Offices Opened for Balloting</h2>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              The Electoral Commission has not configured any contested offices or positions for {election.title} yet.
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmitBallot} className="space-y-8">
           {posts.map((post, postIndex) => {
             const postCandidates = allContestants.filter(c => c.postId === post.id);
             const isOfficeVoted = votedPositions.includes(post.id);
@@ -487,6 +544,7 @@ export default function VoteNowPage({
             </div>
           </div>
         </form>
+        )}
 
       </div>
     </div>

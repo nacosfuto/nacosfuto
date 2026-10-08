@@ -60,9 +60,13 @@ import {
 import { 
   parseAdmissionYear, 
   calculateCurrentLevel, 
+  calculateAcademicProgression,
   calculateExpectedGraduation, 
   CURRENT_ACADEMIC_YEAR_START,
-  getAcademicSession
+  getAcademicSession,
+  getActiveAcademicSession,
+  getActiveAcademicYearStart,
+  onAcademicSessionChange
 } from '@nacos/config/academic';
 import { getPortalAdminSession, canAccessLevel, getAccessibleLevels } from '@nacos/auth';
 
@@ -109,6 +113,7 @@ const AdminStudents = () => {
     middleName: '',
     fullName: '',
     matricNumber: '',
+    level: '',
     email: '',
     phone: '',
     department: 'Computer Science',
@@ -223,6 +228,14 @@ const AdminStudents = () => {
     };
   }, []);
 
+  // Listen for academic session progression changes across the portal
+  useEffect(() => {
+    const unsub = onAcademicSessionChange(() => {
+      loadData(true);
+    });
+    return unsub;
+  }, []);
+
   const loadData = async (silent = false) => {
     if (!silent) setIsRefreshing(true);
     try {
@@ -249,20 +262,21 @@ const AdminStudents = () => {
 
   // Real-time calculation for Add Modal
   const newStudentAcademic = useMemo(() => {
-    if (!newRosterStudent.matricNumber || newRosterStudent.matricNumber.trim().length < 4) return null;
-    const parse = parseAdmissionYear(newRosterStudent.matricNumber, CURRENT_ACADEMIC_YEAR_START);
-    if (!parse.valid) return { valid: false, error: parse.error };
-    
+    if (!newRosterStudent.matricNumber || !newRosterStudent.matricNumber.trim()) return null;
     const duration = parseInt(newRosterStudent.programmeDuration, 10) || 5;
-    const levelInfo = calculateCurrentLevel(parse.admissionYear, CURRENT_ACADEMIC_YEAR_START, duration);
-    const gradYear = calculateExpectedGraduation(parse.admissionYear, duration);
+    const progression = calculateAcademicProgression({
+      registration_number: newRosterStudent.matricNumber,
+      admission_year: newRosterStudent.admissionYear,
+      programme_duration: duration,
+      level: newRosterStudent.level
+    });
     return {
-      valid: true,
-      admissionYear: parse.admissionYear,
-      levelString: levelInfo.levelString,
-      gradYear
+      valid: progression.valid,
+      admissionYear: progression.admissionYear,
+      levelString: newRosterStudent.level || progression.levelString,
+      gradYear: progression.expectedGraduationYear
     };
-  }, [newRosterStudent.matricNumber, newRosterStudent.programmeDuration]);
+  }, [newRosterStudent.matricNumber, newRosterStudent.admissionYear, newRosterStudent.level, newRosterStudent.programmeDuration]);
 
   // Filtered Roster
   const filteredRoster = useMemo(() => {
@@ -322,16 +336,22 @@ const AdminStudents = () => {
   // Add individual student to verified roster
   const handleAddRosterSubmit = async (e) => {
     e.preventDefault();
-    if (!newStudentAcademic || !newStudentAcademic.valid) {
-      showNotification(newStudentAcademic?.error || 'Invalid registration number.', 'error');
+    if (!newRosterStudent.matricNumber || !newRosterStudent.matricNumber.trim()) {
+      showNotification('Registration number is required.', 'error');
       return;
     }
 
-    const res = await adminAddVerifiedStudent(newRosterStudent);
+    const payload = {
+      ...newRosterStudent,
+      level: newRosterStudent.level || (newStudentAcademic?.levelString || '100 Level'),
+      email: newRosterStudent.email && newRosterStudent.email.trim() ? newRosterStudent.email.trim() : null
+    };
+
+    const res = await adminAddVerifiedStudent(payload);
     if (res.error) {
       showNotification(res.error.message, 'error');
     } else {
-      showNotification(`Student ${newRosterStudent.fullName || newRosterStudent.surname} successfully added and synced to Supabase!`);
+      showNotification(`Student ${payload.fullName || payload.surname} successfully added and synced to Supabase!`);
       setIsAddRosterModalOpen(false);
       setNewRosterStudent({
         surname: '',
@@ -339,6 +359,7 @@ const AdminStudents = () => {
         middleName: '',
         fullName: '',
         matricNumber: '',
+        level: '',
         email: '',
         phone: '',
         department: 'Computer Science',
@@ -346,7 +367,7 @@ const AdminStudents = () => {
         programme: 'B.Tech Computer Science',
         programmeDuration: 5
       });
-      loadData();
+      await loadData(true);
     }
   };
 
@@ -447,24 +468,12 @@ const AdminStudents = () => {
     if (!studentToDelete) return;
     setIsDeleting(true);
     const reg = (studentToDelete.registration_number || studentToDelete.reg_no || studentToDelete.matric || studentToDelete.matric_number || studentToDelete.id || '').toUpperCase();
-    const targetId = studentToDelete.id;
     const name = studentToDelete.full_name || studentToDelete.name || reg;
-
-    // Optimistically remove from local state immediately
-    setVerifiedRoster(prev => prev.filter(s => {
-      const sReg = (s.registration_number || s.reg_no || s.matric || s.matric_number || '').toUpperCase();
-      return (!reg || sReg !== reg) && (!targetId || s.id !== targetId);
-    }));
-    setActiveAccounts(prev => prev.filter(s => {
-      const sReg = (s.registration_number || s.reg_no || s.matric || s.matric_number || '').toUpperCase();
-      return (!reg || sReg !== reg) && (!targetId || s.id !== targetId);
-    }));
 
     try {
       const res = await adminDeleteStudent(studentToDelete, adminSession);
       if (res?.error) {
-        showNotification(res.error.message || 'Failed to delete student user from database', 'error');
-        await loadData(true);
+        showNotification(res.error.message || 'Failed to delete student from database', 'error');
       } else {
         showNotification(`Student ${name} (${reg}) has been permanently deleted from the database.`);
         setIsDeleteModalOpen(false);
@@ -473,11 +482,8 @@ const AdminStudents = () => {
       }
     } catch (err) {
       showNotification('Error deleting student user: ' + (err.message || 'Unknown error'), 'error');
-      await loadData(true);
     } finally {
       setIsDeleting(false);
-      setIsDeleteModalOpen(false);
-      setStudentToDelete(null);
     }
   };
 
@@ -712,7 +718,7 @@ const AdminStudents = () => {
               </h1>
             </div>
             <p className="text-xs text-gray-500 dark:text-green-100/70">
-              Active Academic Session: <strong className="text-gray-800 dark:text-white">{getAcademicSession(CURRENT_ACADEMIC_YEAR_START)}</strong> • Department of Computer Science, FUTO
+              Active Academic Session: <strong className="text-gray-800 dark:text-white">{getActiveAcademicSession()}</strong> • Department of Computer Science, FUTO
             </p>
           </div>
 
@@ -751,7 +757,7 @@ const AdminStudents = () => {
               className="px-4 py-2.5 min-h-[40px] text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-lg shadow-sm transition-colors cursor-pointer inline-flex items-center gap-1.5"
             >
               <UserPlus className="w-4 h-4" />
-              <span>Enroll Student</span>
+              <span>Add Student</span>
             </button>
           </div>
         </div>
@@ -1762,7 +1768,7 @@ const AdminStudents = () => {
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 dark:text-green-200 font-semibold mb-1">Registration Number (Digits only) *</label>
+                  <label className="block text-gray-700 dark:text-green-200 font-semibold mb-1">Registration Number *</label>
                   <input
                     type="text"
                     required
@@ -1790,18 +1796,34 @@ const AdminStudents = () => {
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-gray-700 dark:text-green-200 font-semibold mb-1">Official Student Email *</label>
+                    <label className="block text-gray-700 dark:text-green-200 font-semibold mb-1">Email (Optional)</label>
                     <input
                       type="email"
-                      required
-                      placeholder="student@futo.edu.ng"
+                      placeholder="student@futo.edu.ng (optional)"
                       value={newRosterStudent.email}
                       onChange={(e) => setNewRosterStudent({ ...newRosterStudent, email: e.target.value })}
                       className="w-full px-3 py-2 rounded border border-gray-300 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 dark:text-green-200 font-semibold mb-1">Phone Number</label>
+                    <label className="block text-gray-700 dark:text-green-200 font-semibold mb-1">Academic Level</label>
+                    <select
+                      value={newRosterStudent.level || (newStudentAcademic?.levelString || '100 Level')}
+                      onChange={(e) => setNewRosterStudent({ ...newRosterStudent, level: e.target.value })}
+                      className="w-full px-3 py-2 rounded border border-gray-300 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white"
+                    >
+                      <option value="100 Level">100 Level</option>
+                      <option value="200 Level">200 Level</option>
+                      <option value="300 Level">300 Level</option>
+                      <option value="400 Level">400 Level</option>
+                      <option value="500 Level">500 Level</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-gray-700 dark:text-green-200 font-semibold mb-1">Phone Number (Optional)</label>
                     <input
                       type="tel"
                       placeholder="08012345678"
@@ -1809,21 +1831,6 @@ const AdminStudents = () => {
                       onChange={(e) => setNewRosterStudent({ ...newRosterStudent, phone: e.target.value })}
                       className="w-full px-3 py-2 rounded border border-gray-300 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white"
                     />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-gray-700 dark:text-green-200 font-semibold mb-1">Programme Duration</label>
-                    <select
-                      value={newRosterStudent.programmeDuration}
-                      onChange={(e) => setNewRosterStudent({ ...newRosterStudent, programmeDuration: parseInt(e.target.value, 10) })}
-                      className="w-full px-3 py-2 rounded border border-gray-300 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white"
-                    >
-                      <option value={4}>4 Years</option>
-                      <option value={5}>5 Years (B.Tech Computer Science)</option>
-                      <option value={6}>6 Years</option>
-                    </select>
                   </div>
                   <div>
                     <label className="block text-gray-700 dark:text-green-200 font-semibold mb-1">Department</label>
@@ -1840,6 +1847,19 @@ const AdminStudents = () => {
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-gray-700 dark:text-green-200 font-semibold mb-1">Programme Duration</label>
+                  <select
+                    value={newRosterStudent.programmeDuration}
+                    onChange={(e) => setNewRosterStudent({ ...newRosterStudent, programmeDuration: parseInt(e.target.value, 10) })}
+                    className="w-full px-3 py-2 rounded border border-gray-300 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white"
+                  >
+                    <option value={4}>4 Years</option>
+                    <option value={5}>5 Years (B.Tech Computer Science)</option>
+                    <option value={6}>6 Years</option>
+                  </select>
+                </div>
+
                 <div className="pt-3 flex justify-end gap-2">
                   <button
                     type="button"
@@ -1852,7 +1872,7 @@ const AdminStudents = () => {
                     type="submit"
                     className="px-5 py-2 rounded text-white bg-[#138601] hover:bg-[#0f6c01] font-semibold cursor-pointer"
                   >
-                    Authorize & Enroll
+                    Add Student to Registry
                   </button>
                 </div>
               </form>

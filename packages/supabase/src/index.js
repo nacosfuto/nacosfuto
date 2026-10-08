@@ -24,5 +24,6 @@ export * from './electraService.js';
 export * from './payments.js';
 export * from './studentAuth.js';
 export * from './studentCsvEngine.js';
+export * from './academicProgressionService.js';
 export { default } from './client.js';
 

@@ -5,6 +5,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { dispatchEmail } from '../../packages/supabase/src/server/emailDispatcher.js';
 import { handleStorageRequest } from '../../packages/supabase/src/server/b2StorageDispatcher.js';
+import { handleAdminDeleteStudent } from '../../packages/supabase/src/server/studentAuthApi.js';
 
 function cloudinaryDevPlugin() {
   return {
@@ -94,6 +95,23 @@ function cloudinaryDevPlugin() {
         if (req.url === '/api/cloudinary/delete' && req.method === 'POST') {
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ result: 'ok' }));
+          return;
+        }
+        if (req.url === '/api/admin/students/delete' && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const data = JSON.parse(body || '{}');
+              const result = await handleAdminDeleteStudent(data);
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = result.success ? 200 : 400;
+              res.end(JSON.stringify(result));
+            } catch (err) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ success: false, error: err.message }));
+            }
+          });
           return;
         }
         next();

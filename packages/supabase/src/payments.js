@@ -125,6 +125,8 @@ export async function verifyPaymentStatus({ reference, paymentType, registration
   return { isPaid: false, status: 'unknown' };
 }
 
+import { getActiveAcademicSession } from '@nacos/config/academic';
+
 const DUES_SETTINGS_KEY = 'nacos_dues_settings_db';
 
 /**
@@ -134,7 +136,7 @@ export async function getDuesSettings() {
   const defaultSettings = {
     id: 'dues',
     dues_amount: 2500,
-    academic_session: '2026/2027',
+    academic_session: getActiveAcademicSession(),
     is_open: true,
     updated_at: new Date().toISOString()
   };
@@ -151,7 +153,7 @@ export async function getDuesSettings() {
         return {
           id: 'dues',
           dues_amount: Number(duesRow.id_card_fee),
-          academic_session: duesRow.academic_session || defaultSettings.academic_session,
+          academic_session: duesRow.academic_session || getActiveAcademicSession(),
           is_open: duesRow.is_application_open ?? true,
           updated_at: duesRow.updated_at
         };
@@ -167,17 +169,18 @@ export async function getDuesSettings() {
 /**
  * Authoritatively updates the departmental dues fee configured by admin
  */
-export async function updateDuesFee(amount, academicSession = '2026/2027') {
+export async function updateDuesFee(amount, academicSession = null) {
   const num = Number(amount);
   if (isNaN(num) || num <= 0) {
     return { error: 'Please enter a valid positive fee amount.' };
   }
 
+  const targetSession = String(academicSession || getActiveAcademicSession()).trim();
   const now = new Date().toISOString();
   const settings = {
     id: 'default',
     dues_amount: num,
-    academic_session: academicSession,
+    academic_session: targetSession,
     is_open: true,
     updated_at: now
   };
@@ -190,7 +193,7 @@ export async function updateDuesFee(amount, academicSession = '2026/2027') {
         .upsert({
           id: 'dues',
           id_card_fee: num,
-          academic_session: academicSession,
+          academic_session: targetSession,
           is_application_open: true,
           updated_at: now
         });
@@ -204,8 +207,23 @@ export async function updateDuesFee(amount, academicSession = '2026/2027') {
       try {
         await supabase
           .from('id_card_settings')
-          .update({ academic_session: academicSession, updated_at: now })
+          .update({ academic_session: targetSession, updated_at: now })
           .eq('id', 'default');
+      } catch (_) {}
+
+      // 3. Keep payment_fees table in sync
+      try {
+        await supabase
+          .from('payment_fees')
+          .upsert({
+            fee_key: 'departmental_dues',
+            fee_name: 'NACOS Departmental Dues',
+            academic_session: targetSession,
+            amount: num,
+            currency: 'NGN',
+            is_active: true,
+            updated_at: now
+          }, { onConflict: 'fee_key,academic_session' });
       } catch (_) {}
     }
   } catch (err) {
@@ -227,13 +245,27 @@ export async function updateDuesFee(amount, academicSession = '2026/2027') {
 /**
  * Universal dynamic fee getter for ANY future payment type
  */
-export async function getPaymentFee(feeKey) {
+export async function getPaymentFee(feeKey, session = null) {
   const key = String(feeKey || 'id_card').trim().toLowerCase();
-
-  const rowId = (key === 'id_card' || key === 'idcard') ? 'default' : key;
+  const targetSession = String(session || getActiveAcademicSession()).trim();
 
   try {
     if (supabase) {
+      // 1. Check payment_fees table
+      const { data: feeRow } = await supabase
+        .from('payment_fees')
+        .select('amount')
+        .eq('fee_key', key)
+        .eq('academic_session', targetSession)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (feeRow?.amount && !isNaN(Number(feeRow.amount))) {
+        return Number(feeRow.amount);
+      }
+
+      // 2. Fallback to id_card_settings
+      const rowId = (key === 'id_card' || key === 'idcard') ? 'default' : key;
       const { data } = await supabase
         .from('id_card_settings')
         .select('*')
@@ -252,13 +284,14 @@ export async function getPaymentFee(feeKey) {
 /**
  * Universal dynamic fee setter for ANY future payment type
  */
-export async function updatePaymentFee(feeKey, amount, label = '') {
+export async function updatePaymentFee(feeKey, amount, label = '', session = null) {
   const key = String(feeKey || '').trim().toLowerCase();
   const num = Number(amount);
   if (!key || isNaN(num) || num <= 0) {
     return { error: 'Invalid fee key or amount.' };
   }
 
+  const targetSession = String(session || getActiveAcademicSession()).trim();
   const rowId = (key === 'id_card' || key === 'idcard') ? 'default' : key;
   const now = new Date().toISOString();
   try {
@@ -268,11 +301,24 @@ export async function updatePaymentFee(feeKey, amount, label = '') {
         .upsert({
           id: rowId,
           id_card_fee: num,
+          academic_session: targetSession,
           is_application_open: true,
           updated_at: now
         });
+
+      await supabase
+        .from('payment_fees')
+        .upsert({
+          fee_key: key,
+          fee_name: label || key.toUpperCase(),
+          academic_session: targetSession,
+          amount: num,
+          currency: 'NGN',
+          is_active: true,
+          updated_at: now
+        }, { onConflict: 'fee_key,academic_session' });
     }
-    return { success: true, feeKey: key, amount: num };
+    return { success: true, feeKey: key, amount: num, academicSession: targetSession };
   } catch (err) {
     return { error: err.message };
   }
@@ -294,7 +340,13 @@ export async function adminGetAllDuesPayments() {
       console.warn('[Dues Payments Ledger Fetch Warning]:', error.message);
       return [];
     }
-    return data || [];
+
+    // Normalize top-level academic_session and level if only present in metadata
+    return (data || []).map(p => ({
+      ...p,
+      academic_session: p.academic_session || p.metadata?.academic_session || p.metadata?.academicSession || '2026/2027',
+      level: p.level || p.metadata?.level || '100 Level'
+    }));
   } catch (err) {
     console.error('[Dues Payments Ledger Error]:', err);
     return [];
@@ -310,7 +362,7 @@ export async function adminManuallyClearDues({
   studentName = 'Student',
   studentEmail = '',
   amount = 2500,
-  academicSession = '2026/2027',
+  academicSession = null,
   level = 'All',
   paymentMethod = 'MANUAL_BURSARY',
   reference = null,
@@ -318,13 +370,14 @@ export async function adminManuallyClearDues({
 }) {
   const regNo = String(registrationNumber || '').trim().toUpperCase();
   const stId = String(studentId || regNo || `cust_${Date.now()}`);
+  const targetSession = String(academicSession || getActiveAcademicSession()).trim();
   const now = new Date().toISOString();
   const numAmount = Number(amount) || 2500;
   const payRef = reference || `NACOS-DUES-MANUAL-${regNo || Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
   try {
     if (supabase) {
-      // 1. Insert or update in public.payments table
+      // 1. Insert or update in public.payments table with top-level session and level
       const { data: paymentRecord, error: payErr } = await supabase
         .from('payments')
         .upsert({
@@ -336,13 +389,16 @@ export async function adminManuallyClearDues({
           currency: 'NGN',
           status: 'successful',
           reference: payRef,
+          academic_session: targetSession,
+          level: level,
           paid_at: now,
           created_at: now,
           updated_at: now,
           metadata: {
             customer_name: studentName,
             customer_email: studentEmail,
-            academicSession,
+            academic_session: targetSession,
+            academicSession: targetSession,
             level,
             payment_method: paymentMethod,
             note,
@@ -364,7 +420,10 @@ export async function adminManuallyClearDues({
           .from('dues_payments')
           .upsert({
             student_id: stId,
+            registration_number: regNo,
             payment_type: 'departmental_dues',
+            session: targetSession,
+            level: level,
             status: 'successful'
           });
       } catch (_) {}
@@ -378,6 +437,7 @@ export async function adminManuallyClearDues({
 
   return { success: true, reference: payRef };
 }
+
 
 /**
  * Revoke or cancel a student's departmental dues clearance

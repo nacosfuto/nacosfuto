@@ -1,10 +1,14 @@
 import { supabase } from './client.js';
 import { 
+  DEFAULT_ACADEMIC_YEAR_START,
   CURRENT_ACADEMIC_YEAR_START, 
   parseAdmissionYear, 
   calculateCurrentLevel, 
+  calculateAcademicProgression,
   calculateExpectedGraduation, 
-  getAcademicSession 
+  getAcademicSession,
+  getActiveAcademicSession,
+  getActiveAcademicYearStart
 } from '@nacos/config/academic';
 import { createOTPVerification, verifyOTP, maskEmail, maskPhone } from './otpService.js';
 import { sendPasswordResetEmail } from './emailService.js';
@@ -104,14 +108,12 @@ export function isLocalEnvironment() {
  */
 export function enrichStudentProfile(student) {
   if (!student) return null;
-  const duration = parseInt(student.programme_duration, 10) || 5;
-  const admissionYear = parseInt(student.admission_year, 10) || CURRENT_ACADEMIC_YEAR_START;
-  const levelInfo = calculateCurrentLevel(admissionYear, CURRENT_ACADEMIC_YEAR_START, duration);
-  const expectedGraduation = calculateExpectedGraduation(admissionYear, duration);
+  const progression = calculateAcademicProgression(student);
 
   const fullName = student.full_name || [student.surname, student.first_name, student.middle_name].filter(Boolean).join(' ') || '';
   const firstName = student.first_name || (fullName ? fullName.split(' ')[0] : 'Student');
   const lastName = student.last_name || student.surname || (fullName ? fullName.split(' ').slice(-1)[0] : '');
+  const matric = student.registration_number || student.matric_number || student.matric || '';
 
   return {
     ...student,
@@ -121,14 +123,25 @@ export function enrichStudentProfile(student) {
     firstName: firstName,
     last_name: lastName,
     lastName: lastName,
-    matric: student.registration_number,
-    matricNumber: student.registration_number,
-    level: levelInfo.levelString,
-    current_level: levelInfo.levelString,
-    numeric_level: levelInfo.numericLevel,
-    is_graduated: levelInfo.isGraduated,
-    expected_graduation_year: expectedGraduation,
-    academic_session: getAcademicSession(CURRENT_ACADEMIC_YEAR_START)
+    matric,
+    matricNumber: matric,
+    registration_number: matric,
+    admission_year: progression.admissionYear || student.admission_year,
+    programme_duration: progression.programmeDuration,
+    level: progression.levelString,
+    current_level: progression.levelString,
+    numeric_level: progression.numericLevel,
+    is_graduated: progression.isGraduated,
+    status: progression.isGraduated ? 'Graduated' : (student.status || 'Active'),
+    class_of: progression.classOf,
+    classOf: progression.classOf,
+    class_of_display: progression.classOfDisplay,
+    classOfDisplay: progression.classOfDisplay,
+    graduation_year: progression.expectedGraduationYear,
+    expected_graduation_year: progression.expectedGraduationYear,
+    academic_session: progression.academicSession || getActiveAcademicSession(),
+    role: progression.isGraduated ? (student.role || 'Alumni Member') : (student.role || 'Student Member'),
+    is_active: student.is_active !== undefined ? student.is_active : true
   };
 }
 
@@ -373,12 +386,8 @@ export async function registerStudent(studentData) {
     return { data: null, error: { message: 'Password is required.' } };
   }
 
-  // 2. Automatic admission year extraction & validation
-  const parseResult = parseAdmissionYear(matricNumber, CURRENT_ACADEMIC_YEAR_START);
-  if (!parseResult.valid) {
-    return { data: null, error: { message: parseResult.error } };
-  }
-  const admissionYear = parseResult.admissionYear;
+  // 2. Admission year: use provided field or fallback to current session
+  const admissionYear = parseInt(studentData.admission_year || studentData.admissionYear, 10) || CURRENT_ACADEMIC_YEAR_START;
 
   // 3. Check for duplicates in local DB
   const students = getLocalStudentsDatabase();
@@ -553,8 +562,7 @@ export async function adminAddStudent(studentData) {
     }
   } catch (e) {}
 
-  const parse = parseAdmissionYear(resolvedReg, CURRENT_ACADEMIC_YEAR_START);
-  const admissionYear = parse.valid ? parse.admissionYear : CURRENT_ACADEMIC_YEAR_START;
+  const admissionYear = parseInt(studentData.admission_year || studentData.admissionYear, 10) || CURRENT_ACADEMIC_YEAR_START;
   const duration = parseInt(programmeDuration, 10) || 5;
   const passwordHash = await hashPassword(initialPassword || 'password');
   const studentId = existingId || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `student-${Date.now()}`);
@@ -601,7 +609,11 @@ export async function adminAddStudent(studentData) {
 
   // 3. Sync to verified_students in Supabase (upsert so new student exists in both tables)
   try {
-    const levelInfo = calculateCurrentLevel(admissionYear, CURRENT_ACADEMIC_YEAR_START, duration);
+    const progression = calculateAcademicProgression({
+      registration_number: resolvedReg,
+      admission_year: admissionYear,
+      programme_duration: duration
+    });
     await supabase
       .from('verified_students')
       .upsert({
@@ -617,11 +629,11 @@ export async function adminAddStudent(studentData) {
         masked_phone: maskPhone(profileRecord.phone_number),
         department: profileRecord.department,
         faculty: profileRecord.faculty,
-        level: levelInfo.levelString,
-        admission_year: admissionYear,
+        level: progression.levelString,
+        admission_year: progression.admissionYear || admissionYear,
         programme: profileRecord.programme,
         programme_duration: duration,
-        academic_session: getAcademicSession(CURRENT_ACADEMIC_YEAR_START),
+        academic_session: progression.academicSession || getActiveAcademicSession(),
         status: 'active',
         has_registered: true,
         is_registered: true,
@@ -647,14 +659,6 @@ export async function adminAddStudent(studentData) {
 }
 
 export async function adminUpdateStudent(id, updates) {
-  // Recalculate admission year if registration number is updated
-  if (updates.registration_number) {
-    const parse = parseAdmissionYear(updates.registration_number, CURRENT_ACADEMIC_YEAR_START);
-    if (!parse.valid) {
-      return { error: { message: parse.error } };
-    }
-    updates.admission_year = parse.admissionYear;
-  }
 
   const dbUpdates = {
     ...updates,
@@ -1173,43 +1177,58 @@ export async function adminDeleteStudent(identifier, adminUser = null) {
   ).trim().toUpperCase();
   const cleanEmail = String(rawObj.email || '').trim().toLowerCase();
 
-  // 1. Delete associated payments & results to prevent foreign key constraint blocks
+  // 1. First attempt secure server endpoint (handles auth.users deletion server-side)
+  let serverHandled = false;
   try {
-    if (cleanReg) await supabase.from('payments').delete().eq('registration_number', cleanReg);
-    if (cleanId && cleanId.includes('-')) await supabase.from('payments').delete().eq('student_id', cleanId);
-    if (cleanReg) await supabase.from('dues_payments').delete().eq('registration_number', cleanReg);
-    if (cleanId && cleanId.includes('-')) await supabase.from('dues_payments').delete().eq('student_id', cleanId);
-    if (cleanReg) await supabase.from('results').delete().eq('registration_number', cleanReg);
-    if (cleanReg) await supabase.from('student_results').delete().eq('registration_number', cleanReg);
-  } catch (e) {
-    console.warn('Scrubbing associated records exception:', e);
+    const apiRes = await fetch('/api/admin/students/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        registrationNumber: cleanReg,
+        studentId: cleanId,
+        email: cleanEmail
+      })
+    });
+    if (apiRes.ok) {
+      const data = await apiRes.json();
+      if (data.success) {
+        serverHandled = true;
+      }
+    }
+  } catch (apiErr) {
+    // Fall back to direct database operations
   }
 
-  // 2. Permanently delete from profiles table in Supabase
-  try {
-    if (cleanReg) await supabase.from('profiles').delete().eq('registration_number', cleanReg);
-    if (cleanId && cleanId.includes('-')) await supabase.from('profiles').delete().eq('id', cleanId);
-    if (cleanEmail) await supabase.from('profiles').delete().eq('email', cleanEmail);
-  } catch (err) {
-    console.warn('Supabase delete profile exception:', err);
+  // 2. If not handled by server, attempt PostgreSQL RPC admin_delete_student_completely
+  if (!serverHandled && supabase) {
+    try {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_delete_student_completely', {
+        p_registration_number: cleanReg || null,
+        p_student_id: cleanId || null,
+        p_email: cleanEmail || null
+      });
+      if (!rpcErr && rpcData?.success) {
+        serverHandled = true;
+      }
+    } catch (_) {}
   }
 
-  // 3. Permanently delete from verified_students table in Supabase
-  try {
-    if (cleanReg) await supabase.from('verified_students').delete().eq('registration_number', cleanReg);
-    if (cleanEmail) await supabase.from('verified_students').delete().eq('email', cleanEmail);
-    if (cleanId && cleanId.includes('-')) await supabase.from('verified_students').delete().eq('id', cleanId);
-  } catch (err) {
-    console.warn('Supabase delete verified_students exception:', err);
+  // 3. Direct database table operations fallback
+  if (!serverHandled && supabase) {
+    try {
+      if (cleanReg) await supabase.from('id_card_applications').delete().or(`registration_number.ilike.${cleanReg},matric_number.ilike.${cleanReg}`);
+      if (cleanReg) await supabase.from('account_recovery_requests').delete().ilike('registration_number', cleanReg);
+      if (cleanReg) await supabase.from('student_auth').delete().ilike('registration_number', cleanReg);
+      if (cleanReg) await supabase.from('profiles').delete().ilike('registration_number', cleanReg);
+      if (cleanId && cleanId.includes('-')) await supabase.from('profiles').delete().eq('id', cleanId);
+      if (cleanEmail) await supabase.from('profiles').delete().ilike('email', cleanEmail);
+      if (cleanReg) await supabase.from('verified_students').delete().ilike('registration_number', cleanReg);
+      if (cleanId && cleanId.includes('-')) await supabase.from('verified_students').delete().eq('id', cleanId);
+      if (cleanEmail) await supabase.from('verified_students').delete().ilike('email', cleanEmail);
+    } catch (dbErr) {
+      console.warn('Database deletion fallback error:', dbErr);
+    }
   }
-
-  // 4. Clean up id_card_applications and account_recovery_requests
-  try {
-    if (cleanReg) await supabase.from('id_card_applications').delete().eq('matric_number', cleanReg);
-    if (cleanReg) await supabase.from('id_card_applications').delete().eq('registration_number', cleanReg);
-    if (cleanId && cleanId.includes('-')) await supabase.from('id_card_applications').delete().eq('student_id', cleanId);
-    if (cleanReg) await supabase.from('account_recovery_requests').delete().eq('registration_number', cleanReg);
-  } catch (e) {}
 
   // 5. CRUCIAL: Remove student from store_verified_roster in id_card_settings
   try {

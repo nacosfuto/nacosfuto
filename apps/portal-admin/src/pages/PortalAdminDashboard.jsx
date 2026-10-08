@@ -29,6 +29,12 @@ import { adminGetAllVerifiedStudents } from '@nacos/supabase/verifiedStudents';
 import { adminGetAllStudents } from '@nacos/supabase/auth';
 import { portalAdminGetApplications } from '@nacos/supabase/idCard';
 import { getDuesSettings, getDynamicAcademicSession, adminGetAllDuesPayments, supabase } from '@nacos/supabase';
+import { 
+  getActiveAcademicSession, 
+  onAcademicSessionChange, 
+  calculateAcademicProgression, 
+  extractEntryYearFromRegNumber 
+} from '@nacos/config/academic';
 import { getAppUrls } from '@nacos/config/urls';
 import { useTheme } from '../context/ThemeContext';
 
@@ -56,7 +62,7 @@ export const PortalAdminDashboard = () => {
 
   const [duesStats, setDuesStats] = useState({
     rate: 2500,
-    academicSession: getDynamicAcademicSession(),
+    academicSession: getActiveAcademicSession(),
     clearedCount: 0,
     totalRevenue: 0,
     onlineCount: 0,
@@ -90,7 +96,12 @@ export const PortalAdminDashboard = () => {
       }
     }
 
-    // 2. Continuous 12-second refresh
+    // 2. Academic session live change listener
+    const unsubscribeSession = onAcademicSessionChange(() => {
+      loadDashboardData(true);
+    });
+
+    // 3. Continuous 12-second refresh
     const pollInterval = setInterval(() => {
       loadDashboardData(true);
     }, 12000);
@@ -100,6 +111,7 @@ export const PortalAdminDashboard = () => {
 
     return () => {
       if (channel && supabase) supabase.removeChannel(channel);
+      if (typeof unsubscribeSession === 'function') unsubscribeSession();
       clearInterval(pollInterval);
       window.removeEventListener('focus', handleFocus);
     };
@@ -112,7 +124,7 @@ export const PortalAdminDashboard = () => {
         adminGetAllVerifiedStudents().catch(() => []),
         adminGetAllStudents().catch(() => []),
         portalAdminGetApplications({ status: 'ALL' }).catch(() => []),
-        getDuesSettings().catch(() => ({ dues_amount: 2500, academic_session: getDynamicAcademicSession() })),
+        getDuesSettings().catch(() => ({ dues_amount: 2500, academic_session: getActiveAcademicSession() })),
         adminGetAllDuesPayments().catch(() => [])
       ]);
 
@@ -161,13 +173,20 @@ export const PortalAdminDashboard = () => {
         generatedIdCards: generated
       });
 
-      // Authoritative Dues calculation matching PortalAdminDues.jsx exactly
+      // Authoritative Dues calculation scoped to active academic session
+      const activeSession = duesSettingsRes?.academic_session || getActiveAcademicSession();
       const activeDuesRate = Number(duesSettingsRes?.dues_amount || 2500);
+
+      // Only count payments belonging to the active academic session
+      const sessionDuesPayments = duesPayments.filter(p => {
+        const pSession = p.academic_session || p.metadata?.academic_session;
+        return pSession === activeSession;
+      });
 
       const paymentMapByReg = new Map();
       const paymentMapByStudentId = new Map();
 
-      duesPayments.forEach(p => {
+      sessionDuesPayments.forEach(p => {
         if (p.status === 'successful') {
           if (p.registration_number) {
             paymentMapByReg.set(p.registration_number.toUpperCase().trim(), p);
@@ -183,7 +202,7 @@ export const PortalAdminDashboard = () => {
         const stId = st.id || st.student_id;
 
         const directPayment = (reg && paymentMapByReg.get(reg)) || (stId && paymentMapByStudentId.get(stId));
-        const hasPaid = !!directPayment || st.dues_cleared === true || st.has_paid_dues === true;
+        const hasPaid = !!directPayment;
         const isManual = directPayment?.metadata?.cleared_manually || directPayment?.provider?.toLowerCase().includes('manual') || false;
 
         return {
@@ -197,13 +216,13 @@ export const PortalAdminDashboard = () => {
       const manualDuesCount = studentDuesRows.filter(r => r.hasPaid && r.isManual).length;
       const onlineDuesCount = clearedDuesCount - manualDuesCount;
 
-      const totalDuesRev = duesPayments
+      const totalDuesRev = sessionDuesPayments
         .filter(p => p.status === 'successful')
-        .reduce((sum, p) => sum + (Number(p.amount) || activeDuesRate), 0) || (clearedDuesCount * activeDuesRate);
+        .reduce((sum, p) => sum + (Number(p.amount) || activeDuesRate), 0);
 
       setDuesStats({
         rate: activeDuesRate,
-        academicSession: duesSettingsRes?.academic_session || getDynamicAcademicSession(),
+        academicSession: activeSession,
         clearedCount: clearedDuesCount,
         totalRevenue: totalDuesRev,
         onlineCount: onlineDuesCount,
@@ -226,10 +245,13 @@ export const PortalAdminDashboard = () => {
     }
   };
 
-  // Compute live level distribution
+  // Compute live level distribution based on centralized progression for active session
   const levelDistribution = accountsList.reduce((acc, student) => {
-    const lvl = (student.level || student.current_level || '100 Level').replace(/[^0-9]/g, '');
-    const key = `${lvl || '100'} Level`;
+    const reg = (student.registration_number || student.matricNumber || '').trim();
+    const entryYear = extractEntryYearFromRegNumber(reg) || (student.entry_year ? Number(student.entry_year) : null);
+    const prog = entryYear ? calculateAcademicProgression(entryYear, duesStats.academicSession) : null;
+    const lvl = prog ? prog.levelString : (student.level || student.current_level || '100 Level');
+    const key = lvl.includes('Level') ? lvl : `${lvl.replace(/[^0-9]/g, '') || '100'} Level`;
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
@@ -260,7 +282,7 @@ export const PortalAdminDashboard = () => {
     {
       title: 'Departmental Dues',
       value: `₦${Number(duesStats.totalRevenue).toLocaleString()}`,
-      subtitle: `${duesStats.clearedCount} Cleared • ₦${Number(duesStats.rate).toLocaleString()} Rate`,
+      subtitle: `${duesStats.clearedCount} Cleared • ${duesStats.academicSession} Session`,
       icon: CreditCard,
       link: '/dues'
     },

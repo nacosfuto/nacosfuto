@@ -3,21 +3,17 @@
  */
 
 /**
- * Clean and format registration number
+ * Clean and normalize registration number
  */
 export function sanitizeRegNumber(regNo) {
   if (!regNo) return '';
-  return regNo.toString().replace(/[\s\-\/\.]/g, '').toUpperCase();
+  return regNo.toString().trim().toUpperCase();
 }
 
 /**
- * Validate FUTO Computer Science Registration Number
- * Expected pattern: 11 digits
- * Format breakdown:
- * - 4-digit Admission Year (e.g., 2018 - 2030)
- * - 2-digit Department Code (e.g., 14 for 2024, 15 for 2025, 16 for 2026, or valid CS dept codes 10-25)
- * - 5-digit Unique Student Sequence (e.g., 29481)
- * Examples: 20241429481, 20251512345, 20261699999
+ * Validate Student Registration Number presence and basic normalization.
+ * Format-based validation (length, regex, admission year pattern) has been completely removed.
+ * Registration numbers are treated as database identifiers verified against the student records.
  */
 export function validateRegistrationNumber(regNo) {
   if (!regNo) {
@@ -25,24 +21,8 @@ export function validateRegistrationNumber(regNo) {
   }
 
   const clean = sanitizeRegNumber(regNo);
-
-  // Must be exactly 11 digits
-  if (!/^\d{11}$/.test(clean)) {
-    return {
-      isValid: false,
-      error: 'Registration number must be exactly 11 digits (e.g., 20241429481).'
-    };
-  }
-
-  const year = parseInt(clean.slice(0, 4), 10);
-  const currentYear = new Date().getFullYear();
-
-  // Validate admission year boundary
-  if (year < 2015 || year > currentYear + 2) {
-    return {
-      isValid: false,
-      error: `Invalid admission year (${year}) in registration number.`
-    };
+  if (!clean) {
+    return { isValid: false, error: 'Registration number is required.' };
   }
 
   return { isValid: true, sanitized: clean };

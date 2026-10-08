@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Vote, 
@@ -10,21 +10,58 @@ import {
   ArrowRight, 
   Filter
 } from 'lucide-react';
-import { getElectraPosts, getContestants } from '@nacos/supabase/electraService';
+import { 
+  getElectraPosts, 
+  getContestants, 
+  fetchLiveElectraData, 
+  getActiveElection 
+} from '@nacos/supabase/electraService';
 
 export default function ContestantsPage({ onOpenBallot, onOpenManifesto }) {
   const navigate = useNavigate();
-  const posts = getElectraPosts();
-  const allContestants = getContestants();
+  const [activeElection, setActiveElection] = useState(() => getActiveElection());
+  const [posts, setPosts] = useState(() => getElectraPosts());
+  const [allContestants, setAllContestants] = useState(() => getContestants());
+  const [isLoading, setIsLoading] = useState(true);
 
   const [selectedPostFilter, setSelectedPostFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+
+    fetchLiveElectraData().then(data => {
+      if (!isMounted) return;
+      setActiveElection(data.election);
+      setPosts(data.posts || []);
+      setAllContestants(data.contestants || []);
+      setIsLoading(false);
+    }).catch(err => {
+      console.error('[ContestantsPage] live fetch error:', err);
+      if (isMounted) setIsLoading(false);
+    });
+
+    const handleUpdate = () => {
+      setPosts(getElectraPosts());
+      setAllContestants(getContestants());
+      setActiveElection(getActiveElection());
+    };
+
+    window.addEventListener('nacos_electra_contestants_updated', handleUpdate);
+    window.addEventListener('nacos_electra_posts_updated', handleUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('nacos_electra_contestants_updated', handleUpdate);
+      window.removeEventListener('nacos_electra_posts_updated', handleUpdate);
+    };
+  }, []);
 
   const filteredContestants = allContestants.filter(c => {
     const matchesPost = selectedPostFilter === 'all' || c.postId === selectedPostFilter;
     const matchesSearch = !searchQuery || 
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.runningPost.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.runningPost && c.runningPost.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (c.slogan && c.slogan.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesPost && matchesSearch;
   });
@@ -97,7 +134,20 @@ export default function ContestantsPage({ onOpenBallot, onOpenManifesto }) {
       </div>
 
       {/* Contestants Grid */}
-      {filteredContestants.length === 0 ? (
+      {isLoading ? (
+        <div className="py-20 text-center">
+          <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-xs text-slate-500 font-medium">Loading certified candidates from database...</p>
+        </div>
+      ) : allContestants.length === 0 ? (
+        <div className="py-16 text-center rounded-[4px] bg-white border border-slate-200 shadow-2xs">
+          <Vote className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+          <h3 className="text-base font-bold text-slate-900 mb-1">No certified candidates registered yet</h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            The Independent Student Electoral Commission (NACOS ISEC) has not published any cleared candidates for this election session.
+          </p>
+        </div>
+      ) : filteredContestants.length === 0 ? (
         <div className="py-16 text-center rounded-[4px] bg-white border border-slate-200">
           <Vote className="w-10 h-10 text-slate-400 mx-auto mb-2" />
           <h3 className="text-base font-bold text-slate-900 mb-1">No candidates match your criteria</h3>

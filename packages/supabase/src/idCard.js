@@ -4,6 +4,7 @@ import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
 import { getLocalStudentsDatabase } from './auth.js';
 import { uploadMedia, CLOUDINARY_FOLDERS, getOptimizedImageUrl, idTemplateMaster, idTemplateBack, idTemplateFrame } from '@nacos/media';
 import QRCode from 'qrcode';
+import { getActiveAcademicSession } from '@nacos/config/academic';
 
 const PAYMENTS_STORAGE_KEY = 'nacos_payments_db';
 const ID_APPLICATIONS_STORAGE_KEY = 'nacos_id_applications_db';
@@ -13,11 +14,8 @@ const AUDIT_LOGS_STORAGE_KEY = 'nacos_admin_audit_logs_db';
 /**
  * Seed and retrieve configurable ID Card Settings
  */
-export function getDynamicAcademicSession(date = new Date()) {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = d.getMonth() + 1;
-  return month >= 9 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
+export function getDynamicAcademicSession() {
+  return getActiveAcademicSession();
 }
 
 function getLocalIdSettingsDatabase() {

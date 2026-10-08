@@ -1329,6 +1329,35 @@ CREATE POLICY "Public read id_card_settings" ON public.id_card_settings FOR SELE
 DROP POLICY IF EXISTS "Admins manage id_card_settings" ON public.id_card_settings;
 CREATE POLICY "Admins manage id_card_settings" ON public.id_card_settings FOR ALL USING (true);
 
+-- 15h2. Session-Aware Payment Fees Table
+CREATE TABLE IF NOT EXISTS public.payment_fees (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  fee_key VARCHAR(50) NOT NULL,
+  fee_name VARCHAR(100) NOT NULL,
+  academic_session VARCHAR(30) NOT NULL,
+  amount NUMERIC(10, 2) NOT NULL,
+  currency VARCHAR(10) DEFAULT 'NGN' NOT NULL,
+  applicable_levels TEXT[] DEFAULT ARRAY['100', '200', '300', '400', '500'],
+  is_active BOOLEAN DEFAULT true NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  CONSTRAINT uq_payment_fees_key_session UNIQUE (fee_key, academic_session)
+);
+
+ALTER TABLE public.payment_fees ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read payment_fees" ON public.payment_fees;
+CREATE POLICY "Public read payment_fees" ON public.payment_fees FOR SELECT TO public USING (true);
+
+DROP POLICY IF EXISTS "Authenticated admins manage payment_fees" ON public.payment_fees;
+CREATE POLICY "Authenticated admins manage payment_fees" ON public.payment_fees FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role manage payment_fees" ON public.payment_fees;
+CREATE POLICY "Service role manage payment_fees" ON public.payment_fees FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+CREATE INDEX IF NOT EXISTS idx_payment_fees_key_session ON public.payment_fees (fee_key, academic_session);
+CREATE INDEX IF NOT EXISTS idx_payment_fees_active ON public.payment_fees (is_active);
+
 -- 15i. Bachs Payments & Webhooks Table
 CREATE TABLE IF NOT EXISTS public.payments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -1508,8 +1537,129 @@ CREATE POLICY "Public read electra_election_results" ON public.electra_election_
 DROP POLICY IF EXISTS "Service write electra_election_results" ON public.electra_election_results;
 CREATE POLICY "Service write electra_election_results" ON public.electra_election_results FOR ALL USING (true);
 
+-- =========================================================================
+-- 20. ELECTRA CORE PRODUCTION TABLES (ELECTIONS, POSITIONS, CANDIDATES, NEWS)
+-- =========================================================================
 
+-- 20a. Elections Table
+CREATE TABLE IF NOT EXISTS public.electra_elections (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  session TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'upcoming', -- 'draft', 'upcoming', 'active', 'concluded', 'archived'
+  is_published BOOLEAN NOT NULL DEFAULT true,
+  start_date TIMESTAMPTZ,
+  end_date TIMESTAMPTZ,
+  total_ballots INTEGER DEFAULT 0,
+  certified_turnout TEXT DEFAULT 'Not Started',
+  description TEXT,
+  guidelines JSONB DEFAULT '[]'::jsonb,
+  winner_summary TEXT,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
 
+CREATE INDEX IF NOT EXISTS idx_electra_elections_status ON public.electra_elections(status);
+CREATE INDEX IF NOT EXISTS idx_electra_elections_year ON public.electra_elections(year DESC);
+CREATE INDEX IF NOT EXISTS idx_electra_elections_published ON public.electra_elections(is_published);
 
+ALTER TABLE public.electra_elections ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read published electra_elections" ON public.electra_elections;
+CREATE POLICY "Public read published electra_elections" ON public.electra_elections FOR SELECT USING (is_published = true);
+DROP POLICY IF EXISTS "Admins manage electra_elections" ON public.electra_elections;
+CREATE POLICY "Admins manage electra_elections" ON public.electra_elections FOR ALL USING (true);
 
+-- 20b. Positions / Contested Offices Table
+CREATE TABLE IF NOT EXISTS public.electra_positions (
+  id TEXT PRIMARY KEY,
+  election_id TEXT REFERENCES public.electra_elections(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  code TEXT NOT NULL,
+  order_index INTEGER NOT NULL DEFAULT 1,
+  description TEXT,
+  eligibility_level TEXT DEFAULT '200L - 400L',
+  max_votes_per_voter INTEGER DEFAULT 1,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
 
+CREATE INDEX IF NOT EXISTS idx_electra_positions_election ON public.electra_positions(election_id);
+CREATE INDEX IF NOT EXISTS idx_electra_positions_order ON public.electra_positions(order_index ASC);
+
+ALTER TABLE public.electra_positions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read active electra_positions" ON public.electra_positions;
+CREATE POLICY "Public read active electra_positions" ON public.electra_positions FOR SELECT USING (is_active = true);
+DROP POLICY IF EXISTS "Admins manage electra_positions" ON public.electra_positions;
+CREATE POLICY "Admins manage electra_positions" ON public.electra_positions FOR ALL USING (true);
+
+-- 20c. Candidates / Contestants Table
+CREATE TABLE IF NOT EXISTS public.electra_candidates (
+  id TEXT PRIMARY KEY,
+  election_id TEXT NOT NULL REFERENCES public.electra_elections(id) ON DELETE CASCADE,
+  position_id TEXT REFERENCES public.electra_positions(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  matric_number VARCHAR(50) NOT NULL,
+  level TEXT DEFAULT '400 Level',
+  running_post TEXT NOT NULL,
+  slogan TEXT,
+  photo_url TEXT,
+  cloudinary_public_id TEXT,
+  status TEXT DEFAULT 'certified', -- 'pending', 'certified', 'disqualified'
+  is_published BOOLEAN DEFAULT true,
+  votes_count INTEGER DEFAULT 0,
+  statement_pdf_url TEXT,
+  manifesto_pdf_url TEXT,
+  manifesto_storage_key TEXT,
+  manifesto_file_name TEXT,
+  candidate_statement TEXT,
+  manifesto JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_electra_candidates_election ON public.electra_candidates(election_id);
+CREATE INDEX IF NOT EXISTS idx_electra_candidates_position ON public.electra_candidates(position_id);
+CREATE INDEX IF NOT EXISTS idx_electra_candidates_status ON public.electra_candidates(status);
+CREATE INDEX IF NOT EXISTS idx_electra_candidates_published ON public.electra_candidates(is_published);
+
+ALTER TABLE public.electra_candidates ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read certified electra_candidates" ON public.electra_candidates;
+CREATE POLICY "Public read certified electra_candidates" ON public.electra_candidates FOR SELECT USING (is_published = true AND status = 'certified');
+DROP POLICY IF EXISTS "Admins manage electra_candidates" ON public.electra_candidates;
+CREATE POLICY "Admins manage electra_candidates" ON public.electra_candidates FOR ALL USING (true);
+
+-- 20d. News & Press Releases Table
+CREATE TABLE IF NOT EXISTS public.electra_news (
+  id TEXT PRIMARY KEY,
+  election_id TEXT REFERENCES public.electra_elections(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  category TEXT DEFAULT 'Electoral Notice',
+  tag TEXT DEFAULT 'Official',
+  published_date DATE DEFAULT CURRENT_DATE,
+  summary TEXT,
+  content TEXT NOT NULL,
+  author TEXT DEFAULT 'NACOS ISEC Secretariat',
+  is_pinned BOOLEAN DEFAULT false,
+  is_published BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_electra_news_election ON public.electra_news(election_id);
+CREATE INDEX IF NOT EXISTS idx_electra_news_pinned ON public.electra_news(is_pinned DESC, published_date DESC);
+CREATE INDEX IF NOT EXISTS idx_electra_news_published ON public.electra_news(is_published);
+
+ALTER TABLE public.electra_news ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read published electra_news" ON public.electra_news;
+CREATE POLICY "Public read published electra_news" ON public.electra_news FOR SELECT USING (is_published = true);
+DROP POLICY IF EXISTS "Admins manage electra_news" ON public.electra_news;
+CREATE POLICY "Admins manage electra_news" ON public.electra_news FOR ALL USING (true);
+
+-- 20e. Strengthen Security on electra_votes (Public must NOT read raw secret votes)
+ALTER TABLE public.electra_votes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read electra_votes" ON public.electra_votes;
+CREATE POLICY "Public read electra_votes" ON public.electra_votes FOR SELECT USING (false);
+DROP POLICY IF EXISTS "Service write electra_votes" ON public.electra_votes;
+CREATE POLICY "Service write electra_votes" ON public.electra_votes FOR ALL USING (true);

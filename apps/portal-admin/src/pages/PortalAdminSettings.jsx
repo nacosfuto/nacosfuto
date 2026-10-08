@@ -16,10 +16,30 @@ import {
   UserPlus,
   Plus,
   X,
-  Check
+  Check,
+  Eye,
+  ArrowRight,
+  Sparkles,
+  History
 } from 'lucide-react';
-import { getIdCardSettings, getDuesSettings, savePortalSettingsDirectly } from '@nacos/supabase';
-import { CURRENT_ACADEMIC_YEAR_START, getAcademicSession } from '@nacos/config/academic';
+import { 
+  getIdCardSettings, 
+  getDuesSettings, 
+  savePortalSettingsDirectly,
+  fetchAcademicSessionsFromDatabase,
+  setActiveAcademicSessionInDatabase,
+  createAcademicSessionInDatabase
+} from '@nacos/supabase';
+import { 
+  DEFAULT_ACADEMIC_YEAR_START,
+  CURRENT_ACADEMIC_YEAR_START, 
+  getAcademicSession,
+  getActiveAcademicSession,
+  getActiveAcademicYearStart,
+  parseSessionYears,
+  previewProgression,
+  onAcademicSessionChange
+} from '@nacos/config/academic';
 import { useTheme } from '../context/ThemeContext';
 import { 
   getLocalPortalAdmins, 
@@ -41,6 +61,18 @@ export const PortalAdminSettings = () => {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
 
+  // Academic Sessions Management & Progression Preview
+  const [sessionsList, setSessionsList] = useState([]);
+  const [previewTargetSession, setPreviewTargetSession] = useState('2026/2027');
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [isAddSessionModalOpen, setIsAddSessionModalOpen] = useState(false);
+  const [isAddingSession, setIsAddingSession] = useState(false);
+  const [sessionActionMsg, setSessionActionMsg] = useState('');
+  const [newSessionData, setNewSessionData] = useState({
+    sessionName: '2027/2028',
+    makeCurrent: false
+  });
+
   // Admin Scope Management
   const [currentAdmin, setCurrentAdmin] = useState(null);
   const [portalAdmins, setPortalAdmins] = useState([]);
@@ -60,7 +92,10 @@ export const PortalAdminSettings = () => {
     // 1. Authoritative fetch directly from Supabase database
     getIdCardSettings().then(s => {
       if (s?.id_card_fee) setIdCardFee(s.id_card_fee);
-      if (s?.academic_session) setAcademicSession(s.academic_session);
+      if (s?.academic_session) {
+        setAcademicSession(s.academic_session);
+        setPreviewTargetSession(s.academic_session);
+      }
       if (s?.is_application_open !== undefined) setAllowRegistration(Boolean(s.is_application_open));
     }).catch(e => console.warn('Supabase ID settings load warning:', e));
 
@@ -68,13 +103,84 @@ export const PortalAdminSettings = () => {
       if (ds?.dues_amount) setDuesFee(ds.dues_amount);
     }).catch(e => console.warn('Supabase Dues settings load warning:', e));
 
+    fetchAcademicSessionsFromDatabase().then(sessions => {
+      setSessionsList(Array.isArray(sessions) ? sessions : []);
+      const cur = sessions.find(s => s.is_current === true);
+      if (cur) {
+        setAcademicSession(cur.session_name);
+        setPreviewTargetSession(cur.session_name);
+      }
+    });
+
+    const unsubSession = onAcademicSessionChange(({ sessionName }) => {
+      setAcademicSession(sessionName);
+      setPreviewTargetSession(sessionName);
+    });
+
     const session = getPortalAdminSession();
     setCurrentAdmin(session);
 
     fetchPortalAdminsFromSupabase().then(liveAdmins => {
       setPortalAdmins(Array.isArray(liveAdmins) ? liveAdmins : []);
     });
+
+    return () => {
+      if (unsubSession) unsubSession();
+    };
   }, []);
+
+  // Confirmation modal for high-impact session switch
+  const [confirmSessionModal, setConfirmSessionModal] = useState({ isOpen: false, session: null });
+
+  const requestSwitchSession = (sess) => {
+    setConfirmSessionModal({ isOpen: true, session: sess });
+  };
+
+  const handleSwitchSession = async (sess) => {
+    try {
+      setIsSaving(true);
+      setConfirmSessionModal({ isOpen: false, session: null });
+      const res = await setActiveAcademicSessionInDatabase(sess.session_name || sess.id);
+      if (res?.success) {
+        setAcademicSession(res.sessionName);
+        setPreviewTargetSession(res.sessionName);
+        const updated = await fetchAcademicSessionsFromDatabase();
+        setSessionsList(updated);
+        setSessionActionMsg(`Active academic session switched to ${res.sessionName}. Student cohorts dynamically updated!`);
+        setTimeout(() => setSessionActionMsg(''), 4500);
+      }
+    } catch (e) {
+      setSaveError(`Failed to switch session: ${e.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCreateNewSession = async (e) => {
+    e.preventDefault();
+    setIsAddingSession(true);
+    try {
+      const res = await createAcademicSessionInDatabase({
+        sessionName: newSessionData.sessionName,
+        isCurrent: newSessionData.makeCurrent
+      });
+      if (res?.success) {
+        const updated = await fetchAcademicSessionsFromDatabase();
+        setSessionsList(updated);
+        if (newSessionData.makeCurrent) {
+          setAcademicSession(newSessionData.sessionName);
+          setPreviewTargetSession(newSessionData.sessionName);
+        }
+        setIsAddSessionModalOpen(false);
+        setSessionActionMsg(`Academic session ${newSessionData.sessionName} added successfully.`);
+        setTimeout(() => setSessionActionMsg(''), 4500);
+      }
+    } catch (err) {
+      alert(`Error creating academic session: ${err.message}`);
+    } finally {
+      setIsAddingSession(false);
+    }
+  };
 
   const handleLevelChange = async (adminId, newLevel) => {
     try {
@@ -158,11 +264,15 @@ export const PortalAdminSettings = () => {
         throw new Error('Please enter a valid positive Departmental Dues fee.');
       }
 
+      if (academicSession) {
+        await setActiveAcademicSessionInDatabase(academicSession);
+      }
+
       // Single fast atomic database write directly to Supabase
       const res = await savePortalSettingsDirectly({
         idCardFee: parsedIdCard,
         duesFee: parsedDues,
-        academicSession: academicSession || '2026/2027',
+        academicSession: academicSession || getActiveAcademicSession(),
         allowRegistration
       });
 
@@ -205,40 +315,127 @@ export const PortalAdminSettings = () => {
           <div className={`p-6 rounded-2xl border ${
             isDark ? 'bg-[#04160d] border-emerald-950/60' : 'bg-white border-slate-200'
           }`}>
-            <h2 className="text-sm font-bold flex items-center gap-2 mb-4 text-emerald-400">
-              <Calendar className="w-4 h-4" />
-              <span>Academic Session & Year Parameters</span>
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Current Academic Session
-                </label>
-                <input
-                  type="text"
-                  value={academicSession}
-                  onChange={(e) => setAcademicSession(e.target.value)}
-                  className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-colors ${
-                    isDark 
-                      ? 'bg-black/30 border-white/10 text-white focus:border-emerald-500/60' 
-                      : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-emerald-500'
-                  }`}
-                />
+                <h2 className="text-sm font-bold flex items-center gap-2 text-emerald-400">
+                  <Calendar className="w-4 h-4" />
+                  <span>Academic Sessions & Dynamic Progression System</span>
+                </h2>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Changing the active academic session automatically recalculates levels across all student cohorts without manual database editing.
+                </p>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Academic Year Inception
-                </label>
-                <input
-                  type="number"
-                  disabled
-                  value={CURRENT_ACADEMIC_YEAR_START}
-                  className={`w-full rounded-xl px-3.5 py-2.5 text-xs border opacity-75 cursor-not-allowed ${
-                    isDark ? 'bg-black/40 border-white/5 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'
-                  }`}
-                />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewTargetSession(academicSession || getActiveAcademicSession());
+                    setIsPreviewModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Preview Progression</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddSessionModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 shadow-sm transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Session</span>
+                </button>
+              </div>
+            </div>
+
+            {sessionActionMsg && (
+              <div className="mb-4 p-3 rounded-xl bg-emerald-950/40 border border-emerald-800/60 flex items-center gap-2 text-emerald-300 text-xs font-semibold">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{sessionActionMsg}</span>
+              </div>
+            )}
+
+            {/* Current Active Session Spotlight */}
+            <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-800/40 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Current Authoritative Session</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl font-mono font-bold text-gray-900 dark:text-white">
+                    {academicSession || getActiveAcademicSession()}
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                    Active System-Wide
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Progression rule: <code className="font-mono text-emerald-300">Level = {parseSessionYears(academicSession).startYear} - EntryYear + 1</code>.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewTargetSession(academicSession || getActiveAcademicSession());
+                    setIsPreviewModalOpen(true);
+                  }}
+                  className="text-xs font-semibold text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Inspect cohort progression</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Institutional Academic Sessions Table */}
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Institutional Academic Sessions Roster
+              </label>
+              <div className="divide-y divide-gray-100 dark:divide-white/10 border border-gray-200 dark:border-white/10 rounded-xl overflow-hidden text-xs">
+                {sessionsList.map((sess) => {
+                  const isCurrent = sess.is_current === true || sess.session_name === academicSession;
+                  return (
+                    <div key={sess.id || sess.session_name} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-gray-900 dark:text-white font-mono text-sm">{sess.session_name}</span>
+                          {isCurrent && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                              Current Active
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-gray-400 font-mono">
+                          Academic Inception Year: {sess.start_year || parseSessionYears(sess.session_name).startYear}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreviewTargetSession(sess.session_name);
+                            setIsPreviewModalOpen(true);
+                          }}
+                          className="px-2.5 py-1 rounded text-[11px] font-medium border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                        >
+                          Preview Impact
+                        </button>
+                        {!isCurrent && (
+                          <button
+                            type="button"
+                            onClick={() => requestSwitchSession(sess)}
+                            className="px-2.5 py-1 rounded text-[11px] font-bold bg-[#138601] hover:bg-[#0f6c01] text-white transition-colors cursor-pointer"
+                          >
+                            Set As Active Session
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -604,6 +801,245 @@ export const PortalAdminSettings = () => {
                     className="px-5 py-2 rounded-lg font-bold text-white bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 hover:to-emerald-500 shadow-sm transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {isAddingAdmin ? 'Syncing to Database...' : 'Create Administrator'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Progression Impact Preview */}
+        {isPreviewModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/40 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              <div className="p-5 border-b border-gray-100 dark:border-[#138601]/25 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                    Cohort Progression Matrix Preview
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-700 dark:hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4 text-xs">
+                {/* Session Selector in Modal */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-gray-50 dark:bg-[#041801]/60 border border-gray-200 dark:border-[#138601]/30">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400 block">Previewing Target Session</span>
+                    <span className="text-base font-mono font-bold text-gray-900 dark:text-white">{previewTargetSession}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500">Inspect other session:</span>
+                    <select
+                      value={previewTargetSession}
+                      onChange={(e) => setPreviewTargetSession(e.target.value)}
+                      className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-[#138601]/40 bg-white dark:bg-[#083002] text-gray-900 dark:text-white font-mono font-bold"
+                    >
+                      {sessionsList.map(s => (
+                        <option key={s.session_name} value={s.session_name}>
+                          {s.session_name} {s.session_name === academicSession ? '(Current)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Cohort Progression Table */}
+                <div className="border border-gray-200 dark:border-white/10 rounded-xl overflow-hidden">
+                  <table className="w-full text-left">
+                    <thead className="bg-gray-50 dark:bg-white/5 border-b border-gray-200 dark:border-white/10 font-bold text-[11px] text-gray-600 dark:text-gray-300">
+                      <tr>
+                        <th className="py-2.5 px-3.5">Cohort (Entry Year)</th>
+                        <th className="py-2.5 px-3.5">Calculated Level</th>
+                        <th className="py-2.5 px-3.5">Academic Status</th>
+                        <th className="py-2.5 px-3.5">Graduation Class</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-white/5 font-mono text-[11px]">
+                      {previewProgression(parseSessionYears(previewTargetSession).startYear).map((row) => (
+                        <tr key={row.cohort} className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                          <td className="py-2.5 px-3.5 font-bold text-gray-900 dark:text-white">
+                            {row.cohort} Cohort ({row.cohort}XXXX)
+                          </td>
+                          <td className="py-2.5 px-3.5">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                              row.isGraduated
+                                ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800'
+                                : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                            }`}>
+                              {row.levelString}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3.5">
+                            <span className={row.isGraduated ? 'text-purple-400 font-semibold' : 'text-emerald-400 font-semibold'}>
+                              {row.status}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3.5 text-gray-600 dark:text-gray-300">
+                            {row.classOfDisplay}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-[11px] text-emerald-300 leading-relaxed">
+                  <strong>Scalable Progression Guarantee:</strong> Student levels are calculated dynamically using <code className="font-mono">CurrentYear - EntryYear + 1</code>. When students reach graduation, their portal accounts remain active as Alumni with their <code className="font-mono">Class of</code> preserved.
+                </div>
+
+                <div className="pt-2 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setIsPreviewModalOpen(false)}
+                    className="px-4 py-2 rounded-lg font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 transition-colors cursor-pointer"
+                  >
+                    Close Preview
+                  </button>
+
+                  {previewTargetSession !== academicSession && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPreviewModalOpen(false);
+                        requestSwitchSession({ session_name: previewTargetSession });
+                      }}
+                      className="px-5 py-2 rounded-lg font-bold text-white bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 hover:to-emerald-500 shadow-sm transition-colors cursor-pointer"
+                    >
+                      Activate {previewTargetSession} Session System-Wide
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Confirm Session Switch */}
+        {confirmSessionModal.isOpen && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#072402] border border-gray-200 dark:border-emerald-800/60 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              <div className="p-5 border-b border-gray-100 dark:border-emerald-900/40 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-amber-500" />
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white">Change Academic Session?</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfirmSessionModal({ isOpen: false, targetSession: null, targetName: '' })}
+                  className="text-gray-400 hover:text-gray-700 dark:hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4 text-xs">
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  Changing the active academic session will update the academic level displayed across the portal based on each student&apos;s entry year.
+                </p>
+
+                <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-800/50 flex items-center justify-between">
+                  <span className="text-emerald-400 font-medium">Target Session:</span>
+                  <span className="font-mono font-bold text-sm text-emerald-300">{confirmSessionModal.targetName}</span>
+                </div>
+
+                <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-800/40 text-[11px] text-amber-300/90 leading-relaxed">
+                  <strong>Notice:</strong> Permanent student records (registration numbers, entry years, historical payments, and completed election logs) will remain safely intact and will not be mutated.
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmSessionModal({ isOpen: false, targetSession: null, targetName: '' })}
+                    className="px-4 py-2 rounded-lg font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#041801] border border-gray-200 dark:border-emerald-800/30 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmAndExecuteSwitchSession}
+                    className="px-5 py-2 rounded-lg font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-md transition-colors cursor-pointer"
+                  >
+                    Change Session
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Add New Academic Session */}
+        {isAddSessionModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/40 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              <div className="p-5 border-b border-gray-100 dark:border-[#138601]/25 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white">Add Future Academic Session</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddSessionModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-700 dark:hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateNewSession} className="p-5 space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-gray-700 dark:text-green-200 mb-1">
+                    Academic Session Name * (Format: YYYY/YYYY)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 2027/2028"
+                    value={newSessionData.sessionName}
+                    onChange={(e) => setNewSessionData({ ...newSessionData, sessionName: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/40 text-gray-900 dark:text-white font-mono"
+                  />
+                  <span className="text-[10px] text-gray-400 mt-1 block">
+                    Calculates entry year progression for {parseSessionYears(newSessionData.sessionName).startYear} inception.
+                  </span>
+                </div>
+
+                <div className="pt-2">
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newSessionData.makeCurrent}
+                      onChange={(e) => setNewSessionData({ ...newSessionData, makeCurrent: e.target.checked })}
+                      className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 border-slate-300"
+                    />
+                    <span className="font-semibold text-gray-700 dark:text-green-200">
+                      Set as current active session immediately upon creation
+                    </span>
+                  </label>
+                </div>
+
+                <div className="pt-3 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddSessionModalOpen(false)}
+                    className="px-4 py-2 rounded-lg font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isAddingSession}
+                    className="px-5 py-2 rounded-lg font-bold text-white bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {isAddingSession ? 'Saving Session...' : 'Create Academic Session'}
                   </button>
                 </div>
               </form>

@@ -25,7 +25,6 @@ import {
   verifyStudentOtp,
   completeStudentPasswordReset
 } from '@nacos/supabase';
-import { validateRegistrationNumberFormat } from '@nacos/config/academic';
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -86,12 +85,6 @@ const ForgotPassword = () => {
     const cleanReg = regNumber.trim().toUpperCase();
     if (!cleanReg) {
       setError('Please enter your registration number.');
-      return;
-    }
-
-    const formatCheck = validateRegistrationNumberFormat(cleanReg);
-    if (!formatCheck.valid) {
-      setError(formatCheck.error);
       return;
     }
 
@@ -274,7 +267,7 @@ const ForgotPassword = () => {
       {/* LEFT HALF: Branding & Visual */}
       <div 
         className="md:w-1/2 min-h-[320px] md:min-h-screen relative flex flex-col justify-between p-8 sm:p-12 md:p-14 lg:p-16 bg-cover bg-center"
-        style={{ backgroundImage: `url(${getCloudinaryAssetUrl('drilldown') || getCloudinaryAssetUrl('header') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1791346769/drilldown.jpg'})` }}
+        style={{ backgroundImage: `url('https://res.cloudinary.com/a2mmcttn/image/upload/v1791331581/nacos/gallery/gallery_student_group.jpg')` }}
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30 pointer-events-none"></div>
 

@@ -16,7 +16,7 @@
 import crypto from 'crypto';
 import { supabase } from '../client.js';
 import { dispatchEmail, isValidEmail } from './emailDispatcher.js';
-import { validateRegistrationNumberFormat } from '@nacos/config/academic';
+import { calculateAcademicProgression } from '@nacos/config/academic';
 
 const ELECTRA_AUTH_SECRET = process.env.SESSION_SECRET || process.env.VITE_SUPABASE_ANON_KEY || 'nacos_electra_futo_auth_key_2026';
 const ELECTRA_OTP_SALT = 'nacos_electra_otp_salt_2026';
@@ -91,6 +91,7 @@ export function normalizeName(name) {
 
 async function getOfficialStudentRecord(registrationNumber) {
   const cleanReg = registrationNumber.trim().toUpperCase();
+  let found = null;
 
   // 1. Try Supabase verified_students table
   if (supabase) {
@@ -102,14 +103,14 @@ async function getOfficialStudentRecord(registrationNumber) {
         .limit(1)
         .maybeSingle();
 
-      if (data && !error) return data;
+      if (data && !error) found = data;
     } catch (e) {
       console.warn('[Electra Auth] verified_students lookup note:', e.message);
     }
   }
 
   // 2. Try Supabase id_card_settings (store_verified_roster)
-  if (supabase) {
+  if (!found && supabase) {
     try {
       const { data: storeRow } = await supabase
         .from('id_card_settings')
@@ -118,15 +119,16 @@ async function getOfficialStudentRecord(registrationNumber) {
         .maybeSingle();
 
       if (storeRow?.payload?.roster && Array.isArray(storeRow.payload.roster)) {
-        const found = storeRow.payload.roster.find(s =>
+        found = storeRow.payload.roster.find(s =>
           (s.registration_number && s.registration_number.toUpperCase() === cleanReg) ||
           (s.registration_number && s.registration_number.replace(/[^a-zA-Z0-9]/g, '') === cleanReg.replace(/[^a-zA-Z0-9]/g, ''))
         );
-        if (found) return found;
       }
     } catch (_) {}
+  }
 
-    // 3. Try Supabase profiles table
+  // 3. Try Supabase profiles table
+  if (!found && supabase) {
     try {
       const strippedReg = cleanReg.replace(/[^a-zA-Z0-9]/g, '');
       const { data: prof } = await supabase
@@ -137,7 +139,7 @@ async function getOfficialStudentRecord(registrationNumber) {
         .maybeSingle();
 
       if (prof) {
-        return {
+        found = {
           id: prof.id,
           registration_number: prof.registration_number || prof.matric_number,
           full_name: prof.full_name,
@@ -145,23 +147,38 @@ async function getOfficialStudentRecord(registrationNumber) {
           last_name: prof.last_name || prof.surname || '',
           surname: prof.surname || prof.last_name || '',
           department: prof.department || 'Computer Science',
-          level: prof.level || '300 Level'
+          admission_year: prof.admission_year,
+          programme_duration: prof.programme_duration || 5,
+          level: prof.level
         };
       }
     } catch (_) {}
   }
 
   // 4. Canonical departmental roster fallback
-  try {
-    const { getLocalVerifiedStudents } = await import('../verifiedStudents.js');
-    const roster = getLocalVerifiedStudents();
-    return roster.find(s => 
-      s.registration_number.toUpperCase() === cleanReg ||
-      s.registration_number.replace(/[^a-zA-Z0-9]/g, '') === cleanReg.replace(/[^a-zA-Z0-9]/g, '')
-    ) || null;
-  } catch (_) {
-    return null;
+  if (!found) {
+    try {
+      const { getLocalVerifiedStudents } = await import('../verifiedStudents.js');
+      const roster = getLocalVerifiedStudents();
+      found = roster.find(s => 
+        s.registration_number.toUpperCase() === cleanReg ||
+        s.registration_number.replace(/[^a-zA-Z0-9]/g, '') === cleanReg.replace(/[^a-zA-Z0-9]/g, '')
+      ) || null;
+    } catch (_) {}
   }
+
+  if (!found) return null;
+
+  // Authoritatively compute dynamic academic level and progression state
+  const progression = calculateAcademicProgression(found);
+  return {
+    ...found,
+    level: progression.levelString,
+    numeric_level: progression.numericLevel,
+    is_graduated: progression.isGraduated,
+    status: progression.isGraduated ? 'Graduated' : (found.status || 'Active'),
+    academic_session: progression.academicSession
+  };
 }
 
 // =============================================================================
@@ -205,8 +222,34 @@ async function getAccreditationRecord(electionId, registrationNumber) {
 }
 
 export async function getServerElection(electionId) {
-  let elections = [];
   if (supabase) {
+    try {
+      if (electionId) {
+        const { data: dbEl, error: elErr } = await supabase
+          .from('electra_elections')
+          .select('*')
+          .eq('id', electionId)
+          .maybeSingle();
+        if (dbEl && !elErr) return dbEl;
+      }
+
+      const { data: activeEl, error: actErr } = await supabase
+        .from('electra_elections')
+        .select('*')
+        .eq('status', 'active')
+        .maybeSingle();
+      if (activeEl && !actErr) return activeEl;
+
+      const { data: anyEl, error: anyErr } = await supabase
+        .from('electra_elections')
+        .select('*')
+        .order('year', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (anyEl && !anyErr) return anyEl;
+    } catch (_) {}
+
+    // Fallback to id_card_settings snapshot if table does not exist
     try {
       const { data: elRow } = await supabase
         .from('id_card_settings')
@@ -214,38 +257,81 @@ export async function getServerElection(electionId) {
         .eq('id', 'store_electra_all_elections')
         .maybeSingle();
       if (elRow?.academic_session) {
-        elections = JSON.parse(elRow.academic_session);
+        const elections = JSON.parse(elRow.academic_session);
+        if (Array.isArray(elections) && elections.length > 0) {
+          return (electionId ? elections.find(e => e.id === electionId) : null) ||
+            elections.find(e => e.status === 'active') ||
+            elections[0];
+        }
       }
     } catch (_) {}
   }
-  if (!elections || elections.length === 0) {
-    const { DEFAULT_ELECTIONS } = await import('../electraService.js');
-    elections = DEFAULT_ELECTIONS;
-  }
-  return elections.find(e => e.id === electionId) || elections.find(e => e.status === 'active') || elections[0];
+
+  return null;
 }
 
 export async function getServerPostsAndContestants(electionId) {
   let posts = [];
   let contestants = [];
+
   if (supabase) {
     try {
-      const [postsRow, cndRow] = await Promise.all([
-        supabase.from('id_card_settings').select('academic_session').eq('id', 'store_electra_posts').maybeSingle(),
-        supabase.from('id_card_settings').select('academic_session').eq('id', 'store_electra_contestants').maybeSingle()
-      ]);
-      if (postsRow?.data?.academic_session) posts = JSON.parse(postsRow.data.academic_session);
-      if (cndRow?.data?.academic_session) contestants = JSON.parse(cndRow.data.academic_session);
+      // 1. Fetch positions from electra_positions
+      const { data: dbPosts, error: postErr } = await supabase
+        .from('electra_positions')
+        .select('*')
+        .order('order_index', { ascending: true });
+
+      if (!postErr && Array.isArray(dbPosts) && dbPosts.length > 0) {
+        posts = dbPosts.map(p => ({
+          id: p.id,
+          title: p.title,
+          code: p.code,
+          order: p.order_index,
+          description: p.description
+        }));
+      }
+
+      // 2. Fetch candidates from electra_candidates
+      let cndQuery = supabase.from('electra_candidates').select('*');
+      if (electionId) {
+        cndQuery = cndQuery.eq('election_id', electionId);
+      }
+      const { data: dbCnds, error: cndErr } = await cndQuery;
+      if (!cndErr && Array.isArray(dbCnds) && dbCnds.length > 0) {
+        contestants = dbCnds.map(c => ({
+          id: c.id,
+          electionId: c.election_id,
+          postId: c.position_id,
+          name: c.name,
+          matricNumber: c.matric_number,
+          level: c.level,
+          runningPost: c.running_post,
+          slogan: c.slogan,
+          photoUrl: c.photo_url,
+          votesCount: c.votes_count || 0
+        }));
+      }
     } catch (_) {}
+
+    // Fallback check in id_card_settings snapshots
+    if (posts.length === 0 || contestants.length === 0) {
+      try {
+        const [postsRow, cndRow] = await Promise.all([
+          supabase.from('id_card_settings').select('academic_session').eq('id', 'store_electra_posts').maybeSingle(),
+          supabase.from('id_card_settings').select('academic_session').eq('id', 'store_electra_contestants').maybeSingle()
+        ]);
+        if (posts.length === 0 && postsRow?.data?.academic_session) {
+          posts = JSON.parse(postsRow.data.academic_session);
+        }
+        if (contestants.length === 0 && cndRow?.data?.academic_session) {
+          const allCnds = JSON.parse(cndRow.data.academic_session);
+          contestants = electionId ? allCnds.filter(c => c.electionId === electionId) : allCnds;
+        }
+      } catch (_) {}
+    }
   }
-  if (!posts || posts.length === 0) {
-    const { DEFAULT_ELECTRA_POSTS } = await import('../electraService.js');
-    posts = DEFAULT_ELECTRA_POSTS;
-  }
-  if (!contestants || contestants.length === 0) {
-    const { INITIAL_CONTESTANTS } = await import('../electraService.js');
-    contestants = INITIAL_CONTESTANTS;
-  }
+
   return { posts, contestants };
 }
 
@@ -533,15 +619,6 @@ export async function handleElectoralAccreditation({ electionId, registrationNum
   }
 
   const cleanReg = registrationNumber.trim().toUpperCase();
-
-  // Validate format
-  const formatCheck = validateRegistrationNumberFormat(cleanReg);
-  if (!formatCheck.valid) {
-    return { 
-      success: false, 
-      error: 'We could not verify the details provided. Please check your information and try again.' 
-    };
-  }
 
   // Verify election status
   const election = await getServerElection(electionId);
@@ -1098,47 +1175,27 @@ export async function handleSubmitElectoralVote({ votingSessionToken, selections
 // =============================================================================
 
 export async function handleGetAuthoritativeResults({ electionId }) {
-  const targetElectionId = electionId || 'election-2026-general';
-
-  // 1. Fetch posts
-  let posts = [];
-  if (supabase) {
-    try {
-      const { data: postsRow } = await supabase
-        .from('id_card_settings')
-        .select('academic_session')
-        .eq('id', 'store_electra_posts')
-        .maybeSingle();
-
-      if (postsRow?.academic_session) {
-        posts = JSON.parse(postsRow.academic_session);
-      }
-    } catch (_) {}
-  }
-  if (!posts || posts.length === 0) {
-    const { DEFAULT_ELECTRA_POSTS } = await import('../electraService.js');
-    posts = DEFAULT_ELECTRA_POSTS;
+  // Dynamically resolve target election if not supplied
+  let targetElectionId = electionId;
+  if (!targetElectionId) {
+    const defaultEl = await getServerElection(null);
+    targetElectionId = defaultEl?.id || null;
   }
 
-  // 2. Fetch contestants
-  let contestants = [];
-  if (supabase) {
-    try {
-      const { data: cndRow } = await supabase
-        .from('id_card_settings')
-        .select('academic_session')
-        .eq('id', 'store_electra_contestants')
-        .maybeSingle();
+  if (!targetElectionId) {
+    return {
+      success: true,
+      electionId: null,
+      totalBallots: 0,
+      resultsByPost: [],
+      turnoutByLevel: {},
+      lastUpdated: new Date().toISOString()
+    };
+  }
 
-      if (cndRow?.academic_session) {
-        contestants = JSON.parse(cndRow.academic_session);
-      }
-    } catch (_) {}
-  }
-  if (!contestants || contestants.length === 0) {
-    const { INITIAL_CONTESTANTS } = await import('../electraService.js');
-    contestants = INITIAL_CONTESTANTS;
-  }
+  // 1 & 2. Fetch real database posts and contestants
+  const { posts, contestants: rawContestants } = await getServerPostsAndContestants(targetElectionId);
+  let contestants = rawContestants.map(c => ({ ...c, votesCount: c.votesCount || 0 }));
 
   // 3. Fetch aggregated vote counts from electra_election_results if present
   if (supabase) {

@@ -15,6 +15,43 @@
 import crypto from 'crypto';
 import { supabase } from '../client.js';
 import { sendPaymentConfirmationEmail } from './emailDispatcher.js';
+import { 
+  calculateAcademicProgression, 
+  getActiveAcademicSession, 
+  parseSessionYears 
+} from '@nacos/config/academic';
+
+/**
+ * Authoritatively retrieves the global active academic session from database or central config
+ */
+export async function getAuthoritativeActiveSession() {
+  try {
+    if (supabase) {
+      const { data: settingRow } = await supabase
+        .from('academic_settings')
+        .select('current_session')
+        .eq('id', 'default')
+        .maybeSingle();
+
+      if (settingRow?.current_session) {
+        return settingRow.current_session;
+      }
+
+      const { data: sessionRow } = await supabase
+        .from('academic_sessions')
+        .select('session_name')
+        .eq('is_current', true)
+        .maybeSingle();
+
+      if (sessionRow?.session_name) {
+        return sessionRow.session_name;
+      }
+    }
+  } catch (err) {
+    console.warn('[Bachs] Error fetching authoritative academic session:', err.message);
+  }
+  return getActiveAcademicSession();
+}
 
 // Central Configuration & Validation
 export function getBachsConfig() {
@@ -69,17 +106,19 @@ export function validateStudentEligibility(student) {
  * Dynamically resolves the authoritative fee configured by an admin on the dashboard
  * Works for ID Cards, Departmental Dues, Events, Store, or any Custom Payment.
  */
-export async function resolveDynamicFee({ paymentType = 'ID_CARD', metadata = {}, defaultAmount = 5000 }) {
+export async function resolveDynamicFee({ paymentType = 'ID_CARD', academicSession = null, metadata = {}, defaultAmount = 5000 }) {
   const pType = (paymentType || 'ID_CARD').toUpperCase();
   const feeKey = pType.toLowerCase();
+  const targetSession = String(academicSession || metadata?.academicSession || metadata?.academic_session || await getAuthoritativeActiveSession()).trim();
 
   try {
     if (supabase) {
-      // 1. Check public.payment_fees table (Universal fee registry)
+      // 1. Check public.payment_fees table (Session-aware institutional fee registry)
       const { data: feeRow } = await supabase
         .from('payment_fees')
         .select('amount')
         .eq('fee_key', feeKey)
+        .eq('academic_session', targetSession)
         .eq('is_active', true)
         .maybeSingle();
 
@@ -87,7 +126,7 @@ export async function resolveDynamicFee({ paymentType = 'ID_CARD', metadata = {}
         return Number(feeRow.amount);
       }
 
-      // 1. Authoritative check on Supabase id_card_settings table
+      // 2. Authoritative check on Supabase id_card_settings table
       if (pType === 'ID_CARD') {
         const { data: idCardRow } = await supabase
           .from('id_card_settings')
@@ -151,11 +190,11 @@ export async function resolveDynamicFee({ paymentType = 'ID_CARD', metadata = {}
   return Number(defaultAmount || 5000);
 }
 
-export function getDynamicAcademicSession(date = new Date()) {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = d.getMonth() + 1;
-  return month >= 9 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
+/**
+ * Returns the authoritative active global academic session
+ */
+export function getDynamicAcademicSession() {
+  return getActiveAcademicSession();
 }
 
 /**
@@ -378,6 +417,20 @@ export async function createPaymentCheckout({
   const customerEmail = (student?.email || customer?.email || (regNo ? `${regNo.toLowerCase()}@futo.edu.ng` : 'support@nacosfuto.com.ng')).trim();
   const customerPhone = (student?.phone_number || student?.phone || customer?.phone || '').trim();
 
+  // 1b. Determine authoritative session and progressive level
+  const targetSession = String(
+    metadata?.academicSession || 
+    metadata?.academic_session || 
+    await getAuthoritativeActiveSession()
+  ).trim();
+  const sessionYears = parseSessionYears(targetSession);
+
+  const progression = calculateAcademicProgression(student || customer || { registration_number: regNo }, {
+    targetSessionStartYear: sessionYears.startYear
+  });
+  const studentLevelDisplay = progression.level || (metadata?.level ? `${metadata.level} Level` : '100 Level');
+  const studentNumericLevel = progression.numericLevel || 1;
+
   // 2. Prevent duplicate charges for non-repeatable payments
   try {
     if (supabase && (regNo || studentId)) {
@@ -396,10 +449,15 @@ export async function createPaymentCheckout({
         dupQuery = dupQuery.eq('registration_number', regNo);
       }
 
+      // Session-specific deduplication for session-based payments (e.g. DEPARTMENTAL_DUES)
+      if (normalizedType === 'DEPARTMENTAL_DUES' || normalizedType === 'DUES') {
+        dupQuery = dupQuery.or(`academic_session.eq.${targetSession},metadata->>academic_session.eq.${targetSession},metadata->>academicSession.eq.${targetSession}`);
+      }
+
       const { data: existingPaid } = await dupQuery.maybeSingle();
       if (existingPaid) {
         return {
-          error: `${title || normalizedType} payment already completed and confirmed.`,
+          error: `${title || normalizedType} payment for session ${targetSession} already completed and confirmed.`,
           statusCode: 409,
           alreadyPaid: true,
           payment: existingPaid
@@ -422,7 +480,12 @@ export async function createPaymentCheckout({
   if (!isProtectedFee && amountOverride && !isNaN(Number(amountOverride)) && Number(amountOverride) > 0) {
     chargeAmount = Number(amountOverride);
   } else {
-    chargeAmount = await resolveDynamicFee({ paymentType: normalizedType, metadata, defaultAmount: config.amount });
+    chargeAmount = await resolveDynamicFee({ 
+      paymentType: normalizedType, 
+      academicSession: targetSession, 
+      metadata, 
+      defaultAmount: config.amount 
+    });
   }
 
   // 4. Generate Unique Internal Reference
@@ -455,6 +518,9 @@ export async function createPaymentCheckout({
           currency: config.currency,
           status: 'pending',
           reference: reference,
+          academic_session: targetSession,
+          level: studentLevelDisplay,
+          session_start_year: sessionYears.startYear,
           metadata: {
             customer_name: customerName,
             customer_email: customerEmail,
@@ -462,6 +528,11 @@ export async function createPaymentCheckout({
             payment_title: title || normalizedType,
             product_id: productId,
             environment: config.environment,
+            academic_session: targetSession,
+            academicSession: targetSession,
+            level: studentLevelDisplay,
+            numeric_level: studentNumericLevel,
+            session_start_year: sessionYears.startYear,
             created_at: now,
             ...metadata
           },
@@ -608,16 +679,25 @@ export async function createPaymentCheckout({
 /**
  * Creates an authoritative Bachs checkout session for NACOS Student ID Card
  */
-export async function createIdCardCheckout({ student, returnBaseUrl }) {
+export async function createIdCardCheckout({ student, returnBaseUrl, academicSession = null }) {
   const eligibility = validateStudentEligibility(student);
   if (!eligibility.eligible) {
     return { error: eligibility.reason, statusCode: 400 };
   }
 
+  const targetSession = String(academicSession || await getAuthoritativeActiveSession()).trim();
+  const sessionYears = parseSessionYears(targetSession);
+  const progression = calculateAcademicProgression(student, { targetSessionStartYear: sessionYears.startYear });
+
   return createPaymentCheckout({
     paymentType: 'ID_CARD',
-    title: 'NACOS Student ID Card Issuance',
+    title: `NACOS Student ID Card (${targetSession})`,
     student,
+    metadata: {
+      academicSession: targetSession,
+      academic_session: targetSession,
+      level: progression.level
+    },
     returnBaseUrl,
     redirectPath: '/payment/success?paymentType=id_card',
     cancelPath: '/id-card?payment=cancelled'
@@ -627,19 +707,26 @@ export async function createIdCardCheckout({ student, returnBaseUrl }) {
 /**
  * Creates an authoritative Bachs checkout session for Departmental Dues Clearance
  */
-export async function createDuesCheckout({ student, returnBaseUrl, academicSession, level = 'All' }) {
+export async function createDuesCheckout({ student, returnBaseUrl, academicSession = null, level = null }) {
   const eligibility = validateStudentEligibility(student);
   if (!eligibility.eligible) {
     return { error: eligibility.reason, statusCode: 400 };
   }
 
-  const sessionToUse = academicSession || getDynamicAcademicSession();
+  const targetSession = String(academicSession || await getAuthoritativeActiveSession()).trim();
+  const sessionYears = parseSessionYears(targetSession);
+  const progression = calculateAcademicProgression(student, { targetSessionStartYear: sessionYears.startYear });
+  const targetLevel = level || progression.level || '100 Level';
 
   return createPaymentCheckout({
     paymentType: 'DEPARTMENTAL_DUES',
-    title: `NACOS Departmental Dues (${sessionToUse})`,
+    title: `NACOS Departmental Dues (${targetSession})`,
     student,
-    metadata: { academicSession: sessionToUse, level },
+    metadata: { 
+      academicSession: targetSession, 
+      academic_session: targetSession, 
+      level: targetLevel 
+    },
     returnBaseUrl,
     redirectPath: '/payment/success?paymentType=dues',
     cancelPath: '/dues?payment=cancelled'
@@ -970,6 +1057,8 @@ export async function getPaymentStatus({ reference, checkoutId, paymentType, reg
           amount: data.amount,
           currency: data.currency,
           paymentType: data.payment_type,
+          academicSession: data.academic_session || data.metadata?.academic_session || data.metadata?.academicSession,
+          level: data.level || data.metadata?.level,
           paidAt: data.paid_at,
           payment: data
         };

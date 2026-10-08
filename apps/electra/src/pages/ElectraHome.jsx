@@ -138,8 +138,48 @@ export default function ElectraHome({
 
   return (
     <div className="w-full bg-[#f8fafc] text-slate-900 pb-16">
-      {/* ── Responsive 8-Card Grid Layout ── */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-8 sm:pt-10">
+        
+        {/* Active Election Status Banner */}
+        {activeElection ? (
+          <div className="mb-8 p-5 sm:p-6 rounded-[4px] bg-white border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-[2px] text-[11px] font-bold uppercase tracking-wider bg-green-50 text-[#138601] border border-green-200">
+                <span className="w-2 h-2 rounded-full bg-[#138601] animate-pulse"></span>
+                <span>Active Election Session</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-display">
+                {activeElection.title}
+              </h2>
+              <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
+                {activeElection.description || 'Annual general election for the executive council of the Nigeria Association of Computing Students (NACOS), FUTO Chapter.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => navigate('/vote')}
+                className="px-5 py-2.5 rounded-[4px] text-xs font-bold bg-[#138601] hover:bg-[#0f6c01] text-white shadow-xs transition-colors cursor-pointer"
+              >
+                Enter Polling Booth
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-8 p-6 rounded-[4px] bg-white border border-slate-200 shadow-2xs text-center space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-[2px] text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300">
+              <span>Electoral Box Closed</span>
+            </div>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 font-display">
+              No active election is currently available
+            </h2>
+            <p className="text-xs text-slate-500 max-w-lg mx-auto leading-relaxed">
+              The Independent Student Electoral Commission (NACOS ISEC) has not opened an active balloting session. Candidates and results will appear once an election is officially published.
+            </p>
+          </div>
+        )}
+
+        {/* ── Responsive 8-Card Grid Layout ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {cards.map((card) => (
             <button
@@ -165,7 +205,7 @@ export default function ElectraHome({
           ))}
         </div>
       </div>
-
     </div>
   );
 }
+

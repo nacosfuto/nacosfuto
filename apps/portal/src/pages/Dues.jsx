@@ -20,6 +20,12 @@ import {
 import PortalLayout from '../components/PortalLayout';
 import { useTheme } from '../context/ThemeContext';
 import { supabase, recordStudentPayment, getDuesSettings, getLocalPaymentsDatabase } from '@nacos/supabase';
+import {
+  getActiveAcademicSession,
+  SUPPORTED_ACADEMIC_SESSIONS,
+  calculateAcademicProgression,
+  extractEntryYearFromRegNumber
+} from '@nacos/config/academic';
 import StepUpAuthModal from '../components/StepUpAuthModal';
 import PosThermalReceipt from '../components/PosThermalReceipt';
 
@@ -33,13 +39,18 @@ export const getProgressiveLevels = (u) => {
   if (u.is_graduated || String(u.level).toLowerCase().includes('graduat')) {
     return ['100', '200', '300', '400', '500'];
   }
-  const raw = String(u.level || u.current_level || '100');
-  const match = raw.match(/(\d{3})/);
-  let lvlNum = match ? parseInt(match[1], 10) : 100;
 
-  if ((!lvlNum || lvlNum < 100) && u.admission_year) {
-    const yearsDiff = new Date().getFullYear() - parseInt(u.admission_year, 10) + 1;
-    lvlNum = Math.min(500, Math.max(100, yearsDiff * 100));
+  const reg = u.registration_number || u.matric || u.matricNumber;
+  const entryYear = extractEntryYearFromRegNumber(reg) || (u.admission_year ? parseInt(u.admission_year, 10) : null);
+  let lvlNum = 100;
+
+  if (entryYear) {
+    const progression = calculateAcademicProgression(entryYear, getActiveAcademicSession());
+    lvlNum = progression.levelNumber * 100;
+  } else {
+    const raw = String(u.level || u.current_level || '100');
+    const match = raw.match(/(\d{3})/);
+    lvlNum = match ? parseInt(match[1], 10) : 100;
   }
 
   const validMax = Math.min(500, Math.max(100, Math.floor(lvlNum / 100) * 100));
@@ -91,7 +102,7 @@ const Dues = () => {
 
   // New Invoice Modal state
   const [isNewInvoiceOpen, setIsNewInvoiceOpen] = useState(false);
-  const [formSession, setFormSession] = useState('2026/2027');
+  const [formSession, setFormSession] = useState(getActiveAcademicSession);
   const [formPaymentType, setFormPaymentType] = useState('Departmental Dues - Full Payment');
   const [formLevel, setFormLevel] = useState(() => {
     const pLevels = getProgressiveLevels(user);
@@ -160,7 +171,7 @@ const Dues = () => {
       if (!isPaid) return;
 
       const paymentTypeLabel = 'Departmental Dues (Full Payment)';
-      const session = item.metadata?.academic_session || item.session || currentUser?.academic_session || '2026/2027';
+      const session = item.academic_session || item.metadata?.academic_session || item.session || currentUser?.academic_session || getActiveAcademicSession();
 
       const formatted = {
         id: item.id || item.reference || `pay-${Math.random()}`,
@@ -573,7 +584,7 @@ const Dues = () => {
       department: user?.department || 'Computer Science',
       studentName: (user?.full_name || user?.name || 'Student Member').trim(),
       matricNo: user?.matric || user?.registration_number || '20241450682',
-      session: row.session || formSession || '2026/2027',
+      session: row.session || formSession || getActiveAcademicSession(),
       level: row.level || '300 Level'
     };
     navigate(`/receipt?reference=${encodeURIComponent(row.receiptNo || row.id)}&type=dues${isInvoice ? '&invoice=true' : ''}`, {
@@ -780,9 +791,11 @@ const Dues = () => {
                       onChange={(e) => setFormSession(e.target.value)}
                       className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0e8040] cursor-pointer"
                     >
-                      <option value="2026/2027">2026/2027 Academic Session</option>
-                      <option value="2025/2026">2025/2026 Academic Session</option>
-                      <option value="2024/2025">2024/2025 Academic Session</option>
+                      {SUPPORTED_ACADEMIC_SESSIONS.map((sess) => (
+                        <option key={sess} value={sess}>
+                          {sess} Academic Session
+                        </option>
+                      ))}
                     </select>
                     <ChevronDown className="w-4 h-4 text-gray-400 dark:text-green-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>

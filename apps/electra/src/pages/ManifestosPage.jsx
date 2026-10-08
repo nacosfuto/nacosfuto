@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   FileText, 
@@ -6,16 +6,51 @@ import {
   ChevronDown,
   Vote
 } from 'lucide-react';
-import { getContestants, getElectraPosts, getActiveElection } from '@nacos/supabase/electraService';
+import { 
+  getContestants, 
+  getElectraPosts, 
+  getActiveElection, 
+  fetchLiveElectraData 
+} from '@nacos/supabase/electraService';
 
 export default function ManifestosPage({ onOpenManifesto, onOpenBallot }) {
   const navigate = useNavigate();
-  const activeElection = getActiveElection();
-  const allContestants = getContestants();
-  const posts = getElectraPosts();
+  const [activeElection, setActiveElection] = useState(() => getActiveElection());
+  const [allContestants, setAllContestants] = useState(() => getContestants());
+  const [posts, setPosts] = useState(() => getElectraPosts());
+  const [isLoading, setIsLoading] = useState(true);
 
   const [selectedPost, setSelectedPost] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+
+    fetchLiveElectraData().then(data => {
+      if (!isMounted) return;
+      setActiveElection(data.election);
+      setPosts(data.posts || []);
+      setAllContestants(data.contestants || []);
+      setIsLoading(false);
+    }).catch(() => {
+      if (isMounted) setIsLoading(false);
+    });
+
+    const handleUpdate = () => {
+      setAllContestants(getContestants());
+      setPosts(getElectraPosts());
+      setActiveElection(getActiveElection());
+    };
+
+    window.addEventListener('nacos_electra_contestants_updated', handleUpdate);
+    window.addEventListener('nacos_electra_posts_updated', handleUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('nacos_electra_contestants_updated', handleUpdate);
+      window.removeEventListener('nacos_electra_posts_updated', handleUpdate);
+    };
+  }, []);
 
   const filtered = allContestants.filter(c => {
     const postMatch = selectedPost === 'all' || c.postId === selectedPost;
@@ -109,7 +144,24 @@ export default function ManifestosPage({ onOpenManifesto, onOpenBallot }) {
             </thead>
 
             <tbody className="divide-y divide-slate-200 text-xs sm:text-sm">
-              {filtered.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={4} className="py-16 text-center text-slate-500">
+                    <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                    <p className="text-xs font-semibold text-slate-600">Loading candidate manifestos from database...</p>
+                  </td>
+                </tr>
+              ) : allContestants.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-14 text-center text-slate-500">
+                    <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-slate-800">No candidate manifestos published yet</p>
+                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                      Official policy documents and manifestos will appear here once candidates are cleared for this election.
+                    </p>
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="py-12 text-center text-slate-500">
                     <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />

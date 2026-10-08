@@ -29,7 +29,6 @@ import {
   completeStudentSignup,
   submitAccountRecoveryRequest
 } from '@nacos/supabase';
-import { validateRegistrationNumberFormat } from '@nacos/config/academic';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -41,10 +40,12 @@ const Register = () => {
   const [regNumber, setRegNumber] = useState('');
   const [step1Token, setStep1Token] = useState('');
 
-  // Step 2 State: Name Verification
+  // Step 2 State: Name & Email Verification
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [middleName, setMiddleName] = useState('');
+  const [email, setEmail] = useState('');
+  const [requiresEmail, setRequiresEmail] = useState(false);
   const [step2Token, setStep2Token] = useState('');
   const [availableChannels, setAvailableChannels] = useState([]);
   const [selectedChannel, setSelectedChannel] = useState('email');
@@ -111,12 +112,6 @@ const Register = () => {
       return;
     }
 
-    const formatCheck = validateRegistrationNumberFormat(cleanReg);
-    if (!formatCheck.valid) {
-      setError(formatCheck.error);
-      return;
-    }
-
     setIsLoading(true);
     try {
       const res = await studentSignupStep1(cleanReg);
@@ -152,7 +147,8 @@ const Register = () => {
       const res = await studentSignupStep2(step1Token, {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        middleName: middleName.trim()
+        middleName: middleName.trim(),
+        email: email.trim()
       });
 
       if (res.success && res.step2Token) {
@@ -164,6 +160,9 @@ const Register = () => {
 
         // Automatically dispatch OTP for the selected channel
         await triggerSendOtp(res.step2Token, defaultChannel);
+      } else if (res.requiresEmail) {
+        setRequiresEmail(true);
+        setError(res.message || 'Please provide your email address to receive your verification code.');
       } else if (res.noVerifiedContact) {
         setNoVerifiedContact(true);
       } else {
@@ -336,7 +335,7 @@ const Register = () => {
       {/* LEFT HALF: Branding & Photo */}
       <div 
         className="md:w-1/2 min-h-[320px] md:min-h-screen relative flex flex-col justify-between p-8 sm:p-12 md:p-14 lg:p-16 bg-cover bg-center"
-        style={{ backgroundImage: `url(${getCloudinaryAssetUrl('drilldown') || getCloudinaryAssetUrl('header') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1791346769/drilldown.jpg'})` }}
+        style={{ backgroundImage: `url('https://res.cloudinary.com/a2mmcttn/image/upload/v1791331581/nacos/gallery/gallery_student_group.jpg')` }}
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30 pointer-events-none"></div>
 
@@ -349,10 +348,6 @@ const Register = () => {
         </div>
 
         <div className="relative z-10 max-w-lg space-y-2 mt-auto pt-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-emerald-300 text-xs font-semibold uppercase tracking-wider mb-2">
-            <Shield className="w-3.5 h-3.5" />
-            <span>Secure Student Onboarding</span>
-          </div>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white leading-snug tracking-tight">
             Your NACOS account unlocks a world of computing excellence
           </h2>
@@ -640,6 +635,28 @@ const Register = () => {
                   onChange={(e) => setMiddleName(e.target.value)}
                   className="w-full px-4 py-2.5 text-sm rounded bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] transition-all"
                 />
+              </div>
+
+              <div>
+                <label htmlFor="studentEmail" className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+                  Email Address {requiresEmail ? <span className="text-red-500">*</span> : <span className="text-gray-400 font-normal">(Account Email)</span>}
+                </label>
+                <input
+                  id="studentEmail"
+                  name="studentEmail"
+                  type="email"
+                  autoComplete="email"
+                  required={requiresEmail}
+                  placeholder="e.g. yourname@futo.edu.ng or student@gmail.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-2.5 text-sm rounded bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] transition-all"
+                />
+                <p className="mt-1 text-[11px] text-gray-500">
+                  {requiresEmail
+                    ? 'Your departmental record did not include an email. Please provide your email to receive your OTP code.'
+                    : 'Enter the email you want to link to your student portal account (or leave blank if registered on file).'}
+                </p>
               </div>
 
               <div className="flex gap-3 pt-2">

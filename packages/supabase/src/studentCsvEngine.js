@@ -17,8 +17,10 @@ import {
   CURRENT_ACADEMIC_YEAR_START,
   getAcademicSession,
   calculateCurrentLevel,
+  calculateAcademicProgression,
   parseAdmissionYear,
-  validateRegistrationNumberFormat
+  getActiveAcademicSession,
+  getActiveAcademicYearStart
 } from '@nacos/config/academic';
 
 /**
@@ -188,6 +190,14 @@ export const HEADER_ALIASES = {
     'session',
     'school session',
     'academic year'
+  ],
+  admission_year: [
+    'admission year',
+    'admission_year',
+    'entry year',
+    'year of entry',
+    'adm year',
+    'admitted year'
   ]
 };
 
@@ -428,15 +438,17 @@ export function detectColumnMappings(headers) {
  */
 export function normalizeLevel(rawLevel, regNo = null) {
   if (rawLevel === undefined || rawLevel === null || String(rawLevel).trim() === '') {
-    // If no level given, attempt admission year inference from regNo
+    // If no level given, attempt dynamic progression calculation from regNo
     if (regNo) {
-      const parse = parseAdmissionYear(String(regNo), CURRENT_ACADEMIC_YEAR_START);
-      if (parse.valid) {
-        const calculated = calculateCurrentLevel(parse.admissionYear, CURRENT_ACADEMIC_YEAR_START);
+      const progression = calculateAcademicProgression({
+        regNumber: String(regNo),
+        currentYearStart: getActiveAcademicYearStart()
+      });
+      if (progression.valid) {
         return {
           valid: true,
-          numericLevel: calculated.numericLevel * 100,
-          levelString: calculated.levelString,
+          numericLevel: progression.numericLevel * 100,
+          levelString: progression.levelString,
           inferred: true
         };
       }
@@ -572,18 +584,7 @@ export function validateAndNormalizeStudentRow(
     };
   }
 
-  const cleanReg = rawReg.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-  if (cleanReg.length < 5) {
-    return {
-      isValid: false,
-      error: {
-        row: rowIndex,
-        regNo: rawReg,
-        field: 'registration_number',
-        message: `Invalid registration number "${rawReg}". Too short.`
-      }
-    };
-  }
+  const cleanReg = rawReg.trim().toUpperCase();
 
   // 2. Names (First Name & Last Name Required; Middle Name Optional)
   let firstName = '';
@@ -689,11 +690,13 @@ export function validateAndNormalizeStudentRow(
   const programme = (progCol && rawRow[progCol] ? rawRow[progCol] : 'B.Tech Computer Science').toString().trim();
 
   const sessCol = mappings.academic_session;
-  const academicSession = (sessCol && rawRow[sessCol] ? rawRow[sessCol] : getAcademicSession(CURRENT_ACADEMIC_YEAR_START)).toString().trim();
+  const academicSession = (sessCol && rawRow[sessCol] ? rawRow[sessCol] : getActiveAcademicSession()).toString().trim();
 
-  // Admission Year derivation
-  const parseYear = parseAdmissionYear(cleanReg, CURRENT_ACADEMIC_YEAR_START);
-  const admissionYear = parseYear.valid ? parseYear.admissionYear : (CURRENT_ACADEMIC_YEAR_START - (levelNorm.numericLevel / 100) + 1);
+  // Admission Year derivation (source from explicit row field, or derive from academic level)
+  const rawAdmissionYear = mappings.admission_year && rawRow[mappings.admission_year] ? parseInt(rawRow[mappings.admission_year], 10) : null;
+  const admissionYear = rawAdmissionYear && !isNaN(rawAdmissionYear)
+    ? rawAdmissionYear
+    : (getActiveAcademicYearStart() - (levelNorm.numericLevel / 100) + 1);
 
   // 7. Duplicate Checks
   // A. Check duplicate inside uploaded CSV

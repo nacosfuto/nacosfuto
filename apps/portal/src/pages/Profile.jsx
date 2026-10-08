@@ -21,13 +21,18 @@ import {
 import PortalLayout from '../components/PortalLayout';
 import { supabase } from '@nacos/supabase';
 import { getLocalStudentsDatabase } from '@nacos/supabase/auth';
+import { 
+  calculateAcademicProgression, 
+  getActiveAcademicSession, 
+  onAcademicSessionChange 
+} from '@nacos/config/academic';
 
 // Helper to format student record directly from the database schema
 const formatDatabaseStudent = (dbRecord, fallback = {}) => {
   if (!dbRecord && !fallback) return null;
   const rec = dbRecord || fallback;
-  const isGraduated = Boolean(rec.is_graduated || rec.status === 'graduated' || rec.level === 'Graduated' || fallback.is_graduated || fallback.level === 'Graduated');
-  const graduationYear = rec.graduation_year || fallback.graduation_year || (isGraduated ? 2026 : null);
+  const progression = calculateAcademicProgression(rec);
+
   const fullName = (
     rec.full_name || 
     rec.fullName || 
@@ -56,11 +61,10 @@ const formatDatabaseStudent = (dbRecord, fallback = {}) => {
   const dept = rec.department || rec.dept || fallback.department || fallback.dept || 'Computer Science';
   const deptCode = rec.dept_code || (dept.toLowerCase().includes('software') ? 'SE' : 'CSC');
   const avatar = rec.profile_photo_url || rec.avatar_url || rec.photo_url || fallback.profile_photo_url || fallback.avatar_url || '';
-  const admissionYear = parseInt(rec.admission_year || fallback.admission_year || 2024, 10);
-  const currentLevel = isGraduated
-    ? 'Graduated'
-    : (rec.current_level || rec.level || fallback.current_level || fallback.level || 
-      (admissionYear ? `${Math.min(5, Math.max(1, 2026 - admissionYear + 1))}00 Level` : '100 Level'));
+
+  const isGraduated = progression.isGraduated;
+  const currentLevel = progression.levelString;
+  const graduationYear = progression.expectedGraduationYear;
 
   return {
     id: rec.id || fallback.id || matric,
@@ -85,9 +89,18 @@ const formatDatabaseStudent = (dbRecord, fallback = {}) => {
     institution: rec.institution || rec.university || fallback.institution || 'FEDERAL UNIVERSITY OF TECHNOLOGY, OWERRI, IMO STATE',
     level: currentLevel,
     current_level: currentLevel,
-    admission_year: admissionYear,
+    numeric_level: progression.numericLevel,
+    admission_year: progression.admissionYear || rec.admission_year || 2024,
+    programme_duration: progression.programmeDuration || 5,
     is_graduated: isGraduated,
+    status: isGraduated ? 'Graduated' : (rec.status || 'Active'),
     graduation_year: graduationYear,
+    expected_graduation_year: graduationYear,
+    class_of: progression.classOf,
+    classOf: progression.classOf,
+    class_of_display: progression.classOfDisplay,
+    classOfDisplay: progression.classOfDisplay,
+    academic_session: progression.academicSession || getActiveAcademicSession(),
     zone: rec.zone || rec.state_of_origin || fallback.zone || 'South East',
     gender: rec.gender || fallback.gender || 'M',
     avatar_url: avatar,
@@ -239,6 +252,23 @@ const Profile = () => {
 
     fetchDatabaseProfile();
     return () => { isMounted = false; };
+  }, []);
+
+  // Listen for real-time academic session changes across the app
+  useEffect(() => {
+    const unsubscribe = onAcademicSessionChange(() => {
+      if (dbUserRef.current) {
+        const refreshed = formatDatabaseStudent(dbUserRef.current);
+        if (refreshed) {
+          setUser(refreshed);
+          dbUserRef.current = refreshed;
+          try {
+            localStorage.setItem('nacos_user', JSON.stringify(refreshed));
+          } catch (_) {}
+        }
+      }
+    });
+    return unsubscribe;
   }, []);
 
   // Handle Save Attempt: Disallow updating profile after initial registration
@@ -398,15 +428,20 @@ const Profile = () => {
               <div className="flex flex-wrap items-center gap-2.5 pt-1.5 text-xs">
                 {/* Level / Alumni Badge */}
                 {user.is_graduated || user.level === 'Graduated' ? (
-                  <span className="px-3 py-1 rounded-md text-xs font-bold border border-amber-300 dark:border-amber-600/40 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 flex items-center gap-1.5 shadow-xs">
-                    <Award className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                    <span>Alumni • Class of {user.graduation_year || '2026'}</span>
+                  <span className="px-3 py-1 rounded-md text-xs font-bold border border-purple-300 dark:border-purple-600/40 text-purple-800 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 flex items-center gap-1.5 shadow-xs">
+                    <Award className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                    <span>Status: Graduated • {user.class_of_display || `Class of ${user.class_of || user.graduation_year || '2026'}`}</span>
                   </span>
                 ) : (
-                  <span className="px-3 py-1 rounded-md text-xs font-semibold border border-green-200 dark:border-[#138601]/40 text-[#138601] dark:text-[#4bd043] bg-green-50/60 dark:bg-[#138601]/10 flex items-center gap-1.5">
-                    <GraduationCap className="w-3.5 h-3.5" />
-                    <span>{user.level || user.current_level || '100 Level'}</span>
-                  </span>
+                  <>
+                    <span className="px-3 py-1 rounded-md text-xs font-semibold border border-green-200 dark:border-[#138601]/40 text-[#138601] dark:text-[#4bd043] bg-green-50/60 dark:bg-[#138601]/10 flex items-center gap-1.5">
+                      <GraduationCap className="w-3.5 h-3.5" />
+                      <span>Level: {user.level || user.current_level || '100 Level'}</span>
+                    </span>
+                    <span className="px-2.5 py-1 rounded-md text-xs font-medium border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-white/5">
+                      Session: {user.academic_session}
+                    </span>
+                  </>
                 )}
 
                 {/* Institution Badge */}
@@ -621,26 +656,40 @@ const Profile = () => {
                 />
               </div>
 
-              {/* Current Level */}
-              <div>
-                <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Current Academic Level</label>
-                <div className="relative">
-                  <select
-                    value={user.level || user.current_level}
-                    disabled={!isEditing}
-                    onChange={(e) => setUser({ ...user, level: e.target.value, current_level: e.target.value })}
-                    className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 cursor-pointer"
-                  >
-                    <option value="100 Level">100 Level</option>
-                    <option value="200 Level">200 Level</option>
-                    <option value="300 Level">300 Level</option>
-                    <option value="400 Level">400 Level</option>
-                    <option value="500 Level">500 Level</option>
-                    <option value="Graduated">Graduated / Alumni</option>
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-gray-400 dark:text-green-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {/* Academic Level & Progression */}
+              {user.is_graduated || user.level === 'Graduated' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Academic Status</label>
+                    <div className="px-3.5 py-2.5 rounded-lg border border-purple-200 dark:border-purple-800/40 bg-purple-50 dark:bg-purple-950/40 font-bold text-xs text-purple-700 dark:text-purple-300 flex items-center gap-2">
+                      <Award className="w-4 h-4 text-purple-500 shrink-0" />
+                      <span>Status: Graduated</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Cohort Graduation</label>
+                    <div className="px-3.5 py-2.5 rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/40 font-bold text-xs text-amber-800 dark:text-amber-300">
+                      {user.class_of_display || `Class of ${user.class_of || user.graduation_year}`}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Current Academic Level</label>
+                    <div className="px-3.5 py-2.5 rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-gray-50/80 dark:bg-[#041801]/80 text-gray-900 dark:text-white font-bold text-xs flex items-center gap-2">
+                      <GraduationCap className="w-4 h-4 text-[#138601] shrink-0" />
+                      <span>Level: {user.level || user.current_level}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Academic Session</label>
+                    <div className="px-3.5 py-2.5 rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-gray-50/80 dark:bg-[#041801]/80 text-gray-900 dark:text-white font-semibold text-xs flex items-center gap-2">
+                      <span>Session: {user.academic_session}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Department */}
               <div>

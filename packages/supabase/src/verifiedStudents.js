@@ -1,12 +1,15 @@
 import { supabase } from './client.js';
-import { hashPassword, enrichStudentProfile, getLocalStudentsDatabase } from './auth.js';
+import { hashPassword, enrichStudentProfile, getLocalStudentsDatabase, adminDeleteStudent } from './auth.js';
 import { 
+  DEFAULT_ACADEMIC_YEAR_START,
   CURRENT_ACADEMIC_YEAR_START, 
   parseAdmissionYear, 
   calculateCurrentLevel, 
+  calculateAcademicProgression,
   calculateExpectedGraduation, 
   getAcademicSession,
-  validateRegistrationNumberFormat 
+  getActiveAcademicSession,
+  getActiveAcademicYearStart
 } from '@nacos/config/academic';
 import {
   createOTPVerification,
@@ -170,16 +173,8 @@ export async function lookupVerifiedStudentRecord(regNo) {
     };
   }
 
-  const formatCheck = validateRegistrationNumberFormat(regNo.trim());
-  if (!formatCheck.valid) {
-    return {
-      found: false,
-      error: { message: formatCheck.error }
-    };
-  }
-
   const cleanReg = regNo.trim().toUpperCase();
-  const GENERIC_ERROR = 'Unable to verify these details. Please check your information and try again.';
+  const GENERIC_ERROR = 'We could not find a student record with this registration number.';
 
   // 1. Check if an account already exists in profiles
   try {
@@ -689,15 +684,14 @@ export async function adminGetAllVerifiedStudents() {
       ]);
 
       const map = new Map();
-      if (Array.isArray(vsRes.data)) {
+      if (Array.isArray(vsRes.data) && !vsRes.error) {
         vsRes.data.forEach(s => {
           if (s.registration_number) {
             map.set(s.registration_number.toUpperCase(), { ...s });
           }
         });
-      }
-
-      if (idSettingsRes.data?.payload?.roster && Array.isArray(idSettingsRes.data.payload.roster)) {
+      } else if (idSettingsRes.data?.payload?.roster && Array.isArray(idSettingsRes.data.payload.roster)) {
+        // Fallback only if verified_students query failed
         idSettingsRes.data.payload.roster.forEach(s => {
           const reg = s.registration_number?.toUpperCase();
           if (reg && !map.has(reg)) {
@@ -714,10 +708,22 @@ export async function adminGetAllVerifiedStudents() {
 
       const merged = Array.from(map.values()).map(s => {
         const isReg = registeredRegs.has(s.registration_number?.toUpperCase()) || Boolean(s.has_registered || s.is_registered);
+        const progression = calculateAcademicProgression(s);
         return {
           ...s,
           has_registered: isReg,
-          is_registered: isReg
+          is_registered: isReg,
+          level: progression.levelString,
+          current_level: progression.levelString,
+          numeric_level: progression.numericLevel,
+          is_graduated: progression.isGraduated,
+          status: progression.isGraduated ? 'Graduated' : (s.status || 'active'),
+          class_of: progression.classOf,
+          classOf: progression.classOf,
+          class_of_display: progression.classOfDisplay,
+          expected_graduation_year: progression.expectedGraduationYear,
+          graduation_year: progression.expectedGraduationYear,
+          academic_session: progression.academicSession || getActiveAcademicSession()
         };
       });
 
@@ -734,7 +740,25 @@ export async function adminGetAllVerifiedStudents() {
 
   // Fallback to cache without mock injection
   const cached = getLocalVerifiedStudents();
-  return Array.isArray(cached) ? cached : [];
+  return Array.isArray(cached) 
+    ? cached.map(s => {
+        const progression = calculateAcademicProgression(s);
+        return {
+          ...s,
+          level: progression.levelString,
+          current_level: progression.levelString,
+          numeric_level: progression.numericLevel,
+          is_graduated: progression.isGraduated,
+          status: progression.isGraduated ? 'Graduated' : (s.status || 'active'),
+          class_of: progression.classOf,
+          classOf: progression.classOf,
+          class_of_display: progression.classOfDisplay,
+          expected_graduation_year: progression.expectedGraduationYear,
+          graduation_year: progression.expectedGraduationYear,
+          academic_session: progression.academicSession || getActiveAcademicSession()
+        };
+      })
+    : [];
 }
 
 /**
@@ -815,15 +839,14 @@ export async function adminImportVerifiedStudents(rawRecords, options = { mode: 
     const rawEmail = (row.email || row.Email || row['Student Email'] || '').toString().trim();
     const email = rawEmail ? rawEmail.toLowerCase() : null;
 
-    // Extract Level & normalize
-    let levelStr = row.level || '';
-    if (!levelStr || levelStr === '100 Level' && !row.level) {
-      const parse = parseAdmissionYear(regNo, CURRENT_ACADEMIC_YEAR_START);
-      const admissionYear = parse.valid ? parse.admissionYear : (parseInt(row.admission_year, 10) || CURRENT_ACADEMIC_YEAR_START);
-      const duration = parseInt(row.programme_duration || row.duration, 10) || 5;
-      const levelInfo = calculateCurrentLevel(admissionYear, CURRENT_ACADEMIC_YEAR_START, duration);
-      levelStr = levelInfo.levelString;
-    }
+    // Calculate Level & Progression dynamically
+    const progression = calculateAcademicProgression({
+      registration_number: regNo,
+      admission_year: row.admission_year,
+      programme_duration: row.programme_duration || row.duration,
+      level: row.level
+    });
+    const levelStr = progression.levelString;
 
     // Check duplicate matric within batch
     if (seenInBatchMatrics.has(regNo)) {
@@ -860,8 +883,7 @@ export async function adminImportVerifiedStudents(rawRecords, options = { mode: 
     }
 
     // Calculate level & admission year
-    const parse = parseAdmissionYear(regNo, CURRENT_ACADEMIC_YEAR_START);
-    const admissionYear = parse.valid ? parse.admissionYear : (parseInt(row.admission_year, 10) || CURRENT_ACADEMIC_YEAR_START);
+    const admissionYear = parseInt(row.admission_year, 10) || CURRENT_ACADEMIC_YEAR_START;
     const duration = parseInt(row.programme_duration || row.duration, 10) || 5;
 
     // In update mode, keep existing non-empty contact info if CSV is empty
@@ -892,7 +914,7 @@ export async function adminImportVerifiedStudents(rawRecords, options = { mode: 
       admission_year: admissionYear,
       programme: (row.programme || existingStudent?.programme || 'B.Tech Computer Science').toString().trim(),
       programme_duration: duration,
-      academic_session: row.academic_session || existingStudent?.academic_session || getAcademicSession(CURRENT_ACADEMIC_YEAR_START),
+      academic_session: row.academic_session || existingStudent?.academic_session || progression.academicSession || getActiveAcademicSession(),
       status: existingStudent?.status || 'active',
       has_registered: existingStudent?.has_registered || false,
       auth_user_id: existingStudent?.auth_user_id || null,
@@ -1106,11 +1128,15 @@ export async function adminAddVerifiedStudent(studentData) {
   const programme = studentData.programme || 'Undergraduate';
   const programmeDuration = studentData.programmeDuration || studentData.programme_duration || 5;
 
-  const parse = parseAdmissionYear(cleanReg, CURRENT_ACADEMIC_YEAR_START);
-  const admissionYear = parse.valid ? parse.admissionYear : CURRENT_ACADEMIC_YEAR_START;
   const duration = parseInt(programmeDuration, 10) || 5;
-  const levelInfo = calculateCurrentLevel(admissionYear, CURRENT_ACADEMIC_YEAR_START, duration);
-  const resolvedLevel = studentData.level || levelInfo.levelString;
+  const progression = calculateAcademicProgression({
+    registration_number: cleanReg,
+    admission_year: studentData.admission_year || studentData.admissionYear,
+    programme_duration: duration,
+    level: studentData.level
+  });
+  const resolvedLevel = studentData.level || progression.levelString;
+  const admissionYear = progression.admissionYear || parseInt(studentData.admission_year || studentData.admissionYear, 10) || DEFAULT_ACADEMIC_YEAR_START;
 
   // Check if student already exists in verified_students to preserve registration state
   let existingStudent = null;
@@ -1145,7 +1171,7 @@ export async function adminAddVerifiedStudent(studentData) {
     admission_year: admissionYear,
     programme: programme || 'B.Tech Computer Science',
     programme_duration: duration,
-    academic_session: getAcademicSession(CURRENT_ACADEMIC_YEAR_START),
+    academic_session: progression.academicSession || getActiveAcademicSession(),
     status: existingStudent?.status || 'active',
     has_registered: existingStudent?.has_registered || false,
     is_registered: existingStudent?.is_registered || false,
@@ -1206,18 +1232,7 @@ export async function adminAddVerifiedStudent(studentData) {
  * Delete a student from the verified roster
  */
 export async function adminDeleteVerifiedStudent(regNo) {
-  const cleanReg = regNo.trim().toUpperCase();
-  const roster = await adminGetAllVerifiedStudents();
-  const filtered = roster.filter(s => (s.registration_number || '').toUpperCase() !== cleanReg);
-  saveLocalVerifiedStudents(filtered);
-  await syncRosterStoreToSupabase(filtered);
-
-  try {
-    await supabase.from('verified_students').delete().eq('registration_number', cleanReg);
-    await supabase.from('profiles').delete().eq('registration_number', cleanReg);
-  } catch (e) {}
-
-  return { success: true };
+  return adminDeleteStudent(regNo);
 }
 
 export const adminCreateVerifiedStudent = adminAddVerifiedStudent;
