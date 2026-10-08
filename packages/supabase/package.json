@@ -15,6 +15,7 @@
     "./otpService": "./src/otpService.js",
     "./emailService": "./src/emailService.js",
     "./smsService": "./src/smsService.js",
+    "./studentCsvEngine": "./src/studentCsvEngine.js",
     "./server/emailDispatcher": "./src/server/emailDispatcher.js"
   },
   "dependencies": {

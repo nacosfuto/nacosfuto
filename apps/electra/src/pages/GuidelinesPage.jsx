@@ -46,7 +46,7 @@ export default function GuidelinesPage() {
           ELECTRA Voting Guidelines & Ethics
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-          The constitution and certified rules established by the NACOS FUTO Electoral Commission (UNECO).
+          The constitution and certified rules established by NACOS ISEC.
         </p>
       </div>
 

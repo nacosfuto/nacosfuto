@@ -24,8 +24,16 @@ import {
   UserCheck,
   Building2,
   ShieldAlert,
-  Award
+  Award,
+  Settings2,
+  HelpCircle
 } from 'lucide-react';
+import {
+  processStudentCsv,
+  detectColumnMappings,
+  generateSampleCsvTemplate,
+  exportErrorReportCsv
+} from '@nacos/supabase/studentCsvEngine';
 import { 
   adminGetAllStudents, 
   adminAddStudent, 
@@ -112,9 +120,15 @@ const AdminStudents = () => {
   // Bulk CSV Import State
   const fileInputRef = useRef(null);
   const [importFileName, setImportFileName] = useState('');
+  const [rawCsvText, setRawCsvText] = useState('');
   const [parsedImportData, setParsedImportData] = useState([]);
   const [importValidation, setImportValidation] = useState(null);
+  const [customColumnMappings, setCustomColumnMappings] = useState(null);
+  const [importMode, setImportMode] = useState('add_only'); // 'add_only' | 'update'
+  const [importActiveViewTab, setImportActiveViewTab] = useState('valid'); // 'valid' | 'duplicates' | 'errors'
+  const [showMappingSettings, setShowMappingSettings] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [importProgressStatus, setImportProgressStatus] = useState('');
 
   // Edit / Password Reset States
   const [editStudentData, setEditStudentData] = useState({});
@@ -518,116 +532,108 @@ const AdminStudents = () => {
     return records;
   };
 
+  // Helper: re-run validation against current text, mappings, and mode
+  const runCsvValidation = (text, mappings = null, mode = importMode) => {
+    if (!text) return;
+    const res = processStudentCsv(text, verifiedRoster, {
+      mode,
+      customMappings: mappings || customColumnMappings
+    });
+
+    setImportValidation(res);
+    setParsedImportData(res.validRecords || []);
+    if (!customColumnMappings && res.mappings) {
+      setCustomColumnMappings(res.mappings);
+    }
+    if (res.needsManualMapping) {
+      setShowMappingSettings(true);
+    }
+  };
+
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setImportFileName(file.name);
+    setImportValidation(null);
+    setParsedImportData([]);
+    setCustomColumnMappings(null);
+    setShowMappingSettings(false);
+    setImportActiveViewTab('valid');
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target.result;
-      const rows = parseCSVText(text);
-      validateCSVImport(rows);
+      setRawCsvText(text);
+      runCsvValidation(text, null, importMode);
     };
     reader.readAsText(file);
   };
 
-  // Validate duplicates and structure
-  const validateCSVImport = (rows) => {
-    const existingMatrics = new Set(verifiedRoster.map(s => s.registration_number.toUpperCase()));
-    const existingEmails = new Set(verifiedRoster.map(s => s.email.toLowerCase()));
+  const handleMappingChange = (fieldKey, newHeader) => {
+    const updated = {
+      ...(customColumnMappings || importValidation?.mappings || {}),
+      [fieldKey]: newHeader || null
+    };
+    setCustomColumnMappings(updated);
+    runCsvValidation(rawCsvText, updated, importMode);
+  };
 
-    const validRows = [];
-    const duplicates = [];
-    const errors = [];
-    const batchMatrics = new Set();
-    const batchEmails = new Set();
-
-    rows.forEach((row, idx) => {
-      const regNo = (row['Registration Number'] || row['registration_number'] || row['Matric Number'] || row['Matric'] || row['Reg No'] || '').toString().trim().toUpperCase();
-      const fullName = (row['Full Name'] || row['full_name'] || row['Name'] || '').toString().trim();
-      const email = (row['Email'] || row['email'] || row['Student Email'] || '').toString().trim().toLowerCase();
-
-      if (!regNo || !fullName || !email) {
-        errors.push({ row: idx + 2, reason: 'Missing Registration Number, Name, or Email' });
-        return;
-      }
-
-      // Check within file duplicates
-      if (batchMatrics.has(regNo) || batchEmails.has(email)) {
-        duplicates.push({ regNo, fullName, email, reason: 'Duplicate inside CSV file' });
-        return;
-      }
-      batchMatrics.add(regNo);
-      batchEmails.add(email);
-
-      // Check against existing roster
-      if (existingMatrics.has(regNo)) {
-        duplicates.push({ regNo, fullName, email, reason: 'Already exists in departmental roster' });
-        return;
-      }
-      if (existingEmails.has(email)) {
-        duplicates.push({ regNo, fullName, email, reason: 'Email already exists in departmental roster' });
-        return;
-      }
-
-      validRows.push({
-        registration_number: regNo,
-        full_name: fullName,
-        email: email,
-        phone_number: row['Phone Number'] || row['Phone'] || '',
-        department: row['Department'] || 'Computer Science',
-        faculty: row['Faculty'] || 'School of Information & Communication Tech (SICT)',
-        level: row['Level'] || '100 Level',
-        programme: row['Programme'] || 'B.Tech Computer Science',
-        programme_duration: parseInt(row['Duration'] || '5', 10),
-        academic_session: row['Academic Session'] || row['Session'] || getAcademicSession(CURRENT_ACADEMIC_YEAR_START)
-      });
-    });
-
-    setParsedImportData(validRows);
-    setImportValidation({
-      total: rows.length,
-      validCount: validRows.length,
-      duplicateCount: duplicates.length,
-      errorCount: errors.length,
-      duplicates,
-      errors
-    });
+  const handleModeChange = (newMode) => {
+    setImportMode(newMode);
+    runCsvValidation(rawCsvText, customColumnMappings, newMode);
   };
 
   const handleExecuteImport = async () => {
-    if (parsedImportData.length === 0) return;
+    if (!parsedImportData.length) return;
     setIsImporting(true);
+    setImportProgressStatus(`Processing ${parsedImportData.length} records...`);
 
-    const res = await adminImportVerifiedStudents(parsedImportData);
+    const res = await adminImportVerifiedStudents(parsedImportData, {
+      mode: importMode,
+      onProgress: (status) => setImportProgressStatus(status)
+    });
+
     setIsImporting(false);
+    setImportProgressStatus('');
 
     if (res.error) {
       showNotification(res.error.message, 'error');
     } else {
-      showNotification(`Successfully imported ${res.importedCount} students into the verified roster!`);
+      const modeText = importMode === 'update' 
+        ? `Import completed: ${res.importedCount} added, ${res.updatedCount || 0} updated.`
+        : `Successfully imported ${res.importedCount} students into the verified roster!`;
+      showNotification(modeText);
       setIsImportModalOpen(false);
       setParsedImportData([]);
       setImportValidation(null);
       setImportFileName('');
+      setRawCsvText('');
+      setCustomColumnMappings(null);
       loadData();
     }
   };
 
   const downloadSampleCSV = () => {
-    const csvHeader = 'Registration Number,Full Name,Email,Department,Faculty,Level,Programme,Duration,Academic Session\n';
-    const sampleRows = [
-      '20241030001,Ifeanyi Kingsley Obi,ifeanyi.obi@futo.edu.ng,Computer Science,School of Information & Communication Tech (SICT),100 Level,B.Tech Computer Science,5,2024/2025\n',
-      '20241030002,Kelechi Cynthia Alaba,kelechi.alaba@futo.edu.ng,Computer Science,School of Information & Communication Tech (SICT),100 Level,B.Tech Computer Science,5,2024/2025\n',
-      '20241030003,Uchechukwu Collins Nnamdi,uche.nnamdi@futo.edu.ng,Computer Science,School of Information & Communication Tech (SICT),100 Level,B.Tech Computer Science,5,2024/2025\n'
-    ].join('');
-
-    const blob = new Blob([csvHeader + sampleRows], { type: 'text/csv;charset=utf-8;' });
+    const csvContent = generateSampleCsvTemplate();
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', 'nacos_verified_students_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const downloadErrorReport = () => {
+    if (!importValidation) return;
+    const csvContent = exportErrorReportCsv(importValidation.errors, importValidation.duplicates);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `nacos_student_import_report_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1266,135 +1272,421 @@ const AdminStudents = () => {
             ========================================================================= */}
         {isImportModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-            <div className="max-w-xl w-full p-6 rounded bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 shadow-2xl space-y-4 my-8">
-              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#138601]/20">
-                <div className="flex items-center gap-2">
-                  <FileSpreadsheet className="w-5 h-5 text-[#138601]" />
-                  <h2 className="text-base font-bold text-gray-900 dark:text-white">
-                    Bulk Import Verified Student Roster
-                  </h2>
+            <div className="max-w-2xl w-full p-6 sm:p-7 rounded-[5px] bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 shadow-2xl space-y-5 my-8 max-h-[92vh] flex flex-col">
+              
+              {/* Modal Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#138601]/20 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-[4px] bg-green-50 dark:bg-green-950/40 text-[#138601] flex items-center justify-center border border-green-200 dark:border-green-800/40">
+                    <FileSpreadsheet className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-gray-900 dark:text-white leading-tight">
+                      Intelligent Student CSV Importer
+                    </h2>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                      Smart column detection • Email strictly optional • Ground-truth database synchronization
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={() => {
                     setIsImportModalOpen(false);
                     setImportValidation(null);
                     setParsedImportData([]);
+                    setImportFileName('');
+                    setRawCsvText('');
+                    setCustomColumnMappings(null);
                   }}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-white text-sm"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-white text-base cursor-pointer p-1"
                 >
                   ✕
                 </button>
               </div>
 
-              <p className="text-xs text-gray-600 dark:text-green-100/80 leading-relaxed">
-                Upload a CSV spreadsheet containing official student admissions data. The portal will automatically detect academic levels, validate against duplicates, and pre-authorize these students for registration.
-              </p>
-
-              {/* Sample template link */}
-              <div className="flex items-center justify-between p-3 rounded bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/20 text-xs">
-                <span className="text-gray-600 dark:text-green-200/80">Need the standardized CSV formatting template?</span>
-                <button
-                  type="button"
-                  onClick={downloadSampleCSV}
-                  className="text-[#138601] dark:text-[#4bd043] font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download Sample CSV</span>
-                </button>
-              </div>
-
-              {/* File upload zone */}
-              <div 
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-gray-300 dark:border-[#138601]/40 rounded p-6 text-center cursor-pointer hover:border-[#138601] transition-all bg-gray-50/50 dark:bg-[#041801]/50"
-              >
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleFileUpload} 
-                  accept=".csv,text/csv" 
-                  className="hidden" 
-                />
-                <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <div className="text-xs font-semibold text-gray-700 dark:text-green-200">
-                  {importFileName ? importFileName : 'Click to select CSV file or drag and drop'}
-                </div>
-                <div className="text-[10px] text-gray-400 mt-1">
-                  Supported format: .csv (UTF-8)
-                </div>
-              </div>
-
-              {/* Validation Summary Preview */}
-              {importValidation && (
-                <div className="space-y-3 pt-2">
-                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                    <div className="p-2.5 rounded bg-green-50 dark:bg-[#041801] border border-green-200 dark:border-[#138601]/40">
-                      <span className="block text-[10px] text-green-700 dark:text-green-300 font-semibold uppercase">Valid Ready</span>
-                      <strong className="text-base text-green-900 dark:text-green-200 font-bold">{importValidation.validCount}</strong>
-                    </div>
-
-                    <div className="p-2.5 rounded bg-amber-50 dark:bg-[#041801] border border-amber-200 dark:border-amber-700/40">
-                      <span className="block text-[10px] text-amber-700 dark:text-amber-300 font-semibold uppercase">Duplicates</span>
-                      <strong className="text-base text-amber-900 dark:text-amber-200 font-bold">{importValidation.duplicateCount}</strong>
-                    </div>
-
-                    <div className="p-2.5 rounded bg-red-50 dark:bg-[#041801] border border-red-200 dark:border-red-700/40">
-                      <span className="block text-[10px] text-red-700 dark:text-red-300 font-semibold uppercase">Format Errors</span>
-                      <strong className="text-base text-red-900 dark:text-red-200 font-bold">{importValidation.errorCount}</strong>
-                    </div>
+              {/* Scrollable Modal Content */}
+              <div className="space-y-4 overflow-y-auto pr-1 flex-1">
+                
+                {/* Guidelines & Field Requirements Box */}
+                <div className="p-3.5 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/20 space-y-2 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
+                      <HelpCircle className="w-3.5 h-3.5 text-[#138601]" />
+                      <span>Accepted Fields & Data Rules</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={downloadSampleCSV}
+                      className="text-[#138601] dark:text-[#4bd043] font-bold hover:underline inline-flex items-center gap-1 cursor-pointer text-[11px]"
+                    >
+                      <Download className="w-3 h-3" />
+                      <span>Download Sample CSV Template</span>
+                    </button>
                   </div>
 
-                  {/* Duplicate Warnings List */}
-                  {importValidation.duplicates.length > 0 && (
-                    <div className="p-3 rounded bg-amber-50 border border-amber-200 text-[11px] text-amber-900 max-h-32 overflow-y-auto space-y-1">
-                      <div className="font-bold flex items-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Skipped Duplicates ({importValidation.duplicates.length}):</span>
-                      </div>
-                      {importValidation.duplicates.map((d, i) => (
-                        <div key={i} className="text-[10px]">
-                          • <strong className="font-mono">{d.regNo}</strong> ({d.fullName || d.email}): {d.reason}
-                        </div>
-                      ))}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
+                    <div className="p-2 rounded bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-white/5 space-y-0.5">
+                      <span className="font-bold text-[#138601] block">Required Information:</span>
+                      <p className="text-gray-600 dark:text-gray-300">
+                        • <strong>Registration Number</strong> (Matric No / Reg No)<br />
+                        • <strong>First Name</strong> & <strong>Last Name</strong> (or Full Name)<br />
+                        • <strong>Current Level</strong> (100–600, 100L, 200 Level)
+                      </p>
                     </div>
-                  )}
 
-                  {/* Error List */}
-                  {importValidation.errors.length > 0 && (
-                    <div className="p-3 rounded bg-red-50 border border-red-200 text-[11px] text-red-900 max-h-28 overflow-y-auto space-y-1">
-                      <div className="font-bold">Missing Required Fields ({importValidation.errors.length}):</div>
-                      {importValidation.errors.map((err, i) => (
-                        <div key={i} className="text-[10px]">
-                          • Row {err.row}: {err.reason}
-                        </div>
-                      ))}
+                    <div className="p-2 rounded bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-white/5 space-y-0.5">
+                      <span className="font-bold text-slate-700 dark:text-slate-300 block">Optional Information:</span>
+                      <p className="text-gray-600 dark:text-gray-300">
+                        • <strong>Email</strong> (100% Optional — students without email import successfully)<br />
+                        • <strong>Middle Name</strong> & <strong>Phone Number</strong>
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </div>
-              )}
 
-              {/* Action Buttons */}
-              <div className="pt-3 flex justify-end gap-2 border-t border-gray-100 dark:border-[#138601]/20">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsImportModalOpen(false);
-                    setImportValidation(null);
-                    setParsedImportData([]);
-                  }}
-                  className="px-4 py-2 rounded bg-gray-100 dark:bg-[#041801] text-gray-700 dark:text-gray-300 text-xs font-semibold"
+                {/* File Upload Zone */}
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-[5px] p-5 text-center cursor-pointer transition-all ${
+                    importFileName
+                      ? 'border-[#138601] bg-green-50/40 dark:bg-green-950/20'
+                      : 'border-gray-300 dark:border-[#138601]/40 hover:border-[#138601] bg-gray-50/50 dark:bg-[#041801]/50'
+                  }`}
                 >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={isImporting || !parsedImportData.length}
-                  onClick={handleExecuteImport}
-                  className="px-5 py-2 rounded text-white bg-[#138601] hover:bg-[#0f6c01] text-xs font-semibold disabled:opacity-50 inline-flex items-center gap-2 cursor-pointer"
-                >
-                  {isImporting ? 'Importing Records...' : `Commit & Import ${parsedImportData.length} Students`}
-                </button>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileUpload} 
+                    accept=".csv,text/csv" 
+                    className="hidden" 
+                  />
+                  <Upload className={`w-7 h-7 mx-auto mb-1.5 ${importFileName ? 'text-[#138601]' : 'text-gray-400'}`} />
+                  <div className="text-xs font-semibold text-gray-700 dark:text-green-200">
+                    {importFileName ? (
+                      <span className="font-mono text-[#138601] font-bold">{importFileName}</span>
+                    ) : (
+                      'Click to select student CSV or drag and drop here'
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    {importFileName ? 'Click to select a different file' : 'Accepts UTF-8 CSV with any common column header names'}
+                  </p>
+                </div>
+
+                {/* Preview & Validation Details */}
+                {importValidation && (
+                  <div className="space-y-4 pt-1">
+                    
+                    {/* Import Mode Selector & Mapping Toggle */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-[5px] bg-slate-50 dark:bg-[#041801] border border-slate-200 dark:border-[#138601]/20">
+                      <div>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+                          Import Mode:
+                        </span>
+                        <div className="flex items-center gap-4 mt-1 text-xs">
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="importMode"
+                              value="add_only"
+                              checked={importMode === 'add_only'}
+                              onChange={() => handleModeChange('add_only')}
+                              className="text-[#138601] focus:ring-[#138601]"
+                            />
+                            <span>Add New Only (Skip duplicates)</span>
+                          </label>
+
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="importMode"
+                              value="update"
+                              checked={importMode === 'update'}
+                              onChange={() => handleModeChange('update')}
+                              className="text-[#138601] focus:ring-[#138601]"
+                            />
+                            <span>Update Existing Students</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowMappingSettings(!showMappingSettings)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[4px] text-xs font-semibold bg-white dark:bg-[#083002] border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-200 hover:bg-gray-100 cursor-pointer shrink-0 self-start sm:self-auto"
+                      >
+                        <Settings2 className="w-3.5 h-3.5 text-[#138601]" />
+                        <span>{showMappingSettings ? 'Hide Mapping' : 'Adjust Column Mappings'}</span>
+                      </button>
+                    </div>
+
+                    {/* Column Mapping Selector (When toggled or when auto-detection is incomplete) */}
+                    {(showMappingSettings || importValidation.needsManualMapping) && (
+                      <div className="p-4 rounded-[5px] bg-white dark:bg-[#062402] border border-[#138601]/30 shadow-xs space-y-3 text-xs">
+                        <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-white/10">
+                          <span className="font-bold text-gray-800 dark:text-white">
+                            Detected Column Headers & Target Mapping:
+                          </span>
+                          <span className="text-[11px] text-gray-400">
+                            CSV Headers: {importValidation.headers?.length || 0} columns found
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {[
+                            { key: 'registration_number', label: 'Registration Number *', required: true },
+                            { key: 'first_name', label: 'First Name *', required: true },
+                            { key: 'last_name', label: 'Last Name / Surname *', required: true },
+                            { key: 'middle_name', label: 'Middle Name (Optional)', required: false },
+                            { key: 'full_name', label: 'Full Name (Fallback)', required: false },
+                            { key: 'level', label: 'Current Level *', required: true },
+                            { key: 'email', label: 'Email Address (Optional)', required: false },
+                            { key: 'phone', label: 'Phone Number (Optional)', required: false }
+                          ].map(f => (
+                            <div key={f.key}>
+                              <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                {f.label}
+                              </label>
+                              <select
+                                value={(customColumnMappings && customColumnMappings[f.key]) || (importValidation.mappings && importValidation.mappings[f.key]) || ''}
+                                onChange={(e) => handleMappingChange(f.key, e.target.value)}
+                                className={`w-full px-2.5 py-1.5 rounded-[4px] border text-xs bg-gray-50 dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601] ${
+                                  f.required && !((customColumnMappings && customColumnMappings[f.key]) || (importValidation.mappings && importValidation.mappings[f.key]))
+                                    ? 'border-red-400 dark:border-red-600'
+                                    : 'border-gray-200 dark:border-white/10'
+                                }`}
+                              >
+                                <option value="">(Not in CSV / None)</option>
+                                {importValidation.headers?.map(h => (
+                                  <option key={h} value={h}>{h}</option>
+                                ))}
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Stats Summary Cards */}
+                    <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                      <div className="p-2.5 rounded-[4px] bg-slate-50 dark:bg-[#041801] border border-slate-200 dark:border-white/10">
+                        <span className="block text-[10px] text-slate-500 font-semibold uppercase">Total Rows</span>
+                        <strong className="text-base text-slate-900 dark:text-white font-bold">{importValidation.summary?.total || 0}</strong>
+                      </div>
+
+                      <div className="p-2.5 rounded-[4px] bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/40">
+                        <span className="block text-[10px] text-green-700 dark:text-green-300 font-semibold uppercase">Valid Ready</span>
+                        <strong className="text-base text-green-900 dark:text-green-200 font-bold">{importValidation.summary?.validCount || 0}</strong>
+                      </div>
+
+                      <div className="p-2.5 rounded-[4px] bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40">
+                        <span className="block text-[10px] text-amber-700 dark:text-amber-300 font-semibold uppercase">Duplicates</span>
+                        <strong className="text-base text-amber-900 dark:text-amber-200 font-bold">{importValidation.summary?.duplicateCount || 0}</strong>
+                      </div>
+
+                      <div className="p-2.5 rounded-[4px] bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40">
+                        <span className="block text-[10px] text-red-700 dark:text-red-300 font-semibold uppercase">Row Errors</span>
+                        <strong className="text-base text-red-900 dark:text-red-200 font-bold">{importValidation.summary?.errorCount || 0}</strong>
+                      </div>
+                    </div>
+
+                    {/* Navigation Tabs for Preview vs Duplicates vs Errors */}
+                    <div className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 pt-1">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setImportActiveViewTab('valid')}
+                          className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+                            importActiveViewTab === 'valid'
+                              ? 'border-[#138601] text-[#138601] dark:text-[#4bd043]'
+                              : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-white'
+                          }`}
+                        >
+                          Valid Ready ({importValidation.validRecords?.length || 0})
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setImportActiveViewTab('duplicates')}
+                          className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+                            importActiveViewTab === 'duplicates'
+                              ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+                              : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-white'
+                          }`}
+                        >
+                          Duplicates ({importValidation.duplicates?.length || 0})
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setImportActiveViewTab('errors')}
+                          className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+                            importActiveViewTab === 'errors'
+                              ? 'border-red-500 text-red-600 dark:text-red-400'
+                              : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-white'
+                          }`}
+                        >
+                          Errors ({importValidation.errors?.length || 0})
+                        </button>
+                      </div>
+
+                      {(importValidation.duplicates?.length > 0 || importValidation.errors?.length > 0) && (
+                        <button
+                          type="button"
+                          onClick={downloadErrorReport}
+                          className="text-[11px] font-bold text-gray-600 dark:text-gray-300 hover:text-[#138601] inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>Export Report (.csv)</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Tab 1: Valid Ready Table Preview */}
+                    {importActiveViewTab === 'valid' && (
+                      <div className="border border-gray-200 dark:border-white/10 rounded-[4px] overflow-x-auto max-h-56">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-gray-50 dark:bg-black/30 text-[10px] uppercase font-bold text-gray-500 sticky top-0">
+                            <tr>
+                              <th className="py-2 px-3">Row</th>
+                              <th className="py-2 px-3">Reg. Number</th>
+                              <th className="py-2 px-3">Full Legal Name</th>
+                              <th className="py-2 px-3">Level</th>
+                              <th className="py-2 px-3">Official Email</th>
+                              <th className="py-2 px-3">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+                            {importValidation.validRecords?.slice(0, 15).map((s, idx) => (
+                              <tr key={idx} className="hover:bg-gray-50/50 dark:hover:bg-white/5">
+                                <td className="py-1.5 px-3 font-mono text-gray-400 text-[11px]">{s.csv_row_number}</td>
+                                <td className="py-1.5 px-3 font-mono font-bold text-gray-900 dark:text-white">{s.registration_number}</td>
+                                <td className="py-1.5 px-3 font-semibold text-gray-800 dark:text-gray-200">{s.full_name}</td>
+                                <td className="py-1.5 px-3 text-[#138601] dark:text-[#4bd043] font-bold">{s.level}</td>
+                                <td className="py-1.5 px-3 text-gray-600 dark:text-gray-400 font-mono text-[11px]">
+                                  {s.email ? s.email : <span className="text-gray-400 italic">None (Optional)</span>}
+                                </td>
+                                <td className="py-1.5 px-3">
+                                  <span className={`px-1.5 py-0.5 rounded-[2px] text-[10px] font-bold uppercase ${
+                                    s.is_existing ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300'
+                                  }`}>
+                                    {s.is_existing ? 'Update' : 'New'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                            {importValidation.validRecords?.length > 15 && (
+                              <tr>
+                                <td colSpan="6" className="py-2 text-center text-[11px] text-gray-400 bg-gray-50/40 dark:bg-black/20 italic">
+                                  ...and {importValidation.validRecords.length - 15} more ready records
+                                </td>
+                              </tr>
+                            )}
+                            {importValidation.validRecords?.length === 0 && (
+                              <tr>
+                                <td colSpan="6" className="py-4 text-center text-xs text-gray-400 italic">
+                                  No valid student records ready to commit. Please check format errors or adjust column mappings.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Tab 2: Duplicates List */}
+                    {importActiveViewTab === 'duplicates' && (
+                      <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                        {importValidation.duplicates?.length > 0 ? (
+                          importValidation.duplicates.map((d, i) => (
+                            <div key={i} className="p-2.5 rounded bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-xs flex items-center justify-between">
+                              <div>
+                                <span className="font-mono font-bold text-amber-950 dark:text-amber-200">
+                                  Row {d.row}: {d.regNo}
+                                </span>
+                                {d.fullName && <span className="text-gray-600 dark:text-gray-300 ml-1.5">({d.fullName})</span>}
+                                <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5">{d.reason}</p>
+                              </div>
+                              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
+                                Duplicate
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-gray-400 text-center py-4 italic">No duplicates detected.</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Tab 3: Format Errors List */}
+                    {importActiveViewTab === 'errors' && (
+                      <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                        {importValidation.errors?.length > 0 ? (
+                          importValidation.errors.map((err, i) => (
+                            <div key={i} className="p-2.5 rounded bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/40 text-xs flex items-center justify-between">
+                              <div>
+                                <span className="font-mono font-bold text-red-950 dark:text-red-200">
+                                  Row {err.row} {err.regNo ? `(${err.regNo})` : ''}
+                                </span>
+                                <p className="text-[11px] text-red-800 dark:text-red-300 mt-0.5">
+                                  {err.message}
+                                </p>
+                              </div>
+                              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-red-200/60 dark:bg-red-900/60 text-red-900 dark:text-red-200">
+                                {err.field || 'Error'}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-gray-400 text-center py-4 italic">No row formatting errors detected.</p>
+                        )}
+                      </div>
+                    )}
+
+                  </div>
+                )}
+
               </div>
+
+              {/* Action Buttons Footer */}
+              <div className="pt-3 flex items-center justify-between gap-2 border-t border-gray-100 dark:border-[#138601]/20 shrink-0">
+                <span className="text-xs text-gray-500 font-mono">
+                  {importProgressStatus || (parsedImportData.length ? `${parsedImportData.length} records ready` : 'No file selected')}
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsImportModalOpen(false);
+                      setImportValidation(null);
+                      setParsedImportData([]);
+                      setImportFileName('');
+                      setRawCsvText('');
+                      setCustomColumnMappings(null);
+                    }}
+                    className="px-4 py-2 rounded-[5px] bg-gray-100 dark:bg-white/10 hover:bg-gray-200 text-gray-700 dark:text-gray-300 text-xs font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isImporting || !parsedImportData.length}
+                    onClick={handleExecuteImport}
+                    className="px-5 py-2 rounded-[5px] text-white bg-[#138601] hover:bg-[#0f6c01] text-xs font-bold disabled:opacity-50 inline-flex items-center gap-2 cursor-pointer shadow-xs"
+                  >
+                    {isImporting ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>{importProgressStatus || 'Importing Records...'}</span>
+                      </>
+                    ) : (
+                      <span>Commit & Import {parsedImportData.length} Students</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
         )}

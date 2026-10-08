@@ -36,8 +36,8 @@ export default function Notices() {
     return null;
   });
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const res = await fetchNotices({ activeOnly: true });
       if (res.data) {
@@ -46,15 +46,15 @@ export default function Notices() {
     } catch (e) {
       console.error('Error fetching notices:', e);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(false);
 
     // Listen for cross-tab or admin notice updates
-    const handleUpdate = () => loadData();
+    const handleUpdate = () => loadData(true);
     window.addEventListener('nacos_notices_updated', handleUpdate);
     return () => window.removeEventListener('nacos_notices_updated', handleUpdate);
   }, []);

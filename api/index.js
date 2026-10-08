@@ -44,6 +44,14 @@ import {
   handleSensitiveActionVerify,
   handleSensitiveActionVerifyPassword
 } from '../packages/supabase/src/server/studentAuthApi.js';
+import {
+  handleElectoralAccreditation,
+  handleSendElectoralCode,
+  handleVerifyElectoralCode,
+  handleGetSessionStatus,
+  handleSubmitElectoralVote,
+  handleGetAuthoritativeResults
+} from '../packages/supabase/src/server/electraAuthApi.js';
 
 // --- Backblaze B2 Helper State ---
 let cachedB2Auth = null;
@@ -633,6 +641,93 @@ export default async function handler(req, res) {
         const result = await handleSensitiveActionVerifyPassword(body);
         return res.status(result.success ? 200 : 401).json(result);
       }
+    }
+
+    // =========================================================================
+    // 7. ELECTRA ELECTORAL ACCREDITATION & VOTING ENGINE (/api/electra/*)
+    // =========================================================================
+    if (route.startsWith('/api/electra/')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+
+      // Step 1: Accreditation & Identity Verification (Reg Number + First Name + Last Name)
+      if (route === '/api/electra/accredit' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleElectoralAccreditation(body);
+        return res.status(result.success ? 200 : (result.alreadyVoted ? 409 : 400)).json(result);
+      }
+
+      // Step 2: Temporary Email Verification Code Dispatch
+      if (route === '/api/electra/send-code' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
+        const result = await handleSendElectoralCode({ ...body, ipAddress: clientIp });
+        return res.status(result.success ? 200 : (result.cooldown ? 429 : 400)).json(result);
+      }
+
+      // Step 3: Single-Use Code Verification & Voting Session Issuance
+      if (route === '/api/electra/verify-code' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleVerifyElectoralCode(body);
+        return res.status(result.success ? 200 : 401).json(result);
+      }
+
+      // Step 4: Voting Session Status & Cast Votes Lookup
+      if (route === '/api/electra/session-status' && method === 'GET') {
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.replace(/^Bearer\s+/i, '') || fullUrl.searchParams.get('token');
+        const result = await handleGetSessionStatus({ votingSessionToken: token });
+        return res.status(result.authenticated ? 200 : 401).json(result);
+      }
+
+      // Step 5: Atomic Single-Choice Ballot Submission
+      if (route === '/api/electra/vote' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const authHeader = req.headers.authorization || '';
+        const token = body.votingSessionToken || authHeader.replace(/^Bearer\s+/i, '');
+        const result = await handleSubmitElectoralVote({
+          votingSessionToken: token,
+          selections: body.selections
+        });
+        return res.status(result.success ? 200 : 400).json(result);
+      }
+
+      // Step 6: Authoritative Aggregated Live Results
+      if (route === '/api/electra/results' && method === 'GET') {
+        const electionId = fullUrl.searchParams.get('electionId') || fullUrl.searchParams.get('election_id');
+        const result = await handleGetAuthoritativeResults({ electionId });
+        return res.status(200).json(result);
+      }
+    }
+
+    // =========================================================================
+    // 7. CLOUDINARY MEDIA SIGNING & DELETION
+    // =========================================================================
+    if (route === '/api/cloudinary/sign' && method === 'POST') {
+      const data = await parseRequestBody(req);
+      const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.VITE_CLOUDINARY_CLOUD_NAME || 'nacos-futo';
+      const apiKey = process.env.CLOUDINARY_API_KEY || 'dev_key';
+      const apiSecret = process.env.CLOUDINARY_API_SECRET || 'dev_secret';
+      const timestamp = Math.round(Date.now() / 1000);
+      const paramsToSign = {};
+      if (data.folder) paramsToSign.folder = data.folder;
+      if (data.public_id) paramsToSign.public_id = data.public_id;
+      if (data.tags) paramsToSign.tags = Array.isArray(data.tags) ? data.tags.join(',') : data.tags;
+      paramsToSign.timestamp = timestamp;
+      const sorted = Object.keys(paramsToSign).sort().map(k => `${k}=${paramsToSign[k]}`).join('&');
+      const signature = crypto.createHash('sha1').update(sorted + apiSecret).digest('hex');
+      return res.status(200).json({
+        signature,
+        timestamp,
+        apiKey,
+        cloudName,
+        folder: paramsToSign.folder,
+        public_id: paramsToSign.public_id
+      });
+    }
+
+    if (route === '/api/cloudinary/delete' && method === 'POST') {
+      return res.status(200).json({ result: 'ok' });
     }
 
     // Default 404 for unmapped API routes

@@ -488,50 +488,65 @@ export async function adminGetAllStudents() {
 }
 
 export async function adminAddStudent(studentData) {
-  const {
-    surname,
-    firstName,
-    middleName,
-    fullName,
-    matricNumber,
-    registration_number,
-    regNumber,
-    email,
-    phone,
-    phone_number,
-    department,
-    faculty,
-    programme,
-    programmeDuration,
-    initialPassword = 'password'
-  } = studentData;
+  const resolvedReg = (
+    studentData.registration_number || 
+    studentData.matricNumber || 
+    studentData.matric_number || 
+    studentData.regNumber || 
+    studentData.reg_no || ''
+  ).toString().trim().toUpperCase();
 
-  const resolvedReg = (matricNumber || registration_number || regNumber || '').toString().trim().toUpperCase();
-  const resolvedEmail = (email || '').toString().trim().toLowerCase();
-  const resolvedSurname = (surname || '').trim() || (fullName || '').trim().split(' ')[0] || '';
-  const resolvedFirstName = (firstName || '').trim() || (fullName || '').trim().split(' ')[1] || '';
-  const resolvedMiddleName = (middleName || '').trim() || (fullName || '').trim().split(' ').slice(2).join(' ') || '';
-  const resolvedFullName = [resolvedSurname, resolvedFirstName, resolvedMiddleName].filter(Boolean).join(' ') || (fullName || '').trim();
+  const resolvedEmail = (studentData.email || '').toString().trim().toLowerCase();
+
+  const resolvedSurname = (
+    studentData.last_name || 
+    studentData.lastName || 
+    studentData.surname || ''
+  ).trim() || (studentData.full_name || studentData.fullName || '').trim().split(' ')[0] || '';
+
+  const resolvedFirstName = (
+    studentData.first_name || 
+    studentData.firstName || ''
+  ).trim() || (studentData.full_name || studentData.fullName || '').trim().split(' ')[1] || '';
+
+  const resolvedMiddleName = (
+    studentData.middle_name || 
+    studentData.middleName || ''
+  ).trim() || (studentData.full_name || studentData.fullName || '').trim().split(' ').slice(2).join(' ') || '';
+
+  const resolvedFullName = (
+    studentData.full_name || 
+    studentData.fullName || 
+    [resolvedSurname, resolvedFirstName, resolvedMiddleName].filter(Boolean).join(' ')
+  ).trim();
+
+  const department = studentData.department || 'Computer Science';
+  const faculty = studentData.faculty || 'Physical Sciences';
+  const programme = studentData.programme || 'Undergraduate';
+  const programmeDuration = studentData.programmeDuration || studentData.programme_duration || 5;
+  const initialPassword = studentData.initialPassword || 'password';
+  const phone = studentData.phone || studentData.phone_number || '';
 
   if (!resolvedReg) {
     return { error: { message: 'Registration number is required.' } };
   }
-  if (!resolvedEmail) {
-    return { error: { message: 'Student email is required.' } };
-  }
   if (!resolvedFullName) {
     return { error: { message: 'Student full name is required.' } };
+  }
+  if (!resolvedEmail) {
+    return { error: { message: 'Student email is required for registered portal accounts.' } };
   }
 
   // 1. Check duplicate in Supabase profiles
   let existingId = null;
   try {
-    const { data: existing } = await supabase
-      .from('profiles')
-      .select('id, registration_number, email')
-      .or(`registration_number.ilike.${resolvedReg},email.ilike.${resolvedEmail}`)
-      .limit(1)
-      .maybeSingle();
+    let query = supabase.from('profiles').select('id, registration_number, email');
+    if (resolvedEmail) {
+      query = query.or(`registration_number.ilike.${resolvedReg},email.ilike.${resolvedEmail}`);
+    } else {
+      query = query.or(`registration_number.ilike.${resolvedReg},matric_number.ilike.${resolvedReg}`);
+    }
+    const { data: existing } = await query.limit(1).maybeSingle();
 
     if (existing) {
       existingId = existing.id;
@@ -553,8 +568,8 @@ export async function adminAddStudent(studentData) {
     middle_name: resolvedMiddleName,
     last_name: resolvedSurname,
     full_name: resolvedFullName,
-    email: resolvedEmail,
-    phone_number: (phone || phone_number || '').trim(),
+    email: resolvedEmail || null,
+    phone_number: (phone || '').trim(),
     department: department || 'Computer Science',
     faculty: faculty || 'School of Information & Communication Tech (SICT)',
     programme: programme || 'B.Tech Computer Science',
@@ -596,9 +611,9 @@ export async function adminAddStudent(studentData) {
         first_name: resolvedFirstName,
         middle_name: resolvedMiddleName,
         last_name: resolvedSurname,
-        email: resolvedEmail,
+        email: resolvedEmail || null,
         phone_number: profileRecord.phone_number,
-        masked_email: maskEmail(resolvedEmail),
+        masked_email: resolvedEmail ? maskEmail(resolvedEmail) : '',
         masked_phone: maskPhone(profileRecord.phone_number),
         department: profileRecord.department,
         faculty: profileRecord.faculty,

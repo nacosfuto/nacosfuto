@@ -44,7 +44,7 @@ const FAQsPage = () => {
     },
     {
       question: "How can I contact the department?",
-      answer: "You can visit our office in the SICT building, call +234 801 234 5678, or email cs@futo.edu.ng. Our office hours are 8am-4pm Monday to Friday."
+      answer: "You can visit our office in the SICT building, call +234 806 951 4271, or email support@nacosfuto.com.ng. Our office hours are 8am-4pm Monday to Friday."
     }
   ];
 

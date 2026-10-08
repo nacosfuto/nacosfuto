@@ -23,7 +23,11 @@ export const CLOUDINARY_FOLDERS = {
   ALUMNI: 'nacos/alumni',                  // Notable alumni spotlight & inductees
   NEWS: 'nacos/news',                      // Articles & journal cover banners
   HOMEPAGE: 'nacos/homepage',              // Homepage hero imagery & alert banners
-  GENERAL: 'nacos/general'                 // General branding, logos & badges
+  GENERAL: 'nacos/general',                // General branding, logos & badges
+
+  // ELECTRA ELECTORAL PORTAL FOLDERS
+  ELECTRA_CANDIDATES: 'nacos/electra/candidates', // Electoral candidate profile portraits & photos
+  ELECTRA_MANIFESTOS: 'nacos/electra/manifestos'   // Candidate campaign flyers & promotional media
 };
 
 export const CANONICAL_NACOS_FOLDERS = [
@@ -110,6 +114,20 @@ export const CANONICAL_NACOS_FOLDERS = [
     surface: 'shared',
     categoryKey: 'general',
     description: 'Departmental logos, icons, and graphic assets'
+  },
+  {
+    path: 'nacos/electra/candidates',
+    name: 'Electra Candidate Portraits',
+    surface: 'electra',
+    categoryKey: 'electra_candidates',
+    description: 'Certified electoral candidate profile portraits and photographs'
+  },
+  {
+    path: 'nacos/electra/manifestos',
+    name: 'Electra Candidate Media',
+    surface: 'electra',
+    categoryKey: 'electra_manifestos',
+    description: 'Candidate campaign flyers, promotional imagery, and visual manifestos'
   }
 ];
 

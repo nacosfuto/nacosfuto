@@ -1,5 +1,5 @@
 import { supabase } from './client.js';
-import { hashPassword, enrichStudentProfile, getLocalStudentsDatabase, adminAddStudent } from './auth.js';
+import { hashPassword, enrichStudentProfile, getLocalStudentsDatabase } from './auth.js';
 import { 
   CURRENT_ACADEMIC_YEAR_START, 
   parseAdmissionYear, 
@@ -739,17 +739,29 @@ export async function adminGetAllVerifiedStudents() {
 
 /**
  * Bulk import verified students from CSV/Excel data with duplicate pre-check
+ * EMAIL IS OPTIONAL: email is stored if provided, but records without email are 100% valid.
  */
-export async function adminImportVerifiedStudents(rawRecords) {
+export async function adminImportVerifiedStudents(rawRecords, options = { mode: 'add_only', onProgress: null }) {
   if (!Array.isArray(rawRecords) || rawRecords.length === 0) {
     return { error: { message: 'No student records provided for import.' } };
   }
 
-  const existingRoster = getLocalVerifiedStudents();
-  const existingMatricSet = new Set(existingRoster.map(s => s.registration_number.toUpperCase()));
-  const existingEmailSet = new Set(existingRoster.map(s => s.email.toLowerCase()));
+  const isUpdateMode = options.mode === 'update';
+  const existingRoster = await adminGetAllVerifiedStudents();
+  const existingMatricMap = new Map();
+  const existingEmailMap = new Map();
+
+  existingRoster.forEach(s => {
+    if (s.registration_number) {
+      existingMatricMap.set(s.registration_number.toString().replace(/[^a-zA-Z0-9]/g, '').toUpperCase(), s);
+    }
+    if (s.email && typeof s.email === 'string' && s.email.trim().length > 0) {
+      existingEmailMap.set(s.email.trim().toLowerCase(), s.registration_number);
+    }
+  });
 
   const toInsert = [];
+  const toUpdate = [];
   const duplicates = [];
   const errors = [];
   const seenInBatchMatrics = new Set();
@@ -757,82 +769,173 @@ export async function adminImportVerifiedStudents(rawRecords) {
 
   for (let i = 0; i < rawRecords.length; i++) {
     const row = rawRecords[i];
-    const regNo = (row.registration_number || row.matricNumber || row['Reg No'] || row['Matric'] || '').toString().trim().toUpperCase();
-    const fullName = (row.full_name || row.fullName || row['Full Name'] || row['Name'] || '').toString().trim();
-    const email = (row.email || row['Email'] || row['Student Email'] || '').toString().trim().toLowerCase();
+    const rowNumber = row.csv_row_number || (i + 1);
 
-    if (!regNo || !fullName) {
-      errors.push({ row: i + 1, message: `Row ${i + 1}: Missing required fields (Registration Number or Full Name)` });
+    // Extract registration number
+    const regNoRaw = (row.registration_number || row.matricNumber || row.matric_number || row['Registration Number'] || row['Matric Number'] || row['Reg No'] || row['Matric'] || '').toString().trim();
+    if (!regNoRaw) {
+      errors.push({ row: rowNumber, regNo: null, field: 'registration_number', message: 'Registration number is required' });
       continue;
+    }
+
+    const regNo = regNoRaw.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+    // Extract Names (First & Last name required, Middle name optional)
+    let firstName = (row.first_name || row.firstName || '').toString().trim();
+    let middleName = (row.middle_name || row.middleName || '').toString().trim();
+    let lastName = (row.last_name || row.lastName || row.surname || row.Surname || '').toString().trim();
+    let fullName = (row.full_name || row.fullName || row['Full Name'] || row['Name'] || '').toString().trim();
+
+    if ((!firstName || !lastName) && fullName) {
+      const parts = fullName.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        if (!lastName) lastName = parts[0];
+        if (!firstName) firstName = parts[1];
+        if (!middleName && parts.length > 2) middleName = parts.slice(2).join(' ');
+      } else if (parts.length === 1) {
+        if (!lastName) lastName = parts[0];
+        if (!firstName) firstName = parts[0];
+      }
+    }
+
+    if (!lastName) {
+      errors.push({ row: rowNumber, regNo, field: 'last_name', message: 'Last name is missing' });
+      continue;
+    }
+    if (!firstName) {
+      errors.push({ row: rowNumber, regNo, field: 'first_name', message: 'First name is missing' });
+      continue;
+    }
+
+    if (!fullName) {
+      fullName = [lastName, firstName, middleName].filter(Boolean).join(' ');
+    }
+
+    // Extract Email (OPTIONAL)
+    const rawEmail = (row.email || row.Email || row['Student Email'] || '').toString().trim();
+    const email = rawEmail ? rawEmail.toLowerCase() : null;
+
+    // Extract Level & normalize
+    let levelStr = row.level || '';
+    if (!levelStr || levelStr === '100 Level' && !row.level) {
+      const parse = parseAdmissionYear(regNo, CURRENT_ACADEMIC_YEAR_START);
+      const admissionYear = parse.valid ? parse.admissionYear : (parseInt(row.admission_year, 10) || CURRENT_ACADEMIC_YEAR_START);
+      const duration = parseInt(row.programme_duration || row.duration, 10) || 5;
+      const levelInfo = calculateCurrentLevel(admissionYear, CURRENT_ACADEMIC_YEAR_START, duration);
+      levelStr = levelInfo.levelString;
     }
 
     // Check duplicate matric within batch
     if (seenInBatchMatrics.has(regNo)) {
-      duplicates.push({ regNo, email, reason: 'Duplicate registration number inside uploaded file' });
+      duplicates.push({ row: rowNumber, regNo, reason: 'Duplicate registration number inside uploaded file' });
       continue;
     }
     seenInBatchMatrics.add(regNo);
 
+    // Check duplicate email within batch (ONLY if non-empty!)
     if (email) {
       if (seenInBatchEmails.has(email)) {
-        duplicates.push({ regNo, email, reason: 'Duplicate email inside uploaded file' });
+        duplicates.push({ row: rowNumber, regNo, email, reason: 'Duplicate email inside uploaded file' });
         continue;
       }
       seenInBatchEmails.add(email);
     }
 
     // Check duplicate in database
-    if (existingMatricSet.has(regNo)) {
-      duplicates.push({ regNo, email, reason: 'Already exists in departmental roster' });
-      continue;
+    const existingStudent = existingMatricMap.get(regNo);
+    if (existingStudent) {
+      if (!isUpdateMode) {
+        duplicates.push({ row: rowNumber, regNo, fullName: existingStudent.full_name || fullName, reason: 'Already exists in departmental roster' });
+        continue;
+      }
     }
-    if (email && existingEmailSet.has(email)) {
-      duplicates.push({ regNo, email, reason: 'Email already exists in departmental roster' });
-      continue;
+
+    // Check if email belongs to someone else in database
+    if (email && existingEmailMap.has(email)) {
+      const owner = existingEmailMap.get(email);
+      if (owner !== regNo) {
+        duplicates.push({ row: rowNumber, regNo, email, reason: `Email already assigned to student ${owner} in database` });
+        continue;
+      }
     }
 
     // Calculate level & admission year
     const parse = parseAdmissionYear(regNo, CURRENT_ACADEMIC_YEAR_START);
     const admissionYear = parse.valid ? parse.admissionYear : (parseInt(row.admission_year, 10) || CURRENT_ACADEMIC_YEAR_START);
     const duration = parseInt(row.programme_duration || row.duration, 10) || 5;
-    const levelInfo = calculateCurrentLevel(admissionYear, CURRENT_ACADEMIC_YEAR_START, duration);
+
+    // In update mode, keep existing non-empty contact info if CSV is empty
+    let finalEmail = email;
+    let finalPhone = (row.phone_number || row.phone || row.Phone || '').toString().trim();
+    if (existingStudent) {
+      if (!finalEmail && existingStudent.email) {
+        finalEmail = existingStudent.email;
+      }
+      if (!finalPhone && existingStudent.phone_number) {
+        finalPhone = existingStudent.phone_number;
+      }
+    }
 
     const record = {
-      id: 'vs-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+      id: existingStudent?.id || ('vs-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6)),
       registration_number: regNo,
       full_name: fullName,
-      email: email,
-      phone_number: (row.phone_number || row.phone || '').toString().trim(),
-      department: (row.department || 'Computer Science').toString().trim(),
-      faculty: (row.faculty || 'School of Information & Communication Tech (SICT)').toString().trim(),
-      level: row.level || levelInfo.levelString,
+      first_name: firstName,
+      middle_name: middleName || '',
+      last_name: lastName,
+      surname: lastName,
+      email: finalEmail || null,
+      phone_number: finalPhone || '',
+      department: (row.department || existingStudent?.department || 'Computer Science').toString().trim(),
+      faculty: (row.faculty || existingStudent?.faculty || 'School of Information & Communication Tech (SICT)').toString().trim(),
+      level: levelStr,
       admission_year: admissionYear,
-      programme: (row.programme || 'B.Tech Computer Science').toString().trim(),
+      programme: (row.programme || existingStudent?.programme || 'B.Tech Computer Science').toString().trim(),
       programme_duration: duration,
-      academic_session: row.academic_session || getAcademicSession(CURRENT_ACADEMIC_YEAR_START),
-      status: 'active',
-      has_registered: false,
-      auth_user_id: null,
-      registered_at: null,
-      created_at: new Date().toISOString()
+      academic_session: row.academic_session || existingStudent?.academic_session || getAcademicSession(CURRENT_ACADEMIC_YEAR_START),
+      status: existingStudent?.status || 'active',
+      has_registered: existingStudent?.has_registered || false,
+      auth_user_id: existingStudent?.auth_user_id || null,
+      registered_at: existingStudent?.registered_at || null,
+      created_at: existingStudent?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
 
-    toInsert.push(record);
+    if (existingStudent) {
+      toUpdate.push(record);
+    } else {
+      toInsert.push(record);
+    }
   }
 
-  // Save new records
-  if (toInsert.length > 0) {
-    const updatedRoster = [...existingRoster, ...toInsert];
+  const allProcessed = [...toInsert, ...toUpdate];
+
+  // Save new and updated records
+  if (allProcessed.length > 0) {
+    if (typeof options.onProgress === 'function') {
+      options.onProgress(`Synchronizing ${allProcessed.length} records to database...`);
+    }
+
+    // Merge into local cache
+    const existingFiltered = existingRoster.filter(s => {
+      const reg = s.registration_number?.toString().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      return !allProcessed.some(p => p.registration_number === reg);
+    });
+    const updatedRoster = [...existingFiltered, ...allProcessed];
     saveLocalVerifiedStudents(updatedRoster);
     await syncRosterStoreToSupabase(updatedRoster);
 
     // 1. Direct Supabase verified_students batch upsert in chunks of 50
     if (supabase) {
       try {
-        const vsRows = toInsert.map(s => ({
+        const vsRows = allProcessed.map(s => ({
           registration_number: s.registration_number,
           full_name: s.full_name,
-          email: s.email,
+          first_name: s.first_name,
+          middle_name: s.middle_name,
+          last_name: s.last_name,
+          surname: s.surname,
+          email: s.email, // Can be null
           phone_number: s.phone_number,
           department: s.department,
           faculty: s.faculty,
@@ -841,8 +944,8 @@ export async function adminImportVerifiedStudents(rawRecords) {
           programme: s.programme,
           programme_duration: s.programme_duration,
           academic_session: s.academic_session,
-          status: 'active',
-          has_registered: false
+          status: s.status,
+          has_registered: s.has_registered
         }));
 
         for (let c = 0; c < vsRows.length; c += 50) {
@@ -854,36 +957,15 @@ export async function adminImportVerifiedStudents(rawRecords) {
       }
     }
 
-    // 2. Concurrently provision student profile records in batches of 10
-    const chunkSize = 10;
-    for (let c = 0; c < toInsert.length; c += chunkSize) {
-      const chunk = toInsert.slice(c, c + chunkSize);
-      await Promise.all(
-        chunk.map(item =>
-          adminAddStudent({
-            matricNumber: item.registration_number,
-            fullName: item.full_name,
-            email: item.email,
-            phone: item.phone_number,
-            department: item.department,
-            faculty: item.faculty,
-            programme: item.programme,
-            programmeDuration: item.programme_duration,
-            initialPassword: 'password'
-          }).catch(e => console.warn('Student account creation warning:', e))
-        )
-      );
-    }
-
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('nacos_verified_students_updated'));
-      window.dispatchEvent(new Event('nacos_user_updated'));
     }
   }
 
   return {
     success: true,
     importedCount: toInsert.length,
+    updatedCount: toUpdate.length,
     duplicateCount: duplicates.length,
     errorCount: errors.length,
     duplicates,
@@ -975,67 +1057,105 @@ export async function adminToggleVerifiedStudentStatus(regNo) {
 }
 
 /**
- * Manually add an individual student to the verified roster and student profiles
+ * Manually add an individual student to the verified roster (authoritative student registry)
+ * NOTE: This ONLY touches verified_students and does NOT create a portal user or profiles record.
  */
 export async function adminAddVerifiedStudent(studentData) {
-  // 1. Ensure student account is created and synced to Supabase public.profiles
-  const profileRes = await adminAddStudent(studentData);
-  if (profileRes.error) {
-    return profileRes;
+  const cleanReg = (
+    studentData.registration_number || 
+    studentData.matricNumber || 
+    studentData.matric_number || 
+    studentData.regNumber || 
+    studentData.reg_no || ''
+  ).toString().trim().toUpperCase();
+
+  if (!cleanReg) {
+    return { error: { message: 'Registration number is required.' } };
   }
 
-  const {
-    surname,
-    firstName,
-    middleName,
-    fullName,
-    matricNumber,
-    registration_number,
-    regNumber,
-    email,
-    phone,
-    department,
-    faculty,
-    programme,
-    programmeDuration
-  } = studentData;
+  const cleanEmail = studentData.email ? studentData.email.toString().trim().toLowerCase() : null;
 
-  const cleanReg = (matricNumber || registration_number || regNumber || '').toString().trim().toUpperCase();
-  const cleanEmail = (email || '').toString().trim().toLowerCase();
-  const resolvedSurname = (surname || '').trim() || (fullName || '').trim().split(' ')[0] || '';
-  const resolvedFirstName = (firstName || '').trim() || (fullName || '').trim().split(' ')[1] || '';
-  const resolvedMiddleName = (middleName || '').trim() || (fullName || '').trim().split(' ').slice(2).join(' ') || '';
-  const resolvedFullName = [resolvedSurname, resolvedFirstName, resolvedMiddleName].filter(Boolean).join(' ') || (fullName || '').trim();
+  const resolvedSurname = (
+    studentData.last_name || 
+    studentData.lastName || 
+    studentData.surname || ''
+  ).trim() || (studentData.full_name || studentData.fullName || '').trim().split(' ')[0] || '';
+
+  const resolvedFirstName = (
+    studentData.first_name || 
+    studentData.firstName || ''
+  ).trim() || (studentData.full_name || studentData.fullName || '').trim().split(' ')[1] || '';
+
+  const resolvedMiddleName = (
+    studentData.middle_name || 
+    studentData.middleName || ''
+  ).trim() || (studentData.full_name || studentData.fullName || '').trim().split(' ').slice(2).join(' ') || '';
+
+  const resolvedFullName = (
+    studentData.full_name || 
+    studentData.fullName || 
+    [resolvedSurname, resolvedFirstName, resolvedMiddleName].filter(Boolean).join(' ')
+  ).trim();
+
+  if (!resolvedFullName) {
+    return { error: { message: 'Student full name is required.' } };
+  }
+
+  const department = studentData.department || 'Computer Science';
+  const faculty = studentData.faculty || 'Physical Sciences';
+  const programme = studentData.programme || 'Undergraduate';
+  const programmeDuration = studentData.programmeDuration || studentData.programme_duration || 5;
 
   const parse = parseAdmissionYear(cleanReg, CURRENT_ACADEMIC_YEAR_START);
   const admissionYear = parse.valid ? parse.admissionYear : CURRENT_ACADEMIC_YEAR_START;
   const duration = parseInt(programmeDuration, 10) || 5;
   const levelInfo = calculateCurrentLevel(admissionYear, CURRENT_ACADEMIC_YEAR_START, duration);
+  const resolvedLevel = studentData.level || levelInfo.levelString;
+
+  // Check if student already exists in verified_students to preserve registration state
+  let existingStudent = null;
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from('verified_students')
+        .select('*')
+        .eq('registration_number', cleanReg)
+        .maybeSingle();
+      if (data) existingStudent = data;
+    } catch (e) {}
+  }
+  if (!existingStudent) {
+    const localRoster = getLocalVerifiedStudents();
+    existingStudent = localRoster.find(s => s.registration_number?.toUpperCase() === cleanReg);
+  }
 
   const record = {
-    id: profileRes.data?.id ? `vs-${profileRes.data.id}` : ('vs-' + Date.now()),
+    id: existingStudent?.id || ('vs-' + Date.now()),
     registration_number: cleanReg,
     surname: resolvedSurname,
     first_name: resolvedFirstName,
     middle_name: resolvedMiddleName,
     last_name: resolvedSurname,
     full_name: resolvedFullName,
-    email: cleanEmail,
-    phone_number: phone?.trim() || '',
-    department: department || 'Computer Science',
-    faculty: faculty || 'School of Information & Communication Tech (SICT)',
-    level: levelInfo.levelString,
+    email: cleanEmail || existingStudent?.email || null,
+    phone_number: (studentData.phone || studentData.phone_number || existingStudent?.phone_number || '').trim(),
+    department,
+    faculty,
+    level: resolvedLevel,
     admission_year: admissionYear,
     programme: programme || 'B.Tech Computer Science',
     programme_duration: duration,
     academic_session: getAcademicSession(CURRENT_ACADEMIC_YEAR_START),
-    status: 'active',
-    has_registered: true,
-    auth_user_id: profileRes.data?.id || null,
-    registered_at: new Date().toISOString(),
-    created_at: new Date().toISOString()
+    status: existingStudent?.status || 'active',
+    has_registered: existingStudent?.has_registered || false,
+    is_registered: existingStudent?.is_registered || false,
+    auth_user_id: existingStudent?.auth_user_id || null,
+    registered_at: existingStudent?.registered_at || null,
+    created_at: existingStudent?.created_at || new Date().toISOString(),
+    updated_at: new Date().toISOString()
   };
 
+  // Update local cache
   const roster = await adminGetAllVerifiedStudents();
   const existingIdx = roster.findIndex(s => s.registration_number?.toUpperCase() === cleanReg);
   if (existingIdx !== -1) {
@@ -1046,35 +1166,37 @@ export async function adminAddVerifiedStudent(studentData) {
   saveLocalVerifiedStudents(roster);
   await syncRosterStoreToSupabase(roster);
 
-  // Live sync to verified_students table in Supabase
-  try {
-    await supabase.from('verified_students').upsert({
-      registration_number: cleanReg,
-      full_name: resolvedFullName,
-      surname: resolvedSurname,
-      first_name: resolvedFirstName,
-      middle_name: resolvedMiddleName,
-      last_name: resolvedSurname,
-      email: cleanEmail,
-      phone_number: record.phone_number,
-      masked_email: maskEmail(cleanEmail),
-      masked_phone: maskPhone(record.phone_number),
-      department: record.department,
-      faculty: record.faculty,
-      level: record.level,
-      admission_year: admissionYear,
-      programme: record.programme,
-      programme_duration: duration,
-      academic_session: record.academic_session,
-      status: 'active',
-      has_registered: true,
-      is_registered: true,
-      registered_at: record.registered_at,
-      auth_user_id: record.auth_user_id,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'registration_number' });
-  } catch (e) {
-    console.warn('Supabase adminAddVerifiedStudent error:', e);
+  // Live sync ONLY to verified_students table in Supabase
+  if (supabase) {
+    try {
+      await supabase.from('verified_students').upsert({
+        registration_number: cleanReg,
+        full_name: resolvedFullName,
+        surname: resolvedSurname,
+        first_name: resolvedFirstName,
+        middle_name: resolvedMiddleName,
+        last_name: resolvedSurname,
+        email: record.email,
+        phone_number: record.phone_number,
+        masked_email: record.email ? maskEmail(record.email) : null,
+        masked_phone: record.phone_number ? maskPhone(record.phone_number) : null,
+        department: record.department,
+        faculty: record.faculty,
+        level: record.level,
+        admission_year: admissionYear,
+        programme: record.programme,
+        programme_duration: duration,
+        academic_session: record.academic_session,
+        status: record.status,
+        has_registered: record.has_registered,
+        is_registered: record.is_registered,
+        registered_at: record.registered_at,
+        auth_user_id: record.auth_user_id,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'registration_number' });
+    } catch (e) {
+      console.warn('Supabase adminAddVerifiedStudent error:', e);
+    }
   }
 
   return { success: true, data: record };
@@ -1097,3 +1219,5 @@ export async function adminDeleteVerifiedStudent(regNo) {
 
   return { success: true };
 }
+
+export const adminCreateVerifiedStudent = adminAddVerifiedStudent;

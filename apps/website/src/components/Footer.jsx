@@ -79,11 +79,11 @@ const Footer = () => {
               </div>
               <div className="flex items-center gap-3">
                 <FaEnvelope className="text-green-400 flex-shrink-0" />
-                <a href="mailto:csc@futo.edu.ng" className="text-white hover:text-[#4bd043] transition-colors">csc@futo.edu.ng</a>
+                <a href="mailto:support@nacosfuto.com.ng" className="text-white hover:text-[#4bd043] transition-colors">support@nacosfuto.com.ng</a>
               </div>
               <div className="flex items-center gap-3">
                 <FaPhone className="text-green-400 flex-shrink-0" />
-                <a href="tel:+2348012345678" className="text-white hover:text-[#4bd043] transition-colors">+234 801 234 5678</a>
+                <a href="tel:+2348069514271" className="text-white hover:text-[#4bd043] transition-colors">+234 806 951 4271</a>
               </div>
             </div>
           </div>

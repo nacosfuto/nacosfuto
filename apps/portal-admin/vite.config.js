@@ -121,6 +121,7 @@ export default defineConfig({
       '@nacos/supabase/idCard': path.resolve(__dirname, '../../packages/supabase/src/idCard.js'),
       '@nacos/supabase/media': path.resolve(__dirname, '../../packages/supabase/src/media.js'),
       '@nacos/supabase/verifiedStudents': path.resolve(__dirname, '../../packages/supabase/src/verifiedStudents.js'),
+      '@nacos/supabase/studentCsvEngine': path.resolve(__dirname, '../../packages/supabase/src/studentCsvEngine.js'),
       '@nacos/supabase': path.resolve(__dirname, '../../packages/supabase/src/index.js'),
       '@nacos/ui': path.resolve(__dirname, '../../packages/ui/src/index.js'),
       '@nacos/types': path.resolve(__dirname, '../../packages/types/src/index.js'),

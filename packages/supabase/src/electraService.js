@@ -15,6 +15,43 @@ const ELECTIONS_STORAGE_KEY = 'nacos_electra_elections_db';
 const POSTS_STORAGE_KEY = 'nacos_electra_posts_db';
 const CONTESTANTS_STORAGE_KEY = 'nacos_electra_contestants_db';
 const VOTES_STORAGE_KEY = 'nacos_electra_votes_db';
+const NEWS_STORAGE_KEY = 'nacos_electra_news_db';
+
+export const DEFAULT_ELECTRA_NEWS = [
+  {
+    id: 'news-1',
+    title: 'Official Notice: Accreditation and Balloting Procedures for 2026 General Elections',
+    category: 'Electoral Notice',
+    tag: 'Official',
+    date: '2026-10-08',
+    summary: 'NACOS ISEC has officially opened voter accreditation. All enrolled computer science students are eligible to participate using their matriculation number.',
+    content: 'NACOS ISEC wishes to notify all enrolled undergraduate and postgraduate students in the Department of Computer Science, Federal University of Technology, Owerri (FUTO), that official accreditation for the 2026 General Elections is now live.\n\nVoting takes place securely online via the ELECTRA portal, as well as in-person at the Computer Science Departmental Complex. Electors can participate once across all contested positions.',
+    author: 'NACOS ISEC Secretariat',
+    pinned: true
+  },
+  {
+    id: 'news-2',
+    title: 'Designated In-Person Polling Station: Department of Computer Science, FUTO',
+    category: 'Polling Station',
+    tag: 'Important',
+    date: '2026-10-07',
+    summary: 'Physical voting terminals and in-person accreditation desks have been designated at the Computer Science Building for students who wish to vote on campus.',
+    content: 'Students wishing to vote in person are advised to report to the Department of Computer Science at the Federal University of Technology, Owerri. Certified NACOS ISEC election officers and biometric verification stations will be available on election day between 08:00 AM and 04:00 PM WAT.',
+    author: 'Electoral Committee Chairman',
+    pinned: false
+  },
+  {
+    id: 'news-3',
+    title: 'Publication of Certified Candidate Manifestos and Policy Frameworks',
+    category: 'Press Release',
+    tag: 'General',
+    date: '2026-10-06',
+    summary: 'Official campaign manifestos for all cleared candidates contesting executive positions are now publicly accessible for student review on the portal.',
+    content: 'In line with the electoral guidelines promoting transparency and issue-based voting, the Electoral Commission has published the verified policy documents and manifestos of all candidates standing for election. Electors are encouraged to review these manifestos prior to casting their votes.',
+    author: 'Public Relations Officer',
+    pinned: false
+  }
+];
 
 // ─── INITIAL CONTESTED OFFICES ───
 export const DEFAULT_ELECTRA_POSTS = [
@@ -742,6 +779,24 @@ export async function fetchLiveElectraData() {
           }
         } catch (_) {}
       }
+
+      // 5. Fetch News & Press Releases
+      const { data: newsRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_electra_news')
+        .maybeSingle();
+
+      if (newsRow?.academic_session) {
+        try {
+          const parsed = JSON.parse(newsRow.academic_session);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(NEWS_STORAGE_KEY, JSON.stringify(parsed));
+            }
+          }
+        } catch (_) {}
+      }
     } catch (e) {
       console.warn('Error syncing electra data from Supabase:', e);
     }
@@ -943,18 +998,19 @@ export function getLiveElectionResults(electionId = null) {
 // ADMIN CANDIDATE CRUD
 // ═══════════════════════════════════════════════════════════════
 
-export async function adminSaveContestant(contestantData) {
+export async function adminSaveContestant(contestantData, candidateId = null) {
   const all = getContestants();
   const now = new Date().toISOString();
-  const id = contestantData.id || `cnd-${Date.now()}`;
+  const id = candidateId || contestantData.id || `cnd-${Date.now()}`;
   const activeElection = getActiveElection();
+  const existing = all.find(c => c.id === id);
 
   const item = {
     ...contestantData,
     id,
     electionId: contestantData.electionId || activeElection.id,
-    status: contestantData.status || 'certified',
-    votesCount: contestantData.votesCount || 0,
+    status: contestantData.status || (existing?.status || 'certified'),
+    votesCount: contestantData.votesCount !== undefined ? contestantData.votesCount : (existing?.votesCount || 0),
     updatedAt: now
   };
 
@@ -999,3 +1055,349 @@ export async function adminDeleteContestant(contestantId) {
 
   return updated;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN POSTS / POSITIONS CRUD
+// ═══════════════════════════════════════════════════════════════
+
+export async function adminSavePost(postData, postId = null) {
+  const all = getElectraPosts();
+  const id = postId || postData.id || `post-${Date.now()}`;
+  const now = new Date().toISOString();
+
+  const item = {
+    ...postData,
+    id,
+    order: parseInt(postData.order, 10) || all.length + 1,
+    maxVotesPerVoter: parseInt(postData.maxVotesPerVoter, 10) || 1,
+    updatedAt: now
+  };
+
+  const existingIndex = all.findIndex(p => p.id === id);
+  let updated;
+  if (existingIndex >= 0) {
+    updated = [...all];
+    updated[existingIndex] = { ...all[existingIndex], ...item };
+  } else {
+    updated = [...all, item];
+  }
+
+  // Sort by ballot display order
+  updated.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  localStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(updated));
+
+  if (supabase) {
+    try {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_electra_posts',
+        academic_session: JSON.stringify(updated),
+        updated_at: now
+      });
+    } catch (_) {}
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('nacos_electra_posts_updated'));
+  }
+
+  return item;
+}
+
+export async function adminDeletePost(postId) {
+  const all = getElectraPosts();
+  const updated = all.filter(p => p.id !== postId);
+  localStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(updated));
+
+  if (supabase) {
+    try {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_electra_posts',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    } catch (_) {}
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('nacos_electra_posts_updated'));
+  }
+
+  return updated;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ELECTRA NEWS & PRESS RELEASES MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+
+export function getElectraNews() {
+  if (typeof window === 'undefined') return DEFAULT_ELECTRA_NEWS;
+  try {
+    const raw = localStorage.getItem(NEWS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    localStorage.setItem(NEWS_STORAGE_KEY, JSON.stringify(DEFAULT_ELECTRA_NEWS));
+    return DEFAULT_ELECTRA_NEWS;
+  } catch (e) {
+    return DEFAULT_ELECTRA_NEWS;
+  }
+}
+
+export async function adminSaveElectraNews(newsItem, newsId = null) {
+  const all = getElectraNews();
+  const id = newsId || newsItem.id || `news-${Date.now()}`;
+  const now = new Date().toISOString();
+
+  const item = {
+    ...newsItem,
+    id,
+    date: newsItem.date || new Date().toISOString().slice(0, 10),
+    updatedAt: now
+  };
+
+  const existingIndex = all.findIndex(n => n.id === id);
+  let updated;
+  if (existingIndex >= 0) {
+    updated = [...all];
+    updated[existingIndex] = { ...all[existingIndex], ...item };
+  } else {
+    updated = [item, ...all];
+  }
+
+  localStorage.setItem(NEWS_STORAGE_KEY, JSON.stringify(updated));
+
+  if (supabase) {
+    try {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_electra_news',
+        academic_session: JSON.stringify(updated),
+        updated_at: now
+      });
+    } catch (_) {}
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('nacos_electra_news_updated'));
+  }
+
+  return item;
+}
+
+export async function adminDeleteElectraNews(newsId) {
+  const all = getElectraNews();
+  const updated = all.filter(n => n.id !== newsId);
+  localStorage.setItem(NEWS_STORAGE_KEY, JSON.stringify(updated));
+
+  if (supabase) {
+    try {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_electra_news',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    } catch (_) {}
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('nacos_electra_news_updated'));
+  }
+
+  return updated;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTHORITATIVE CLIENT-SIDE API SDK FOR ELECTRA ACCREDITATION & VOTING
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Step 1: Submit Registration Number + First Name + Last Name to verify against student records.
+ */
+export async function apiAccreditVoter({ electionId, registrationNumber, firstName, lastName }) {
+  try {
+    const res = await fetch('/api/electra/accredit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ electionId, registrationNumber, firstName, lastName })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    return { success: false, error: 'Network communication failure. Please verify connection and retry.' };
+  }
+}
+
+/**
+ * Step 2: Submit destination email to receive secure single-use verification code.
+ */
+export async function apiSendElectoralCode({ accreditationToken, email }) {
+  try {
+    const res = await fetch('/api/electra/send-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accreditationToken, email })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    return { success: false, error: 'Failed to dispatch verification email. Please check your network.' };
+  }
+}
+
+/**
+ * Step 3: Submit 6-digit code to consume code and establish authenticated voting session.
+ */
+export async function apiVerifyElectoralCode({ accreditationToken, code }) {
+  try {
+    const res = await fetch('/api/electra/verify-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accreditationToken, code })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    return { success: false, error: 'Verification failed due to a network error.' };
+  }
+}
+
+/**
+ * Step 4: Verify current voting session status and query cast votes.
+ */
+export async function apiGetVotingSessionStatus(votingSessionToken) {
+  if (!votingSessionToken) return { success: false, authenticated: false };
+  try {
+    const res = await fetch(`/api/electra/session-status?token=${encodeURIComponent(votingSessionToken)}`, {
+      method: 'GET',
+      headers: { 
+        'Authorization': `Bearer ${votingSessionToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    return { success: false, authenticated: false };
+  }
+}
+
+/**
+ * Step 5: Submit ballot selections atomically with database-level duplicate protection.
+ */
+export async function apiSubmitElectoralBallot({ votingSessionToken, selections }) {
+  try {
+    const res = await fetch('/api/electra/vote', {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Bearer ${votingSessionToken}`,
+        'Content-Type': 'application/json' 
+      },
+      body: JSON.stringify({ votingSessionToken, selections })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    return { success: false, error: 'Failed to record ballot. Please check your connection and retry.' };
+  }
+}
+
+/**
+ * Step 6: Fetch Authoritative Official Aggregated Results from the server.
+ */
+export async function apiGetAuthoritativeResults(electionId = null) {
+  const activeElection = getActiveElection();
+  const targetId = electionId || activeElection.id;
+  try {
+    const res = await fetch(`/api/electra/results?electionId=${encodeURIComponent(targetId)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+    return getLiveElectionResults(targetId);
+  } catch (err) {
+    return getLiveElectionResults(targetId);
+  }
+}
+
+/**
+ * Step 7: Subscribe to Realtime WebSocket Broadcast Channel for instant election results.
+ * Connects to 'election-results:${electionId}' channel and invokes onUpdate(payload)
+ * on 'result_updated' events. Handles reconnects automatically and returns an unsubscribe() function.
+ */
+export function subscribeToElectionResults({ electionId, onUpdate, onReconnect }) {
+  if (!supabase || typeof window === 'undefined') {
+    return () => {};
+  }
+
+  const activeElection = getActiveElection();
+  const targetElectionId = electionId || activeElection.id;
+  const channelName = `election-results:${targetElectionId}`;
+
+  const channel = supabase.channel(channelName, {
+    config: { broadcast: { self: true } }
+  });
+
+  let hasConnectedOnce = false;
+
+  channel
+    .on('broadcast', { event: 'result_updated' }, (message) => {
+      if (message?.payload && onUpdate) {
+        onUpdate(message.payload);
+      }
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        if (hasConnectedOnce && onReconnect) {
+          onReconnect();
+        }
+        hasConnectedOnce = true;
+      }
+    });
+
+  return () => {
+    try {
+      supabase.removeChannel(channel);
+    } catch (_) {}
+  };
+}
+
+/**
+ * Admin: Retrieve all accreditations recorded for an election
+ */
+export async function getElectionAccreditations(electionId = null) {
+  const targetElectionId = electionId || getActiveElection().id;
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('electra_accreditations')
+        .select('*')
+        .eq('election_id', targetElectionId)
+        .order('created_at', { ascending: false });
+
+      if (data && !error && data.length > 0) return data;
+    } catch (_) {}
+
+    try {
+      const { data: row } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_electra_accreditations_db')
+        .maybeSingle();
+
+      if (row?.academic_session) {
+        const list = JSON.parse(row.academic_session);
+        return list.filter(a => a.election_id === targetElectionId);
+      }
+    } catch (_) {}
+  }
+
+  return [];
+}
+
+
+

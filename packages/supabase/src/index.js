@@ -23,5 +23,6 @@ export * from './eventsService.js';
 export * from './electraService.js';
 export * from './payments.js';
 export * from './studentAuth.js';
+export * from './studentCsvEngine.js';
 export { default } from './client.js';
 

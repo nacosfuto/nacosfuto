@@ -131,8 +131,8 @@ export const PortalAdminDashboard = () => {
       const duesPayments = Array.isArray(duesPaymentsRes) ? duesPaymentsRes : [];
 
       // Authoritative ID Card status counts matching PortalAdminIdCards
-      const approved = idCards.filter(c => 
-        String(c.status).toUpperCase() === 'APPROVED'
+      const approvedOrGenerated = idCards.filter(c => 
+        ['APPROVED', 'GENERATED'].includes(String(c.status).toUpperCase())
       ).length;
 
       const rejected = idCards.filter(c => 
@@ -155,8 +155,8 @@ export const PortalAdminDashboard = () => {
         whitelistTotal: whitelist.length,
         activeAccounts: accounts.length,
         totalIdCards: idCards.length,
-        pendingIdCards: pending + generated,
-        approvedIdCards: approved,
+        pendingIdCards: pending,
+        approvedIdCards: approvedOrGenerated,
         rejectedIdCards: rejected,
         generatedIdCards: generated
       });

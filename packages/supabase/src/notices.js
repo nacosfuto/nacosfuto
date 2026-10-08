@@ -100,13 +100,15 @@ function getCachedNotices() {
 }
 
 /**
- * Helper to save notices to local cache and notify listeners
+ * Helper to save notices to local cache and optionally notify listeners (only on mutations)
  */
-function setCachedNotices(notices) {
+function setCachedNotices(notices, notify = false) {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY_NOTICES, JSON.stringify(notices));
-    window.dispatchEvent(new Event('nacos_notices_updated'));
+    if (notify) {
+      window.dispatchEvent(new Event('nacos_notices_updated'));
+    }
   } catch (e) {
     console.warn('Could not save notices locally:', e);
   }
@@ -351,7 +353,7 @@ export async function adminCreateNotice(noticeData) {
     current.forEach(n => { n.is_popup = false; });
   }
   current.unshift(newNotice);
-  setCachedNotices(current);
+  setCachedNotices(current, true);
 
   try {
     if (supabase) {
@@ -421,7 +423,7 @@ export async function adminUpdateNotice(id, updates = {}) {
       ...(isUrgent !== undefined ? { is_urgent: isUrgent, priority: isUrgent ? 'high' : 'normal' } : {}),
       updated_at: nowIso
     };
-    setCachedNotices(current);
+    setCachedNotices(current, true);
 
     try {
       if (supabase) {
@@ -455,7 +457,7 @@ export async function adminDeleteNotice(id) {
   // 2. Update local cache and backup store
   const current = getCachedNotices();
   const filtered = current.filter(n => n.id !== id);
-  setCachedNotices(filtered);
+  setCachedNotices(filtered, true);
 
   try {
     if (supabase) {

@@ -74,10 +74,10 @@ export default function ManifestoModal({ contestant, isOpen, onClose, onSelectVo
 
             <div className="space-y-1">
               <h3 className="text-base font-bold text-slate-900">
-                Official Candidate Statement & Manifesto
+                Official Candidate Manifesto
               </h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Certified PDF document submitted by {contestant.name} for the office of {contestant.runningPost}.
+                Certified PDF manifesto document submitted by {contestant.name} for the office of {contestant.runningPost}.
               </p>
             </div>
 
@@ -115,7 +115,7 @@ export default function ManifestoModal({ contestant, isOpen, onClose, onSelectVo
           {/* Notice */}
           <div className="flex items-center gap-2 text-[11px] text-slate-500">
             <ShieldCheck className="w-4 h-4 text-[#138601] shrink-0" />
-            <span>Document verified and authenticated by the NACOS Electoral Commission (UNECO).</span>
+            <span>Document verified and authenticated by NACOS ISEC.</span>
           </div>
         </div>
 

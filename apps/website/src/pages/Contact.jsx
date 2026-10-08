@@ -48,12 +48,12 @@ const Contact = () => {
     {
       icon: <FiMail className="text-[#138601] dark:text-[#4bd043] text-2xl" />,
       title: "Email Inquiries",
-      info: "computerscience@futo.edu.ng / nacos@futocsc.edu.ng",
+      info: "support@nacosfuto.com.ng",
     },
     {
       icon: <FiPhone className="text-[#138601] dark:text-[#4bd043] text-2xl" />,
       title: "Official Phone Lines",
-      info: "+234 (0) 803 123 4567 / +234 (0) 812 987 6543",
+      info: "+234 806 951 4271",
     },
     {
       icon: <FiClock className="text-[#138601] dark:text-[#4bd043] text-2xl" />,

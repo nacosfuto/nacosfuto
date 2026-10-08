@@ -9,6 +9,9 @@ import ContestantsPage from './pages/ContestantsPage';
 import ManifestosPage from './pages/ManifestosPage';
 import LiveResultsPage from './pages/LiveResultsPage';
 import GuidelinesPage from './pages/GuidelinesPage';
+import VoteNowPage from './pages/VoteNowPage';
+import InPersonVotingPage from './pages/InPersonVotingPage';
+import NewsPressPage from './pages/NewsPressPage';
 import { 
   getActiveElection, 
   fetchLiveElectraData, 
@@ -18,6 +21,7 @@ import { getAppUrls } from '@nacos/config/urls';
 import { Vote, ShieldCheck, Lock, CheckCircle2, ChevronRight } from 'lucide-react';
 
 const VOTER_SESSION_KEY = 'nacos_electra_voter_session';
+const VOTING_TOKEN_KEY = 'nacos_electra_voting_token';
 
 export class ElectraErrorBoundary extends React.Component {
   constructor(props) {
@@ -93,6 +97,14 @@ export default function App() {
     }
   });
 
+  const [votingSessionToken, setVotingSessionToken] = useState(() => {
+    try {
+      return localStorage.getItem(VOTING_TOKEN_KEY) || null;
+    } catch {
+      return null;
+    }
+  });
+
   const [isConnectOpen, setIsConnectOpen] = useState(false);
   const [isManifestoOpen, setIsManifestoOpen] = useState(false);
   const [activeManifestoCandidate, setActiveManifestoCandidate] = useState(null);
@@ -114,17 +126,21 @@ export default function App() {
     };
   }, []);
 
-  const handleConnectVoter = (voterData) => {
+  const handleConnectVoter = (voterData, token = null) => {
     setVoter(voterData);
+    if (token) setVotingSessionToken(token);
     try {
       localStorage.setItem(VOTER_SESSION_KEY, JSON.stringify(voterData));
+      if (token) localStorage.setItem(VOTING_TOKEN_KEY, token);
     } catch (_) {}
   };
 
   const handleDisconnectVoter = () => {
     setVoter(null);
+    setVotingSessionToken(null);
     try {
       localStorage.removeItem(VOTER_SESSION_KEY);
+      localStorage.removeItem(VOTING_TOKEN_KEY);
     } catch (_) {}
   };
 
@@ -182,8 +198,22 @@ export default function App() {
           <Route path="/electra/manifestos" element={renderManifestos()} />
           <Route path="/results" element={<LiveResultsPage />} />
           <Route path="/electra/results" element={<LiveResultsPage />} />
+          <Route path="/vote" element={<VoteNowPage voter={voter} votingSessionToken={votingSessionToken} onConnectVoter={handleConnectVoter} onOpenAccreditation={() => setIsConnectOpen(true)} />} />
+          <Route path="/electra/vote" element={<VoteNowPage voter={voter} votingSessionToken={votingSessionToken} onConnectVoter={handleConnectVoter} onOpenAccreditation={() => setIsConnectOpen(true)} />} />
+          <Route path="/ballot" element={<VoteNowPage voter={voter} votingSessionToken={votingSessionToken} onConnectVoter={handleConnectVoter} onOpenAccreditation={() => setIsConnectOpen(true)} />} />
+          <Route path="/electra/ballot" element={<VoteNowPage voter={voter} votingSessionToken={votingSessionToken} onConnectVoter={handleConnectVoter} onOpenAccreditation={() => setIsConnectOpen(true)} />} />
           <Route path="/guidelines" element={<GuidelinesPage />} />
           <Route path="/electra/guidelines" element={<GuidelinesPage />} />
+          <Route path="/how-to-vote" element={<GuidelinesPage />} />
+          <Route path="/electra/how-to-vote" element={<GuidelinesPage />} />
+          <Route path="/where-to-vote" element={<InPersonVotingPage />} />
+          <Route path="/electra/where-to-vote" element={<InPersonVotingPage />} />
+          <Route path="/in-person-voting" element={<InPersonVotingPage />} />
+          <Route path="/electra/in-person-voting" element={<InPersonVotingPage />} />
+          <Route path="/news-and-press" element={<NewsPressPage />} />
+          <Route path="/electra/news-and-press" element={<NewsPressPage />} />
+          <Route path="/news" element={<NewsPressPage />} />
+          <Route path="/electra/news" element={<NewsPressPage />} />
           <Route path="*" element={renderHome()} />
         </Routes>
       </main>

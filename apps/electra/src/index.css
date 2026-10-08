@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+@theme {
+  /* Typography System from main site: Plus Jakarta Sans & Inter */
+  --font-sans: "Inter", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
 /* ─── Global UI Theme Tokens (Strictly Light Mode & NACOS Green Palette) ─── */
 :root {
   --container-max-width: 90rem; /* 1440px */

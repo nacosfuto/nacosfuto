@@ -1,72 +1,89 @@
 @import "tailwindcss";
 
-/* ─── Global UI Theme Tokens (Strictly Light Mode & NACOS Green Palette) ─── */
+@theme {
+  --font-sans: "Inter", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --color-green-500: #1fb416;
+  --color-green-600: #138601;
+  --color-green-700: #0f6c01;
+  --color-green-800: #0d5602;
+  --color-green-900: #083002;
+
+  /* ─── Universal 5px Border Radius System ─── */
+  --radius: 5px;
+  --radius-sm: 5px;
+  --radius-md: 5px;
+  --radius-lg: 5px;
+  --radius-xl: 5px;
+  --radius-2xl: 5px;
+  --radius-3xl: 5px;
+  --radius-full: 9999px;
+}
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *, .dark, .dark *));
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6, .font-heading, .font-display {
+  font-family: var(--font-heading);
+}
+
 :root {
+  /* ─── Standard Web Development Responsive Layout Container ─── */
   --container-max-width: 90rem;
   --gutter-mobile: 16px;
-  --gutter-tablet: 24px;
-  --gutter-desktop: 32px;
+  --gutter-tablet: 20px;
+  --gutter-desktop: 24px;
 
-  /* Universal Border Radius System - NACOS Standard (2px - 5px subtle curves) */
-  --radius: 5px;
-  --radius-sm: 4px;
-  --radius-md: 5px;
-  --radius-lg: 6px;
-  --radius-xl: 8px;
-  --radius-2xl: 10px;
-  --radius-3xl: 12px;
-  --radius-full: 9999px;
-
-  /* NACOS Green Palette */
-  --primary: #138601;
-  --primary-hover: #0f6c01;
-  --primary-dark: #041801;
-  --primary-light: #f0fdf4;
-  --green-brand: #138601;
-  --green-brand-hover: #0f6c01;
-  --green-deep: #041801;
-  --green-tint: #f0fdf4;
-  --green-pill: #dcfce7;
-  --green-border: #bbf7d0;
-
-  /* Light Mode Canvas Tokens */
-  --bg-main: #F8FAFC;
-  --bg-card: #FFFFFF;
-  --bg-card-hover: #F1F5F9;
-  --text-primary: #0F172A;
-  --text-secondary: #475569;
-  --text-muted: #64748B;
-  --border-subtle: #E2E8F0;
+  --rounded-sm: 5px;
+  --rounded:    5px;
+  --rounded-md: 5px;
+  --rounded-lg: 5px;
+  --rounded-xl: 5px;
+  --rounded-2xl: 5px;
+  --rounded-3xl: 5px;
 }
 
-@layer base {
-  *,
-  *::before,
-  *::after {
-    box-sizing: border-box;
-  }
+.padding-global,
+.page-gutter {
+  padding-inline: var(--gutter-mobile);
+}
 
-  html {
-    color-scheme: light;
-  }
-
-  body {
-    background-color: var(--bg-main);
-    color: var(--text-primary);
-    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    margin: 0;
-    padding: 0;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  h1, h2, h3, h4, .font-display {
-    font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+@media (min-width: 640px) {
+  .padding-global,
+  .page-gutter {
+    padding-inline: var(--gutter-tablet);
   }
 }
 
-/* Responsive Layout Containers */
-.site-container {
+@media (min-width: 1024px) {
+  .padding-global,
+  .page-gutter {
+    padding-inline: var(--gutter-desktop);
+  }
+}
+
+.site-container,
+.container-site,
+.container-webflow,
+.webflow-container,
+.container-large {
   width: 100%;
   max-width: var(--container-max-width);
   margin-inline: auto;
@@ -74,32 +91,58 @@
 }
 
 @media (min-width: 640px) {
-  .site-container {
+  .site-container,
+  .container-site,
+  .container-webflow,
+  .webflow-container,
+  .container-large {
     padding-inline: var(--gutter-tablet);
   }
 }
 
 @media (min-width: 1024px) {
-  .site-container {
+  .site-container,
+  .container-site,
+  .container-webflow,
+  .webflow-container,
+  .container-large {
     padding-inline: var(--gutter-desktop);
   }
 }
 
-/* Custom Scrollbar for Light Mode */
+/* ─── Universal 5px Radius System ─── */
+.rounded-sm  { border-radius: 5px !important; }
+.rounded     { border-radius: 5px !important; }
+.rounded-md  { border-radius: 5px !important; }
+.rounded-lg  { border-radius: 5px !important; }
+.rounded-xl  { border-radius: 5px !important; }
+.rounded-2xl { border-radius: 5px !important; }
+.rounded-3xl { border-radius: 5px !important; }
+.rounded-t   { border-top-left-radius: 5px !important; border-top-right-radius: 5px !important; }
+.rounded-t-sm, .rounded-t-md, .rounded-t-lg, .rounded-t-xl, .rounded-t-2xl, .rounded-t-3xl
+             { border-top-left-radius: 5px !important; border-top-right-radius: 5px !important; }
+.rounded-b   { border-bottom-left-radius: 5px !important; border-bottom-right-radius: 5px !important; }
+.rounded-b-sm, .rounded-b-md, .rounded-b-lg, .rounded-b-xl, .rounded-b-2xl, .rounded-b-3xl
+             { border-bottom-left-radius: 5px !important; border-bottom-right-radius: 5px !important; }
+.rounded-l   { border-top-left-radius: 5px !important; border-bottom-left-radius: 5px !important; }
+.rounded-l-sm, .rounded-l-md, .rounded-l-lg, .rounded-l-xl, .rounded-l-2xl, .rounded-l-3xl
+             { border-top-left-radius: 5px !important; border-bottom-left-radius: 5px !important; }
+.rounded-r   { border-top-right-radius: 5px !important; border-bottom-right-radius: 5px !important; }
+.rounded-r-sm, .rounded-r-md, .rounded-r-lg, .rounded-r-xl, .rounded-r-2xl, .rounded-r-3xl
+             { border-top-right-radius: 5px !important; border-bottom-right-radius: 5px !important; }
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #F1F5F9;
+  background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
-  border-radius: 9999px;
+  background: #cbd5e1;
+  border-radius: 5px;
 }
-
-::-webkit-scrollbar-thumb:hover {
-  background: #684BFD;
+.dark ::-webkit-scrollbar-thumb {
+  background: #1e3a1e;
 }

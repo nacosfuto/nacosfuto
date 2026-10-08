@@ -1434,6 +1434,82 @@ ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS entity_id TEXT;
 ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW());
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_assets_cloudinary_pub_id ON public.media_assets (cloudinary_public_id) WHERE cloudinary_public_id IS NOT NULL;
 
+-- =========================================================================
+-- 19. ELECTRA INDEPENDENT ELECTORAL SYSTEM
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS public.electra_accreditations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  election_id TEXT NOT NULL,
+  registration_number VARCHAR(30) NOT NULL,
+  student_name TEXT NOT NULL,
+  student_level TEXT DEFAULT '300 Level',
+  status TEXT DEFAULT 'pending',
+  delivery_email TEXT,
+  code_hash TEXT,
+  code_expires_at TIMESTAMPTZ,
+  code_attempts INTEGER DEFAULT 0,
+  is_code_consumed BOOLEAN DEFAULT false,
+  last_code_sent_at TIMESTAMPTZ,
+  code_request_count INTEGER DEFAULT 1,
+  accredited_at TIMESTAMPTZ,
+  voted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  CONSTRAINT uq_electra_accreditation UNIQUE (election_id, registration_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_electra_acc_election_reg ON public.electra_accreditations(election_id, registration_number);
+CREATE INDEX IF NOT EXISTS idx_electra_acc_status ON public.electra_accreditations(status);
+
+CREATE TABLE IF NOT EXISTS public.electra_votes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  election_id TEXT NOT NULL,
+  voter_registration_number VARCHAR(30) NOT NULL,
+  position_id TEXT NOT NULL,
+  candidate_id TEXT NOT NULL,
+  receipt_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  CONSTRAINT uq_electra_vote_position UNIQUE (election_id, voter_registration_number, position_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_electra_votes_election_reg ON public.electra_votes(election_id, voter_registration_number);
+CREATE INDEX IF NOT EXISTS idx_electra_votes_position_cnd ON public.electra_votes(election_id, position_id, candidate_id);
+
+ALTER TABLE public.electra_accreditations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read electra_accreditations" ON public.electra_accreditations;
+CREATE POLICY "Public read electra_accreditations" ON public.electra_accreditations FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Service write electra_accreditations" ON public.electra_accreditations;
+CREATE POLICY "Service write electra_accreditations" ON public.electra_accreditations FOR ALL USING (true);
+
+ALTER TABLE public.electra_votes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read electra_votes" ON public.electra_votes;
+CREATE POLICY "Public read electra_votes" ON public.electra_votes FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Service write electra_votes" ON public.electra_votes;
+CREATE POLICY "Service write electra_votes" ON public.electra_votes FOR ALL USING (true);
+
+-- Official Aggregated Results Layer: Realtime Audit Tally
+CREATE TABLE IF NOT EXISTS public.electra_election_results (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  election_id TEXT NOT NULL,
+  position_id TEXT NOT NULL,
+  candidate_id TEXT NOT NULL,
+  vote_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  CONSTRAINT uq_electra_result_candidate UNIQUE (election_id, position_id, candidate_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_electra_results_election ON public.electra_election_results(election_id);
+CREATE INDEX IF NOT EXISTS idx_electra_results_election_pos ON public.electra_election_results(election_id, position_id);
+
+ALTER TABLE public.electra_election_results ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read electra_election_results" ON public.electra_election_results;
+CREATE POLICY "Public read electra_election_results" ON public.electra_election_results FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Service write electra_election_results" ON public.electra_election_results;
+CREATE POLICY "Service write electra_election_results" ON public.electra_election_results FOR ALL USING (true);
+
+
+
 
 
 
