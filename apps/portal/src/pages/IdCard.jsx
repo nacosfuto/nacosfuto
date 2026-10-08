@@ -493,6 +493,23 @@ const IdCard = () => {
     }
   };
 
+  // Universal "New Payment" Handler matching Dues.jsx
+  const handleNewPayment = async () => {
+    if (!application) {
+      setIsApplying(true);
+      const res = await createIdCardApplication(student);
+      setIsApplying(false);
+      if (res?.error) {
+        showNotification(res.error, 'error');
+        return;
+      }
+      if (res?.application) {
+        setApplication(res.application);
+      }
+    }
+    setIsStepUpOpen(true);
+  };
+
   // State 2 -> State 3: Bachs Payment Checkout Session
   const handlePayment = () => {
     setIsStepUpOpen(true);
@@ -814,47 +831,27 @@ const IdCard = () => {
     <PortalLayout>
       <div className="space-y-6">
 
-        {/* Top Header matching Dues.jsx */}
+        {/* Top Header with "New Payment" Action Button (Matching Dues Page Exactly) */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <ShieldCheck className="w-5 h-5 text-[#138601] dark:text-[#4bd043]" />
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-                Student ID Card Application &amp; Issuance
-              </h1>
-            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+              Student ID Card Application &amp; Issuance
+            </h1>
             <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
-              Official digital identity cards, status clearance and electronic POS receipts for Department of Computer Science.
+              Official clearance history and electronic POS receipts for Department of Computer Science.
             </p>
           </div>
 
           <div className="flex items-center gap-3">
-            {application && (
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${isStateExpired
-                  ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-700/50'
-                  : isState7
-                    ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700/50'
-                    : isState8 || isState9
-                      ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-700/50'
-                      : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-700/50'
-                }`}>
-                {isStateExpired ? <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> : isState7 ? <CheckCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
-                <span className="capitalize">
-                  {isStateExpired ? `Requires Renewal (${cardLevel || 'Old Level'} → ${studentLevel})` : isState7 ? `Active (${cardLevel || studentLevel})` : (application.status || 'In Progress').replace(/_/g, ' ')}
-                </span>
-              </span>
-            )}
-            {isState1 && (
-              <button
-                type="button"
-                onClick={handleApply}
-                disabled={isApplying}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Apply for ID Card</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleNewPayment}
+              disabled={isPaying || isApplying}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Payment</span>
+            </button>
           </div>
         </div>
 
