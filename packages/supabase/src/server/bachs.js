@@ -63,7 +63,7 @@ export function getBachsConfig() {
   const webhookSecret = (env.BACHS_WEBHOOK_SECRET || '').trim();
   const productId = (env.BACHS_ID_CARD_PRODUCT_ID || 'nacos_id_card_2026').trim();
 
-  const amount = Number(env.NACOS_ID_CARD_AMOUNT || 5000);
+  const amount = env.NACOS_ID_CARD_AMOUNT ? Number(env.NACOS_ID_CARD_AMOUNT) : null;
   const currency = (env.NACOS_ID_CARD_CURRENCY || 'NGN').toUpperCase();
 
   const baseUrl = (env.BACHS_BASE_URL || (environment === 'production' 
@@ -75,7 +75,7 @@ export function getBachsConfig() {
     apiKey,
     webhookSecret,
     productId,
-    amount: isNaN(amount) || amount <= 0 ? 5000 : amount,
+    amount: isNaN(amount) || amount <= 0 ? null : amount,
     currency,
     baseUrl
   };
@@ -105,47 +105,70 @@ export function validateStudentEligibility(student) {
 /**
  * Dynamically resolves the authoritative fee configured by an admin on the dashboard
  * Works for ID Cards, Departmental Dues, Events, Store, or any Custom Payment.
+ * The Admin Dashboard configuration (public.id_card_settings) is the authoritative Single Source of Truth.
+ * If configuration is missing or unavailable, returns null (never hardcodes 5000 or arbitrary defaults).
  */
-export async function resolveDynamicFee({ paymentType = 'ID_CARD', academicSession = null, metadata = {}, defaultAmount = 5000 }) {
+export async function resolveDynamicFee({ paymentType = 'ID_CARD', academicSession = null, metadata = {} }) {
   const pType = (paymentType || 'ID_CARD').toUpperCase();
   const feeKey = pType.toLowerCase();
   const targetSession = String(academicSession || metadata?.academicSession || metadata?.academic_session || await getAuthoritativeActiveSession()).trim();
 
   try {
     if (supabase) {
-      // 1. Check public.payment_fees table (Session-aware institutional fee registry)
-      const { data: feeRow } = await supabase
-        .from('payment_fees')
-        .select('amount')
-        .eq('fee_key', feeKey)
-        .eq('academic_session', targetSession)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (feeRow?.amount && !isNaN(Number(feeRow.amount)) && Number(feeRow.amount) > 0) {
-        return Number(feeRow.amount);
-      }
-
-      // 2. Authoritative check on Supabase id_card_settings table
+      // 1. Primary Source of Truth: Supabase id_card_settings table configured by Admin Dashboard
       if (pType === 'ID_CARD') {
-        const { data: idCardRow } = await supabase
+        const { data: idCardRow, error: idCardErr } = await supabase
           .from('id_card_settings')
-          .select('id_card_fee')
+          .select('id_card_fee, academic_session')
           .eq('id', 'default')
           .maybeSingle();
 
-        if (idCardRow?.id_card_fee && !isNaN(Number(idCardRow.id_card_fee)) && Number(idCardRow.id_card_fee) > 0) {
-          return Number(idCardRow.id_card_fee);
+        if (!idCardErr && idCardRow && idCardRow.id_card_fee != null) {
+          const fee = Number(idCardRow.id_card_fee);
+          if (!isNaN(fee) && fee > 0) {
+            // Keep payment_fees table in sync with this active admin configuration
+            try {
+              await supabase
+                .from('payment_fees')
+                .upsert({
+                  fee_key: 'id_card',
+                  title: 'Digital Student ID Card Issuance',
+                  academic_session: targetSession,
+                  amount: fee,
+                  currency: 'NGN',
+                  is_active: true
+                }, { onConflict: 'fee_key,academic_session' });
+            } catch (_) {}
+
+            return fee;
+          }
         }
       } else if (pType === 'DEPARTMENTAL_DUES' || pType === 'DUES') {
-        const { data: duesRow } = await supabase
+        const { data: duesRow, error: duesErr } = await supabase
           .from('id_card_settings')
-          .select('id_card_fee')
+          .select('id_card_fee, academic_session')
           .eq('id', 'dues')
           .maybeSingle();
 
-        if (duesRow?.id_card_fee && !isNaN(Number(duesRow.id_card_fee)) && Number(duesRow.id_card_fee) > 0) {
-          return Number(duesRow.id_card_fee);
+        if (!duesErr && duesRow && duesRow.id_card_fee != null) {
+          const fee = Number(duesRow.id_card_fee);
+          if (!isNaN(fee) && fee > 0) {
+            // Keep payment_fees table in sync with this active admin configuration
+            try {
+              await supabase
+                .from('payment_fees')
+                .upsert({
+                  fee_key: 'departmental_dues',
+                  title: 'NACOS Departmental Dues',
+                  academic_session: targetSession,
+                  amount: fee,
+                  currency: 'NGN',
+                  is_active: true
+                }, { onConflict: 'fee_key,academic_session' });
+            } catch (_) {}
+
+            return fee;
+          }
         }
       } else if (pType === 'EVENT' || pType === 'EVENT_TICKET') {
         if (metadata?.eventId) {
@@ -156,38 +179,41 @@ export async function resolveDynamicFee({ paymentType = 'ID_CARD', academicSessi
             .maybeSingle();
 
           const eventPrice = eventRow?.ticket_price || eventRow?.fee;
-          if (eventPrice && !isNaN(Number(eventPrice)) && Number(eventPrice) > 0) {
+          if (eventPrice != null && !isNaN(Number(eventPrice)) && Number(eventPrice) > 0) {
             return Number(eventPrice);
           }
         }
       }
 
-      // 3. Check media_assets sync pipeline for cross-device resilience
-      const { data: mediaRow } = await supabase
-        .from('media_assets')
-        .select('metadata')
-        .eq('asset_type', `${feeKey}_settings`)
-        .eq('title', 'default')
+      // 2. Secondary check: public.payment_fees table (Session-aware institutional fee registry)
+      const { data: feeRow } = await supabase
+        .from('payment_fees')
+        .select('amount')
+        .eq('fee_key', feeKey)
+        .eq('academic_session', targetSession)
+        .eq('is_active', true)
         .maybeSingle();
 
-      const mediaFee = mediaRow?.metadata?.fee || mediaRow?.metadata?.amount || mediaRow?.metadata?.id_card_fee || mediaRow?.metadata?.dues_amount;
-      if (mediaFee && !isNaN(Number(mediaFee)) && Number(mediaFee) > 0) {
-        return Number(mediaFee);
+      if (feeRow?.amount != null && !isNaN(Number(feeRow.amount)) && Number(feeRow.amount) > 0) {
+        return Number(feeRow.amount);
       }
     }
   } catch (err) {
     console.warn(`[Bachs] Dynamic fee resolution warning for ${pType}:`, err.message);
   }
 
-  // 4. Server environment fallbacks
+  // 3. Fallback to process.env explicitly set for that specific fee key (if set)
   const env = typeof process !== 'undefined' ? process.env : {};
-  if (pType === 'ID_CARD') {
-    return Number(env.NACOS_ID_CARD_AMOUNT || defaultAmount || 5000);
-  } else if (pType === 'DEPARTMENTAL_DUES' || pType === 'DUES') {
-    return Number(env.NACOS_DUES_AMOUNT || 2500);
+  if (pType === 'ID_CARD' && env.NACOS_ID_CARD_AMOUNT) {
+    const envAmt = Number(env.NACOS_ID_CARD_AMOUNT);
+    if (!isNaN(envAmt) && envAmt > 0) return envAmt;
+  } else if ((pType === 'DEPARTMENTAL_DUES' || pType === 'DUES') && env.NACOS_DUES_AMOUNT) {
+    const envAmt = Number(env.NACOS_DUES_AMOUNT);
+    if (!isNaN(envAmt) && envAmt > 0) return envAmt;
   }
 
-  return Number(defaultAmount || 5000);
+  // Strictly return null if configuration is unavailable - NEVER substitute hardcoded 5000!
+  return null;
 }
 
 /**
@@ -483,9 +509,17 @@ export async function createPaymentCheckout({
     chargeAmount = await resolveDynamicFee({ 
       paymentType: normalizedType, 
       academicSession: targetSession, 
-      metadata, 
-      defaultAmount: config.amount 
+      metadata
     });
+  }
+
+  // Strictly enforce that configured amount is valid and present - never proceed with missing amount
+  if (chargeAmount === null || isNaN(chargeAmount) || chargeAmount <= 0) {
+    console.error(`[Bachs Checkout] Payment fee configuration missing or invalid for ${normalizedType} (session: ${targetSession}). Aborting checkout initialization.`);
+    return {
+      error: 'The payment fee amount for this service is currently unavailable. Please try again later or contact the administrator.',
+      statusCode: 503
+    };
   }
 
   // 4. Generate Unique Internal Reference

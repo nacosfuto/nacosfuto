@@ -195,12 +195,17 @@ function cloudinaryDevPlugin() {
                 res.end(JSON.stringify({ error: 'Missing reference' }));
                 return;
               }
+              const { resolveDynamicFee } = await import('../../packages/supabase/src/server/bachs.js');
+              let simAmount = data.amount ? Number(data.amount) : null;
+              if (!simAmount) {
+                simAmount = await resolveDynamicFee({ paymentType: 'id_card' });
+              }
               const simEvent = {
                 event_type: 'payment.successful',
                 id: `sim_evt_${Date.now()}`,
                 data: {
                   reference,
-                  amount: data.amount || 5000,
+                  amount: simAmount,
                   currency: 'NGN',
                   status: 'successful',
                   payment_id: `bachs_tx_${Date.now()}`

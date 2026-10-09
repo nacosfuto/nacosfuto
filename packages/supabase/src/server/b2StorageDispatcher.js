@@ -5,8 +5,8 @@
 
 let cachedB2Auth = null;
 
-export async function getB2AuthTokens(env = process.env) {
-  if (cachedB2Auth && cachedB2Auth.expiresAt > Date.now() + 300000) {
+export async function getB2AuthTokens(env = process.env, forceRefresh = false) {
+  if (!forceRefresh && cachedB2Auth && cachedB2Auth.expiresAt > Date.now() + 300000) {
     return cachedB2Auth;
   }
 
@@ -43,7 +43,7 @@ export async function handleStorageRequest(req, res, env = process.env) {
   const method = req.method;
 
   try {
-    const auth = await getB2AuthTokens(env);
+    let auth = await getB2AuthTokens(env);
 
     // 1. Download Token
     if ((pathname === '/api/b2-download-token' || pathname === '/api/resource-storage') && method === 'GET') {
@@ -76,7 +76,11 @@ export async function handleStorageRequest(req, res, env = process.env) {
 
       const cleanKey = String(storageKey).replace(/^\/+/, '');
       const b2FileUrl = `${auth.downloadUrl}/file/${auth.bucketName}/${cleanKey}`;
-      const b2Res = await fetch(b2FileUrl, { headers: { Authorization: auth.authorizationToken } });
+      let b2Res = await fetch(b2FileUrl, { headers: { Authorization: auth.authorizationToken } });
+      if (!b2Res.ok && b2Res.status === 401) {
+        auth = await getB2AuthTokens(env, true);
+        b2Res = await fetch(b2FileUrl, { headers: { Authorization: auth.authorizationToken } });
+      }
       if (!b2Res.ok) {
         res.statusCode = b2Res.status;
         res.setHeader('Content-Type', 'application/json');
@@ -110,7 +114,11 @@ export async function handleStorageRequest(req, res, env = process.env) {
 
       const cleanKey = String(storageKey).replace(/^\/+/, '');
       const b2FileUrl = `${auth.downloadUrl}/file/${auth.bucketName}/${cleanKey}`;
-      const b2Res = await fetch(b2FileUrl, { headers: { Authorization: auth.authorizationToken } });
+      let b2Res = await fetch(b2FileUrl, { headers: { Authorization: auth.authorizationToken } });
+      if (!b2Res.ok && b2Res.status === 401) {
+        auth = await getB2AuthTokens(env, true);
+        b2Res = await fetch(b2FileUrl, { headers: { Authorization: auth.authorizationToken } });
+      }
       if (!b2Res.ok) {
         res.statusCode = b2Res.status;
         res.setHeader('Content-Type', 'application/json');

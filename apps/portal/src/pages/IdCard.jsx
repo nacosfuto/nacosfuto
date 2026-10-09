@@ -245,7 +245,7 @@ const IdCard = () => {
               if (isIdType && isPaid) {
                 const payDate = p.paid_at || p.created_at || new Date().toISOString();
                 const dObj = new Date(payDate);
-                const amt = Number(p.amount || cfg?.id_card_fee || 500);
+                const amt = Number(p.amount || cfg?.id_card_fee || 0);
                 collectedIdCardPays.push({
                   id: p.id || p.reference,
                   receiptNo: p.reference || `NACOS/IDCARD/${cleanMatric}-2026`,
@@ -271,7 +271,7 @@ const IdCard = () => {
 
       // If student application has been generated/verified or payStatus.isPaid is true, ensure payment row exists
       if (collectedIdCardPays.length === 0 && (payStatus.isPaid || app?.payment_status === 'paid' || app?.payment_status === 'verified' || app?.status === 'generated')) {
-        const amt = Number(cfg?.id_card_fee || 500);
+        const amt = Number(cfg?.id_card_fee || 0);
         collectedIdCardPays.push({
           id: `idpay-${cleanMatric}`,
           receiptNo: app?.payment_reference || `NACOS/IDCARD/${cleanMatric}-2026`,
@@ -349,7 +349,7 @@ const IdCard = () => {
           const currentStudent = studentRef.current;
           const currentSettings = settingsRef.current;
           const lvl = currentStudent?.level ? `${currentStudent.level} Level` : '300 Level';
-          const feeAmt = Number(event.data.amount || currentSettings?.id_card_fee || 500);
+          const feeAmt = Number(event.data.amount || currentSettings?.id_card_fee || 0);
           const payload = {
             receiptNo: event.data.reference || `NACOS/IDCARD/${Date.now().toString().slice(-6)}`,
             transactionId: `BCH-${Date.now()}`,
@@ -440,7 +440,7 @@ const IdCard = () => {
           await loadStudentAndApplication();
 
           const lvl = student?.level ? `${student.level} Level` : '300 Level';
-          const feeAmt = Number(data.payment?.amount || settings.id_card_fee || 500);
+          const feeAmt = Number(data.payment?.amount || settings.id_card_fee || 0);
           const payload = {
             receiptNo: data.payment?.reference || reference || `NACOS/IDCARD/${Date.now().toString().slice(-6)}`,
             transactionId: data.payment?.transaction_id || `BCH-${Date.now()}`,

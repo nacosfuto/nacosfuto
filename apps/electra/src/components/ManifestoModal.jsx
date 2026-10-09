@@ -19,6 +19,11 @@ export default function ManifestoModal({ contestant, isOpen, onClose, onSelectVo
 
   // Resolve document URL from all supported storage providers (Backblaze B2, Cloudinary, Supabase)
   const resolveDocUrl = () => {
+    // 1. If explicit B2 storage key is stored on contestant, use authenticated preview proxy
+    if (contestant.manifestoStorageKey) {
+      return `/api/preview?key=${encodeURIComponent(contestant.manifestoStorageKey)}`;
+    }
+
     const raw = contestant.manifestoPdfUrl || 
                 contestant.statementPdfUrl || 
                 contestant.manifestoUrl || 
@@ -26,14 +31,26 @@ export default function ManifestoModal({ contestant, isOpen, onClose, onSelectVo
                 '';
 
     if (raw) {
-      if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('/api/')) {
+      // 2. If it's a direct Backblaze B2 bucket URL, extract key and route through authenticated proxy
+      if (raw.includes('backblazeb2.com/file/') || raw.includes('/file/nacos-resources/')) {
+        const parts = raw.split('/file/')[1] || '';
+        const slashIdx = parts.indexOf('/');
+        const key = slashIdx !== -1 ? parts.slice(slashIdx + 1) : parts;
+        return `/api/preview?key=${encodeURIComponent(key)}`;
+      }
+
+      // 3. If already pointing to an internal API proxy
+      if (raw.startsWith('/api/')) {
         return raw;
       }
-      return `/api/preview?key=${encodeURIComponent(raw)}`;
-    }
 
-    if (contestant.manifestoStorageKey) {
-      return `/api/preview?key=${encodeURIComponent(contestant.manifestoStorageKey)}`;
+      // 4. Public CDN URLs (Cloudinary, Supabase Public Storage) can load directly
+      if (raw.startsWith('http://') || raw.startsWith('https://')) {
+        return raw;
+      }
+
+      // 5. Raw key string
+      return `/api/preview?key=${encodeURIComponent(raw)}`;
     }
 
     return null;
@@ -44,7 +61,10 @@ export default function ManifestoModal({ contestant, isOpen, onClose, onSelectVo
 
   // Extract storage key for dedicated download endpoint if applicable
   const storageKey = contestant.manifestoStorageKey || 
-    (documentUrl && documentUrl.includes('key=') ? new URL(documentUrl, 'http://localhost').searchParams.get('key') : null);
+    (documentUrl && documentUrl.includes('key=') ? new URL(documentUrl, 'http://localhost').searchParams.get('key') : null) ||
+    (contestant.manifestoPdfUrl && contestant.manifestoPdfUrl.includes('/file/nacos-resources/') 
+      ? contestant.manifestoPdfUrl.split('/file/nacos-resources/')[1] 
+      : null);
 
   const downloadUrl = storageKey 
     ? `/api/download?key=${encodeURIComponent(storageKey)}&name=${encodeURIComponent((contestant.name || 'Candidate') + '_Manifesto.pdf')}`

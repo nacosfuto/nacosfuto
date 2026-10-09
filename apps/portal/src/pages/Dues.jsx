@@ -66,7 +66,7 @@ const Dues = () => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  const [duesFee, setDuesFee] = useState(2500);
+  const [duesFee, setDuesFee] = useState(null);
   const [isStepUpOpen, setIsStepUpOpen] = useState(false);
 
   const [user, setUser] = useState(() => {
@@ -139,7 +139,7 @@ const Dues = () => {
 
     // Helper to format and add a payment record to the master history list
     const processItem = (item) => {
-      const amt = Number(item.amount || 2500);
+      const amt = Number(item.amount || duesFee || 0);
       const isPaid = ['successful', 'paid', 'cleared', 'verified', 'completed'].includes(String(item.status).toLowerCase()) || Boolean(item.paid_at);
 
       if (isPaid) {
@@ -281,7 +281,7 @@ const Dues = () => {
         processItem({
           id: `prof-${cleanMatric}-${studentHomeLevel}`,
           reference: currentUser.receipt_no || currentUser.payment_reference || `NACOS/DUES/${cleanMatric || 'FUTO'}-${studentHomeLevel}L`,
-          amount: currentUser.dues_amount || 2500,
+          amount: currentUser.dues_amount || duesFee || 0,
           status: 'successful',
           level: studentHomeLevel,
           session: currentUser.academic_session || '2026/2027',

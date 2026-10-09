@@ -57,8 +57,8 @@ import {
 // --- Backblaze B2 Helper State ---
 let cachedB2Auth = null;
 
-async function getB2AuthTokens() {
-  if (cachedB2Auth && cachedB2Auth.expiresAt > Date.now() + 300000) {
+async function getB2AuthTokens(forceRefresh = false) {
+  if (!forceRefresh && cachedB2Auth && cachedB2Auth.expiresAt > Date.now() + 300000) {
     return cachedB2Auth;
   }
 
@@ -280,16 +280,24 @@ export default async function handler(req, res) {
     // Sandbox / Local Simulation Endpoint
     if (route === '/api/payments/simulate-success' && method === 'POST') {
       const body = await parseRequestBody(req);
-      const { reference, amount = 5000, paymentType = 'ID_CARD' } = body;
+      const { reference, paymentType = 'ID_CARD' } = body;
       if (!reference) {
         return res.status(400).json({ error: 'Missing payment reference.' });
+      }
+      let simAmount = body.amount ? Number(body.amount) : null;
+      if (!simAmount && supabase) {
+        const { data: pRec } = await supabase.from('payments').select('amount').eq('reference', reference).maybeSingle();
+        if (pRec?.amount) simAmount = Number(pRec.amount);
+      }
+      if (!simAmount) {
+        simAmount = await resolveDynamicFee({ paymentType });
       }
       const simEvent = {
         event_type: 'payment.successful',
         id: `sim_evt_${Date.now()}`,
         data: {
           reference,
-          amount: Number(amount) || 5000,
+          amount: simAmount,
           currency: 'NGN',
           status: 'successful',
           payment_id: `bachs_tx_${Date.now()}`
@@ -325,9 +333,13 @@ export default async function handler(req, res) {
       if (!storageKey) return res.status(400).json({ error: 'Missing storage key' });
 
       const cleanKey = String(storageKey).replace(/^\/+/, '');
-      const auth = await getB2AuthTokens();
+      let auth = await getB2AuthTokens();
       const b2FileUrl = `${auth.downloadUrl}/file/${auth.bucketName}/${cleanKey}`;
-      const b2Res = await fetch(b2FileUrl, { headers: { Authorization: auth.authorizationToken } });
+      let b2Res = await fetch(b2FileUrl, { headers: { Authorization: auth.authorizationToken } });
+      if (!b2Res.ok && b2Res.status === 401) {
+        auth = await getB2AuthTokens(true);
+        b2Res = await fetch(b2FileUrl, { headers: { Authorization: auth.authorizationToken } });
+      }
       if (!b2Res.ok) return res.status(b2Res.status).json({ error: `Storage provider status ${b2Res.status}` });
 
       const contentType = b2Res.headers.get('content-type') || 'application/octet-stream';
@@ -348,9 +360,13 @@ export default async function handler(req, res) {
       if (!storageKey) return res.status(400).json({ error: 'Missing storage key' });
 
       const cleanKey = String(storageKey).replace(/^\/+/, '');
-      const auth = await getB2AuthTokens();
+      let auth = await getB2AuthTokens();
       const b2FileUrl = `${auth.downloadUrl}/file/${auth.bucketName}/${cleanKey}`;
-      const b2Res = await fetch(b2FileUrl, { headers: { Authorization: auth.authorizationToken } });
+      let b2Res = await fetch(b2FileUrl, { headers: { Authorization: auth.authorizationToken } });
+      if (!b2Res.ok && b2Res.status === 401) {
+        auth = await getB2AuthTokens(true);
+        b2Res = await fetch(b2FileUrl, { headers: { Authorization: auth.authorizationToken } });
+      }
       if (!b2Res.ok) return res.status(b2Res.status).json({ error: `Storage provider status ${b2Res.status}` });
 
       const contentType = b2Res.headers.get('content-type') || 'application/pdf';

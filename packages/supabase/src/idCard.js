@@ -30,7 +30,7 @@ function getLocalIdSettingsDatabase() {
 
   const initialSettings = {
     id: 'default',
-    id_card_fee: 5000,
+    id_card_fee: null,
     is_application_open: true,
     academic_session: getDynamicAcademicSession(),
     allow_reapplication_on_revoke: true,
@@ -106,6 +106,32 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
       if (error) {
         console.error('[Portal Settings Database Save Error]:', error);
         return { error: `Database error: ${error.message}` };
+      }
+
+      // Synchronize public.payment_fees table as well
+      try {
+        await supabase
+          .from('payment_fees')
+          .upsert([
+            {
+              fee_key: 'id_card',
+              title: 'Digital Student ID Card Issuance',
+              academic_session: session,
+              amount: feeNum,
+              currency: 'NGN',
+              is_active: isOpen
+            },
+            {
+              fee_key: 'departmental_dues',
+              title: 'NACOS Departmental Dues',
+              academic_session: session,
+              amount: duesNum,
+              currency: 'NGN',
+              is_active: true
+            }
+          ], { onConflict: 'fee_key,academic_session' });
+      } catch (pfErr) {
+        console.warn('[payment_fees sync notice]:', pfErr.message);
       }
     } catch (e) {
       return { error: e.message || 'Failed to save settings to database' };
@@ -411,7 +437,7 @@ export async function checkStudentPaymentStatus(matricNumber, currentLevel = nul
 export async function recordStudentPayment(matricNumber, amount = null) {
   const cleanMatric = matricNumber.trim().toUpperCase();
   const settings = await getIdCardSettings();
-  const resolvedAmount = amount !== null ? amount : Number(settings?.id_card_fee || 5000);
+  const resolvedAmount = amount !== null ? amount : (settings?.id_card_fee != null ? Number(settings.id_card_fee) : 0);
   const payments = getLocalPaymentsDatabase();
 
   const newPayment = {
@@ -559,7 +585,7 @@ export async function createIdCardApplication(student) {
 
   // 2. Retrieve configurable fee from database settings
   const settings = await getIdCardSettings();
-  const fee = Number(settings?.id_card_fee || 5000);
+  const fee = settings?.id_card_fee != null ? Number(settings.id_card_fee) : 0;
 
   // 3. Check if student already has a verified payment in the database
   const paymentCheck = await checkStudentPaymentStatus(cleanMatric);

@@ -391,7 +391,7 @@ const AdminIdCards = () => {
                               : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                           }`}>
                             {app.payment_status === 'verified' || app.payment_status === 'paid'
-                              ? `₦${(app.amount || 5000).toLocaleString()} Paid`
+                              ? `₦${(app.amount || settings?.id_card_fee || 0).toLocaleString()} Paid`
                               : 'Pending'}
                           </span>
                           {app.payment_reference && (
@@ -480,7 +480,7 @@ const AdminIdCards = () => {
                   <div className="text-gray-500 dark:text-green-200/70">{selectedApp.department} • {selectedApp.level}</div>
                   <div className="text-[11px] text-gray-500 pt-1 space-y-0.5">
                     <div>Payment: <strong className="text-green-600 dark:text-green-400">{selectedApp.payment_status?.toUpperCase()}</strong></div>
-                    <div>Gateway: <span className="font-semibold text-gray-800 dark:text-gray-200">{selectedApp.payment_provider || 'BACHS'}</span> • ₦{(selectedApp.amount || 5000).toLocaleString()}</div>
+                    <div>Gateway: <span className="font-semibold text-gray-800 dark:text-gray-200">{selectedApp.payment_provider || 'BACHS'}</span> • ₦{(selectedApp.amount || settings?.id_card_fee || 0).toLocaleString()}</div>
                     {selectedApp.payment_reference && (
                       <div className="font-mono text-[10px] text-gray-400">Ref: {selectedApp.payment_reference}</div>
                     )}

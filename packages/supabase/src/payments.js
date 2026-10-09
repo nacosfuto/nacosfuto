@@ -135,7 +135,7 @@ const DUES_SETTINGS_KEY = 'nacos_dues_settings_db';
 export async function getDuesSettings() {
   const defaultSettings = {
     id: 'dues',
-    dues_amount: 2500,
+    dues_amount: null,
     academic_session: getActiveAcademicSession(),
     is_open: true,
     updated_at: new Date().toISOString()
@@ -219,12 +219,11 @@ export async function updateDuesFee(amount, academicSession = null) {
           .from('payment_fees')
           .upsert({
             fee_key: 'departmental_dues',
-            fee_name: 'NACOS Departmental Dues',
+            title: 'NACOS Departmental Dues',
             academic_session: targetSession,
             amount: num,
             currency: 'NGN',
-            is_active: true,
-            updated_at: now
+            is_active: true
           }, { onConflict: 'fee_key,academic_session' });
       } catch (_) {}
     }
