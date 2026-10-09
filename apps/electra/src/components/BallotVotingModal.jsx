@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Vote, 
@@ -7,21 +7,23 @@ import {
   AlertCircle, 
   Hash, 
   Lock, 
-  ArrowRight,
-  Sparkles,
-  ExternalLink
+  ArrowRight, 
+  Sparkles, 
+  ExternalLink 
 } from 'lucide-react';
-import { castBallot, getElectraPosts, getContestants } from '@nacos/supabase/electraService';
+import { castBallot, getElectraPosts, getContestants, fetchLiveElectraData } from '@nacos/supabase/electraService';
 
 export default function BallotVotingModal({ 
   isOpen, 
   onClose, 
   voter, 
   onRequireConnect, 
-  targetCandidate = null,
+  targetCandidate = null, 
   onVoteCastSuccess 
 }) {
-  const [selectedOffice, setSelectedOffice] = useState('post-president');
+  const [posts, setPosts] = useState(() => getElectraPosts());
+  const [allContestants, setAllContestants] = useState(() => getContestants());
+  const [selectedOffice, setSelectedOffice] = useState(() => targetCandidate?.postId || getElectraPosts()[0]?.id || '');
   const [selectedCandidates, setSelectedCandidates] = useState(
     targetCandidate ? { [targetCandidate.postId]: targetCandidate.id } : {}
   );
@@ -29,10 +31,24 @@ export default function BallotVotingModal({
   const [castSuccessReceipt, setCastSuccessReceipt] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (isOpen) {
+      fetchLiveElectraData().then(data => {
+        const livePosts = data.posts || [];
+        const liveContestants = data.contestants || [];
+        setPosts(livePosts);
+        setAllContestants(liveContestants);
+        if (targetCandidate?.postId) {
+          setSelectedOffice(targetCandidate.postId);
+          setSelectedCandidates(prev => ({ ...prev, [targetCandidate.postId]: targetCandidate.id }));
+        } else if (livePosts.length > 0 && !selectedOffice) {
+          setSelectedOffice(livePosts[0].id);
+        }
+      }).catch(console.error);
+    }
+  }, [isOpen, targetCandidate]);
 
-  const posts = getElectraPosts();
-  const allContestants = getContestants();
+  if (!isOpen) return null;
 
   const handleSelectCandidate = (postId, candidateId) => {
     setSelectedCandidates(prev => ({

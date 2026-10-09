@@ -42,10 +42,11 @@ export default function ElectraAdminLogin({ onLoginSuccess }) {
         return;
       }
 
-      if (res && res.session) {
+      const session = res?.session || res?.admin;
+      if (session) {
         setIsLoading(false);
         if (onLoginSuccess) {
-          onLoginSuccess(res.session);
+          onLoginSuccess(session);
         }
         return;
       }
@@ -57,21 +58,22 @@ export default function ElectraAdminLogin({ onLoginSuccess }) {
       );
 
       if (matched) {
-        const session = {
+        const localSession = {
           userId: matched.user_id || matched.id,
           user_id: matched.user_id || matched.id,
+          id: matched.id || matched.user_id,
           email: matched.email,
           full_name: matched.full_name || 'Electoral Commission Admin',
           role: matched.role || 'electoral_admin',
-          scope: matched.scope || 'super_admin',
+          scope: matched.scope || 'electoral_admin',
           permissions: matched.permissions || ['*'],
           token: `electra_adm_${Date.now()}`
         };
-        localStorage.setItem('nacos_portal_admin_session', JSON.stringify(session));
+        localStorage.setItem('nacos_portal_admin_session', JSON.stringify(localSession));
         localStorage.setItem('nacos_portal_admin_last_activity', Date.now().toString());
         setIsLoading(false);
         if (onLoginSuccess) {
-          onLoginSuccess(session);
+          onLoginSuccess(localSession);
         }
         return;
       }

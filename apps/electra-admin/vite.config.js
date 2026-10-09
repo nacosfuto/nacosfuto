@@ -101,6 +101,7 @@ export default defineConfig({
       '@nacos/supabase/studentCsvEngine': path.resolve(__dirname, '../../packages/supabase/src/studentCsvEngine.js'),
       '@nacos/supabase/verifiedStudents': path.resolve(__dirname, '../../packages/supabase/src/verifiedStudents.js'),
       '@nacos/supabase': path.resolve(__dirname, '../../packages/supabase/src/index.js'),
+      '@nacos/database': path.resolve(__dirname, '../../packages/database/src/index.js'),
       '@nacos/config/academic': path.resolve(__dirname, '../../packages/config/academic.js'),
       '@nacos/config/idCardTemplate': path.resolve(__dirname, '../../packages/config/idCardTemplate.js'),
       '@nacos/config/urls': path.resolve(__dirname, '../../packages/config/urls.js'),

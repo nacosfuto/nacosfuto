@@ -10,6 +10,7 @@
 export const ADMIN_SCOPES = {
   MAIN_WEBSITE: 'main_website',
   STUDENT_PORTAL: 'student_portal',
+  ELECTORAL_ADMIN: 'electoral_admin',
   SUPER_ADMIN: 'super_admin'
 };
 

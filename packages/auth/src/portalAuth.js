@@ -12,12 +12,43 @@ export function getLocalPortalAdmins() {
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     } catch (e) {
       console.error(e);
     }
   }
-  return [];
+
+  const defaultAdmins = [
+    {
+      id: 'admin-super-ict',
+      user_id: 'usr-superadmin-ict',
+      email: 'ict.nacosfuto@gmail.com',
+      full_name: 'NACOS FUTO ICT / Super Administrator',
+      scope: ADMIN_SCOPES.SUPER_ADMIN,
+      role: 'super_admin',
+      permissions: ['*'],
+      is_active: true,
+      password_hash: '0c72b5bd44ae98f639e6d29d0429f1fade10ee23cd770e5b8fc9bd2ba248aeb6',
+      created_at: '2026-10-07T12:00:00Z'
+    },
+    {
+      id: 'admin-electra-isec',
+      user_id: 'usr-electra-isec',
+      email: 'isec.nacosfuto@gmail.com',
+      full_name: 'NACOS FUTO Independent Students Electoral Commission (ISEC)',
+      scope: 'electoral_admin',
+      role: 'electoral_admin',
+      permissions: ['*'],
+      is_active: true,
+      password_hash: '0c72b5bd44ae98f639e6d29d0429f1fade10ee23cd770e5b8fc9bd2ba248aeb6',
+      created_at: '2026-10-07T12:00:00Z'
+    }
+  ];
+
+  try {
+    localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(defaultAdmins));
+  } catch (_) {}
+  return defaultAdmins;
 }
 
 export async function loginPortalAdmin(email, password) {
@@ -40,7 +71,7 @@ export async function loginPortalAdmin(email, password) {
         .from('admin_scopes')
         .select('*')
         .or(`user_id.eq.${data.user.id},email.ilike.${cleanEmail}`)
-        .in('scope', [ADMIN_SCOPES.STUDENT_PORTAL, ADMIN_SCOPES.SUPER_ADMIN])
+        .in('scope', [ADMIN_SCOPES.STUDENT_PORTAL, ADMIN_SCOPES.SUPER_ADMIN, ADMIN_SCOPES.ELECTORAL_ADMIN, 'electoral_admin', 'electra_admin'])
         .eq('is_active', true)
         .maybeSingle();
 
@@ -67,13 +98,19 @@ export async function loginPortalAdmin(email, password) {
         const isAllowedScope = 
           dbAdmin.scope === ADMIN_SCOPES.STUDENT_PORTAL || 
           dbAdmin.scope === ADMIN_SCOPES.SUPER_ADMIN ||
+          dbAdmin.scope === ADMIN_SCOPES.ELECTORAL_ADMIN ||
+          dbAdmin.scope === 'electoral_admin' ||
+          dbAdmin.scope === 'electra_admin' ||
+          dbAdmin.scope === 'isec_admin' ||
           dbAdmin.role === 'super_admin' ||
           dbAdmin.role === 'superadmin' ||
-          dbAdmin.role === 'portal_admin';
+          dbAdmin.role === 'portal_admin' ||
+          dbAdmin.role === 'electoral_admin' ||
+          dbAdmin.role === 'isec_admin';
 
         if (!isAllowedScope) {
           return { 
-            error: `Access Denied: Your account holds the '${dbAdmin.scope}' scope and is not authorized to manage Student Portal data.` 
+            error: `Access Denied: Your account holds the '${dbAdmin.scope}' scope and is not authorized to access this administration console.` 
           };
         }
 
@@ -135,13 +172,19 @@ export async function loginPortalAdmin(email, password) {
       const isAllowedScope = 
         candidate.scope === ADMIN_SCOPES.STUDENT_PORTAL || 
         candidate.scope === ADMIN_SCOPES.SUPER_ADMIN ||
+        candidate.scope === ADMIN_SCOPES.ELECTORAL_ADMIN ||
+        candidate.scope === 'electoral_admin' ||
+        candidate.scope === 'electra_admin' ||
+        candidate.scope === 'isec_admin' ||
         candidate.role === 'super_admin' ||
         candidate.role === 'superadmin' ||
-        candidate.role === 'portal_admin';
+        candidate.role === 'portal_admin' ||
+        candidate.role === 'electoral_admin' ||
+        candidate.role === 'isec_admin';
 
       if (!isAllowedScope) {
         return { 
-          error: `Access Denied: Your account holds the '${candidate.scope}' scope and is not authorized to manage Student Portal data.` 
+          error: `Access Denied: Your account holds the '${candidate.scope}' scope and is not authorized to access this administration console.` 
         };
       }
 
@@ -187,7 +230,7 @@ export async function loginPortalAdmin(email, password) {
     localStorage.setItem(PORTAL_ADMIN_SESSION_KEY, JSON.stringify(portalAdminSession));
   }
 
-  return { success: true, admin: portalAdminSession };
+  return { success: true, session: portalAdminSession, admin: portalAdminSession };
 }
 
 export function getPortalAdminSession() {
@@ -197,7 +240,17 @@ export function getPortalAdminSession() {
 
   try {
     const session = JSON.parse(stored);
-    if (session && (session.scope === ADMIN_SCOPES.STUDENT_PORTAL || session.scope === ADMIN_SCOPES.SUPER_ADMIN)) {
+    if (session && (
+      session.scope === ADMIN_SCOPES.STUDENT_PORTAL || 
+      session.scope === ADMIN_SCOPES.SUPER_ADMIN ||
+      session.scope === ADMIN_SCOPES.ELECTORAL_ADMIN ||
+      session.scope === 'electoral_admin' ||
+      session.scope === 'electra_admin' ||
+      session.scope === 'isec_admin' ||
+      session.role === 'super_admin' ||
+      session.role === 'portal_admin' ||
+      session.role === 'electoral_admin'
+    )) {
       return session;
     }
   } catch (e) {

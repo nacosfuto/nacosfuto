@@ -17,10 +17,12 @@ const supabaseAnonKey =
   (typeof process !== 'undefined' && (process.env?.VITE_SUPABASE_ANON_KEY || process.env?.SUPABASE_ANON_KEY)) ||
   '';
 
-const dummyUrl = 'https://unconfigured-project.supabase.co';
-const dummyKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.unconfigured';
+const defaultUrl = 'https://jvxbyataifjsotudtqly.supabase.co';
+const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2eGJ5YXRhaWZqc290dWR0cWx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMTczNTksImV4cCI6MjEwNjg5MzM1OX0.rqE9EmdZLiHFTKmznpCXmurn8NHnt0jF6vm2Fa6YaOM';
 
-export const supabase = createClient(supabaseUrl || dummyUrl, supabaseAnonKey || dummyKey, {
+export const isSupabaseConfigured = Boolean((supabaseUrl || defaultUrl) && (supabaseAnonKey || defaultKey));
+
+export const supabase = createClient(supabaseUrl || defaultUrl, supabaseAnonKey || defaultKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
