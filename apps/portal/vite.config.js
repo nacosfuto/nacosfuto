@@ -119,8 +119,12 @@ function cloudinaryDevPlugin() {
           req.on('end', async () => {
             try {
               const data = JSON.parse(body || '{}');
-              const origin = req.headers.origin || `http://${req.headers.host || 'localhost:5174'}`;
-              const result = await createIdCardCheckout({ student: data.student, returnBaseUrl: origin });
+              const result = await createIdCardCheckout({ 
+                student: data.student, 
+                returnBaseUrl: origin,
+                academicSession: data.academicSession,
+                level: data.level
+              });
               res.setHeader('Content-Type', 'application/json');
               res.statusCode = result.statusCode || (result.error ? 400 : 200);
               res.end(JSON.stringify(result));

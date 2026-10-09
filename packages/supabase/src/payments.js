@@ -168,6 +168,8 @@ export async function getDuesSettings() {
   return defaultSettings;
 }
 
+export const getDepartmentalDuesFee = getDuesSettings;
+
 /**
  * Authoritatively updates the departmental dues fee configured by admin
  */
@@ -362,7 +364,7 @@ export async function adminManuallyClearDues({
   registrationNumber,
   studentName = 'Student',
   studentEmail = '',
-  amount = 2500,
+  amount = null,
   academicSession = null,
   level = 'All',
   paymentMethod = 'MANUAL_BURSARY',
@@ -373,7 +375,11 @@ export async function adminManuallyClearDues({
   const stId = String(studentId || regNo || `cust_${Date.now()}`);
   const targetSession = String(academicSession || getActiveAcademicSession()).trim();
   const now = new Date().toISOString();
-  const numAmount = Number(amount) || 2500;
+  let numAmount = Number(amount);
+  if (!numAmount || isNaN(numAmount)) {
+    const duesFeeObj = await getDepartmentalDuesFee(targetSession);
+    numAmount = Number(duesFeeObj?.dues_amount) || 0;
+  }
   const payRef = reference || `NACOS-DUES-MANUAL-${regNo || Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
   try {

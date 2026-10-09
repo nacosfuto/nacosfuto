@@ -130,10 +130,23 @@ export const PortalAdminSettings = () => {
   }, []);
 
   // Confirmation modal for high-impact session switch
-  const [confirmSessionModal, setConfirmSessionModal] = useState({ isOpen: false, session: null });
+  const [confirmSessionModal, setConfirmSessionModal] = useState({ isOpen: false, session: null, targetSession: null, targetName: '' });
 
   const requestSwitchSession = (sess) => {
-    setConfirmSessionModal({ isOpen: true, session: sess });
+    const sName = sess?.session_name || sess?.id || String(sess);
+    setConfirmSessionModal({
+      isOpen: true,
+      session: sess,
+      targetSession: sess,
+      targetName: sName
+    });
+  };
+
+  const confirmAndExecuteSwitchSession = async () => {
+    const target = confirmSessionModal.session || confirmSessionModal.targetSession;
+    if (target) {
+      await handleSwitchSession(target);
+    }
   };
 
   const handleSwitchSession = async (sess) => {

@@ -621,7 +621,7 @@ export const DashboardDuesTracker = ({ onSettingsUpdated }) => {
               {filteredRoster.map((student) => {
                 const isCleared = student.isCleared;
                 const p = student.payment;
-                const paidAmount = p?.amount || duesSettings.dues_amount || 2500;
+                const paidAmount = p?.amount || duesSettings?.dues_amount || 0;
 
                 return (
                   <tr key={student.id} className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
@@ -978,7 +978,7 @@ export const DashboardDuesTracker = ({ onSettingsUpdated }) => {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Amount Paid:</span>
-                <span className="font-bold text-inherit">₦{Number(receiptModalPayment.amount || 2500).toLocaleString()}.00 NGN</span>
+                <span className="font-bold text-inherit">₦{Number(receiptModalPayment.amount || duesSettings?.dues_amount || 0).toLocaleString()}.00 NGN</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Date Confirmed:</span>

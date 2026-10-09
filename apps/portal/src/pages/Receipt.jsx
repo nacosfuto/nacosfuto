@@ -13,7 +13,7 @@ import {
 import PortalLayout from '../components/PortalLayout';
 import { printReceiptSlip } from '../utils/printReceipt';
 import logoLight from '../assets/full-logo-light.png';
-import { supabase } from '@nacos/supabase';
+import { supabase, getDepartmentalDuesFee, getIdCardSettings } from '@nacos/supabase';
 import { getActiveAcademicSession } from '@nacos/config/academic';
 
 /**
@@ -96,9 +96,14 @@ const Receipt = () => {
             .limit(1)
             .maybeSingle();
           if (dRow) {
+            let duesFee = Number(dRow.amount);
+            if (!duesFee || isNaN(duesFee)) {
+              const liveDuesSettings = await getDepartmentalDuesFee(dRow.academic_session);
+              duesFee = Number(liveDuesSettings?.dues_amount) || 0;
+            }
             dbPayment = {
               reference: dRow.payment_reference,
-              amount: dRow.amount || 2500,
+              amount: duesFee,
               payment_type: 'Departmental Dues',
               provider: 'Bachs Online Gateway',
               created_at: dRow.created_at || dRow.paid_at,
@@ -117,9 +122,14 @@ const Receipt = () => {
             .limit(1)
             .maybeSingle();
           if (appRow) {
+            let idFee = Number(appRow.amount);
+            if (!idFee || isNaN(idFee)) {
+              const liveIdSettings = await getIdCardSettings();
+              idFee = Number(liveIdSettings?.id_card_fee) || 0;
+            }
             dbPayment = {
               reference: appRow.payment_reference || `NACOS/IDCARD/${cleanMatric}-2026`,
-              amount: 500,
+              amount: idFee,
               payment_type: 'Student ID Card Issuance',
               provider: 'Bachs Online Gateway',
               created_at: appRow.created_at,
@@ -128,9 +138,16 @@ const Receipt = () => {
           }
         }
 
-        const amt = dbPayment?.amount 
-          ? Number(dbPayment.amount) 
-          : (isIdCardType ? 500 : 2500);
+        let amt = Number(dbPayment?.amount);
+        if (!amt || isNaN(amt)) {
+          if (isIdCardType) {
+            const liveIdSettings = await getIdCardSettings();
+            amt = Number(liveIdSettings?.id_card_fee) || 0;
+          } else {
+            const liveDuesSettings = await getDepartmentalDuesFee();
+            amt = Number(liveDuesSettings?.dues_amount) || 0;
+          }
+        }
 
         const dDate = dbPayment?.paid_at || dbPayment?.created_at ? new Date(dbPayment.paid_at || dbPayment.created_at) : new Date();
 
@@ -175,7 +192,7 @@ const Receipt = () => {
 
   const numAmount = typeof receiptData?.rawAmount === 'number' 
     ? receiptData.rawAmount 
-    : (parseFloat(String(receiptData?.amount || 2500).replace(/[^0-9.]/g, '')) || 2500);
+    : (parseFloat(String(receiptData?.amount || 0).replace(/[^0-9.]/g, '')) || 0);
   const formattedAmount = numAmount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   if (loading) {

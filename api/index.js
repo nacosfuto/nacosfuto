@@ -162,7 +162,9 @@ export default async function handler(req, res) {
       const origin = body.returnBaseUrl || req.headers.origin || `http://${req.headers.host || 'localhost:5174'}`;
       const result = await createIdCardCheckout({
         student: body.student,
-        returnBaseUrl: origin
+        returnBaseUrl: origin,
+        academicSession: body.academicSession,
+        level: body.level
       });
       return res.status(result.statusCode || (result.error ? 400 : 200)).json(result);
     }

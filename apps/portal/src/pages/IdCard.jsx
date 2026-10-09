@@ -21,8 +21,12 @@ import {
   RotateCcw,
   Lock,
   Check,
-  Plus
+  Plus,
+  ChevronDown,
+  X
 } from 'lucide-react';
+import { getProgressiveLevels } from './Dues';
+import { SUPPORTED_ACADEMIC_SESSIONS, getActiveAcademicSession } from '@nacos/config/academic';
 import {
   getIdCardSettings,
   getStudentIdApplication,
@@ -92,6 +96,11 @@ const IdCard = () => {
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
 
+  // Progressive Level & Session Selection Modal
+  const [isNewPaymentModalOpen, setIsNewPaymentModalOpen] = useState(false);
+  const [formSession, setFormSession] = useState(getActiveAcademicSession);
+  const [formLevel, setFormLevel] = useState('100');
+
   useEffect(() => {
     loadStudentAndApplication();
 
@@ -125,6 +134,8 @@ const IdCard = () => {
     try {
       let parsed = JSON.parse(stored);
       setStudent(parsed);
+      const pLevels = getProgressiveLevels(parsed);
+      setFormLevel(pLevels[pLevels.length - 1] || '100');
 
       // Load settings dynamically with timeout
       const cfg = await withTimeout(getIdCardSettings(), 3000).catch(() => null);
@@ -538,7 +549,11 @@ const IdCard = () => {
   };
 
   // Universal "New Payment" Handler matching Dues.jsx
-  const handleNewPayment = async () => {
+  const handleNewPayment = () => {
+    setIsNewPaymentModalOpen(true);
+  };
+
+  const handleSubmitNewPayment = async () => {
     if (!application) {
       setIsApplying(true);
       const res = await createIdCardApplication(student);
@@ -551,12 +566,13 @@ const IdCard = () => {
         setApplication(res.application);
       }
     }
+    setIsNewPaymentModalOpen(false);
     setIsStepUpOpen(true);
   };
 
   // State 2 -> State 3: Bachs Payment Checkout Session
   const handlePayment = () => {
-    setIsStepUpOpen(true);
+    setIsNewPaymentModalOpen(true);
   };
 
   const executeIdCardCheckout = async (actionToken) => {
@@ -571,6 +587,8 @@ const IdCard = () => {
         },
         body: JSON.stringify({
           student,
+          academicSession: formSession,
+          level: formLevel,
           returnBaseUrl: window.location.origin,
           stepUpToken: actionToken
         })
@@ -1678,6 +1696,113 @@ const IdCard = () => {
 
 
       </div>
+
+      {/* Select Session & Progressive Level Modal for ID Card Payment */}
+      {isNewPaymentModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+          <div className="relative max-w-2xl w-full bg-white dark:bg-[#083002] rounded-xl border border-gray-200 dark:border-[#138601]/40 shadow-2xl p-6 sm:p-8 space-y-6">
+            
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-[#138601]/25">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+                  Select Session &amp; Level
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-green-200/70 mt-0.5">
+                  Generate an official student ID card clearance invoice.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsNewPaymentModalOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              {/* 1. Academic Session */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-2 sm:gap-4">
+                <label className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  Academic Session
+                </label>
+                <div className="sm:col-span-2 relative">
+                  <select
+                    value={formSession}
+                    onChange={(e) => setFormSession(e.target.value)}
+                    className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0e8040] cursor-pointer"
+                  >
+                    {SUPPORTED_ACADEMIC_SESSIONS.map((sess) => (
+                      <option key={sess} value={sess}>
+                        {sess} Academic Session
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-400 dark:text-green-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* 2. Payment Type */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-2 sm:gap-4">
+                <label className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  Payment Type
+                </label>
+                <div className="sm:col-span-2 relative">
+                  <select
+                    disabled
+                    className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-gray-50 dark:bg-[#041801]/60 text-gray-900 dark:text-white focus:outline-none cursor-default font-medium"
+                  >
+                    <option>
+                      Student ID Card Issuance (₦{Number(settings?.id_card_fee || 0).toLocaleString()})
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 3. Level (Progressive academic levels) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-2 sm:gap-4">
+                <label className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  Level
+                </label>
+                <div className="sm:col-span-2 relative">
+                  <select
+                    value={formLevel}
+                    onChange={(e) => setFormLevel(e.target.value)}
+                    className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-[#0e8040] dark:border-[#138601] bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0e8040] cursor-pointer font-medium"
+                  >
+                    {getProgressiveLevels(student).map((lvl) => (
+                      <option key={lvl} value={lvl}>
+                        {lvl} Level
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-400 dark:text-green-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-gray-100 dark:border-[#138601]/25 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsNewPaymentModalOpen(false)}
+                className="px-4 py-2.5 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#041801] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitNewPayment}
+                disabled={isPaying || isApplying}
+                className="px-6 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-xs inline-flex items-center gap-2"
+              >
+                Proceed to Checkout
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Step-Up Authentication Modal */}
       <StepUpAuthModal

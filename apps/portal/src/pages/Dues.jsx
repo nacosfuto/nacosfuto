@@ -372,8 +372,8 @@ const Dues = () => {
               department: user.department || 'Computer Science',
               level: `${targetLevel} LEVEL`,
               session: formSession,
-              amount: data.amount ? `₦${Number(data.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,500.00',
-              rawAmount: data.amount || 2500,
+              amount: data.amount ? `₦${Number(data.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : (duesFee ? `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦0.00'),
+              rawAmount: data.amount || duesFee || 0,
               paymentType: 'Departmental Dues (Full Payment)',
               paymentMethod: 'Bachs Online Gateway (Confirmed)',
               status: 'APPROVED'
@@ -839,12 +839,6 @@ const Dues = () => {
                     </select>
                     <ChevronDown className="w-4 h-4 text-gray-400 dark:text-green-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
-                </div>
-
-                {/* Progressive Level notice */}
-                <div className="text-[11px] text-gray-500 dark:text-green-200/60 bg-gray-50 dark:bg-[#041801]/60 p-3 rounded-lg border border-gray-200/60 dark:border-[#138601]/20">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#0e8040] inline mr-1 -mt-0.5" />
-                  Progressive academic levels active: Showing clearance tiers available for your registered standing ({user.level || '100 Level'}).
                 </div>
 
               </div>

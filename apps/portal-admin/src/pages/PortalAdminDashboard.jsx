@@ -61,7 +61,7 @@ export const PortalAdminDashboard = () => {
   });
 
   const [duesStats, setDuesStats] = useState({
-    rate: 2500,
+    rate: 0,
     academicSession: getActiveAcademicSession(),
     clearedCount: 0,
     totalRevenue: 0,
@@ -124,7 +124,7 @@ export const PortalAdminDashboard = () => {
         adminGetAllVerifiedStudents().catch(() => []),
         adminGetAllStudents().catch(() => []),
         portalAdminGetApplications({ status: 'ALL' }).catch(() => []),
-        getDuesSettings().catch(() => ({ dues_amount: 2500, academic_session: getActiveAcademicSession() })),
+        getDuesSettings().catch(() => ({ dues_amount: 0, academic_session: getActiveAcademicSession() })),
         adminGetAllDuesPayments().catch(() => [])
       ]);
 
@@ -176,7 +176,7 @@ export const PortalAdminDashboard = () => {
       // Authoritative Dues calculation scoped to active academic session
       const rawSession = duesSettingsRes?.academic_session || getActiveAcademicSession();
       const activeSession = typeof rawSession === 'string' ? rawSession : (rawSession?.sessionName || getActiveAcademicSession());
-      const activeDuesRate = Number(duesSettingsRes?.dues_amount || 2500);
+      const activeDuesRate = Number(duesSettingsRes?.dues_amount || 0);
 
       // Only count payments belonging to the active academic session
       const sessionDuesPayments = duesPayments.filter(p => {

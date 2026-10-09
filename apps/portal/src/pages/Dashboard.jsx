@@ -22,7 +22,7 @@ import {
   Megaphone
 } from 'lucide-react';
 import PortalLayout from '../components/PortalLayout';
-import { supabase, getLocalPaymentsDatabase, fetchResultsForStudent, fetchCourses } from '@nacos/supabase';
+import { supabase, getLocalPaymentsDatabase, fetchResultsForStudent, fetchCourses, getDepartmentalDuesFee } from '@nacos/supabase';
 
 const Dashboard = () => {
   const [user, setUser] = useState(() => {
@@ -159,7 +159,7 @@ const Dashboard = () => {
 
         if (legacyDues && legacyDues.length > 0) {
           legacyDues.forEach(item => {
-            const amt = Number(item.amount || 2500);
+            const amt = Number(item.amount || 0);
             const lvlRaw = item.level || '';
             const match = String(lvlRaw).match(/\d{3}/);
             const lvl = match ? match[0] : currentLvl;
@@ -182,9 +182,14 @@ const Dashboard = () => {
         currentUser?.has_paid_dues === true ||
         ['cleared', 'successful', 'verified', 'paid'].includes(String(currentUser?.payment_status).toLowerCase()))
     ) {
+      let dynFee = 0;
+      try {
+        const duesSettings = await getDepartmentalDuesFee();
+        dynFee = Number(duesSettings?.dues_amount) || 0;
+      } catch (_) {}
       matrix[currentLvl].dues = true;
-      matrix[currentLvl].duesAmount = 2500;
-      totalSum += 2500;
+      matrix[currentLvl].duesAmount = dynFee;
+      totalSum += dynFee;
     }
 
     setLevelClearanceMatrix(matrix);

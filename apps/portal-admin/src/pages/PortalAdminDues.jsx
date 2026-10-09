@@ -231,7 +231,7 @@ export default function PortalAdminDues() {
       }
     });
 
-    const activeRate = Number(duesSettings?.dues_amount || 2500);
+    const activeRate = Number(duesSettings?.dues_amount || 0);
 
     return accounts.map(st => {
       const reg = (st.registration_number || st.matricNumber || '').toUpperCase().trim();
@@ -318,7 +318,7 @@ export default function PortalAdminDues() {
     const totalStudents = studentRows.length;
     const clearedStudents = studentRows.filter(r => r.hasPaid).length;
     const unpaidStudents = totalStudents - clearedStudents;
-    const activeRate = Number(duesSettings?.dues_amount || 2500);
+    const activeRate = Number(duesSettings?.dues_amount || 0);
 
     const relevantPayments = duesPayments.filter(p => {
       if (p.status !== 'successful') return false;
@@ -386,7 +386,7 @@ export default function PortalAdminDues() {
         studentName: student.name,
         studentEmail: student.email !== '—' ? student.email : '',
         level: student.level,
-        amount: String(metrics.activeRate || 2500),
+        amount: String(metrics.activeRate || duesSettings?.dues_amount || ''),
         paymentMethod: 'FUTO Microfinance Bank Teller',
         reference: `BURS-${student.registrationNumber || Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
         note: 'Walk-in bursary clearance verified by departmental officer'
@@ -399,7 +399,7 @@ export default function PortalAdminDues() {
         studentName: '',
         studentEmail: '',
         level: '100 Level',
-        amount: String(metrics.activeRate || 2500),
+        amount: String(metrics.activeRate || duesSettings?.dues_amount || ''),
         paymentMethod: 'FUTO Microfinance Bank Teller',
         reference: `BURS-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
         note: 'Manual bank teller / POS clearance by portal officer'
@@ -424,7 +424,7 @@ export default function PortalAdminDues() {
         registrationNumber: clearanceForm.registrationNumber.trim(),
         studentName: clearanceForm.studentName || 'Student',
         studentEmail: clearanceForm.studentEmail,
-        amount: Number(clearanceForm.amount) || metrics.activeRate || 2500,
+        amount: Number(clearanceForm.amount) || metrics.activeRate || duesSettings?.dues_amount || 0,
         academicSession: (sessionFilter && sessionFilter !== 'ALL') ? sessionFilter : (duesSettings.academic_session || getActiveAcademicSession()),
         level: clearanceForm.level,
         paymentMethod: clearanceForm.paymentMethod,

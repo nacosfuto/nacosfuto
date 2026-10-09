@@ -283,16 +283,32 @@ export default function LiveResultsPage() {
             </div>
           </div>
           <div className="text-xl font-bold text-slate-900 font-display">
-            {turnoutByLevel && Object.keys(turnoutByLevel).length > 0
-              ? Object.entries(turnoutByLevel).sort((a,b) => b[1] - a[1])[0]?.[0] || 'All Cohorts'
-              : 'All Cohorts'}
+            {(() => {
+              const activeCohorts = turnoutByLevel
+                ? Object.entries(turnoutByLevel).filter(([_, cnt]) => Number(cnt) > 0).sort((a, b) => b[1] - a[1])
+                : [];
+              if (activeCohorts.length > 0) {
+                return `${activeCohorts[0][0]} (${activeCohorts[0][1]} ${activeCohorts[0][1] === 1 ? 'vote' : 'votes'})`;
+              }
+              return totalBallots > 0 ? 'All Cohorts' : 'No Turnout Yet';
+            })()}
           </div>
           <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[11px] text-slate-500">
-            {turnoutByLevel && Object.entries(turnoutByLevel).slice(0, 3).map(([lvl, cnt]) => (
-              <span key={lvl} className="px-2 py-0.5 rounded-[3px] bg-green-50 text-[#138601] font-bold border border-green-200">
-                {lvl}: {cnt}
-              </span>
-            ))}
+            {(() => {
+              const activeCohorts = turnoutByLevel
+                ? Object.entries(turnoutByLevel).filter(([_, cnt]) => Number(cnt) > 0).sort((a, b) => b[1] - a[1])
+                : [];
+              if (activeCohorts.length > 0) {
+                return activeCohorts.slice(0, 3).map(([lvl, cnt]) => (
+                  <span key={lvl} className="px-2 py-0.5 rounded-[3px] bg-green-50 text-[#138601] font-bold border border-green-200">
+                    {lvl}: {cnt}
+                  </span>
+                ));
+              }
+              return (
+                <span className="text-slate-400 italic">Awaiting live ballot submissions</span>
+              );
+            })()}
           </div>
         </div>
 

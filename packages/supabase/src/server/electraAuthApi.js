@@ -1220,7 +1220,7 @@ export async function handleGetAuthoritativeResults({ electionId }) {
   }
 
   // 4. Fetch voter turnout level breakdown from electra_accreditations / votes archive
-  let turnoutByLevel = { '100 Level': 0, '200 Level': 0, '300 Level': 0, '400 Level': 0, '500 Level': 0 };
+  let turnoutByLevel = {};
   if (supabase) {
     try {
       const { data: accList } = await supabase
@@ -1228,12 +1228,31 @@ export async function handleGetAuthoritativeResults({ electionId }) {
         .select('student_level, status')
         .eq('election_id', targetElectionId);
 
-      if (accList && accList.length > 0) {
-        accList.forEach(a => {
-          const lvl = a.student_level || '300 Level';
-          turnoutByLevel[lvl] = (turnoutByLevel[lvl] || 0) + 1;
-        });
+      let list = accList || [];
+      if (list.length === 0) {
+        // Check fallback storage in id_card_settings
+        const { data: row } = await supabase
+          .from('id_card_settings')
+          .select('academic_session')
+          .eq('id', ACCREDITATION_STORE_KEY)
+          .maybeSingle();
+
+        if (row?.academic_session) {
+          try {
+            const parsed = JSON.parse(row.academic_session);
+            list = (parsed || []).filter(a => a.election_id === targetElectionId);
+          } catch (_) {}
+        }
       }
+
+      list.forEach(a => {
+        const rawLvl = a.student_level || '';
+        const match = String(rawLvl).match(/\d{3}/);
+        const lvl = match ? `${match[0]} Level` : (rawLvl ? `${rawLvl} Level` : null);
+        if (lvl) {
+          turnoutByLevel[lvl] = (turnoutByLevel[lvl] || 0) + 1;
+        }
+      });
     } catch (_) {}
   }
 

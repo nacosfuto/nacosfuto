@@ -42,15 +42,15 @@ const PosThermalReceipt = ({
     department = 'Computer Science',
     level = '300 Level',
     session = '2026/2027',
-    amount = '2,500.00',
-    rawAmount = 2500,
+    amount = '0.00',
+    rawAmount = 0,
     paymentType = 'Departmental Dues',
     paymentMethod = 'Bachs Online Gateway',
     status = isInvoice ? 'PENDING' : 'APPROVED'
   } = data;
 
   const isPaid = !isInvoice && (status === 'APPROVED' || String(status).toLowerCase().includes('paid') || String(status).toLowerCase().includes('cleared'));
-  const numAmount = typeof rawAmount === 'number' ? rawAmount : (parseFloat(String(amount).replace(/[^0-9.]/g, '')) || 2500);
+  const numAmount = typeof rawAmount === 'number' ? rawAmount : (parseFloat(String(amount || 0).replace(/[^0-9.]/g, '')) || 0);
   const formattedAmount = numAmount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const handlePrint = () => {

@@ -713,7 +713,7 @@ export async function createPaymentCheckout({
 /**
  * Creates an authoritative Bachs checkout session for NACOS Student ID Card
  */
-export async function createIdCardCheckout({ student, returnBaseUrl, academicSession = null }) {
+export async function createIdCardCheckout({ student, returnBaseUrl, academicSession = null, level = null }) {
   const eligibility = validateStudentEligibility(student);
   if (!eligibility.eligible) {
     return { error: eligibility.reason, statusCode: 400 };
@@ -722,6 +722,7 @@ export async function createIdCardCheckout({ student, returnBaseUrl, academicSes
   const targetSession = String(academicSession || await getAuthoritativeActiveSession()).trim();
   const sessionYears = parseSessionYears(targetSession);
   const progression = calculateAcademicProgression(student, { targetSessionStartYear: sessionYears.startYear });
+  const targetLevel = level ? (String(level).includes('Level') ? String(level) : `${level} Level`) : (progression.level || '100 Level');
 
   return createPaymentCheckout({
     paymentType: 'ID_CARD',
@@ -730,7 +731,7 @@ export async function createIdCardCheckout({ student, returnBaseUrl, academicSes
     metadata: {
       academicSession: targetSession,
       academic_session: targetSession,
-      level: progression.level
+      level: targetLevel
     },
     returnBaseUrl,
     redirectPath: '/payment/success?paymentType=id_card',

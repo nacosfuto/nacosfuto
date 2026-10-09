@@ -6,6 +6,7 @@ import {
   XCircle,
   ArrowRight
 } from 'lucide-react';
+import { getDepartmentalDuesFee, getIdCardSettings } from '@nacos/supabase';
 
 /**
  * Bachs Gateway Payment Success Ticket View
@@ -27,6 +28,7 @@ const PaymentSuccess = () => {
   const paymentPurpose = isDues ? 'Departmental Dues Clearance' : 'Student ID Card Issuance';
 
   const [paymentData, setPaymentData] = useState(null);
+  const [dynamicFee, setDynamicFee] = useState(0);
   const [loading, setLoading] = useState(true);
   const [student, setStudent] = useState(null);
 
@@ -40,6 +42,7 @@ const PaymentSuccess = () => {
 
     const fetchPaymentDetails = async () => {
       setLoading(true);
+      let liveAmount = 0;
       try {
         if (reference) {
           const endpoint = isDues 
@@ -49,46 +52,58 @@ const PaymentSuccess = () => {
           if (res.ok) {
             const data = await res.json();
             setPaymentData(data);
+            liveAmount = Number(data?.amount || data?.payment?.amount || 0);
           }
         }
       } catch (err) {
         console.warn('Could not fetch payment record:', err);
       } finally {
+        if (!liveAmount) {
+          try {
+            if (isDues) {
+              const duesSettings = await getDepartmentalDuesFee();
+              liveAmount = Number(duesSettings?.dues_amount || 0);
+            } else {
+              const idSettings = await getIdCardSettings();
+              liveAmount = Number(idSettings?.id_card_fee || 0);
+            }
+          } catch (_) {}
+        }
+        setDynamicFee(liveAmount);
         setLoading(false);
+
+        // Broadcast authoritative confirmation across all browser tabs
+        try {
+          const channel = new BroadcastChannel('nacos_payment_sync');
+          channel.postMessage({ 
+            status: 'successful', 
+            reference, 
+            paymentType: isDues ? 'dues' : 'id_card',
+            amount: liveAmount
+          });
+          setTimeout(() => channel.close(), 1500);
+        } catch (e) {}
+
+        localStorage.setItem('nacos_last_payment_success', JSON.stringify({ 
+          reference, 
+          paymentType: isDues ? 'dues' : 'id_card',
+          amount: liveAmount,
+          timestamp: Date.now() 
+        }));
+        window.dispatchEvent(new Event('nacos_user_updated'));
       }
     };
 
     fetchPaymentDetails();
-
-    // Broadcast authoritative confirmation across all browser tabs
-    const fallbackAmount = isDues ? 2500 : 500;
-    try {
-      const channel = new BroadcastChannel('nacos_payment_sync');
-      channel.postMessage({ 
-        status: 'successful', 
-        reference, 
-        paymentType: isDues ? 'dues' : 'id_card',
-        amount: paymentData?.amount || fallbackAmount
-      });
-      setTimeout(() => channel.close(), 1500);
-    } catch (e) {}
-
-    localStorage.setItem('nacos_last_payment_success', JSON.stringify({ 
-      reference, 
-      paymentType: isDues ? 'dues' : 'id_card',
-      amount: paymentData?.amount || fallbackAmount,
-      timestamp: Date.now() 
-    }));
-    window.dispatchEvent(new Event('nacos_user_updated'));
   }, [reference, isDues]);
 
   const handleCloseTab = () => {
     window.close();
   };
 
-  const amountDisplay = paymentData?.amount 
-    ? Number(paymentData.amount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : (isDues ? '2,500.00' : '500.00');
+  const amountDisplay = (paymentData?.amount || dynamicFee)
+    ? Number(paymentData?.amount || dynamicFee).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : '0.00';
 
   const formattedDateTime = (() => {
     try {
