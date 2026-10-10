@@ -259,14 +259,14 @@ const IdCard = () => {
                 const amt = Number(p.amount || cfg?.id_card_fee || 0);
                 collectedIdCardPays.push({
                   id: p.id || p.reference,
-                  receiptNo: p.reference || `NACOS/IDCARD/${cleanMatric}-2026`,
-                  transactionId: p.provider_payment_id || p.id || `BCH-${Date.now()}`,
+                  receiptNo: p.reference || `NACOS/IDCARD/${cleanMatric}`,
+                  transactionId: p.provider_payment_id || p.id || p.reference || 'TX-CONFIRMED',
                   amount: amt,
                   formattedAmount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
-                  session: p.metadata?.academic_session || p.session || cfg?.academic_session || '2026/2027',
-                  level: `${parsed.level || parsed.current_level || 300} Level`,
+                  session: p.academic_session || p.metadata?.academic_session || p.session || cfg?.academic_session || getActiveAcademicSession(),
+                  level: p.level || p.metadata?.level || (parsed.level ? `${parsed.level} Level` : ''),
                   paymentType: 'Student ID Card Issuance',
-                  paymentMethod: p.provider ? `${p.provider} Online Gateway` : (p.payment_method || 'Bachs Online Gateway (Verified)'),
+                  paymentMethod: p.provider ? `${String(p.provider).replace(/bachs/gi, 'Online Gateway')} (Confirmed)` : 'Online Gateway (Confirmed)',
                   date: !isNaN(dObj.getTime()) ? dObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Current Session',
                   time: !isNaN(dObj.getTime()) ? dObj.toLocaleTimeString('en-GB') : '12:00:00',
                   status: 'APPROVED',
@@ -285,14 +285,14 @@ const IdCard = () => {
         const amt = Number(cfg?.id_card_fee || 0);
         collectedIdCardPays.push({
           id: `idpay-${cleanMatric}`,
-          receiptNo: app?.payment_reference || `NACOS/IDCARD/${cleanMatric}-2026`,
-          transactionId: `BCH-IDCARD-${cleanMatric}`,
+          receiptNo: app?.payment_reference || `NACOS/IDCARD/${cleanMatric}`,
+          transactionId: app?.payment_reference || 'TX-CONFIRMED',
           amount: amt,
           formattedAmount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
-          session: cfg?.academic_session || '2026/2027',
-          level: `${parsed?.level || 300} Level`,
+          session: app?.academic_session || cfg?.academic_session || getActiveAcademicSession(),
+          level: app?.level || (parsed?.level ? `${parsed.level} Level` : ''),
           paymentType: 'Student ID Card Issuance',
-          paymentMethod: 'Bachs Online Gateway (Confirmed)',
+          paymentMethod: 'Online Gateway (Confirmed)',
           date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
           time: new Date().toLocaleTimeString('en-GB'),
           status: 'APPROVED',
@@ -363,18 +363,18 @@ const IdCard = () => {
           const feeAmt = Number(event.data.amount || currentSettings?.id_card_fee || 0);
           const payload = {
             receiptNo: event.data.reference || `NACOS/IDCARD/${Date.now().toString().slice(-6)}`,
-            transactionId: `BCH-${Date.now()}`,
+            transactionId: event.data.reference || 'TX-CONFIRMED',
             date: new Date().toLocaleDateString('en-GB'),
             time: new Date().toLocaleTimeString('en-GB'),
             studentName: (currentStudent?.full_name || currentStudent?.name || 'Student Member').trim(),
-            matricNo: currentStudent?.matric || currentStudent?.registration_number || '20241450682',
+            matricNo: currentStudent?.matric || currentStudent?.registration_number || '',
             department: currentStudent?.department || 'Computer Science',
             level: lvl,
-            session: currentSettings?.academic_session || '2026/2027',
+            session: currentSettings?.academic_session || getActiveAcademicSession(),
             amount: feeAmt,
             rawAmount: feeAmt,
             paymentType: 'Student ID Card Issuance',
-            paymentMethod: 'Bachs Online Gateway (Confirmed)',
+            paymentMethod: 'Online Gateway (Confirmed)',
             status: 'APPROVED',
             isInvoice: false
           };
@@ -450,22 +450,22 @@ const IdCard = () => {
           
           await loadStudentAndApplication();
 
-          const lvl = student?.level ? `${student.level} Level` : '300 Level';
+          const lvl = student?.level ? `${student.level} Level` : '';
           const feeAmt = Number(data.payment?.amount || settings.id_card_fee || 0);
           const payload = {
             receiptNo: data.payment?.reference || reference || `NACOS/IDCARD/${Date.now().toString().slice(-6)}`,
-            transactionId: data.payment?.transaction_id || `BCH-${Date.now()}`,
+            transactionId: data.payment?.transaction_id || data.payment?.reference || reference || 'TX-CONFIRMED',
             date: new Date().toLocaleDateString('en-GB'),
             time: new Date().toLocaleTimeString('en-GB'),
             studentName: (student?.full_name || student?.name || 'Student Member').trim(),
-            matricNo: student?.matric || student?.registration_number || '20241450682',
+            matricNo: student?.matric || student?.registration_number || '',
             department: student?.department || 'Computer Science',
             level: lvl,
-            session: settings.academic_session || '2026/2027',
+            session: settings.academic_session || getActiveAcademicSession(),
             amount: feeAmt,
             rawAmount: feeAmt,
             paymentType: 'Student ID Card Issuance',
-            paymentMethod: 'Bachs Online Gateway (Confirmed)',
+            paymentMethod: 'Online Gateway (Confirmed)',
             status: 'APPROVED',
             isInvoice: false
           };
@@ -616,11 +616,11 @@ const IdCard = () => {
         setIsVerifyingPayment(true);
         setVerifyingReference(data.providerCheckoutId || data.reference || '');
         startPaymentVerificationPolling(data.reference, data.providerCheckoutId);
-        showNotification('Bachs checkout opened in a new tab. Complete payment there to proceed.');
+        showNotification('Payment checkout opened in a new tab. Complete payment there to proceed.');
         return;
       } else {
         setIsPaying(false);
-        showNotification('Could not obtain checkout session from Bachs gateway.', 'error');
+        showNotification('Could not obtain checkout session. Please try again.', 'error');
       }
     } catch (e) {
       setIsPaying(false);
@@ -635,7 +635,7 @@ const IdCard = () => {
       date: row.date,
       time: row.time,
       studentName: student?.full_name || student?.name || 'Student Member',
-      matricNo: student?.matric || student?.registration_number || '20241450682',
+      matricNo: student?.matric || student?.registration_number || '',
       department: student?.department || 'Computer Science',
       level: row.level,
       session: row.session,
@@ -1148,10 +1148,10 @@ const IdCard = () => {
                     <Clock className="w-3.5 h-3.5" /> Awaiting Webhook Confirmation
                   </span>
                   <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                    Verifying Payment with Bachs
+                    Verifying Payment Status
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
-                    We've detected your return from the Bachs payment gateway. We are waiting for authoritative server-to-server confirmation.
+                    We've detected your return from the secure payment gateway. We are waiting for authoritative server confirmation.
                   </p>
                 </div>
 
@@ -1185,7 +1185,7 @@ const IdCard = () => {
                     Payment Required to Continue
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
-                    Your ID card application (<span className="font-mono font-bold text-gray-800 dark:text-white">{application.application_number}</span>) has been initiated. Complete payment securely via <strong>Bachs</strong> to unlock passport upload.
+                    Your ID card application (<span className="font-mono font-bold text-gray-800 dark:text-white">{application.application_number}</span>) has been initiated. Complete payment securely to unlock passport upload.
                   </p>
                 </div>
 
@@ -1200,9 +1200,9 @@ const IdCard = () => {
                     <span className="font-semibold text-gray-800 dark:text-gray-200">NACOS Student ID Card</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-green-200/60">Gateway Provider:</span>
+                    <span className="text-gray-500 dark:text-green-200/60">Payment Gateway:</span>
                     <span className="font-semibold text-[#138601] dark:text-[#4bd043] flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Bachs (bachs.io)
+                      <Lock className="w-3 h-3" /> Secure Online Gateway
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -1223,7 +1223,7 @@ const IdCard = () => {
                     className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-                    <span>{isPaying ? 'Connecting to Bachs...' : (settings.id_card_fee ? `Pay ₦${Number(settings.id_card_fee).toLocaleString()} with Bachs` : 'Loading fee...')}</span>
+                    <span>{isPaying ? 'Connecting...' : 'Pay Now'}</span>
                   </button>
 
                   <div className="flex items-center justify-center gap-2 text-[11px] text-gray-400 dark:text-green-200/50">
@@ -1779,6 +1779,45 @@ const IdCard = () => {
                   <ChevronDown className="w-4 h-4 text-gray-400 dark:text-green-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
+
+              {/* Already Paid Warning */}
+              {(() => {
+                const isSelectedLevelAlreadyPaid = idCardPayments.some(p => {
+                  const pLvl = String(p.level || '').replace(/[^0-9]/g, '');
+                  const currentFormLvl = String(formLevel || '').replace(/[^0-9]/g, '');
+                  const pSess = String(p.session || '').trim();
+                  const currentFormSess = String(formSession || '').trim();
+                  return p.isPaid && ((pLvl && currentFormLvl && pLvl === currentFormLvl) || (pSess && currentFormSess && pSess === currentFormSess));
+                });
+                const matchingPaidRecord = idCardPayments.find(p => {
+                  const pLvl = String(p.level || '').replace(/[^0-9]/g, '');
+                  const currentFormLvl = String(formLevel || '').replace(/[^0-9]/g, '');
+                  const pSess = String(p.session || '').trim();
+                  const currentFormSess = String(formSession || '').trim();
+                  return p.isPaid && ((pLvl && currentFormLvl && pLvl === currentFormLvl) || (pSess && currentFormSess && pSess === currentFormSess));
+                });
+
+                if (isSelectedLevelAlreadyPaid) {
+                  return (
+                    <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-200">
+                      <span>This level / session is already cleared and verified.</span>
+                      {matchingPaidRecord && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsNewPaymentModalOpen(false);
+                            handleOpenReceipt(matchingPaidRecord);
+                          }}
+                          className="font-bold underline cursor-pointer text-[#0e8040] dark:text-[#4bd043]"
+                        >
+                          View Receipt
+                        </button>
+                      )}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             <div className="pt-4 border-t border-gray-100 dark:border-[#138601]/25 flex items-center justify-end gap-3">
@@ -1789,15 +1828,26 @@ const IdCard = () => {
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                onClick={handleSubmitNewPayment}
-                disabled={isPaying || isApplying}
-                className="px-6 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-xs inline-flex items-center gap-2"
-              >
-                Proceed to Checkout
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              {(() => {
+                const isSelectedLevelAlreadyPaid = idCardPayments.some(p => {
+                  const pLvl = String(p.level || '').replace(/[^0-9]/g, '');
+                  const currentFormLvl = String(formLevel || '').replace(/[^0-9]/g, '');
+                  const pSess = String(p.session || '').trim();
+                  const currentFormSess = String(formSession || '').trim();
+                  return p.isPaid && ((pLvl && currentFormLvl && pLvl === currentFormLvl) || (pSess && currentFormSess && pSess === currentFormSess));
+                });
+                return (
+                  <button
+                    type="button"
+                    onClick={handleSubmitNewPayment}
+                    disabled={isPaying || isApplying || isSelectedLevelAlreadyPaid}
+                    className="px-6 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-xs inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span>{isSelectedLevelAlreadyPaid ? 'Already Paid' : 'Pay Now'}</span>
+                    {!isSelectedLevelAlreadyPaid && <ArrowRight className="w-4 h-4" />}
+                  </button>
+                );
+              })()}
             </div>
 
           </div>
@@ -1811,7 +1861,7 @@ const IdCard = () => {
         onSuccess={(token) => executeIdCardCheckout(token)}
         purpose="PAYMENT_CONFIRMATION"
         title="Confirm NACOS ID Card Payment"
-        description="Verify your identity before proceeding to Bachs checkout."
+        description="Verify your identity before proceeding to secure checkout."
         user={student}
       />
     </PortalLayout>

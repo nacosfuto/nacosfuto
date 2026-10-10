@@ -16,7 +16,11 @@
     "./emailService": "./src/emailService.js",
     "./smsService": "./src/smsService.js",
     "./studentCsvEngine": "./src/studentCsvEngine.js",
-    "./server/emailDispatcher": "./src/server/emailDispatcher.js"
+    "./electraService": "./src/electraService.js",
+    "./payments": "./src/payments.js",
+    "./server/emailDispatcher": "./src/server/emailDispatcher.js",
+    "./server/electraAuthApi": "./src/server/electraAuthApi.js",
+    "./server/bachs": "./src/server/bachs.js"
   },
   "dependencies": {
     "@nacos/media": "*",

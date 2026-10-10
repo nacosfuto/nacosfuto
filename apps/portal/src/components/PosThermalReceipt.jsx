@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Printer, X } from 'lucide-react';
 import logoLight from '../assets/full-logo-light.png';
 import { printReceiptSlip } from '../utils/printReceipt';
+import { getActiveAcademicSession } from '@nacos/config/academic';
 
 /**
  * Authentic A4/A5 Sized POS Style Receipt
@@ -32,22 +33,22 @@ const PosThermalReceipt = ({
 
   if (!isOpen || !data) return null;
 
-  const {
-    receiptNo = 'NACOS-FUTO-001',
-    transactionId = 'BCH-TX-89214710',
-    date = new Date().toLocaleDateString('en-GB'),
-    time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-    studentName = 'Student Member',
-    matricNo = '20241450682',
-    department = 'Computer Science',
-    level = '300 Level',
-    session = '2026/2027',
-    amount = '0.00',
-    rawAmount = 0,
-    paymentType = 'Departmental Dues',
-    paymentMethod = 'Bachs Online Gateway',
-    status = isInvoice ? 'PENDING' : 'APPROVED'
-  } = data;
+  const activeSessionFallback = getActiveAcademicSession();
+
+  const receiptNo = data.receiptNo || (data.reference || data.id ? `REC-${String(data.reference || data.id).replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase()}` : 'NACOS-FUTO-REC');
+  const transactionId = data.transactionId || data.reference || data.transaction_reference || data.id || 'TX-CONFIRMED';
+  const date = data.date || (data.created_at ? new Date(data.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'));
+  const time = data.time || (data.created_at ? new Date(data.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+  const studentName = data.studentName || data.student_name || data.fullName || 'Student Member';
+  const matricNo = data.matricNo || data.reg_no || data.student_reg_no || data.matric_no || '';
+  const department = data.department || 'Computer Science';
+  const level = data.level || data.metadata?.level || '';
+  const session = data.session || data.academic_session || data.metadata?.session || activeSessionFallback;
+  const rawAmount = data.rawAmount !== undefined ? data.rawAmount : (data.amount !== undefined ? data.amount : 0);
+  const paymentType = data.paymentType || data.payment_type_label || (data.payment_type ? String(data.payment_type).replace(/_/g, ' ') : 'Departmental Dues');
+  const rawMethod = data.paymentMethod || data.payment_method || 'Online Gateway (Confirmed)';
+  const paymentMethod = String(rawMethod).replace(/bachs/gi, 'Online Gateway');
+  const status = isInvoice ? 'PENDING' : (data.status || 'APPROVED');
 
   const isPaid = !isInvoice && (status === 'APPROVED' || String(status).toLowerCase().includes('paid') || String(status).toLowerCase().includes('cleared'));
   const numAmount = typeof rawAmount === 'number' ? rawAmount : (parseFloat(String(amount || 0).replace(/[^0-9.]/g, '')) || 0);

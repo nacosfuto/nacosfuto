@@ -73,6 +73,48 @@ const PortalAdminRedirect = () => {
   );
 };
 
+const ElectraRedirect = () => {
+  const location = useLocation();
+  const { electra } = getAppUrls();
+
+  useEffect(() => {
+    const baseUrl = electra.replace(/\/+$/, '');
+    const cleanSearch = location.search || '';
+    const cleanPath = location.pathname.replace(/^\/electra/, '');
+    const destination = `${baseUrl}${cleanPath}${cleanSearch}`;
+    if (window.location.href !== destination) {
+      window.location.replace(destination);
+    }
+  }, [location, electra]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-8 bg-[#041801]">
+      <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+};
+
+const ElectraAdminRedirect = () => {
+  const location = useLocation();
+  const { electraAdmin } = getAppUrls();
+
+  useEffect(() => {
+    const baseUrl = electraAdmin.replace(/\/+$/, '');
+    const cleanSearch = location.search || '';
+    const cleanPath = location.pathname.replace(/^\/electra-admin/, '');
+    const destination = `${baseUrl}${cleanPath}${cleanSearch}`;
+    if (window.location.href !== destination) {
+      window.location.replace(destination);
+    }
+  }, [location, electraAdmin]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-8 bg-[#041801]">
+      <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+};
+
 function PortalSEOHandler() {
   const location = useLocation();
 
@@ -140,6 +182,12 @@ function App() {
             <Route path="/portal-admin" element={<PortalAdminRedirect />} />
             <Route path="/portal-admin/login" element={<PortalAdminRedirect />} />
             <Route path="/portal-admin/*" element={<PortalAdminRedirect />} />
+
+            {/* Dedicated ELECTRA Electoral Platform & Admin Routes */}
+            <Route path="/electra" element={<ElectraRedirect />} />
+            <Route path="/electra/*" element={<ElectraRedirect />} />
+            <Route path="/electra-admin" element={<ElectraAdminRedirect />} />
+            <Route path="/electra-admin/*" element={<ElectraAdminRedirect />} />
 
             {/* Dedicated Administrative Gateway & Control Center */}
             <Route path="/admin-hub" element={<AdminHub />} />

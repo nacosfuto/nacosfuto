@@ -333,7 +333,9 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
           });
       }
     } else if (pType === 'DEPARTMENTAL_DUES' || pType === 'DUES') {
-      const activeSession = paymentRecord.metadata?.academic_session || getDynamicAcademicSession(now);
+      const activeSession = paymentRecord.metadata?.academic_session || paymentRecord.academic_session || getDynamicAcademicSession(now);
+      const duesLevel = paymentRecord.metadata?.level || paymentRecord.level || 'All';
+      
       await supabase
         .from('dues_payments')
         .upsert({
@@ -341,13 +343,29 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
           student_id: studentId,
           amount: paymentRecord.amount,
           payment_reference: paymentRecord.reference,
-          payment_method: 'BACHS',
+          payment_method: paymentRecord.provider || 'ONLINE_GATEWAY',
           status: 'cleared',
           session: activeSession,
-          level: paymentRecord.metadata?.level || 'All',
+          level: duesLevel,
           created_at: now,
           updated_at: now
         }, { onConflict: 'payment_reference' });
+
+      try {
+        await supabase
+          .from('departmental_dues')
+          .upsert({
+            registration_number: regNo,
+            session: activeSession,
+            amount: paymentRecord.amount,
+            status: 'paid',
+            reference: paymentRecord.reference,
+            paid_at: now,
+            created_at: now
+          }, { onConflict: 'reference' });
+      } catch (dErr) {
+        console.warn('[Dues Fulfillment] departmental_dues sync notice:', dErr.message);
+      }
 
       await supabase
         .from('profiles')
@@ -454,8 +472,11 @@ export async function createPaymentCheckout({
   const progression = calculateAcademicProgression(student || customer || { registration_number: regNo }, {
     targetSessionStartYear: sessionYears.startYear
   });
-  const studentLevelDisplay = progression.level || (metadata?.level ? `${metadata.level} Level` : '100 Level');
-  const studentNumericLevel = progression.numericLevel || 1;
+  const requestedLevelNum = metadata?.level ? String(metadata.level).replace(/[^0-9]/g, '') : '';
+  const studentLevelDisplay = requestedLevelNum
+    ? `${requestedLevelNum} Level`
+    : (progression.level || (student.level ? `${student.level} Level` : '100 Level'));
+  const studentNumericLevel = requestedLevelNum ? parseInt(requestedLevelNum, 10) : (progression.numericLevel || 1);
 
   // 2. Prevent duplicate charges for non-repeatable payments
   try {
@@ -475,19 +496,94 @@ export async function createPaymentCheckout({
         dupQuery = dupQuery.eq('registration_number', regNo);
       }
 
-      // Session-specific deduplication for session-based payments (e.g. DEPARTMENTAL_DUES)
+      // Session & Level deduplication for session/level-based payments (DEPARTMENTAL_DUES and ID_CARD)
       if (normalizedType === 'DEPARTMENTAL_DUES' || normalizedType === 'DUES') {
-        dupQuery = dupQuery.or(`academic_session.eq.${targetSession},metadata->>academic_session.eq.${targetSession},metadata->>academicSession.eq.${targetSession}`);
-      }
+        const checkLevel = requestedLevelNum || String(studentNumericLevel);
+        const { data: allDuesPayments } = await dupQuery;
+        if (Array.isArray(allDuesPayments) && allDuesPayments.length > 0) {
+          const matchingPaid = allDuesPayments.find(p => {
+            const pLvl = String(p.level || p.metadata?.level || '').replace(/[^0-9]/g, '');
+            const pSess = String(p.academic_session || p.metadata?.academic_session || p.metadata?.academicSession || '').trim();
+            const sessMatch = pSess === targetSession;
+            const lvlMatch = Boolean(pLvl && checkLevel && pLvl === checkLevel);
+            return sessMatch || lvlMatch;
+          });
+          if (matchingPaid) {
+            return {
+              error: `Departmental dues payment for ${matchingPaid.level || checkLevel + ' Level'} (${matchingPaid.academic_session || targetSession}) is already completed and confirmed.`,
+              statusCode: 409,
+              alreadyPaid: true,
+              payment: matchingPaid
+            };
+          }
+        }
 
-      const { data: existingPaid } = await dupQuery.maybeSingle();
-      if (existingPaid) {
-        return {
-          error: `${title || normalizedType} payment for session ${targetSession} already completed and confirmed.`,
-          statusCode: 409,
-          alreadyPaid: true,
-          payment: existingPaid
-        };
+        // Also check departmental_dues table directly
+        try {
+          const { data: deptDuesRecord } = await supabase
+            .from('departmental_dues')
+            .select('*')
+            .eq('registration_number', regNo)
+            .eq('session', targetSession)
+            .in('status', ['paid', 'verified', 'cleared'])
+            .maybeSingle();
+
+          if (deptDuesRecord) {
+            return {
+              error: `Departmental dues payment for session ${targetSession} is already completed.`,
+              statusCode: 409,
+              alreadyPaid: true,
+              payment: deptDuesRecord
+            };
+          }
+        } catch (_) {}
+      } else if (normalizedType === 'ID_CARD') {
+        const checkLevel = requestedLevelNum || String(studentNumericLevel);
+        const { data: allIdPayments } = await dupQuery;
+        if (Array.isArray(allIdPayments) && allIdPayments.length > 0) {
+          const matchingIdPaid = allIdPayments.find(p => {
+            const pLvl = String(p.level || p.metadata?.level || '').replace(/[^0-9]/g, '');
+            const pSess = String(p.academic_session || p.metadata?.academic_session || p.metadata?.academicSession || '').trim();
+            return Boolean((pSess && pSess === targetSession) || (pLvl && checkLevel && pLvl === checkLevel));
+          });
+          if (matchingIdPaid) {
+            return {
+              error: `ID card payment for ${matchingIdPaid.level || checkLevel + ' Level'} (${matchingIdPaid.academic_session || targetSession}) is already completed and verified.`,
+              statusCode: 409,
+              alreadyPaid: true,
+              payment: matchingIdPaid
+            };
+          }
+        }
+
+        // Also check id_card_applications
+        try {
+          const { data: existingApp } = await supabase
+            .from('id_card_applications')
+            .select('*')
+            .eq('registration_number', regNo)
+            .in('payment_status', ['paid', 'verified'])
+            .maybeSingle();
+
+          if (existingApp) {
+            return {
+              error: `ID card application is already paid and verified for registration number ${regNo}.`,
+              statusCode: 409,
+              alreadyPaid: true,
+              payment: existingApp
+            };
+          }
+        } catch (_) {}
+      } else {
+        const { data: existingPaid } = await dupQuery.maybeSingle();
+        if (existingPaid) {
+          return {
+            error: `${title || normalizedType} payment already completed and confirmed.`,
+            statusCode: 409,
+            alreadyPaid: true,
+            payment: existingPaid
+          };
+        }
       }
     }
   } catch (err) {
@@ -751,7 +847,7 @@ export async function createDuesCheckout({ student, returnBaseUrl, academicSessi
   const targetSession = String(academicSession || await getAuthoritativeActiveSession()).trim();
   const sessionYears = parseSessionYears(targetSession);
   const progression = calculateAcademicProgression(student, { targetSessionStartYear: sessionYears.startYear });
-  const targetLevel = level || progression.level || '100 Level';
+  const targetLevel = level ? (String(level).includes('Level') ? String(level) : `${level} Level`) : (progression.level || '100 Level');
 
   return createPaymentCheckout({
     paymentType: 'DEPARTMENTAL_DUES',

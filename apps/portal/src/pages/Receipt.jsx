@@ -105,7 +105,7 @@ const Receipt = () => {
               reference: dRow.payment_reference,
               amount: duesFee,
               payment_type: 'Departmental Dues',
-              provider: 'Bachs Online Gateway',
+              provider: 'Online Gateway',
               created_at: dRow.created_at || dRow.paid_at,
               status: dRow.status || 'verified'
             };
@@ -128,10 +128,10 @@ const Receipt = () => {
               idFee = Number(liveIdSettings?.id_card_fee) || 0;
             }
             dbPayment = {
-              reference: appRow.payment_reference || `NACOS/IDCARD/${cleanMatric}-2026`,
+              reference: appRow.payment_reference || `NACOS/IDCARD/${cleanMatric}`,
               amount: idFee,
               payment_type: 'Student ID Card Issuance',
-              provider: 'Bachs Online Gateway',
+              provider: 'Online Gateway',
               created_at: appRow.created_at,
               status: appRow.payment_status || 'verified'
             };
@@ -152,19 +152,19 @@ const Receipt = () => {
         const dDate = dbPayment?.paid_at || dbPayment?.created_at ? new Date(dbPayment.paid_at || dbPayment.created_at) : new Date();
 
         const reconstructed = {
-          receiptNo: dbPayment?.reference || referenceParam || `NACOS/${isIdCardType ? 'IDCARD' : 'DUES'}/${cleanMatric || 'FUTO'}-2026`,
-          transactionId: dbPayment?.provider_payment_id || dbPayment?.id || `BCH-${Date.now()}`,
+          receiptNo: dbPayment?.reference || referenceParam || `NACOS/${isIdCardType ? 'IDCARD' : 'DUES'}/${cleanMatric || 'REC'}`,
+          transactionId: dbPayment?.provider_payment_id || dbPayment?.id || dbPayment?.reference || 'TX-CONFIRMED',
           date: !isNaN(dDate.getTime()) ? dDate.toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
           time: !isNaN(dDate.getTime()) ? dDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : new Date().toLocaleTimeString('en-GB'),
           studentName: currentUser?.full_name || currentUser?.name || 'Student Member',
-          matricNo: cleanMatric || '20241450682',
+          matricNo: cleanMatric || '',
           department: currentUser?.department || 'Computer Science',
-          level: dbPayment?.level || dbPayment?.metadata?.level || (currentUser?.level ? `${currentUser.level} Level` : '100 Level'),
+          level: dbPayment?.level || dbPayment?.metadata?.level || (currentUser?.level ? `${currentUser.level} Level` : ''),
           session: dbPayment?.academic_session || dbPayment?.metadata?.academic_session || dbPayment?.session || currentUser?.academic_session || getActiveAcademicSession(),
           amount: amt,
           rawAmount: amt,
           paymentType: isIdCardType ? 'Student ID Card Issuance' : 'Departmental Dues Clearance',
-          paymentMethod: dbPayment?.provider ? `${dbPayment.provider} Online Gateway (Confirmed)` : 'Bachs Online Gateway (Confirmed)',
+          paymentMethod: dbPayment?.provider ? `${String(dbPayment.provider).replace(/bachs/gi, 'Online Gateway')} (Confirmed)` : 'Online Gateway (Confirmed)',
           status: isInvoiceParam ? 'PENDING' : 'APPROVED',
           isInvoice: isInvoiceParam,
           isPaid: !isInvoiceParam

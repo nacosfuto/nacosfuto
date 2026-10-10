@@ -176,13 +176,13 @@ const Dues = () => {
       const formatted = {
         id: item.id || item.reference || `pay-${Math.random()}`,
         receiptNo: item.reference || item.payment_reference || `NACOS/DUES/${cleanMatric}-${lvl}L`,
-        transactionId: item.provider_payment_id || item.id || `BCH-${Date.now()}`,
+        transactionId: item.provider_payment_id || item.id || item.reference || 'TX-CONFIRMED',
         date: dateStr,
         time: timeStr,
         paymentDate: `${dateStr} (${timeStr} GMT+1)`,
         amount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
         rawAmount: amt,
-        paymentMethod: item.provider ? `${item.provider} Online Gateway` : (item.payment_method || 'Bachs Online Gateway (Verified)'),
+        paymentMethod: item.provider ? `${String(item.provider).replace(/bachs/gi, 'Online Gateway')} (Confirmed)` : 'Online Gateway (Confirmed)',
         status: 'Verified & Cleared',
         isPaid: true,
         session: session,
@@ -190,7 +190,7 @@ const Dues = () => {
         levelNum: lvl,
         paymentType: paymentTypeLabel,
         studentName: (currentUser?.full_name || currentUser?.name || item.customer_name || 'Student Member').trim(),
-        matricNo: cleanMatric || '20241450682',
+        matricNo: cleanMatric || '',
         department: currentUser?.department || 'Computer Science',
         created_at: item.created_at || item.paid_at || new Date().toISOString()
       };
@@ -364,18 +364,18 @@ const Dues = () => {
 
             const receiptPayload = {
               receiptNo: data.reference || ref || `NACOS/DUES/${matric}-${targetLevel}L`,
-              transactionId: data.payment?.provider_payment_id || `BCH-${Date.now()}`,
+              transactionId: data.payment?.provider_payment_id || data.reference || ref || 'TX-CONFIRMED',
               date: new Date().toLocaleDateString('en-GB'),
               time: new Date().toLocaleTimeString('en-GB'),
               studentName: (user.full_name || user.name || 'Student Member').trim(),
-              matricNo: matric || '20241450682',
+              matricNo: matric || '',
               department: user.department || 'Computer Science',
               level: `${targetLevel} LEVEL`,
               session: formSession,
               amount: data.amount ? `₦${Number(data.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : (duesFee ? `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦0.00'),
               rawAmount: data.amount || duesFee || 0,
               paymentType: 'Departmental Dues (Full Payment)',
-              paymentMethod: 'Bachs Online Gateway (Confirmed)',
+              paymentMethod: 'Online Gateway (Confirmed)',
               status: 'APPROVED'
             };
             navigate(`/receipt?reference=${encodeURIComponent(receiptPayload.receiptNo)}&type=dues`, {
@@ -413,11 +413,11 @@ const Dues = () => {
               setUser(parsed);
               await checkStatus(parsed);
 
-              const matric = parsed.registration_number || parsed.matric_number || parsed.matric || '20241450682';
+              const matric = parsed.registration_number || parsed.matric_number || parsed.matric || '';
               const targetLevel = parsed.level || '300';
               const receiptPayload = {
                 receiptNo: event.data.reference || parsed.receipt_no || `NACOS/DUES/${matric}-${targetLevel}L`,
-                transactionId: `BCH-${Date.now()}`,
+                transactionId: event.data.reference || 'TX-CONFIRMED',
                 date: new Date().toLocaleDateString('en-GB'),
                 time: new Date().toLocaleTimeString('en-GB'),
                 studentName: (parsed.full_name || parsed.name || 'Student Member').trim(),
@@ -428,7 +428,7 @@ const Dues = () => {
                 amount: event.data.amount ? `₦${Number(event.data.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
                 rawAmount: event.data.amount || duesFee,
                 paymentType: 'Departmental Dues (Full Payment)',
-                paymentMethod: 'Bachs Online Gateway (Confirmed)',
+                paymentMethod: 'Online Gateway (Confirmed)',
                 status: 'APPROVED'
               };
               navigate(`/receipt?reference=${encodeURIComponent(receiptPayload.receiptNo)}&type=dues`, {
@@ -550,7 +550,7 @@ const Dues = () => {
       }
 
       // Safe local fallback
-      const matric = user?.registration_number || user?.matric || '20241450682';
+      const matric = user?.registration_number || user?.matric || '';
       const res = await recordStudentPayment(matric, duesFee);
       if (res.success) {
         const updatedUser = {
@@ -583,9 +583,9 @@ const Dues = () => {
       paymentType: row.paymentType || 'Departmental Dues Clearance',
       department: user?.department || 'Computer Science',
       studentName: (user?.full_name || user?.name || 'Student Member').trim(),
-      matricNo: user?.matric || user?.registration_number || '20241450682',
+      matricNo: user?.matric || user?.registration_number || '',
       session: row.session || formSession || getActiveAcademicSession(),
-      level: row.level || '300 Level'
+      level: row.level || (formLevel ? `${formLevel} Level` : '')
     };
     navigate(`/receipt?reference=${encodeURIComponent(row.receiptNo || row.id)}&type=dues${isInvoice ? '&invoice=true' : ''}`, {
       state: { receiptData: payload }
@@ -646,6 +646,81 @@ const Dues = () => {
           </div>
         )}
 
+        {/* Academic Clearance Status by Level (Progressive Levels) */}
+        <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200/80 dark:border-[#138601]/30 shadow-xs p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 dark:border-[#138601]/25 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                Academic Clearance Status by Level
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-green-200/70">
+                Departmental dues obligations are recorded per level and must be cleared sequentially.
+              </p>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-[#0e8040] dark:text-[#4bd043] border border-emerald-200 dark:border-emerald-800/40 w-fit">
+              Current Standing: {user?.level || 100} Level
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {progressiveLevels.map((lvl) => {
+              const paidRow = levelDuesMap[lvl];
+              const isLvlPaid = Boolean(paidRow && paidRow.isPaid);
+
+              return (
+                <div
+                  key={lvl}
+                  className={`p-4 rounded-xl border transition-all ${
+                    isLvlPaid
+                      ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/50'
+                      : 'bg-gray-50/60 dark:bg-[#041801] border-gray-200 dark:border-[#138601]/20'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">
+                      {lvl} Level
+                    </span>
+                    {isLvlPaid ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-[#0e8040] dark:bg-emerald-950/60 dark:text-[#4bd043]">
+                        <CheckCircle className="w-3 h-3" /> PAID
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                        <Clock className="w-3 h-3" /> UNPAID
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-gray-500 dark:text-green-200/70 mb-3 font-mono">
+                    {isLvlPaid ? (paidRow.receiptNo || 'Verified') : `₦${Number(duesFee).toLocaleString()} Dues`}
+                  </p>
+
+                  {isLvlPaid ? (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPosReceipt(paidRow, false)}
+                      className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-[#0e8040] hover:text-[#0b6a34] bg-white dark:bg-[#083002] border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer text-center"
+                    >
+                      View Receipt
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormLevel(lvl);
+                        setIsNewInvoiceOpen(true);
+                      }}
+                      className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] shadow-xs transition-colors cursor-pointer text-center"
+                    >
+                      Pay Now
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* ==================================================================== */}
         {/* DEPARTMENTAL DUES HISTORY TABLE                                      */}
         {/* ==================================================================== */}
@@ -691,7 +766,7 @@ const Dues = () => {
                         </div>
                       </td>
                       <td className="py-4 px-4 font-semibold text-gray-900 dark:text-white">
-                        {row.rawAmount ? Number(row.rawAmount).toLocaleString() : '2,500'}
+                        {row.rawAmount ? Number(row.rawAmount).toLocaleString() : (duesFee ? Number(duesFee).toLocaleString() : '0')}
                       </td>
                       <td className="py-4 px-4 font-bold text-gray-700 dark:text-green-200">
                         {row.level}
@@ -841,9 +916,32 @@ const Dues = () => {
                   </div>
                 </div>
 
+                {/* Already Paid Warning in Modal */}
+                {(() => {
+                  const paidRow = levelDuesMap[formLevel];
+                  if (paidRow && paidRow.isPaid) {
+                    return (
+                      <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-200">
+                        <span>This level is already cleared and verified.</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsNewInvoiceOpen(false);
+                            handleOpenPosReceipt(paidRow, false);
+                          }}
+                          className="font-bold underline cursor-pointer text-[#0e8040] dark:text-[#4bd043]"
+                        >
+                          View Receipt
+                        </button>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
               </div>
 
-              {/* Modal Footer with "Submit" Button (Matching Image 2 green submit) */}
+              {/* Modal Footer with "Pay Now" Button */}
               <div className="pt-4 border-t border-gray-100 dark:border-[#138601]/25 flex items-center justify-end gap-3">
                 <button
                   type="button"
@@ -852,15 +950,20 @@ const Dues = () => {
                 >
                   Cancel
                 </button>
-                <button
-                  type="button"
-                  onClick={handleSubmitNewInvoice}
-                  disabled={isProcessing}
-                  className="px-6 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-xs inline-flex items-center gap-2"
-                >
-                  {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
-                  <span>Submit</span>
-                </button>
+                {(() => {
+                  const isAlreadyPaid = Boolean(levelDuesMap[formLevel]?.isPaid);
+                  return (
+                    <button
+                      type="button"
+                      onClick={handleSubmitNewInvoice}
+                      disabled={isProcessing || isAlreadyPaid}
+                      className="px-6 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-xs inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
+                      <span>{isAlreadyPaid ? 'Already Paid' : 'Pay Now'}</span>
+                    </button>
+                  );
+                })()}
               </div>
 
             </div>
@@ -879,13 +982,13 @@ const Dues = () => {
 
               <div className="space-y-2">
                 <span className="inline-block px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-emerald-100 text-[#0e8040] dark:bg-emerald-950/70 dark:text-[#4bd043]">
-                  Bachs Gateway Opened in New Tab
+                  Secure Gateway Opened in New Tab
                 </span>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                   Awaiting Payment Confirmation
                 </h3>
                 <p className="text-xs text-gray-600 dark:text-green-100/80 leading-relaxed">
-                  We opened the official Bachs checkout window in a new tab. Please complete payment there. This page will <strong>automatically refresh and display your official receipt</strong> once payment is received.
+                  We opened the secure checkout window in a new tab. Please complete payment there. This page will <strong>automatically refresh and display your official receipt</strong> once payment is received.
                 </p>
               </div>
 
@@ -925,7 +1028,7 @@ const Dues = () => {
           onSuccess={(token) => executeCheckout(token)}
           purpose="PAYMENT_CONFIRMATION"
           title="Confirm Departmental Dues Payment"
-          description={`Verify your identity before proceeding to Bachs payment checkout for ${formLevel} Level (${formSession}).`}
+          description={`Verify your identity before proceeding to secure payment checkout for ${formLevel} Level (${formSession}).`}
           user={user}
         />
 

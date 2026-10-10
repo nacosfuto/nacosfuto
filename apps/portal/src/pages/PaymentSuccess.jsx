@@ -202,7 +202,7 @@ const PaymentSuccess = () => {
 
                 <div className="space-y-0.5">
                   <span className="block font-bold text-xs text-gray-900 dark:text-white">
-                    Bachs Gateway Verified
+                    Official Gateway Verified
                   </span>
                   <span className="block text-[11px] text-gray-500 dark:text-green-200/60 font-medium">
                     {paymentPurpose}
