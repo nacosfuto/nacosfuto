@@ -27,6 +27,18 @@ import {
 export async function getAuthoritativeActiveSession() {
   try {
     if (supabase) {
+      // 1. Authoritative Primary Source of Truth: public.id_card_settings
+      const { data: idRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'default')
+        .maybeSingle();
+
+      if (idRow?.academic_session && typeof idRow.academic_session === 'string' && idRow.academic_session.includes('/')) {
+        return idRow.academic_session.trim();
+      }
+
+      // 2. Fallback check: academic_settings
       const { data: settingRow } = await supabase
         .from('academic_settings')
         .select('current_session')
@@ -35,16 +47,6 @@ export async function getAuthoritativeActiveSession() {
 
       if (settingRow?.current_session) {
         return settingRow.current_session;
-      }
-
-      const { data: sessionRow } = await supabase
-        .from('academic_sessions')
-        .select('session_name')
-        .eq('is_current', true)
-        .maybeSingle();
-
-      if (sessionRow?.session_name) {
-        return sessionRow.session_name;
       }
     }
   } catch (err) {

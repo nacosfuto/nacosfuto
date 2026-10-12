@@ -2,16 +2,17 @@
  * NACOS FUTO Academic Sessions & Progression Database Service
  * 
  * Manages institutional academic sessions, current active session state,
- * and database synchronization with Supabase.
+ * and authoritative database synchronization with Supabase.
  */
 
 import { supabase } from './client.js';
 import { 
   DEFAULT_ACADEMIC_YEAR_START,
+  SUPPORTED_ACADEMIC_SESSIONS,
   parseSessionYears, 
   getAcademicSession, 
   setActiveAcademicSession, 
-  getActiveAcademicSession,
+  getActiveAcademicSession, 
   getActiveAcademicYearStart,
   calculateAcademicProgression,
   onAcademicSessionChange
@@ -20,12 +21,15 @@ import {
 const LOCAL_SESSIONS_KEY = 'nacos_academic_sessions_db';
 
 const DEFAULT_SESSIONS = [
+  { id: 'sess-2022-2023', session_name: '2022/2023', start_year: 2022, end_year: 2023, is_current: false },
+  { id: 'sess-2023-2024', session_name: '2023/2024', start_year: 2023, end_year: 2024, is_current: false },
   { id: 'sess-2024-2025', session_name: '2024/2025', start_year: 2024, end_year: 2025, is_current: false },
   { id: 'sess-2025-2026', session_name: '2025/2026', start_year: 2025, end_year: 2026, is_current: false },
   { id: 'sess-2026-2027', session_name: '2026/2027', start_year: 2026, end_year: 2027, is_current: true },
   { id: 'sess-2027-2028', session_name: '2027/2028', start_year: 2027, end_year: 2028, is_current: false },
   { id: 'sess-2028-2029', session_name: '2028/2029', start_year: 2028, end_year: 2029, is_current: false },
   { id: 'sess-2029-2030', session_name: '2029/2030', start_year: 2029, end_year: 2030, is_current: false },
+  { id: 'sess-2030-2031', session_name: '2030/2031', start_year: 2030, end_year: 2031, is_current: false }
 ];
 
 function getLocalSessions() {
@@ -49,72 +53,101 @@ function saveLocalSessions(sessions) {
 }
 
 /**
+ * Builds or marks current in a list of sessions
+ */
+function buildSessionsListWithCurrent(baseSessions, targetStartYear) {
+  const currentStartYear = parseInt(targetStartYear, 10) || DEFAULT_ACADEMIC_YEAR_START;
+  const currentSessionName = getAcademicSession(currentStartYear);
+  const known = Array.isArray(baseSessions) && baseSessions.length > 0 ? baseSessions : DEFAULT_SESSIONS;
+
+  const mapped = known.map(s => ({
+    ...s,
+    is_current: s.start_year === currentStartYear || s.session_name === currentSessionName
+  }));
+
+  if (!mapped.some(s => s.is_current)) {
+    mapped.unshift({
+      id: `sess-${currentStartYear}-${currentStartYear + 1}`,
+      session_name: currentSessionName,
+      start_year: currentStartYear,
+      end_year: currentStartYear + 1,
+      is_current: true
+    });
+  }
+
+  mapped.sort((a, b) => b.start_year - a.start_year);
+  return mapped;
+}
+
+/**
  * Fetch all academic sessions from Supabase database
  * Returns ordered by start_year descending
+ * Authoritative Single Source of Truth: public.id_card_settings
  */
 export async function fetchAcademicSessionsFromDatabase() {
   if (supabase) {
     try {
-      // 1. Query academic_sessions table
-      const { data, error } = await supabase
-        .from('academic_sessions')
+      // 1. Authoritative check: id_card_settings table (where Admin Dashboard saves settings)
+      const { data: idSettingsRows, error: idErr } = await supabase
+        .from('id_card_settings')
         .select('*')
-        .order('start_year', { ascending: false });
+        .in('id', ['default', 'dues', 'store_academic_session_config']);
 
-      if (!error && Array.isArray(data) && data.length > 0) {
-        saveLocalSessions(data);
+      if (!idErr && Array.isArray(idSettingsRows) && idSettingsRows.length > 0) {
+        const defaultRow = idSettingsRows.find(r => r.id === 'default');
+        const configRow = idSettingsRows.find(r => r.id === 'store_academic_session_config');
 
-        // Find current session and sync in-memory state
-        const current = data.find(s => s.is_current === true);
-        if (current) {
-          setActiveAcademicSession(current.start_year);
+        const activeSessionRaw = configRow?.academic_session || defaultRow?.academic_session;
+        if (activeSessionRaw && typeof activeSessionRaw === 'string' && activeSessionRaw.includes('/')) {
+          const parsed = parseSessionYears(activeSessionRaw);
+          const activeStartYear = parsed.startYear;
+
+          // Sync in-memory state
+          setActiveAcademicSession(activeStartYear);
+
+          // Get sessions list
+          let rawList = configRow?.payload?.sessions;
+          if (!Array.isArray(rawList) || rawList.length === 0) {
+            rawList = getLocalSessions();
+          }
+
+          const finalizedSessions = buildSessionsListWithCurrent(rawList, activeStartYear);
+          saveLocalSessions(finalizedSessions);
+          return finalizedSessions;
         }
-        return data;
       }
 
-      // 2. Authoritative check: id_card_settings (where PortalAdminSettings saves academic_session)
-      const { data: idSettingsRow } = await supabase
-        .from('id_card_settings')
-        .select('academic_session')
+      // 2. Fallback check: academic_settings table
+      const { data: settingsRow } = await supabase
+        .from('academic_settings')
+        .select('*')
         .eq('id', 'default')
         .maybeSingle();
 
-      if (idSettingsRow?.academic_session && typeof idSettingsRow.academic_session === 'string' && idSettingsRow.academic_session.includes('/')) {
-        const parsed = parseSessionYears(idSettingsRow.academic_session);
+      if (settingsRow?.current_session) {
+        const parsed = parseSessionYears(settingsRow.current_session);
         setActiveAcademicSession(parsed.startYear);
-      } else {
-        // 3. Fallback: check academic_settings
-        const { data: settingsRow } = await supabase
-          .from('academic_settings')
-          .select('*')
-          .eq('id', 'default')
-          .maybeSingle();
-
-        if (settingsRow?.current_session) {
-          const parsed = parseSessionYears(settingsRow.current_session);
-          setActiveAcademicSession(parsed.startYear);
-        }
+        const finalizedSessions = buildSessionsListWithCurrent(getLocalSessions(), parsed.startYear);
+        saveLocalSessions(finalizedSessions);
+        return finalizedSessions;
       }
     } catch (e) {
       console.warn('[Academic Service] Supabase sessions query notice:', e.message);
     }
   }
 
-  // Fallback to local session store
-  const local = getLocalSessions();
-  const currentLocal = local.find(s => s.is_current === true);
-  if (currentLocal) {
-    setActiveAcademicSession(currentLocal.start_year);
-  }
-  return local;
+  // Fallback to local session store with active start year
+  const activeYear = getActiveAcademicYearStart();
+  const localList = buildSessionsListWithCurrent(getLocalSessions(), activeYear);
+  saveLocalSessions(localList);
+  return localList;
 }
 
 let _academicSyncInitialized = false;
 
 /**
  * Global Real-time Academic Session Synchronization Engine
- * Automatically aligns the student portal with the administrator's authoritative
- * academic session from Supabase in real-time.
+ * Automatically aligns the student portal, payment gateways, and admin dashboards in real time.
  */
 export function initAcademicSessionSync() {
   if (typeof window === 'undefined') return;
@@ -134,25 +167,36 @@ export function initAcademicSessionSync() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_settings' }, () => {
           fetchAcademicSessionsFromDatabase();
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'academic_settings' }, () => {
-          fetchAcademicSessionsFromDatabase();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'academic_sessions' }, () => {
-          fetchAcademicSessionsFromDatabase();
-        })
         .subscribe();
     } catch (_) {}
   }
 
-  // 3. Re-sync on focus/visibility change
+  // 3. Setup Cross-Tab BroadcastChannel listener
+  if (typeof BroadcastChannel !== 'undefined') {
+    try {
+      const channel = new BroadcastChannel('nacos_academic_session_sync');
+      channel.onmessage = (event) => {
+        const { startYear } = event?.data || {};
+        if (startYear) {
+          fetchAcademicSessionsFromDatabase();
+        }
+      };
+    } catch (_) {}
+  }
+
+  // 4. Re-sync on focus/visibility change
   window.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       fetchAcademicSessionsFromDatabase();
     }
   });
 
-  // 4. Automatically re-enrich local user profile when active academic session changes
-  onAcademicSessionChange(({ sessionName, startYear }) => {
+  window.addEventListener('focus', () => {
+    fetchAcademicSessionsFromDatabase();
+  });
+
+  // 5. Automatically re-enrich local user profile when active academic session changes
+  onAcademicSessionChange(({ sessionName }) => {
     try {
       const stored = localStorage.getItem('nacos_user');
       if (stored) {
@@ -198,8 +242,8 @@ export async function getCurrentAcademicSessionRecord() {
 
 /**
  * Switch active academic session system-wide
- * Automatically updates Supabase academic_sessions, academic_settings, and id_card_settings.
- * Broadcasts system event so all students' academic levels are dynamically recalculated.
+ * Automatically updates Supabase id_card_settings, payment_fees, and local state.
+ * Broadcasts system event so all students' academic levels and payments dynamically recalculate.
  */
 export async function setActiveAcademicSessionInDatabase(sessionIdentifier) {
   let targetSessionName = '';
@@ -211,7 +255,6 @@ export async function setActiveAcademicSessionInDatabase(sessionIdentifier) {
       const p = parseSessionYears(targetSessionName);
       targetStartYear = p.startYear;
     } else {
-      // Could be UUID
       const currentList = getLocalSessions();
       const match = currentList.find(s => s.id === sessionIdentifier);
       if (match) {
@@ -231,73 +274,114 @@ export async function setActiveAcademicSessionInDatabase(sessionIdentifier) {
   const targetEndYear = targetStartYear + 1;
   const now = new Date().toISOString();
 
-  // 1. Update Supabase Database
+  // Build finalized sessions list
+  const currentLocal = getLocalSessions();
+  const updatedSessionsList = buildSessionsListWithCurrent(currentLocal, targetStartYear);
+
+  // 1. Update Supabase Database Single Source of Truth: public.id_card_settings
   if (supabase) {
     try {
-      // A. Update academic_sessions table
-      // Mark all sessions as non-current
-      await supabase
-        .from('academic_sessions')
-        .update({ is_current: false, updated_at: now })
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-
-      // Set target session as current, or upsert it
-      const { error: upsertErr } = await supabase
-        .from('academic_sessions')
-        .upsert({
-          session_name: targetSessionName,
-          start_year: targetStartYear,
-          end_year: targetEndYear,
-          is_current: true,
-          updated_at: now
-        }, { onConflict: 'session_name' });
-
-      if (upsertErr) {
-        console.warn('[Academic Service] Session upsert notice:', upsertErr.message);
-      }
-
-      // B. Update academic_settings table
-      await supabase
-        .from('academic_settings')
-        .upsert({
-          id: 'default',
-          current_academic_year_start: targetStartYear,
-          current_session: targetSessionName,
-          updated_at: now
-        }, { onConflict: 'id' });
-
-      // C. Synchronize id_card_settings for unified dues, payment, and ID verification
-      await supabase
+      // Primary: id_card_settings (accessible, reliable, and verified)
+      const { error: idSaveErr } = await supabase
         .from('id_card_settings')
         .upsert([
           { id: 'default', academic_session: targetSessionName, updated_at: now },
-          { id: 'dues', academic_session: targetSessionName, updated_at: now }
+          { id: 'dues', academic_session: targetSessionName, updated_at: now },
+          { 
+            id: 'store_academic_session_config', 
+            academic_session: targetSessionName, 
+            payload: { 
+              active_session: targetSessionName, 
+              start_year: targetStartYear, 
+              end_year: targetEndYear,
+              sessions: updatedSessionsList 
+            }, 
+            updated_at: now 
+          }
         ], { onConflict: 'id' });
+
+      if (idSaveErr) {
+        console.warn('[Academic Service] id_card_settings upsert notice:', idSaveErr.message);
+      }
+
+      // Keep payment_fees synchronized for the target session
+      try {
+        const { data: fees } = await supabase
+          .from('payment_fees')
+          .select('id')
+          .eq('academic_session', targetSessionName);
+
+        if (!fees || fees.length === 0) {
+          await supabase.from('payment_fees').upsert([
+            {
+              fee_key: 'id_card',
+              title: 'Digital Student ID Card Issuance',
+              academic_session: targetSessionName,
+              amount: 5000,
+              currency: 'NGN',
+              is_active: true
+            },
+            {
+              fee_key: 'departmental_dues',
+              title: 'NACOS Departmental Dues',
+              academic_session: targetSessionName,
+              amount: 2500,
+              currency: 'NGN',
+              is_active: true
+            }
+          ], { onConflict: 'fee_key,academic_session' });
+        }
+      } catch (_) {}
+
+      // Optional attempt for academic_settings table
+      try {
+        await supabase
+          .from('academic_settings')
+          .upsert({
+            id: 'default',
+            current_academic_year_start: targetStartYear,
+            current_session: targetSessionName,
+            updated_at: now
+          }, { onConflict: 'id' });
+      } catch (_) {}
 
     } catch (dbErr) {
       console.error('[Academic Service] Database session update error:', dbErr);
     }
   }
 
-  // 2. Update local state and dispatch system-wide progression change event
+  // 2. Update in-memory state and dispatch system-wide progression change event
   setActiveAcademicSession(targetStartYear);
 
-  // Update local sessions cache
-  const localList = getLocalSessions();
-  const updatedLocal = localList.map(s => ({
-    ...s,
-    is_current: s.session_name === targetSessionName || s.start_year === targetStartYear
-  }));
-  if (!updatedLocal.some(s => s.is_current)) {
-    updatedLocal.unshift({
-      id: `sess-${targetStartYear}-${targetEndYear}`,
-      session_name: targetSessionName,
-      start_year: targetStartYear,
-      end_year: targetEndYear,
-      is_current: true
-    });
+  // 3. Save local sessions cache
+  saveLocalSessions(updatedSessionsList);
+
+  // 4. Broadcast across tabs and update local user if present
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('nacos_user');
+      if (stored) {
+        const u = JSON.parse(stored);
+        const progression = calculateAcademicProgression(u, targetSessionName);
+        const updated = {
+          ...u,
+          level: progression.levelString,
+          current_level: progression.levelString,
+          numeric_level: progression.numericLevel,
+          is_graduated: progression.isGraduated,
+          status: progression.isGraduated ? 'Graduated' : (u.status || 'Active'),
+          class_of: progression.classOf,
+          classOf: progression.classOf,
+          class_of_display: progression.classOfDisplay,
+          graduation_year: progression.expectedGraduationYear,
+          expected_graduation_year: progression.expectedGraduationYear,
+          academic_session: targetSessionName
+        };
+        localStorage.setItem('nacos_user', JSON.stringify(updated));
+      }
+      window.dispatchEvent(new Event('nacos_user_updated'));
+    } catch (_) {}
   }
-  saveLocalSessions(updatedLocal);
 
   return {
     success: true,
@@ -315,6 +399,7 @@ export async function createAcademicSessionInDatabase({ sessionName, startDate =
   const now = new Date().toISOString();
 
   const newSessionRecord = {
+    id: `sess-${parsed.startYear}-${parsed.endYear}`,
     session_name: parsed.sessionName,
     start_year: parsed.startYear,
     end_year: parsed.endYear,
@@ -324,37 +409,6 @@ export async function createAcademicSessionInDatabase({ sessionName, startDate =
     updated_at: now
   };
 
-  if (supabase) {
-    try {
-      if (isCurrent) {
-        await supabase
-          .from('academic_sessions')
-          .update({ is_current: false })
-          .neq('id', '00000000-0000-0000-0000-000000000000');
-      }
-
-      const { data, error } = await supabase
-        .from('academic_sessions')
-        .upsert(newSessionRecord, { onConflict: 'session_name' })
-        .select()
-        .single();
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (isCurrent) {
-        await setActiveAcademicSessionInDatabase(parsed.startYear);
-      }
-
-      return { success: true, session: data || newSessionRecord };
-    } catch (e) {
-      console.error('[Academic Service] Failed to create session:', e);
-      throw e;
-    }
-  }
-
-  // Local fallback
   const list = getLocalSessions();
   if (isCurrent) {
     list.forEach(s => s.is_current = false);
@@ -363,12 +417,30 @@ export async function createAcademicSessionInDatabase({ sessionName, startDate =
   if (existingIdx >= 0) {
     list[existingIdx] = { ...list[existingIdx], ...newSessionRecord };
   } else {
-    list.unshift({ id: `sess-${parsed.startYear}-${parsed.endYear}`, ...newSessionRecord });
+    list.unshift(newSessionRecord);
   }
+  list.sort((a, b) => b.start_year - a.start_year);
   saveLocalSessions(list);
 
+  if (supabase) {
+    try {
+      await supabase
+        .from('id_card_settings')
+        .upsert({
+          id: 'store_academic_session_config',
+          academic_session: isCurrent ? parsed.sessionName : getActiveAcademicSession(),
+          payload: {
+            active_session: isCurrent ? parsed.sessionName : getActiveAcademicSession(),
+            start_year: isCurrent ? parsed.startYear : getActiveAcademicYearStart(),
+            sessions: list
+          },
+          updated_at: now
+        }, { onConflict: 'id' });
+    } catch (_) {}
+  }
+
   if (isCurrent) {
-    setActiveAcademicSession(parsed.startYear);
+    await setActiveAcademicSessionInDatabase(parsed.startYear);
   }
 
   return { success: true, session: newSessionRecord };

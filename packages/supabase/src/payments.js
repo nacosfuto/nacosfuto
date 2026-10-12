@@ -125,7 +125,12 @@ export async function verifyPaymentStatus({ reference, paymentType, registration
   return { isPaid: false, status: 'unknown' };
 }
 
-import { getActiveAcademicSession } from '@nacos/config/academic';
+import { 
+  getActiveAcademicSession, 
+  parseSessionYears, 
+  getActiveAcademicYearStart, 
+  setActiveAcademicSession 
+} from '@nacos/config/academic';
 
 const DUES_SETTINGS_KEY = 'nacos_dues_settings_db';
 
@@ -150,6 +155,12 @@ export async function getDuesSettings() {
         .maybeSingle();
 
       if (!error && duesRow && duesRow.id_card_fee && !isNaN(Number(duesRow.id_card_fee))) {
+        if (duesRow.academic_session && typeof duesRow.academic_session === 'string' && duesRow.academic_session.includes('/')) {
+          const p = parseSessionYears(duesRow.academic_session);
+          if (p.startYear && p.startYear !== getActiveAcademicYearStart()) {
+            setActiveAcademicSession(p.startYear);
+          }
+        }
         const rawSession = duesRow.academic_session || getActiveAcademicSession();
         const cleanSession = typeof rawSession === 'string' ? rawSession : (rawSession?.sessionName || getActiveAcademicSession());
         return {

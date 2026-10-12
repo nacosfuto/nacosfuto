@@ -130,6 +130,33 @@ if (typeof window !== 'undefined') {
       });
     }
   });
+
+  if (typeof BroadcastChannel !== 'undefined') {
+    try {
+      const channel = new BroadcastChannel('nacos_academic_session_sync');
+      channel.onmessage = (event) => {
+        const { startYear, sessionName } = event?.data || {};
+        if (startYear && startYear !== _activeAcademicYearStart) {
+          _activeAcademicYearStart = startYear;
+          if (typeof localStorage !== 'undefined') {
+            try { localStorage.setItem(SESSION_STORAGE_KEY, String(startYear)); } catch (_) {}
+          }
+          const sName = sessionName || getAcademicSession(startYear);
+          const payload = {
+            startYear,
+            sessionName: sName,
+            session: sName,
+            toString() { return sName; },
+            valueOf() { return sName; }
+          };
+          _sessionSubscribers.forEach((cb) => {
+            try { cb(payload, sName); } catch (_) {}
+          });
+          window.dispatchEvent(new CustomEvent(SESSION_EVENT_NAME, { detail: payload }));
+        }
+      };
+    } catch (_) {}
+  }
 }
 
 /**
@@ -178,6 +205,14 @@ export function setActiveAcademicSession(sessionOrYear) {
         detail
       }));
     } catch (_) {}
+
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        const channel = new BroadcastChannel('nacos_academic_session_sync');
+        channel.postMessage({ startYear, sessionName });
+        channel.close();
+      } catch (_) {}
+    }
   }
 
   return sessionName;
@@ -368,18 +403,24 @@ export function calculateAcademicProgression(input, options = {}) {
       duration = DEFAULT_PROGRAMME_DURATION;
     }
 
-    if (input.admission_year !== undefined && input.admission_year !== null && input.admission_year !== '') {
-      rawAdmissionYear = parseInt(input.admission_year, 10);
-    } else if (input.admissionYear !== undefined && input.admissionYear !== null && input.admissionYear !== '') {
-      rawAdmissionYear = parseInt(input.admissionYear, 10);
-    } else if (input.entry_year !== undefined && input.entry_year !== null && input.entry_year !== '') {
-      rawAdmissionYear = parseInt(input.entry_year, 10);
-    } else if (input.entryYear !== undefined && input.entryYear !== null && input.entryYear !== '') {
-      rawAdmissionYear = parseInt(input.entryYear, 10);
-    } else if (regNo) {
+    // 1. Authoritative matriculation year from registration number (FUTO intake encoding)
+    if (regNo) {
       const parsed = parseAdmissionYear(regNo, currentYearStart);
-      if (parsed.valid) {
+      if (parsed.valid && parsed.admissionYear) {
         rawAdmissionYear = parsed.admissionYear;
+      }
+    }
+
+    // 2. Explicit admission_year fields on record if not already parsed
+    if (!rawAdmissionYear || isNaN(rawAdmissionYear)) {
+      if (input.admission_year !== undefined && input.admission_year !== null && input.admission_year !== '') {
+        rawAdmissionYear = parseInt(input.admission_year, 10);
+      } else if (input.admissionYear !== undefined && input.admissionYear !== null && input.admissionYear !== '') {
+        rawAdmissionYear = parseInt(input.admissionYear, 10);
+      } else if (input.entry_year !== undefined && input.entry_year !== null && input.entry_year !== '') {
+        rawAdmissionYear = parseInt(input.entry_year, 10);
+      } else if (input.entryYear !== undefined && input.entryYear !== null && input.entryYear !== '') {
+        rawAdmissionYear = parseInt(input.entryYear, 10);
       }
     }
 
@@ -469,6 +510,7 @@ export function calculateAcademicProgression(input, options = {}) {
 
   // Has reached or passed graduation point
   if (isGraduatedOverride || numericLevel > duration) {
+    const classYearString = `Graduated, Class of ${classOf}`;
     return {
       valid: true,
       admissionYear,
@@ -476,9 +518,9 @@ export function calculateAcademicProgression(input, options = {}) {
       academicSession: sessionName,
       numericLevel,
       levelNumber: numericLevel,
-      level: 'Graduated',
-      levelString: 'Graduated',
-      levelDisplay: 'Graduated',
+      level: classYearString,
+      levelString: classYearString,
+      levelDisplay: classYearString,
       isGraduated: true,
       status: 'Graduated',
       expectedGraduationYear,

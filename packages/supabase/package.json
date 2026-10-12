@@ -20,7 +20,8 @@
     "./payments": "./src/payments.js",
     "./server/emailDispatcher": "./src/server/emailDispatcher.js",
     "./server/electraAuthApi": "./src/server/electraAuthApi.js",
-    "./server/bachs": "./src/server/bachs.js"
+    "./server/bachs": "./src/server/bachs.js",
+    "./academicProgressionService": "./src/academicProgressionService.js"
   },
   "dependencies": {
     "@nacos/media": "*",

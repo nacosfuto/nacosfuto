@@ -4,7 +4,13 @@ import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
 import { getLocalStudentsDatabase } from './auth.js';
 import { uploadMedia, CLOUDINARY_FOLDERS, getOptimizedImageUrl, idTemplateMaster, idTemplateBack, idTemplateFrame } from '@nacos/media';
 import QRCode from 'qrcode';
-import { getActiveAcademicSession, calculateAcademicProgression } from '@nacos/config/academic';
+import { 
+  getActiveAcademicSession, 
+  calculateAcademicProgression,
+  parseSessionYears,
+  getActiveAcademicYearStart,
+  setActiveAcademicSession
+} from '@nacos/config/academic';
 
 const PAYMENTS_STORAGE_KEY = 'nacos_payments_db';
 const ID_APPLICATIONS_STORAGE_KEY = 'nacos_id_applications_db';
@@ -52,6 +58,12 @@ export async function getIdCardSettings() {
         .maybeSingle();
 
       if (!error && data && data.id_card_fee) {
+        if (data.academic_session && typeof data.academic_session === 'string' && data.academic_session.includes('/')) {
+          const p = parseSessionYears(data.academic_session);
+          if (p.startYear && p.startYear !== getActiveAcademicYearStart()) {
+            setActiveAcademicSession(p.startYear);
+          }
+        }
         return {
           id: 'default',
           id_card_fee: Number(data.id_card_fee),
@@ -99,6 +111,11 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
             id_card_fee: duesNum,
             academic_session: session,
             is_application_open: true,
+            updated_at: now
+          },
+          {
+            id: 'store_academic_session_config',
+            academic_session: session,
             updated_at: now
           }
         ], { onConflict: 'id' });

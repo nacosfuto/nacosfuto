@@ -22,7 +22,14 @@ import {
   Megaphone
 } from 'lucide-react';
 import PortalLayout from '../components/PortalLayout';
-import { supabase, getLocalPaymentsDatabase, fetchResultsForStudent, fetchCourses, getDepartmentalDuesFee } from '@nacos/supabase';
+import { 
+  supabase, 
+  getLocalPaymentsDatabase, 
+  fetchResultsForStudent, 
+  fetchCourses, 
+  getDepartmentalDuesFee,
+  initAcademicSessionSync 
+} from '@nacos/supabase';
 import { enrichStudentProfile } from '@nacos/supabase/auth';
 import { 
   calculateAcademicProgression, 
@@ -297,6 +304,7 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
+    initAcademicSessionSync();
     const handleUserUpdate = async () => {
       const stored = localStorage.getItem('nacos_user');
       if (!stored) {
@@ -373,9 +381,13 @@ const Dashboard = () => {
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
               Welcome, {firstName}!
             </h1>
-            {isGraduated && (
+            {isGraduated ? (
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-[#041801] text-gray-800 dark:text-green-200 border border-gray-200 dark:border-[#138601]/30">
                 Alumni • Class of {graduationYear}
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-[#041801] text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-[#138601]/30">
+                {studentLevelNum} Level • {getActiveAcademicSession()} Session
               </span>
             )}
           </div>

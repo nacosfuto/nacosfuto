@@ -471,7 +471,8 @@ const Dues = () => {
 
     window.addEventListener('storage', handleStorageEvent);
     window.addEventListener('nacos_user_updated', handleUserUpdated);
-    const unsubSession = onAcademicSessionChange(() => {
+    const unsubSession = onAcademicSessionChange(({ sessionName }) => {
+      if (sessionName) setFormSession(sessionName);
       handleUserUpdated();
     });
 

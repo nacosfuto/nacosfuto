@@ -123,7 +123,8 @@ const IdCard = () => {
       }
     };
 
-    const unsubSession = onAcademicSessionChange(() => {
+    const unsubSession = onAcademicSessionChange(({ sessionName }) => {
+      if (sessionName) setFormSession(sessionName);
       loadStudentAndApplication();
     });
 

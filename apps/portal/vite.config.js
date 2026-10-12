@@ -577,6 +577,7 @@ export default defineConfig({
       '@nacos/supabase/auth': path.resolve(__dirname, '../../packages/supabase/src/auth.js'),
       '@nacos/supabase/idCard': path.resolve(__dirname, '../../packages/supabase/src/idCard.js'),
       '@nacos/supabase/media': path.resolve(__dirname, '../../packages/supabase/src/media.js'),
+      '@nacos/supabase/academicProgressionService': path.resolve(__dirname, '../../packages/supabase/src/academicProgressionService.js'),
       '@nacos/supabase': path.resolve(__dirname, '../../packages/supabase/src/index.js'),
       '@nacos/ui': path.resolve(__dirname, '../../packages/ui/src/index.js'),
       '@nacos/types': path.resolve(__dirname, '../../packages/types/src/index.js'),
