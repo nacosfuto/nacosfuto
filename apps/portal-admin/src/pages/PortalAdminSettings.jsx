@@ -86,7 +86,8 @@ export const PortalAdminSettings = () => {
     fullName: '',
     email: '',
     role: 'course_adviser',
-    assignedLevel: '100'
+    assignedLevel: '100',
+    password: ''
   });
   const [deleteAdminModal, setDeleteAdminModal] = useState({ isOpen: false, admin: null, isDeleting: false });
 
@@ -215,6 +216,10 @@ export const PortalAdminSettings = () => {
 
   const handleCreateAdmin = async (e) => {
     e.preventDefault();
+    if (!newAdminData.password || newAdminData.password.trim().length < 6) {
+      setAddAdminError('Please enter an initial password with at least 6 characters.');
+      return;
+    }
     setIsAddingAdmin(true);
     setAddAdminError('');
     try {
@@ -223,7 +228,7 @@ export const PortalAdminSettings = () => {
         email: newAdminData.email,
         role: newAdminData.role,
         assignedLevel: newAdminData.assignedLevel,
-        initialPassword: newAdminData.password || 'password'
+        initialPassword: newAdminData.password.trim()
       });
 
       if (res?.error) {
@@ -237,7 +242,7 @@ export const PortalAdminSettings = () => {
           email: '',
           role: 'course_adviser',
           assignedLevel: '100',
-          password: 'password'
+          password: ''
         });
         setTimeout(() => setAdminUpdateMsg(''), 4000);
       }
@@ -826,16 +831,17 @@ export const PortalAdminSettings = () => {
 
                 <div>
                   <label className="block font-semibold text-gray-700 dark:text-green-200 mb-1">
-                    Initial Password
+                    Initial Password *
                   </label>
                   <input
                     type="text"
                     required
                     value={newAdminData.password}
                     onChange={(e) => setNewAdminData({ ...newAdminData, password: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/40 text-gray-900 dark:text-white font-mono"
+                    placeholder="Enter initial password (min. 6 characters)"
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/40 text-gray-900 dark:text-white font-mono text-sm"
                   />
-                  <span className="text-[10px] text-gray-400 mt-1 block">Default initial password is 'password'. Admin can change after login.</span>
+                  <span className="text-[10px] text-gray-400 mt-1 block">Set an initial password. The administrator can change or reset this password anytime via email verification.</span>
                 </div>
 
                 <div className="pt-2 flex items-center justify-end gap-2.5">

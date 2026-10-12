@@ -37,6 +37,7 @@ const AdminUsers = () => {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
+    password: '',
     scope: 'main_website',
     role: 'website_admin',
     assigned_level: 'all',
@@ -143,6 +144,10 @@ const AdminUsers = () => {
   // Add Administrator Submit
   const handleInvite = async (e) => {
     e.preventDefault();
+    if (!formData.password || formData.password.trim().length < 6) {
+      showNotification('Please enter an initial password with at least 6 characters.', 'error');
+      return;
+    }
     setActionLoadingId('invite');
     try {
       const res = await superAdminCreateAdmin(formData);
@@ -154,6 +159,7 @@ const AdminUsers = () => {
         setFormData({
           fullName: '',
           email: '',
+          password: '',
           scope: 'main_website',
           role: 'website_admin',
           assigned_level: 'all',
@@ -467,6 +473,21 @@ const AdminUsers = () => {
                   />
                   <p className="text-[10px] text-gray-400 mt-1">
                     An official welcome and setup email will be automatically sent to this address via Resend.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1 text-gray-700 dark:text-green-200">Initial Access Password *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="Enter initial password (min. 6 characters)"
+                    className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 text-gray-900 dark:text-white font-mono text-sm"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Set a secure initial password. The administrator can change or reset this password anytime via email verification.
                   </p>
                 </div>
 

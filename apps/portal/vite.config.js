@@ -229,31 +229,42 @@ function cloudinaryDevPlugin() {
           return;
         }
 
-        if (req.url?.startsWith('/api/webhooks/bachs') && req.method === 'POST') {
-          let body = '';
-          req.on('data', chunk => { body += chunk; });
-          req.on('end', async () => {
-            try {
-              const signature = req.headers['x-bachs-signature'] || req.headers['bachs-signature'] || '';
-              const isValid = verifyBachsWebhookSignature(body, signature);
-              if (!isValid) {
-                res.statusCode = 401;
+        if (
+          (req.url?.startsWith('/api/webhooks/bachs') || req.url?.startsWith('/api/payments/webhook') || req.url?.startsWith('/api/webhook'))
+        ) {
+          if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ status: 'ok', service: 'nacos-bachs-webhook-receiver', ready: true }));
+            return;
+          }
+
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => { body += chunk; });
+            req.on('end', async () => {
+              try {
+                const signature = req.headers['x-bachs-signature'] || req.headers['bachs-signature'] || req.headers['x-signature'] || '';
+                const isValid = verifyBachsWebhookSignature(body, signature);
+                if (!isValid && process.env.NODE_ENV === 'production') {
+                  res.statusCode = 401;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ error: 'Invalid Bachs signature' }));
+                  return;
+                }
+                const event = JSON.parse(body || '{}');
+                const result = await processBachsWebhook(event);
                 res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'Invalid Bachs signature' }));
-                return;
+                res.statusCode = result.statusCode || (result.error ? 400 : 200);
+                res.end(JSON.stringify(result));
+              } catch (e) {
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: e.message }));
               }
-              const event = JSON.parse(body || '{}');
-              const result = await processBachsWebhook(event);
-              res.setHeader('Content-Type', 'application/json');
-              res.statusCode = result.statusCode || (result.error ? 400 : 200);
-              res.end(JSON.stringify(result));
-            } catch (e) {
-              res.statusCode = 500;
-              res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ error: e.message }));
-            }
-          });
-          return;
+            });
+            return;
+          }
         }
         if (req.url === '/api/email/send' && req.method === 'POST') {
           let body = '';

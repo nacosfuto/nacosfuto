@@ -17,7 +17,8 @@ import {
   renderPasswordResetEmail,
   renderPaymentConfirmationEmail,
   renderRecoveryNotificationEmail,
-  renderAdminAssignmentEmail
+  renderAdminAssignmentEmail,
+  renderAdminSecurityCodeEmail
 } from './emailTemplates.js';
 
 let cachedResendInstance = null;
@@ -494,13 +495,14 @@ export async function sendRecoveryNotificationEmail({ adminEmail, studentReg, st
 /**
  * High-Level Reusable Function: Send Admin Role & Scope Assignment Email
  */
-export async function sendAdminAssignmentEmail({ to, fullName, scope, role, assignedLevel, portalAdminUrl, assignedAt, replyTo }, overrideEnv = {}) {
+export async function sendAdminAssignmentEmail({ to, fullName, scope, role, assignedLevel, initialPassword, portalAdminUrl, assignedAt, replyTo }, overrideEnv = {}) {
   const template = renderAdminAssignmentEmail({
     fullName,
     email: to,
     scope,
     role,
     assignedLevel,
+    initialPassword,
     portalAdminUrl,
     assignedAt: assignedAt || new Date().toISOString()
   });
@@ -513,6 +515,29 @@ export async function sendAdminAssignmentEmail({ to, fullName, scope, role, assi
     replyTo,
     emailType: 'admin_assignment',
     tags: [{ name: 'category', value: 'admin_assignment' }]
+  }, overrideEnv);
+}
+
+/**
+ * High-Level Reusable Function: Send Distinct Admin Security Clearance Code
+ */
+export async function sendAdminSecurityCodeEmail({ to, code, expiryMinutes = 15, adminName = 'Administrator', roleTitle = 'Portal Administrator', scope = 'student_portal', replyTo }, overrideEnv = {}) {
+  const template = renderAdminSecurityCodeEmail({
+    code,
+    expiryMinutes,
+    adminName,
+    roleTitle,
+    scope
+  });
+
+  return sendEmail({
+    to,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
+    replyTo,
+    emailType: 'admin_security_code',
+    tags: [{ name: 'category', value: 'admin_security_code' }]
   }, overrideEnv);
 }
 
@@ -532,13 +557,27 @@ export async function dispatchEmail(payload = {}, overrideEnv = {}) {
     return sendOTPEmail({ to, code, expiryMinutes, studentName, regNumber, replyTo }, overrideEnv);
   }
 
-  if (type === 'password_reset' || type === 'admin_password_reset') {
+  // DEDICATED ELEVATED ADMIN SECURITY AUTHORIZATION CODE
+  if (type === 'admin_password_reset' || type === 'admin_security_code' || type === 'admin_code' || type === 'admin_otp') {
+    return sendAdminSecurityCodeEmail({
+      to,
+      code,
+      expiryMinutes: expiryMinutes || 15,
+      adminName: payload.adminName || admin?.fullName || studentName || 'Administrator',
+      roleTitle: payload.roleTitle || admin?.role || 'Portal Administrator',
+      scope: payload.scope || admin?.scope || 'student_portal',
+      replyTo
+    }, overrideEnv);
+  }
+
+  // STUDENT PORTAL PASSWORD RESET
+  if (type === 'password_reset') {
     return sendPasswordResetEmail({
       to,
       code,
       expiryMinutes,
-      studentName: payload.adminName || studentName || 'Administrator',
-      regNumber: payload.roleTitle || regNumber || 'Admin Officer',
+      studentName: studentName || 'Student',
+      regNumber: regNumber || '',
       replyTo
     }, overrideEnv);
   }
@@ -550,6 +589,7 @@ export async function dispatchEmail(payload = {}, overrideEnv = {}) {
       scope: admin?.scope || 'student_portal',
       role: admin?.role || 'portal_admin',
       assignedLevel: admin?.assignedLevel || 'all',
+      initialPassword: admin?.initialPassword || payload.initialPassword || '',
       portalAdminUrl: admin?.portalAdminUrl,
       assignedAt: admin?.assignedAt,
       replyTo

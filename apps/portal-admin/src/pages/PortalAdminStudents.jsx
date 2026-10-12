@@ -137,7 +137,7 @@ const AdminStudents = () => {
 
   // Edit / Password Reset States
   const [editStudentData, setEditStudentData] = useState({});
-  const [newPasswordInput, setNewPasswordInput] = useState('password');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
 
   // Account Recovery Requests
   const [recoveryRequests, setRecoveryRequests] = useState([]);
@@ -668,7 +668,7 @@ const AdminStudents = () => {
     } else {
       showNotification(`Password for ${selectedStudent.full_name} reset successfully.`);
       setIsResetPasswordModalOpen(false);
-      setNewPasswordInput('password');
+      setNewPasswordInput('');
     }
   };
 
@@ -1982,6 +1982,7 @@ const AdminStudents = () => {
                     required
                     value={newPasswordInput}
                     onChange={(e) => setNewPasswordInput(e.target.value)}
+                    placeholder="Enter temporary password"
                     className="w-full px-3 py-2 rounded border border-gray-300 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white"
                   />
                 </div>

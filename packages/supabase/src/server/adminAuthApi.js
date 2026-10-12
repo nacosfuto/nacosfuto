@@ -136,18 +136,42 @@ export async function handleAdminLogin({ email, password, targetPlatform = 'webs
   }
 
   // 3. Platform Scoping Check
-  const isSuperAdmin = adminRecord.scope === 'super_admin' || adminRecord.role === 'super_admin';
+  const isSuperAdmin = adminRecord.scope === 'super_admin' || adminRecord.role === 'super_admin' || adminRecord.role === 'superadmin';
   const role = (adminRecord.role || '').toLowerCase();
   const scope = (adminRecord.scope || '').toLowerCase();
 
   let isAllowed = isSuperAdmin;
   if (!isAllowed) {
-    if (targetPlatform === 'website' || targetPlatform === 'main_website') {
-      isAllowed = scope === 'main_website' || role === 'website_admin';
+    if (targetPlatform === 'website' || targetPlatform === 'main_website' || targetPlatform === 'cms') {
+      isAllowed = 
+        scope === 'main_website' || 
+        scope === 'website' || 
+        scope === 'cms' || 
+        scope === 'all' ||
+        role === 'website_admin' || 
+        role === 'cms_admin' ||
+        role === 'admin';
     } else if (targetPlatform === 'portal' || targetPlatform === 'student_portal') {
-      isAllowed = scope === 'student_portal' || role === 'portal_admin' || role === 'course_adviser';
-    } else if (targetPlatform === 'electra' || targetPlatform === 'electoral_admin') {
-      isAllowed = scope === 'electoral_admin' || scope === 'electra_admin' || role === 'electoral_admin' || role === 'isec_admin';
+      isAllowed = 
+        scope === 'student_portal' || 
+        scope === 'portal' || 
+        scope === 'all' ||
+        role === 'portal_admin' || 
+        role === 'course_adviser' ||
+        role === 'hod' ||
+        role === 'dean' ||
+        role === 'admin';
+    } else if (targetPlatform === 'electra' || targetPlatform === 'electoral_admin' || targetPlatform === 'election') {
+      isAllowed = 
+        scope === 'electoral_admin' || 
+        scope === 'electra_admin' || 
+        scope === 'electra' || 
+        scope === 'all' ||
+        role === 'electoral_admin' || 
+        role === 'isec_admin' ||
+        role === 'admin';
+    } else if (targetPlatform === 'any' || !targetPlatform) {
+      isAllowed = true;
     } else {
       isAllowed = true;
     }
@@ -161,15 +185,19 @@ export async function handleAdminLogin({ email, password, targetPlatform = 'webs
   }
 
   // 4. Verify password against stored hash in database
-  let isPasswordValid = false;
-  if (adminRecord.password_hash) {
-    isPasswordValid = verifyPasswordServer(password, adminRecord.password_hash);
+  if (!adminRecord.password_hash) {
+    return {
+      success: false,
+      error: 'Administrative password has not been established yet. Please use "Forgot Password" to receive a security code and set up your password.'
+    };
   }
+
+  const isPasswordValid = verifyPasswordServer(password, adminRecord.password_hash);
 
   if (!isPasswordValid) {
     return {
       success: false,
-      error: 'Invalid password. Please verify your administrative credentials.'
+      error: 'Invalid password. Please verify your administrative credentials or use "Forgot Password" to reset.'
     };
   }
 
@@ -342,6 +370,7 @@ export async function handleAdminForgotPassword({ email, ipAddress = null }) {
     code: otpCode,
     adminName,
     roleTitle,
+    scope: adminRecord.scope || 'student_portal',
     expiryMinutes: OTP_EXPIRY_MINUTES
   });
 
@@ -470,6 +499,8 @@ export async function handleCreateAdminUser({
   scope = 'main_website',
   assignedLevel = 'all',
   permissions = [],
+  initialPassword = '',
+  password = '',
   originUrl = 'https://admin.nacosfuto.com.ng'
 }) {
   const authCheck = requireSuperAdmin(token);
@@ -479,6 +510,11 @@ export async function handleCreateAdminUser({
 
   if (!email || !fullName) {
     return { success: false, error: 'Full name and email address are required.' };
+  }
+
+  const plainPassword = String(initialPassword || password || '').trim();
+  if (!plainPassword || plainPassword.length < 6) {
+    return { success: false, error: 'Initial administrator password is required (minimum 6 characters).' };
   }
 
   const cleanEmail = email.trim().toLowerCase();
@@ -500,9 +536,8 @@ export async function handleCreateAdminUser({
     return { success: false, error: `An administrator account with email ${cleanEmail} already exists.` };
   }
 
-  // 2. Generate secure temporary password hash (or blank hash so they set password via email)
-  const initialRandomSecret = crypto.randomBytes(16).toString('hex');
-  const initialPasswordHash = hashPasswordServer(initialRandomSecret);
+  // 2. Generate secure PBKDF2 password hash from designated initial password
+  const initialPasswordHash = hashPasswordServer(plainPassword);
   const adminId = `admin-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
   const nowIso = new Date().toISOString();
 
@@ -555,6 +590,7 @@ export async function handleCreateAdminUser({
         scope: newAdminRow.scope,
         role: newAdminRow.role,
         assignedLevel: cleanLevel,
+        initialPassword: plainPassword,
         portalAdminUrl: loginUrl,
         assignedAt: nowIso
       }

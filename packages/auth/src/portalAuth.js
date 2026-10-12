@@ -102,14 +102,15 @@ export async function updateAdminAssignedLevel(adminId, level) {
 /**
  * Create a new Portal Administrator / Course Adviser and sync live to Supabase
  */
-export async function createPortalAdmin({ email, fullName, role = 'portal_admin', permissions = ['feature:student_registry', 'feature:results_management'], assignedLevel = 'all' }) {
+export async function createPortalAdmin({ email, fullName, role = 'portal_admin', permissions = ['feature:student_registry', 'feature:results_management'], assignedLevel = 'all', initialPassword = '', password = '' }) {
   const result = await superAdminCreateAdmin({
     email,
     fullName,
     role: role || 'portal_admin',
     scope: role === 'super_admin' ? 'super_admin' : 'student_portal',
     assigned_level: assignedLevel,
-    permissions
+    permissions,
+    initialPassword: initialPassword || password || ''
   });
 
   if (result.error) {

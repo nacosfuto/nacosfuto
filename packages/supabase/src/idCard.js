@@ -283,7 +283,7 @@ function saveLocalIdApplications(apps) {
  * Check whether a student has a verified dues/ID-card payment
  * Derived securely from the payment database, NEVER from client-side flags.
  */
-export async function checkStudentPaymentStatus(matricNumber, currentLevel = null) {
+export async function checkStudentPaymentStatus(matricNumber, currentLevel = null, currentSession = null) {
   if (!matricNumber) return { isPaid: false, payment: null };
 
   const cleanMatric = matricNumber.trim().toUpperCase();
@@ -330,10 +330,13 @@ export async function checkStudentPaymentStatus(matricNumber, currentLevel = nul
       .order('paid_at', { ascending: false });
 
     if (Array.isArray(allBachsPayments) && allBachsPayments.length > 0) {
-      // Level-based check: find payment matching student's active level, or latest payment
+      // Level or session-based check: find payment matching student's active level or session
       const levelMatch = allBachsPayments.find(p => {
         const pLevel = String(p.level || p.metadata?.level || p.metadata?.assignedLevel || '').replace(/[^0-9]/g, '');
-        return pLevel && pLevel === activeLevel;
+        const pSess = String(p.academic_session || p.metadata?.academic_session || p.metadata?.academicSession || '').trim();
+        const levelMatches = Boolean(pLevel && activeLevel && pLevel === activeLevel);
+        const sessionMatches = Boolean(pSess && currentSession && pSess === String(currentSession).trim());
+        return levelMatches || sessionMatches;
       });
 
       const chosenPayment = levelMatch || allBachsPayments[0];

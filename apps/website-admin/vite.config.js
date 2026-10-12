@@ -4,6 +4,16 @@ import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import crypto from 'crypto';
 import { dispatchEmail } from '../../packages/supabase/src/server/emailDispatcher.js';
+import {
+  handleAdminLogin,
+  handleVerifyAdminSession,
+  handleAdminForgotPassword,
+  handleAdminResetPassword,
+  handleGetAdminUsers,
+  handleCreateAdminUser,
+  handleUpdateAdminStatus,
+  handleDeleteAdminUser
+} from '../../packages/supabase/src/server/adminAuthApi.js';
 
 function cloudinaryDevPlugin() {
   return {
@@ -74,6 +84,60 @@ function cloudinaryDevPlugin() {
           res.end(JSON.stringify({ result: 'ok' }));
           return;
         }
+
+        if (req.url?.startsWith('/api/admin/auth/') || req.url?.startsWith('/api/admin/users')) {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const url = new URL(req.url, 'http://localhost');
+              const pathname = url.pathname;
+              const data = body ? JSON.parse(body || '{}') : {};
+              const authHeader = req.headers.authorization || '';
+              const token = authHeader.replace(/^Bearer\s+/i, '').trim() || data.token || url.searchParams.get('token');
+
+              let result = { success: false, error: 'Endpoint not found.' };
+              let status = 404;
+
+              if (pathname === '/api/admin/auth/login' && req.method === 'POST') {
+                result = await handleAdminLogin(data);
+                status = result.success ? 200 : 401;
+              } else if ((pathname === '/api/admin/auth/verify-session' || pathname === '/api/admin/auth/me') && (req.method === 'GET' || req.method === 'POST')) {
+                result = await handleVerifyAdminSession({ token });
+                status = result.valid ? 200 : 401;
+              } else if (pathname === '/api/admin/auth/forgot-password' && req.method === 'POST') {
+                const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
+                result = await handleAdminForgotPassword({ ...data, ipAddress: clientIp });
+                status = result.success ? 200 : 400;
+              } else if (pathname === '/api/admin/auth/reset-password' && req.method === 'POST') {
+                result = await handleAdminResetPassword(data);
+                status = result.success ? 200 : 400;
+              } else if (pathname === '/api/admin/users' && req.method === 'GET') {
+                result = await handleGetAdminUsers({ token });
+                status = result.success ? 200 : 403;
+              } else if (pathname === '/api/admin/users/create' && req.method === 'POST') {
+                result = await handleCreateAdminUser({ token, ...data });
+                status = result.success ? 200 : 400;
+              } else if (pathname === '/api/admin/users/status' && req.method === 'POST') {
+                result = await handleUpdateAdminStatus({ token, ...data });
+                status = result.success ? 200 : 400;
+              } else if (pathname === '/api/admin/users/delete' && req.method === 'POST') {
+                result = await handleDeleteAdminUser({ token, ...data });
+                status = result.success ? 200 : 400;
+              }
+
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = status;
+              res.end(JSON.stringify(result));
+            } catch (err) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: false, error: err.message }));
+            }
+          });
+          return;
+        }
+
         next();
       });
     }

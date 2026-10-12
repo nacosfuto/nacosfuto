@@ -473,6 +473,7 @@ export function renderAdminAssignmentEmail({
   email = '',
   scope = 'student_portal',
   role = 'portal_admin',
+  initialPassword = '',
   assignedLevel = 'all',
   portalAdminUrl = 'https://portal-admin.nacosfuto.com.ng',
   assignedAt = new Date().toISOString()
@@ -481,6 +482,7 @@ export function renderAdminAssignmentEmail({
   const safeEmail = sanitizeHtml(email);
   const safeScope = sanitizeHtml(scope);
   const safeRole = sanitizeHtml(role.replace(/_/g, ' ').toUpperCase());
+  const safeInitialPass = sanitizeHtml(initialPassword);
   const levelDisplay = assignedLevel === 'all' ? 'All Academic Levels (Full Access)' : `${sanitizeHtml(assignedLevel)} Level Only`;
   const accessUrl = portalAdminUrl || 'https://portal-admin.nacosfuto.com.ng';
   const assignedDateFormatted = new Date(assignedAt).toLocaleString('en-NG', {
@@ -521,6 +523,12 @@ export function renderAdminAssignmentEmail({
         <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">Academic Level Scope</td>
         <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #0f172a; font-weight: 600; text-align: right;">${levelDisplay}</td>
       </tr>
+      ${safeInitialPass ? `
+      <tr>
+        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #b45309; font-weight: 700;">Initial Password</td>
+        <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #0f172a; font-family: monospace; font-weight: 700; text-align: right; background-color: #fffbeb;">${safeInitialPass}</td>
+      </tr>
+      ` : ''}
       <tr>
         <td style="padding: 14px 18px; font-size: 13px; color: #64748b;">Assignment Timestamp</td>
         <td style="padding: 14px 18px; font-size: 13px; color: #64748b; text-align: right;">${assignedDateFormatted}</td>
@@ -541,7 +549,7 @@ export function renderAdminAssignmentEmail({
 
     <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 18px; margin: 24px 0 0;">
       <p style="color: #166534; margin: 0; font-size: 12px; line-height: 1.6;">
-        <strong>Security &amp; Ethics Notice:</strong> Administrative access is strictly confidential and monitored. Always log in using your registered credentials and ensure your session is terminated after administrative sessions.
+        <strong>Security &amp; Ethics Notice:</strong> Administrative access is strictly confidential and monitored. Always log in using your registered credentials${safeInitialPass ? ' and update your password after your initial session' : ''}.
       </p>
     </div>
   `;
@@ -558,6 +566,7 @@ export function renderAdminAssignmentEmail({
     `System Scope: ${scope}`,
     `Assigned Level: ${levelDisplay}`,
     `Assigned Email: ${email}`,
+    safeInitialPass ? `Initial Password: ${initialPassword}` : '',
     `Assignment Date: ${assignedDateFormatted}`,
     '',
     `Access Link: ${accessUrl}`,
@@ -565,11 +574,195 @@ export function renderAdminAssignmentEmail({
     '-----------------------------------------',
     'Department of Computer Science',
     'Federal University of Technology, Owerri (FUTO)'
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
   return {
     subject: `[NACOS FUTO] Administrative Scope Assigned: ${safeRole} (${levelDisplay})`,
     html: buildBaseEmailLayout({ title: 'Administrative Scope Assigned', preheader, contentHtml }),
+    text
+  };
+}
+
+/**
+ * Dedicated Executive Layout Wrapper for Administrative Communications
+ * Visually distinct from student portal layout (Obsidian / Dark Emerald / Cyber Gold)
+ */
+export function buildAdminEmailLayout({ title, preheader, contentHtml }) {
+  const safeTitle = sanitizeHtml(title || 'NACOS Administrative Directive');
+  const safePreheader = sanitizeHtml(preheader || '');
+
+  return `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>${safeTitle}</title>
+  <style>
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    @media only screen and (max-width: 600px) {
+      .email-container { width: 100% !important; max-width: 100% !important; }
+      .content-padding { padding: 24px 18px !important; }
+      .otp-display { font-size: 32px !important; letter-spacing: 6px !important; }
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #05130b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <!-- Preheader -->
+  <div style="display: none; font-size: 1px; color: #05130b; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
+    ${safePreheader}
+  </div>
+
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #05130b; padding: 36px 12px;">
+    <tr>
+      <td align="center">
+        <!-- Main Card Container: Dark Obsidian with High-Security Green / Gold Border -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="email-container" style="max-width: 560px; background-color: #0b1e13; border-radius: 16px; overflow: hidden; border: 1px solid #134e2b; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(16, 185, 129, 0.15);">
+          
+          <!-- Executive Header Banner -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #031209 0%, #082914 50%, #0d381c 100%); padding: 32px 28px; text-align: center; border-bottom: 1px solid #14532d;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center">
+                    <!-- High Security Clearance Badge -->
+                    <div style="display: inline-block; background-color: rgba(245, 158, 11, 0.15); padding: 6px 14px; border-radius: 9999px; margin-bottom: 12px; border: 1px solid rgba(245, 158, 11, 0.4);">
+                      <span style="color: #fbbf24; font-size: 10px; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase;">&#128737; Privileged Officer Clearance</span>
+                    </div>
+                    <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.8px;">NACOS ADMINISTRATIVE COMMAND</h1>
+                    <p style="color: #86efac; margin: 6px 0 0; font-size: 12px; font-weight: 600; letter-spacing: 0.5px;">Federal University of Technology, Owerri &bull; Department of Computer Science</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Main Body Content -->
+          <tr>
+            <td class="content-padding" style="padding: 36px 32px; background-color: #0b1e13; color: #e2e8f0;">
+              ${contentHtml}
+            </td>
+          </tr>
+
+          <!-- Strict Officer Confidentiality Warning -->
+          <tr>
+            <td style="background-color: #04140b; padding: 18px 32px; border-top: 1px solid #14532d;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="font-size: 11px; color: #94a3b8; line-height: 1.5;">
+                    <strong style="color: #f59e0b;">CLASSIFIED ADMINISTRATIVE DIRECTIVE:</strong> This communication is intended solely for authorized NACOS departmental administrators. Disclosure of security codes or credentials to unauthorized personnel or students is strictly prohibited and subject to immediate revocation and disciplinary action.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #020c06; padding: 22px 32px; text-align: center; border-top: 1px solid #0f391e;">
+              <p style="color: #6ee7b7; margin: 0 0 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">
+                NACOS FUTO CENTRAL SECURITY &amp; MANAGEMENT INFRASTRUCTURE
+              </p>
+              <p style="color: #64748b; margin: 0; font-size: 10px;">
+                Session tokens and security verifications are cryptographically tracked and logged.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+/**
+ * Dedicated Administrative Security Authorization Code Email Template
+ * Distinct from student portal email (Dark obsidian executive theme with gold/emerald badge)
+ */
+export function renderAdminSecurityCodeEmail({
+  code,
+  expiryMinutes = 15,
+  adminName = 'Administrator',
+  roleTitle = 'Portal Administrator',
+  scope = 'student_portal'
+}) {
+  const safeCode = sanitizeHtml(code);
+  const safeName = sanitizeHtml(adminName);
+  const safeRole = sanitizeHtml(roleTitle.replace(/_/g, ' ').toUpperCase());
+  const safeScope = sanitizeHtml(scope);
+
+  const preheader = `[ADMIN SECURITY CLEARANCE] Single-Use Authorization Code: ${safeCode} (Valid for ${expiryMinutes}m)`;
+
+  const contentHtml = `
+    <div style="border-left: 3px solid #10b981; padding-left: 14px; margin-bottom: 22px;">
+      <span style="color: #34d399; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;">Elevated Security Verification</span>
+      <h2 style="color: #ffffff; margin: 4px 0 0; font-size: 20px; font-weight: 800;">Administrative Authorization Code</h2>
+    </div>
+
+    <p style="color: #cbd5e1; margin: 0 0 16px; font-size: 14px; line-height: 1.6;">
+      Officer <strong>${safeName}</strong>,
+    </p>
+
+    <p style="color: #94a3b8; margin: 0 0 24px; font-size: 13px; line-height: 1.6;">
+      An administrative action (password setup, reset, or elevation) was requested for your privileged officer account 
+      under the <strong style="color: #e2e8f0;">${safeRole}</strong> role (<code style="color: #86efac; background: #041a0f; padding: 2px 6px; border-radius: 4px;">${safeScope}</code>). Use the elevated single-use authorization code below:
+    </p>
+
+    <!-- Distinct High-Security Code Display Box -->
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 24px;">
+      <tr>
+        <td align="center" style="background: radial-gradient(circle at center, #072914 0%, #031409 100%); border: 2px solid #10b981; border-radius: 12px; padding: 26px 16px; box-shadow: inset 0 0 20px rgba(16, 185, 129, 0.15);">
+          <span style="color: #34d399; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; display: block; margin-bottom: 8px;">
+            &#128274; Elevated Authorization Code
+          </span>
+          <span class="otp-display" style="color: #ffffff; font-size: 40px; font-weight: 900; letter-spacing: 12px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; display: inline-block; padding-left: 12px; text-shadow: 0 0 16px rgba(16, 185, 129, 0.4);">
+            ${safeCode}
+          </span>
+          <div style="margin-top: 10px;">
+            <span style="display: inline-block; background-color: rgba(16, 185, 129, 0.15); color: #86efac; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 9999px;">
+              CLEARANCE TIER: PRIVILEGED OFFICER &bull; EXPIRES IN ${expiryMinutes} MINUTES
+            </span>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Expiration & Security Directive -->
+    <div style="background-color: #1a1608; border-left: 4px solid #f59e0b; border-radius: 4px; padding: 12px 16px; margin: 0 0 22px;">
+      <p style="color: #fbbf24; margin: 0; font-size: 12px; line-height: 1.5;">
+        &#9888; <strong>Security Directive:</strong> This code can only be used once. If you did not initiate this administrative request, report it immediately to the Super Administrator.
+      </p>
+    </div>
+
+    <p style="color: #64748b; margin: 0; font-size: 12px; line-height: 1.5;">
+      Department of Computer Science &bull; NACOS FUTO Administrative Security Service
+    </p>
+  `;
+
+  const text = [
+    'NACOS FUTO - ADMINISTRATIVE SECURITY CLEARANCE CODE',
+    '===================================================',
+    '',
+    `Officer: ${adminName} (${safeRole})`,
+    `System Scope: ${scope}`,
+    '',
+    `ELEVATED AUTHORIZATION CODE: ${code}`,
+    '',
+    `Valid for ${expiryMinutes} minutes. Single-use only.`,
+    '',
+    'CLASSIFIED DIRECTIVE: Never disclose this code to anyone.',
+    'If you did not initiate this request, notify the Super Administrator immediately.',
+    '',
+    '---------------------------------------------------',
+    'Department of Computer Science',
+    'Federal University of Technology, Owerri (FUTO)'
+  ].join('\n');
+
+  return {
+    subject: `[ADMIN SECURITY CLEARANCE] Single-Use Authorization Code: ${code}`,
+    html: buildAdminEmailLayout({ title: 'Administrative Security Clearance', preheader, contentHtml }),
     text
   };
 }

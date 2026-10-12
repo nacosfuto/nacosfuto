@@ -580,16 +580,23 @@ export function previewProgression(
 export function getStudentApplicableLevelSessions(student, currentYearStart = getActiveAcademicYearStart()) {
   const progression = calculateAcademicProgression(student, currentYearStart);
   const admissionYear = progression.admissionYear || extractEntryYearFromRegNumber(student?.registration_number || student?.matricNumber || student?.matric) || 2024;
-  const maxLevelNum = Math.min(5, Math.max(1, progression.numericLevel || 1));
+  const entryLevelRaw = student?.entry_level || student?.entryLevel || student?.admission_level || 100;
+  const startLevelNum = Math.max(1, Math.floor(parseInt(entryLevelRaw, 10) / 100) || 1);
+  const maxLevelNum = Math.min(5, Math.max(startLevelNum, progression.numericLevel || startLevelNum));
   const items = [];
-  for (let i = 1; i <= maxLevelNum; i++) {
-    const startYear = admissionYear + (i - 1);
+  for (let i = startLevelNum; i <= maxLevelNum; i++) {
+    const startYear = admissionYear + (i - startLevelNum);
     const sessionName = getAcademicSession(startYear);
+    const lvlNum = i * 100;
+    const lvlString = `${lvlNum} Level`;
     items.push({
       levelNumber: i,
-      level: `${i * 100}`,
-      levelString: `${i * 100} Level`,
+      numericLevel: lvlNum,
+      levelCode: `${lvlNum}`,
+      level: lvlString,
+      levelString: lvlString,
       session: sessionName,
+      academicSession: sessionName,
       startYear,
       isCurrent: i === maxLevelNum
     });

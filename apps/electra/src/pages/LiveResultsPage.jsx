@@ -1,17 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  BarChart3, 
   ShieldCheck, 
   CheckCircle2, 
   Users, 
   Vote, 
   RefreshCw, 
-  Radio, 
   Clock, 
   Sparkles, 
   Award,
   Wifi,
-  WifiOff,
   Zap
 } from 'lucide-react';
 import { 
@@ -206,33 +203,7 @@ export default function LiveResultsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
         <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-[4px] text-xs font-bold bg-green-50 text-[#138601] border border-green-200">
-              <BarChart3 className="w-3.5 h-3.5 text-[#138601]" />
-              <span>Cryptographic Real-Time Audit Tally</span>
-            </div>
 
-            {/* Supabase Realtime Connection Status Pill */}
-            {connectionStatus === 'connected' ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[4px] text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-                </span>
-                <span>Live WebSocket Connected</span>
-              </span>
-            ) : connectionStatus === 'connecting' ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[4px] text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                <Radio className="w-3 h-3 text-amber-600 animate-pulse" />
-                <span>Connecting to Realtime...</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[4px] text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                <WifiOff className="w-3 h-3 text-slate-500" />
-                <span>Offline Fallback</span>
-              </span>
-            )}
-          </div>
 
           <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 font-display">
             Live Election Results

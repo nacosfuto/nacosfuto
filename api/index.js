@@ -263,31 +263,92 @@ export default async function handler(req, res) {
       }
     }
 
-    // Bachs Authoritative Webhooks
-    if ((route === '/api/payments/webhook' || route === '/api/webhooks/bachs') && method === 'POST') {
-      let rawBody = '';
-      if (typeof req.body === 'string') {
-        rawBody = req.body;
-      } else if (req.body && typeof req.body === 'object') {
-        rawBody = JSON.stringify(req.body);
-      } else {
-        rawBody = await new Promise((resolve) => {
-          let b = '';
-          req.on('data', c => { b += c; });
-          req.on('end', () => resolve(b));
+    // Bachs Authoritative Webhooks & Reachability Verification
+    const isBachsWebhookRoute = (
+      route === '/api/payments/webhook' ||
+      route === '/api/webhooks/bachs' ||
+      route === '/api/webhook' ||
+      route === '/api/webhooks' ||
+      route === '/api/payments/bachs-webhook' ||
+      route === '/api/bachs/webhook' ||
+      route === '/api/bachs-webhook'
+    );
+
+    if (isBachsWebhookRoute) {
+      // 1. Challenge query parameter echo (for automated webhook registration)
+      if (fullUrl.searchParams.has('challenge') || fullUrl.searchParams.has('hub.challenge')) {
+        const challenge = fullUrl.searchParams.get('challenge') || fullUrl.searchParams.get('hub.challenge');
+        return res.status(200).send(challenge);
+      }
+
+      // 2. Health check / Reachability probe (GET / HEAD / OPTIONS)
+      if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+        return res.status(200).json({
+          status: 'ok',
+          service: 'nacos-bachs-webhook-receiver',
+          gateway: 'Bachs.io',
+          ready: true,
+          timestamp: new Date().toISOString()
         });
       }
 
-      const signature = req.headers['x-bachs-signature'] || req.headers['x-signature'];
-      const signatureValid = verifyBachsWebhookSignature(rawBody, signature);
-      if (!signatureValid) {
-        return res.status(401).json({ error: 'Invalid HMAC signature.' });
-      }
+      // 3. POST Webhook Delivery
+      if (method === 'POST') {
+        let rawBody = '';
+        if (req.rawBody) {
+          rawBody = typeof req.rawBody === 'string' ? req.rawBody : req.rawBody.toString('utf8');
+        } else if (typeof req.body === 'string') {
+          rawBody = req.body;
+        } else if (req.body && typeof req.body === 'object') {
+          rawBody = JSON.stringify(req.body);
+        } else {
+          rawBody = await new Promise((resolve) => {
+            let b = '';
+            req.on('data', c => { b += c; });
+            req.on('end', () => resolve(b));
+          });
+        }
 
-      let payload = {};
-      try { payload = JSON.parse(rawBody); } catch (_) {}
-      const result = await processBachsWebhook(payload);
-      return res.status(result.statusCode || 200).json(result);
+        let payload = {};
+        try {
+          payload = typeof req.body === 'object' && req.body !== null ? req.body : JSON.parse(rawBody || '{}');
+        } catch (_) {
+          payload = {};
+        }
+
+        const eventType = String(payload.event_type || payload.type || payload.event || '').toLowerCase();
+        const isPingEvent = eventType === 'ping' || eventType === 'test' || eventType === 'webhook.test' || !rawBody;
+
+        // Extract signature from possible header conventions
+        const signature = 
+          req.headers['x-bachs-signature'] || 
+          req.headers['x-signature'] || 
+          req.headers['bachs-signature'] ||
+          req.headers['x-hub-signature-256'] ||
+          req.headers['x-webhook-signature'];
+
+        // If it's a reachability ping without signature or explicit test probe
+        if (isPingEvent && !signature) {
+          return res.status(200).json({
+            status: 'ok',
+            message: 'Webhook endpoint is reachable and operational.',
+            service: 'nacos-bachs-webhook-receiver'
+          });
+        }
+
+        const signatureValid = verifyBachsWebhookSignature(rawBody, signature);
+        if (!signatureValid) {
+          // If ping event or sandbox, log warning and still confirm reachability
+          if (isPingEvent || process.env.NODE_ENV !== 'production') {
+            console.warn('[Bachs Webhook] Signature mismatch on probe, acknowledging 200 for health.');
+            return res.status(200).json({ status: 'ok', message: 'Probe acknowledged.' });
+          }
+          return res.status(401).json({ error: 'Invalid HMAC signature.' });
+        }
+
+        const result = await processBachsWebhook(payload);
+        return res.status(result.statusCode || 200).json(result);
+      }
     }
 
     // Sandbox / Local Simulation Endpoint

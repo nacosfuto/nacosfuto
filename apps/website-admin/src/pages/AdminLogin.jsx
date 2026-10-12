@@ -192,46 +192,62 @@ export const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col md:flex-row bg-white text-gray-900 font-sans selection:bg-[#138601] selection:text-white">
+    <div className="min-h-screen w-full flex flex-col md:flex-row bg-[#030d06] text-slate-100 font-sans selection:bg-emerald-500 selection:text-black">
       
-      {/* LEFT HALF (50%): Department Photo with Brand Logo, Clean Overlay & Website CMS Text */}
+      {/* LEFT HALF (50%): Executive Command Console Visual with Dark Emerald Cyber Accents */}
       <div 
-        className="md:w-1/2 min-h-[360px] md:min-h-screen relative flex flex-col justify-between p-8 sm:p-12 md:p-14 lg:p-16 bg-cover bg-center"
+        className="md:w-1/2 min-h-[360px] md:min-h-screen relative flex flex-col justify-between p-8 sm:p-12 md:p-14 lg:p-16 bg-cover bg-center overflow-hidden border-b md:border-b-0 md:border-r border-emerald-950/60"
         style={{ backgroundImage: `url(${getCloudinaryAssetUrl('drilldown') || getCloudinaryAssetUrl('header') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1791346769/drilldown.jpg'})` }}
       >
-        {/* Subtle dark gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30 pointer-events-none"></div>
+        {/* Deep Cyber Emerald Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#030d06] via-[#04160b]/90 to-[#030d06]/80 pointer-events-none"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.15),transparent_60%)] pointer-events-none"></div>
 
-        {/* Top Left NACOS Brand Logo */}
+        {/* Top Left NACOS Brand Logo & Executive Badge */}
         <div className="relative z-10 flex items-center gap-3">
           <img 
             src={getCloudinaryAssetUrl('full-logo-dark') || logoDark} 
             alt="NACOS FUTO Logo" 
-            className="h-9 sm:h-11 w-auto object-contain drop-shadow" 
+            className="h-9 sm:h-11 w-auto object-contain drop-shadow-md" 
           />
-          <span className="text-xs uppercase font-bold tracking-wider px-2.5 py-1 rounded bg-[#138601]/90 text-white border border-green-500/30">
-            Website CMS
-          </span>
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-emerald-950/80 text-emerald-400 border border-emerald-700/60 text-xs uppercase font-extrabold tracking-widest backdrop-blur-md shadow-xs">
+            <Globe className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Website CMS Console</span>
+          </div>
         </div>
 
-        {/* Text bottom left */}
-        <div className="relative z-10 max-w-lg space-y-2 mt-auto pt-16">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/40 border border-white/20 text-white text-xs font-semibold backdrop-blur-xs mb-2">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#4bd043]" />
-            <span>Secure Database Authentication</span>
+        {/* Text bottom left with Security Clearance Indicators */}
+        <div className="relative z-10 max-w-lg space-y-4 mt-auto pt-16">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/90 border border-emerald-500/40 text-emerald-300 text-xs font-semibold backdrop-blur-md shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Database Authentication &bull; Elevated Access</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white leading-snug tracking-tight">
-            Main Website Content & Media Management System
+
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-snug tracking-tight">
+            Official Website Content &amp; Media Console
           </h2>
-          <p className="text-sm sm:text-base text-gray-200 font-normal">
-            Department of Computer Science • Federal University of Technology, Owerri
+          
+          <p className="text-xs sm:text-sm text-slate-300 font-normal leading-relaxed">
+            Department of Computer Science &bull; Federal University of Technology, Owerri.<br />
+            Privileged officer terminal for publishing news, event broadcasts, yellow pages, and media gallery assets.
           </p>
+
+          <div className="grid grid-cols-2 gap-3 pt-2 text-[11px] font-mono text-emerald-400/90">
+            <div className="p-2.5 rounded-lg bg-black/40 border border-emerald-900/50 backdrop-blur-xs flex items-center gap-2">
+              <Lock className="w-3.5 h-3.5 text-emerald-400" />
+              <span>PBKDF2 Hardened</span>
+            </div>
+            <div className="p-2.5 rounded-lg bg-black/40 border border-emerald-900/50 backdrop-blur-xs flex items-center gap-2">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>60-Min Strict Token</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* RIGHT HALF (50%): Clean White Form Pane */}
-      <div className="md:w-1/2 flex items-center justify-center p-6 sm:p-10 md:p-14 lg:p-20 bg-white">
-        <div className="w-full max-w-md space-y-6">
+      {/* RIGHT HALF (50%): Executive Dark Form Panel */}
+      <div className="md:w-1/2 flex items-center justify-center p-6 sm:p-10 md:p-12 lg:p-16 bg-[#040e07]">
+        <div className="w-full max-w-md bg-[#071d0e]/90 border border-emerald-900/60 rounded-3xl p-7 sm:p-9 shadow-2xl backdrop-blur-md space-y-6">
           
           {/* ================================================================= */}
           {/* VIEW A: FORGOT PASSWORD WORKFLOW */}
@@ -246,22 +262,26 @@ export const AdminLogin = () => {
                     <button
                       type="button"
                       onClick={() => { setIsResetMode(false); setResetError(''); }}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-[#138601] transition-colors mb-3 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors mb-3 cursor-pointer"
                     >
                       <ArrowLeft className="w-3.5 h-3.5" />
                       <span>Back to Sign In</span>
                     </button>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
-                      Reset Admin Password
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>Administrative Account Recovery</span>
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                      Request Security Code
                     </h1>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                      Enter your official administrator email address. We will send you a secure 6-digit verification code.
+                    <p className="text-xs sm:text-sm text-slate-300 mt-1.5">
+                      Enter your official administrator email address to receive an elevated 6-digit authorization code.
                     </p>
                   </div>
 
                   {resetError && (
-                    <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5">
-                      <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-800/80 text-rose-200 text-xs flex items-start gap-2.5">
+                      <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
                       <div className="flex-1 leading-relaxed">
                         <span>{resetError}</span>
                       </div>
@@ -270,7 +290,7 @@ export const AdminLogin = () => {
 
                   <form onSubmit={handleRequestReset} className="space-y-4">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">
                         Administrator Email Address
                       </label>
                       <div className="relative">
@@ -280,25 +300,25 @@ export const AdminLogin = () => {
                           placeholder="admin@nacos.org.ng"
                           value={resetEmail}
                           onChange={(e) => setResetEmail(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 text-sm rounded-lg bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] font-normal transition-all"
+                          className="w-full pl-10 pr-4 py-3 text-sm rounded-xl bg-[#030d06] text-white placeholder-slate-500 border border-emerald-900/80 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all font-mono"
                         />
-                        <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                        <Mail className="w-4 h-4 text-emerald-500/70 absolute left-3.5 top-3.5 pointer-events-none" />
                       </div>
                     </div>
 
                     <button
                       type="submit"
                       disabled={isResetLoading}
-                      className="w-full px-7 py-3 min-h-[44px] text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-60"
+                      className="w-full px-7 py-3 min-h-[46px] text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 rounded-xl shadow-lg shadow-emerald-950/60 transition-all cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-60"
                     >
                       {isResetLoading ? (
                         <>
                           <RotateCw className="w-4 h-4 animate-spin" />
-                          <span>Sending Verification Code...</span>
+                          <span>Dispatching Security Code...</span>
                         </>
                       ) : (
                         <>
-                          <span>Send Reset Code</span>
+                          <span>Send Administrative Code</span>
                           <ArrowRight className="w-4 h-4" />
                         </>
                       )}
@@ -307,29 +327,36 @@ export const AdminLogin = () => {
                 </>
               )}
 
-              {/* Reset Step 2: Enter Code & New Password */}
+              {/* Reset Step 2: Distinct Administrative Authorization Code Gate */}
               {resetStep === 2 && (
                 <>
                   <div>
                     <button
                       type="button"
                       onClick={() => { setResetStep(1); setResetError(''); }}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-[#138601] transition-colors mb-3 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors mb-3 cursor-pointer"
                     >
                       <ArrowLeft className="w-3.5 h-3.5" />
                       <span>Change Email</span>
                     </button>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
-                      Enter Verification Code
+                    
+                    {/* Security Directive Banner */}
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-950/70 border border-amber-600/40 text-amber-300 text-[11px] font-bold tracking-wide uppercase mb-2">
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Privileged Clearance Directive</span>
+                    </div>
+
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                      Admin Authorization Code
                     </h1>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                      We sent a 6-digit code to <strong className="text-gray-900">{maskedResetEmail}</strong>. Enter it below along with your new password.
+                    <p className="text-xs sm:text-sm text-slate-300 mt-1">
+                      We dispatched a single-use authorization code to <strong className="text-emerald-400 font-mono">{maskedResetEmail}</strong>.
                     </p>
                   </div>
 
                   {resetError && (
-                    <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5">
-                      <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-800/80 text-rose-200 text-xs flex items-start gap-2.5">
+                      <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
                       <div className="flex-1 leading-relaxed">
                         <span>{resetError}</span>
                       </div>
@@ -337,26 +364,34 @@ export const AdminLogin = () => {
                   )}
 
                   <form onSubmit={handleConfirmReset} className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
-                        6-Digit Verification Code
-                      </label>
+                    {/* High-Security Distinct Segmented Monospace Authorization Field */}
+                    <div className="p-4 rounded-2xl bg-[#020b05] border border-emerald-600/40 shadow-inner space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-emerald-300 uppercase tracking-widest flex items-center gap-1.5">
+                          <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>6-Digit Security Token</span>
+                        </label>
+                        <span className="text-[10px] text-amber-400 font-mono">15m TTL</span>
+                      </div>
+                      
                       <div className="relative">
                         <input
                           type="text"
                           required
                           maxLength={6}
-                          placeholder="e.g. 123456"
+                          placeholder="••••••"
                           value={otpCode}
                           onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                          className="w-full pl-10 pr-4 py-3 text-lg font-mono tracking-widest rounded-lg bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] text-center"
+                          className="w-full py-3 px-4 text-2xl font-mono tracking-[0.55em] rounded-xl bg-black/60 text-emerald-300 placeholder-emerald-800 border border-emerald-500/60 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/40 text-center shadow-lg transition-all"
                         />
-                        <KeyRound className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5 pointer-events-none" />
                       </div>
+                      <p className="text-[10px] text-slate-400 text-center">
+                        Elevated clearance token. Strictly confidential &bull; Do not disclose.
+                      </p>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">
                         New Administrator Password
                       </label>
                       <div className="relative">
@@ -366,13 +401,13 @@ export const AdminLogin = () => {
                           placeholder="At least 6 characters"
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
-                          className="w-full pl-10 pr-11 py-3 text-sm rounded-lg bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601]"
+                          className="w-full pl-10 pr-11 py-3 text-sm rounded-xl bg-[#030d06] text-white placeholder-slate-500 border border-emerald-900/80 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all font-mono"
                         />
-                        <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                        <Lock className="w-4 h-4 text-emerald-500/70 absolute left-3.5 top-3.5 pointer-events-none" />
                         <button
                           type="button"
                           onClick={() => setShowNewPassword(!showNewPassword)}
-                          className="absolute right-3.5 top-3.5 text-gray-400 hover:text-gray-700 cursor-pointer"
+                          className="absolute right-3.5 top-3.5 text-slate-400 hover:text-white cursor-pointer"
                         >
                           {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
@@ -380,7 +415,7 @@ export const AdminLogin = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">
                         Confirm New Password
                       </label>
                       <div className="relative">
@@ -390,19 +425,19 @@ export const AdminLogin = () => {
                           placeholder="Confirm password"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 text-sm rounded-lg bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601]"
+                          className="w-full pl-10 pr-4 py-3 text-sm rounded-xl bg-[#030d06] text-white placeholder-slate-500 border border-emerald-900/80 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all font-mono"
                         />
-                        <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                        <Lock className="w-4 h-4 text-emerald-500/70 absolute left-3.5 top-3.5 pointer-events-none" />
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
-                      <span>Didn't receive the code?</span>
+                    <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                      <span>Didn't receive code?</span>
                       <button
                         type="button"
                         onClick={handleResendResetOTP}
                         disabled={resetCooldown > 0 || isResetLoading}
-                        className="text-[#138601] font-semibold hover:underline disabled:opacity-50 cursor-pointer"
+                        className="text-emerald-400 font-semibold hover:underline disabled:opacity-50 cursor-pointer"
                       >
                         {resetCooldown > 0 ? `Resend code in ${resetCooldown}s` : 'Resend Code'}
                       </button>
@@ -411,16 +446,16 @@ export const AdminLogin = () => {
                     <button
                       type="submit"
                       disabled={isResetLoading}
-                      className="w-full px-7 py-3 min-h-[44px] text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-60"
+                      className="w-full px-7 py-3 min-h-[46px] text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 rounded-xl shadow-lg shadow-emerald-950/60 transition-all cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-60"
                     >
                       {isResetLoading ? (
                         <>
                           <RotateCw className="w-4 h-4 animate-spin" />
-                          <span>Updating Password...</span>
+                          <span>Updating Security Credentials...</span>
                         </>
                       ) : (
                         <>
-                          <span>Update Password & Return</span>
+                          <span>Verify &amp; Update Password</span>
                           <CheckCircle2 className="w-4 h-4" />
                         </>
                       )}
@@ -432,14 +467,14 @@ export const AdminLogin = () => {
               {/* Reset Step 3: Success Confirmation */}
               {resetStep === 3 && (
                 <div className="text-center space-y-4 py-4">
-                  <div className="w-14 h-14 rounded-full bg-green-100 text-[#138601] border border-green-200 flex items-center justify-center mx-auto shadow-xs">
-                    <CheckCircle2 className="w-8 h-8" />
+                  <div className="w-16 h-16 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-600/50 flex items-center justify-center mx-auto shadow-lg shadow-emerald-950/50">
+                    <CheckCircle2 className="w-9 h-9" />
                   </div>
-                  <h1 className="text-2xl font-bold text-gray-900">
+                  <h1 className="text-2xl font-extrabold text-white">
                     Password Reset Successful
                   </h1>
-                  <p className="text-xs sm:text-sm text-gray-600 max-w-sm mx-auto">
-                    Your administrative password has been updated in the database. You can now sign in with your new credentials.
+                  <p className="text-xs sm:text-sm text-slate-300 max-w-sm mx-auto leading-relaxed">
+                    Your administrative credentials have been successfully updated in the database. You can now access the Website CMS console.
                   </p>
                   <button
                     type="button"
@@ -450,9 +485,9 @@ export const AdminLogin = () => {
                       setResetError('');
                       setError('');
                     }}
-                    className="w-full px-7 py-3 min-h-[44px] text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
+                    className="w-full px-7 py-3 min-h-[46px] text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 rounded-xl shadow-lg shadow-emerald-950/60 transition-all cursor-pointer inline-flex items-center justify-center gap-2"
                   >
-                    <span>Sign In Now</span>
+                    <span>Proceed to Admin Sign In</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -467,18 +502,22 @@ export const AdminLogin = () => {
               
               {/* Form Heading */}
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Authorized Personnel Only</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
                   Sign In to Website CMS
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                  Enter your authorized administrative credentials to manage public news, gallery, and media assets.
+                <p className="text-xs sm:text-sm text-slate-300 mt-1">
+                  Enter your officer credentials to manage public news, gallery, and media assets.
                 </p>
               </div>
 
               {/* Feedback & Error Alerts */}
               {error && (
-                <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5">
-                  <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                <div className="p-4 rounded-xl bg-rose-950/50 border border-rose-800/80 text-rose-200 text-xs flex items-start gap-2.5">
+                  <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
                   <div className="flex-1 leading-relaxed">
                     <span>{error}</span>
                   </div>
@@ -490,7 +529,7 @@ export const AdminLogin = () => {
                 
                 {/* Email Address */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">
                     Administrator Email Address
                   </label>
                   <div className="relative">
@@ -500,15 +539,15 @@ export const AdminLogin = () => {
                       placeholder="admin@nacos.org.ng"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 text-sm rounded-lg bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] font-normal transition-all"
+                      className="w-full pl-10 pr-4 py-3 text-sm rounded-xl bg-[#030d06] text-white placeholder-slate-500 border border-emerald-900/80 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all font-mono"
                     />
-                    <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                    <Mail className="w-4 h-4 text-emerald-500/70 absolute left-3.5 top-3.5 pointer-events-none" />
                   </div>
                 </div>
 
                 {/* Password */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">
                     Administrative Password
                   </label>
                   <div className="relative">
@@ -518,13 +557,13 @@ export const AdminLogin = () => {
                       placeholder="Enter administrative password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-11 py-3 text-sm rounded-lg bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] font-normal transition-all"
+                      className="w-full pl-10 pr-11 py-3 text-sm rounded-xl bg-[#030d06] text-white placeholder-slate-500 border border-emerald-900/80 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all font-mono"
                     />
-                    <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                    <Lock className="w-4 h-4 text-emerald-500/70 absolute left-3.5 top-3.5 pointer-events-none" />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-3.5 text-gray-400 hover:text-gray-700 cursor-pointer"
+                      className="absolute right-3.5 top-3.5 text-slate-400 hover:text-white cursor-pointer"
                       title={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -533,7 +572,8 @@ export const AdminLogin = () => {
                 </div>
 
                 {/* Forgot Password Link */}
-                <div className="flex items-center justify-end">
+                <div className="flex items-center justify-between pt-0.5">
+                  <span className="text-[11px] text-slate-400 font-mono">Scope: CMS</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -543,7 +583,7 @@ export const AdminLogin = () => {
                       setError('');
                       setResetError('');
                     }}
-                    className="text-xs font-semibold text-[#138601] hover:underline cursor-pointer"
+                    className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer"
                   >
                     Forgot password?
                   </button>
@@ -553,7 +593,7 @@ export const AdminLogin = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full px-7 py-3 min-h-[44px] text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-60"
+                  className="w-full px-7 py-3 min-h-[46px] text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 rounded-xl shadow-lg shadow-emerald-950/60 transition-all cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   {isLoading ? (
                     <span>Authenticating with Database...</span>
@@ -566,15 +606,16 @@ export const AdminLogin = () => {
                 </button>
               </form>
 
-              {/* Standard Navigation Links */}
-              <div className="pt-4 border-t border-gray-100 flex items-center justify-center text-xs text-gray-500">
+              {/* Security Directive Banner */}
+              <div className="pt-4 border-t border-emerald-950 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
                 <a
                   href={getAppUrls().adminHub}
-                  className="text-[#138601] hover:underline font-semibold flex items-center gap-1"
+                  className="text-emerald-400 hover:text-emerald-300 hover:underline font-semibold flex items-center gap-1"
                 >
-                  <span>Admin Command Hub & Dashboards</span>
+                  <span>Admin Command Hub</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>
+                <span className="text-[11px] font-mono text-slate-500">v2.4 Protected</span>
               </div>
 
             </div>

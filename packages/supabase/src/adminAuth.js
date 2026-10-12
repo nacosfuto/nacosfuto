@@ -286,10 +286,15 @@ export async function loginWebsiteAdmin(email, password) {
 
     const isAllowedScope = 
       dbAdmin.scope === 'main_website' || 
+      dbAdmin.scope === 'website' || 
+      dbAdmin.scope === 'cms' || 
+      dbAdmin.scope === 'all' || 
       dbAdmin.scope === 'super_admin' ||
       dbAdmin.role === 'super_admin' ||
       dbAdmin.role === 'superadmin' ||
-      dbAdmin.role === 'website_admin';
+      dbAdmin.role === 'website_admin' ||
+      dbAdmin.role === 'cms_admin' ||
+      dbAdmin.role === 'admin';
 
     if (!isAllowedScope) {
       return { 
@@ -393,12 +398,17 @@ export async function loginPortalAdmin(email, password) {
 
     const isAllowedScope = 
       dbAdmin.scope === 'student_portal' || 
+      dbAdmin.scope === 'portal' || 
+      dbAdmin.scope === 'all' || 
       dbAdmin.scope === 'super_admin' ||
       dbAdmin.scope === 'electoral_admin' ||
       dbAdmin.scope === 'electra_admin' ||
       dbAdmin.role === 'super_admin' ||
       dbAdmin.role === 'portal_admin' ||
       dbAdmin.role === 'course_adviser' ||
+      dbAdmin.role === 'hod' ||
+      dbAdmin.role === 'dean' ||
+      dbAdmin.role === 'admin' ||
       dbAdmin.role === 'electoral_admin';
 
     if (!isAllowedScope) {
@@ -554,12 +564,17 @@ export async function superAdminGetAdmins() {
 /**
  * Super Admin: Create and Provision a New Administrator in Database + Send Resend Email
  */
-export async function superAdminCreateAdmin({ email, fullName, role = 'website_admin', permissions, scope = 'main_website', assigned_level = 'all' }) {
+export async function superAdminCreateAdmin({ email, fullName, role = 'website_admin', permissions, scope = 'main_website', assigned_level = 'all', initialPassword = '', password = '' }) {
   const current = getWebsiteAdminSession() || getPortalAdminSession();
   const token = current?.token;
 
   if (!email || !fullName) {
     return { error: 'Email and Full Name are required.' };
+  }
+
+  const plainPassword = String(initialPassword || password || '').trim();
+  if (!plainPassword || plainPassword.length < 6) {
+    return { error: 'Initial administrator password is required (minimum 6 characters).' };
   }
 
   const cleanEmail = email.trim().toLowerCase();
@@ -580,7 +595,8 @@ export async function superAdminCreateAdmin({ email, fullName, role = 'website_a
         role,
         scope,
         assignedLevel: cleanLevel,
-        permissions
+        permissions,
+        initialPassword: plainPassword
       })
     });
 
@@ -598,6 +614,8 @@ export async function superAdminCreateAdmin({ email, fullName, role = 'website_a
 
   const adminId = `admin-${Date.now()}`;
   const nowIso = new Date().toISOString();
+  const initialHash = await hashPassword(plainPassword);
+
   const newAdmin = {
     id: adminId,
     user_id: null,
@@ -608,7 +626,7 @@ export async function superAdminCreateAdmin({ email, fullName, role = 'website_a
     assigned_level: cleanLevel,
     permissions: permissions || ['main_website.view'],
     is_active: true,
-    password_hash: null, // set via reset password flow
+    password_hash: initialHash,
     created_at: nowIso,
     updated_at: nowIso
   };
@@ -629,9 +647,11 @@ export async function superAdminCreateAdmin({ email, fullName, role = 'website_a
         to: cleanEmail,
         admin: {
           fullName: cleanName,
+          email: cleanEmail,
           scope: newAdmin.scope,
           role: newAdmin.role,
           assignedLevel: cleanLevel,
+          initialPassword: plainPassword,
           portalAdminUrl: origin,
           assignedAt: nowIso
         }
@@ -639,7 +659,7 @@ export async function superAdminCreateAdmin({ email, fullName, role = 'website_a
     });
   } catch (_) {}
 
-  return { success: true, admin: newAdmin };
+  return { success: true, admin: newAdmin, message: `Administrator ${cleanName} created successfully with initial password.` };
 }
 
 export const superAdminInviteAdmin = superAdminCreateAdmin;
@@ -807,17 +827,53 @@ export async function requestAdminPasswordReset(adminEmail) {
 
   const maskedEmail = maskEmail(cleanEmail);
   const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-  const emailResult = await sendPasswordResetEmail(cleanEmail, otpCode, adminRecord.full_name || 'Administrator', adminRecord.role || 'Admin Officer');
-  if (!emailResult.success && emailResult.provider !== 'simulated') {
-    return { success: false, error: emailResult.error || 'Failed to dispatch email.' };
+  // Compute and persist OTP hash so it can be verified in database
+  let otpHash = otpCode;
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      const enc = new TextEncoder();
+      const buf = await crypto.subtle.digest('SHA-256', enc.encode(otpCode + 'nacos_otp_salt_2026'));
+      otpHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (_) {}
   }
+
+  await supabase.from('otp_verifications').insert([{
+    registration_number: `ADMIN-${adminRecord.id}`,
+    channel: 'email',
+    destination: maskedEmail,
+    destination_full: cleanEmail,
+    otp_hash: otpHash,
+    expires_at: expiresAt,
+    attempts: 0,
+    max_attempts: 5,
+    is_used: false,
+    created_at: new Date().toISOString()
+  }]);
+
+  // Dispatch dedicated administrative authorization code email
+  try {
+    await fetch('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'admin_password_reset',
+        to: cleanEmail,
+        code: otpCode,
+        adminName: adminRecord.full_name || 'Administrator',
+        roleTitle: adminRecord.role || 'Admin Officer',
+        scope: adminRecord.scope || 'student_portal',
+        expiryMinutes: 15
+      })
+    });
+  } catch (_) {}
 
   return {
     success: true,
     email: cleanEmail,
     maskedEmail,
-    expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+    expiresAt
   };
 }
 

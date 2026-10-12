@@ -1400,7 +1400,12 @@ ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS bachs_reference TEXT;
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS gateway_response JSONB;
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS academic_session VARCHAR(50);
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS level VARCHAR(30);
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS session_start_year INTEGER;
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ;
+
+ALTER TABLE public.id_card_applications ADD COLUMN IF NOT EXISTS academic_session VARCHAR(50);
 
 CREATE TABLE IF NOT EXISTS public.webhook_events (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -1423,6 +1428,10 @@ ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS processed_at TIMESTAM
 CREATE INDEX IF NOT EXISTS idx_payments_reference ON public.payments (reference);
 CREATE INDEX IF NOT EXISTS idx_payments_tx_ref ON public.payments (tx_ref);
 CREATE INDEX IF NOT EXISTS idx_payments_student ON public.payments (student_id);
+CREATE INDEX IF NOT EXISTS idx_payments_session ON public.payments (academic_session);
+CREATE INDEX IF NOT EXISTS idx_payments_level ON public.payments (level);
+CREATE INDEX IF NOT EXISTS idx_payments_reg_type_lvl ON public.payments (registration_number, payment_type, level);
+CREATE INDEX IF NOT EXISTS idx_idcard_session ON public.id_card_applications (academic_session);
 CREATE INDEX IF NOT EXISTS idx_payments_reg ON public.payments (registration_number);
 CREATE INDEX IF NOT EXISTS idx_webhook_event_id ON public.webhook_events (event_id);
 

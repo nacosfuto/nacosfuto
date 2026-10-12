@@ -281,31 +281,40 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
 
       const resolvedPhoto = existingApp?.passport_url || existingPhoto || null;
       const cleanDigits = String(regNo).replace(/\D/g, '') || String(regNo).trim() || `ID${Date.now().toString().slice(-6)}`;
-      
-      // ON THE SPOT: If student has photo, immediately mark status as 'generated'
-      // If student has no photo, prompt with 'photo_required'
       const targetStatus = resolvedPhoto ? 'generated' : 'photo_required';
+      const paymentSession = paymentRecord.metadata?.academic_session || paymentRecord.academic_session || getDynamicAcademicSession(now);
+
+      const paidLevelNum = parseInt(studentLevel, 10) || 100;
+      const existingLevelNum = existingApp?.level ? (parseInt(String(existingApp.level).replace(/[^0-9]/g, ''), 10) || 0) : 0;
+      const shouldUpdateAppLevel = !existingApp || !existingApp.level || paidLevelNum >= existingLevelNum;
 
       if (existingApp) {
+        const updatePayload = {
+          payment_reference: paymentRecord.reference,
+          amount: paymentRecord.amount,
+          paid_at: now,
+          card_expiry_date: renewalDateStr,
+          passport_url: resolvedPhoto,
+          passport_photo_url: resolvedPhoto,
+          full_name: studentName,
+          registration_number: regNo,
+          matric_number: regNo,
+          id_card_number: existingApp.id_card_number || cleanDigits,
+          updated_at: now
+        };
+
+        // If paying for the active or higher level, activate/advance application
+        if (shouldUpdateAppLevel) {
+          updatePayload.payment_status = 'paid';
+          updatePayload.level = `${studentLevel} Level`;
+          updatePayload.academic_session = paymentSession;
+          updatePayload.status = targetStatus;
+          updatePayload.generated_at = resolvedPhoto ? (existingApp.generated_at || now) : existingApp.generated_at;
+        }
+
         await supabase
           .from('id_card_applications')
-          .update({
-            payment_status: 'paid',
-            payment_reference: paymentRecord.reference,
-            amount: paymentRecord.amount,
-            paid_at: now,
-            card_expiry_date: renewalDateStr,
-            passport_url: resolvedPhoto,
-            passport_photo_url: resolvedPhoto,
-            full_name: studentName,
-            registration_number: regNo,
-            matric_number: regNo,
-            level: `${studentLevel} Level`,
-            status: targetStatus,
-            id_card_number: existingApp.id_card_number || cleanDigits,
-            generated_at: resolvedPhoto ? (existingApp.generated_at || now) : existingApp.generated_at,
-            updated_at: now
-          })
+          .update(updatePayload)
           .eq('id', existingApp.id);
       } else {
         // Create application row immediately
@@ -317,6 +326,7 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
             registration_number: regNo,
             full_name: studentName,
             level: `${studentLevel} Level`,
+            academic_session: paymentSession,
             application_number: `APP-${Date.now().toString().slice(-6)}`,
             id_card_number: cleanDigits,
             status: targetStatus,
@@ -544,7 +554,9 @@ export async function createPaymentCheckout({
           const matchingIdPaid = allIdPayments.find(p => {
             const pLvl = String(p.level || p.metadata?.level || '').replace(/[^0-9]/g, '');
             const pSess = String(p.academic_session || p.metadata?.academic_session || p.metadata?.academicSession || '').trim();
-            return Boolean((pSess && pSess === targetSession) || (pLvl && checkLevel && pLvl === checkLevel));
+            const levelMatch = Boolean(pLvl && checkLevel && pLvl === checkLevel);
+            const sessionMatch = Boolean(pSess && targetSession && pSess === targetSession);
+            return levelMatch || sessionMatch;
           });
           if (matchingIdPaid) {
             return {
@@ -556,7 +568,7 @@ export async function createPaymentCheckout({
           }
         }
 
-        // Also check id_card_applications
+        // Also check id_card_applications - BUT ONLY if matching the exact level!
         try {
           const { data: existingApp } = await supabase
             .from('id_card_applications')
@@ -566,12 +578,15 @@ export async function createPaymentCheckout({
             .maybeSingle();
 
           if (existingApp) {
-            return {
-              error: `ID card application is already paid and verified for registration number ${regNo}.`,
-              statusCode: 409,
-              alreadyPaid: true,
-              payment: existingApp
-            };
+            const appLvl = String(existingApp.level || '').replace(/[^0-9]/g, '');
+            if (appLvl && checkLevel && appLvl === checkLevel) {
+              return {
+                error: `ID card application is already paid and verified for ${checkLevel} Level.`,
+                statusCode: 409,
+                alreadyPaid: true,
+                payment: existingApp
+              };
+            }
           }
         } catch (_) {}
       } else {
@@ -886,22 +901,49 @@ export async function createEventTicketCheckout({ eventId, eventTitle, attendee,
 export function verifyBachsWebhookSignature(rawBody, signatureHeader) {
   const { webhookSecret } = getBachsConfig();
   if (!webhookSecret) {
-    if (process.env.NODE_ENV === 'production') return false;
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('[Bachs Webhook] No BACHS_WEBHOOK_SECRET defined in production.');
+      return false;
+    }
     return true;
   }
 
-  if (!signatureHeader || !rawBody) return false;
+  if (!signatureHeader || !rawBody) {
+    console.warn('[Bachs Webhook] Missing signature header or body for signature verification.');
+    return false;
+  }
 
   try {
-    const computedSignature = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody))
-      .digest('hex');
+    const cleanSig = String(signatureHeader).replace(/^sha256[=:]/i, '').trim().toLowerCase();
+    const bodyStr = typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody);
 
-    return crypto.timingSafeEqual(
-      Buffer.from(computedSignature, 'utf8'),
-      Buffer.from(signatureHeader.replace(/^sha256=/, ''), 'utf8')
-    );
+    const computed = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(bodyStr)
+      .digest('hex')
+      .toLowerCase();
+
+    if (computed === cleanSig) return true;
+
+    // Fallback: If body was an object or had whitespace, try stringifying rawBody
+    if (typeof rawBody === 'object') {
+      const altComputed = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(JSON.stringify(rawBody))
+        .digest('hex')
+        .toLowerCase();
+      if (altComputed === cleanSig) return true;
+    }
+
+    // Safe comparison if buffer lengths match
+    const bComputed = Buffer.from(computed, 'utf8');
+    const bHeader = Buffer.from(cleanSig, 'utf8');
+    if (bComputed.length === bHeader.length) {
+      return crypto.timingSafeEqual(bComputed, bHeader);
+    }
+
+    console.warn(`[Bachs Webhook] Signature mismatch. Received: ${cleanSig.slice(0, 8)}... vs Computed: ${computed.slice(0, 8)}...`);
+    return false;
   } catch (err) {
     console.error('[Bachs] Webhook signature verification error:', err);
     return false;
@@ -912,11 +954,29 @@ export function verifyBachsWebhookSignature(rawBody, signatureHeader) {
  * Process Bachs Webhook Event Idempotently for ANY Payment Type
  */
 export async function processBachsWebhook(event) {
-  if (!event || (!event.event_type && !event.type)) {
-    return { error: 'Invalid event structure', statusCode: 400 };
+  if (!event || typeof event !== 'object') {
+    return { success: true, message: 'Empty or invalid ping payload acknowledged.', statusCode: 200 };
   }
 
-  const eventType = event.event_type || event.type;
+  const eventType = String(
+    event.event_type ||
+    event.type ||
+    event.event ||
+    event.name ||
+    (event.status ? 'status.update' : 'generic.event')
+  ).toLowerCase();
+
+  // Handshake / Ping / Verification check from Bachs Gateway
+  if (
+    eventType === 'ping' ||
+    eventType === 'test' ||
+    eventType === 'webhook.test' ||
+    eventType === 'endpoint.verification' ||
+    eventType.includes('ping')
+  ) {
+    return { success: true, message: 'Bachs webhook endpoint is operational.', statusCode: 200 };
+  }
+
   const eventId = String(event.id || event.event_id || event.data?.id || `evt_${Date.now()}`);
   const payload = event.data || event;
   const now = new Date().toISOString();
