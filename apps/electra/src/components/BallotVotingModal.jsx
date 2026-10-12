@@ -12,6 +12,7 @@ import {
   ExternalLink 
 } from 'lucide-react';
 import { castBallot, getElectraPosts, getContestants, fetchLiveElectraData } from '@nacos/supabase/electraService';
+import { calculateAcademicProgression } from '@nacos/config/academic';
 
 export default function BallotVotingModal({ 
   isOpen, 
@@ -81,7 +82,7 @@ export default function BallotVotingModal({
       const res = await castBallot(
         voter.matricNumber,
         votesArray,
-        voter.level || '300 Level'
+        calculateAcademicProgression(voter).levelString || voter.level || '100 Level'
       );
 
       if (res.error) {

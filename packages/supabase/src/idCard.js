@@ -4,7 +4,7 @@ import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
 import { getLocalStudentsDatabase } from './auth.js';
 import { uploadMedia, CLOUDINARY_FOLDERS, getOptimizedImageUrl, idTemplateMaster, idTemplateBack, idTemplateFrame } from '@nacos/media';
 import QRCode from 'qrcode';
-import { getActiveAcademicSession } from '@nacos/config/academic';
+import { getActiveAcademicSession, calculateAcademicProgression } from '@nacos/config/academic';
 
 const PAYMENTS_STORAGE_KEY = 'nacos_payments_db';
 const ID_APPLICATIONS_STORAGE_KEY = 'nacos_id_applications_db';
@@ -298,12 +298,17 @@ export async function checkStudentPaymentStatus(matricNumber, currentLevel = nul
     } else if (supabase) {
       const { data: prof } = await supabase
         .from('profiles')
-        .select('id, level, current_level')
+        .select('id, level, current_level, admission_year, registration_number')
         .or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`)
         .maybeSingle();
       if (prof?.id) studentUuid = prof.id;
-      if (prof?.level || prof?.current_level) {
-        studentProfileLevel = String(prof.level || prof.current_level).replace(/[^0-9]/g, '');
+      if (prof) {
+        const prog = calculateAcademicProgression(prof);
+        if (prog && prog.valid && prog.numericLevel) {
+          studentProfileLevel = String(prog.numericLevel * 100);
+        } else if (prof.level || prof.current_level) {
+          studentProfileLevel = String(prof.level || prof.current_level).replace(/[^0-9]/g, '');
+        }
       }
     }
 
@@ -616,7 +621,7 @@ export async function createIdCardApplication(student) {
     matric_number: cleanMatric,
     registration_number: cleanMatric,
     full_name: studentName,
-    level: student.level || '300 Level',
+    level: calculateAcademicProgression(student).levelString || student.level || '100 Level',
     application_number: appNumber,
     id_card_number: null,
     status: initialStatus,
@@ -1065,7 +1070,7 @@ export async function portalAdminGetApplications(options = {}) {
           full_name: profile.full_name || app.full_name || profile.name || 'Student Member',
           programme: profile.programme || app.programme || 'B.Tech Computer Science',
           department: profile.department || app.department || 'Computer Science',
-          level: profile.admission_year ? `${Math.min(500, Math.max(100, (new Date().getFullYear() - profile.admission_year + 1) * 100))} Level` : (app.level || '300 Level'),
+          level: calculateAcademicProgression(profile?.registration_number ? profile : { ...profile, registration_number: reg }).levelString || app.level || '100 Level',
           passport_url: app.passport_url || profile.profile_photo_url || profile.avatar_url || null,
           passport_photo_url: app.passport_url || profile.profile_photo_url || profile.avatar_url || null,
           payment_reference: app.payment_reference || payRecord?.reference || null,
@@ -1094,7 +1099,7 @@ export async function portalAdminGetApplications(options = {}) {
         student_name: app.student_name || student.full_name || student.name || 'Student Member',
         programme: student.programme || 'B.Tech Computer Science',
         department: student.department || 'Computer Science',
-        level: student.level || '300 Level'
+        level: calculateAcademicProgression(student).levelString || student.level || '100 Level'
       };
     });
   }
@@ -1328,13 +1333,14 @@ export async function verifyIdCardPublic(idCardNumber) {
             matric: data.matric_number,
             department: student.department || 'Computer Science',
             faculty: student.faculty || 'SICT',
-            level: student.level || '300 Level'
+            level: calculateAcademicProgression(student?.registration_number ? student : { registration_number: data.matric_number }).levelString || student.level || '100 Level'
           },
           revocation_reason: data.revocation_reason || 'Card revoked by departmental authority.'
         };
       }
 
       if (data.status === 'generated' || data.status === 'approved') {
+        const studentProg = calculateAcademicProgression(student?.registration_number ? student : { registration_number: data.matric_number });
         return {
           status: 'valid',
           card: data,
@@ -1343,8 +1349,8 @@ export async function verifyIdCardPublic(idCardNumber) {
             matric: data.matric_number,
             department: student.department || 'Computer Science',
             faculty: student.faculty || 'SICT',
-            level: student.level || '300 Level',
-            session: '2026/2027'
+            level: studentProg.levelString || student.level || '100 Level',
+            session: studentProg.academicSession || getActiveAcademicSession()
           }
         };
       }
@@ -1384,13 +1390,14 @@ export async function verifyIdCardPublic(idCardNumber) {
         matric: app.matric_number,
         department: student.department || 'Computer Science',
         faculty: student.faculty || 'SICT',
-        level: student.level || '300 Level'
+        level: calculateAcademicProgression(student?.registration_number ? student : { registration_number: app.matric_number }).levelString || student.level || '100 Level'
       },
       revocation_reason: app.revocation_reason || 'Card revoked by departmental authority.'
     };
   }
 
   if (app.status === 'generated' || app.status === 'approved') {
+    const studentProg = calculateAcademicProgression(student?.registration_number ? student : { registration_number: app.matric_number });
     return {
       status: 'valid',
       card: app,
@@ -1399,8 +1406,8 @@ export async function verifyIdCardPublic(idCardNumber) {
         matric: app.matric_number,
         department: student.department || 'Computer Science',
         faculty: student.faculty || 'SICT',
-        level: student.level || '300 Level',
-        session: '2026/2027'
+        level: studentProg.levelString || student.level || '100 Level',
+        session: studentProg.academicSession || getActiveAcademicSession()
       }
     };
   }

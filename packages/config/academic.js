@@ -107,6 +107,36 @@ export function getActiveAcademicSession() {
  * Accepts a year number (e.g. 2027) or a session string (e.g. '2027/2028')
  * Broadcasts change event so all open views immediately recompute student levels.
  */
+const _sessionSubscribers = new Set();
+
+if (typeof window !== 'undefined') {
+  window.addEventListener(SESSION_EVENT_NAME, (e) => {
+    const detail = e?.detail || {};
+    const startYear = typeof detail === 'object' && detail.startYear != null
+      ? detail.startYear
+      : parseSessionYears(detail.sessionName || detail).startYear;
+    if (startYear && startYear !== _activeAcademicYearStart) {
+      _activeAcademicYearStart = startYear;
+      const sessionName = getAcademicSession(startYear);
+      const payload = {
+        startYear,
+        sessionName,
+        session: sessionName,
+        toString() { return sessionName; },
+        valueOf() { return sessionName; }
+      };
+      _sessionSubscribers.forEach((cb) => {
+        try { cb(payload, sessionName); } catch (_) {}
+      });
+    }
+  });
+}
+
+/**
+ * Set the active academic session system-wide
+ * Accepts a year number (e.g. 2027) or a session string (e.g. '2027/2028')
+ * Broadcasts change event so all open views immediately recompute student levels.
+ */
 export function setActiveAcademicSession(sessionOrYear) {
   let startYear = DEFAULT_ACADEMIC_YEAR_START;
 
@@ -125,47 +155,45 @@ export function setActiveAcademicSession(sessionOrYear) {
     } catch (_) {}
   }
 
+  const sessionName = getAcademicSession(startYear);
+  const detail = {
+    startYear,
+    sessionName,
+    session: sessionName,
+    toString() { return sessionName; },
+    valueOf() { return sessionName; }
+  };
+
+  _sessionSubscribers.forEach((cb) => {
+    try {
+      cb(detail, sessionName);
+    } catch (e) {
+      console.warn('[AcademicSession] Subscriber callback error:', e);
+    }
+  });
+
   if (typeof window !== 'undefined') {
     try {
-      const sessionName = getAcademicSession(startYear);
       window.dispatchEvent(new CustomEvent(SESSION_EVENT_NAME, {
-        detail: {
-          startYear,
-          sessionName
-        }
+        detail
       }));
     } catch (_) {}
   }
 
-  return getAcademicSession(startYear);
+  return sessionName;
 }
 
 /**
  * Subscribe to active academic session changes across the app
  */
 export function onAcademicSessionChange(callback) {
-  if (typeof window === 'undefined' || typeof callback !== 'function') {
+  if (typeof callback !== 'function') {
     return () => {};
   }
-  const handler = (e) => {
-    const detail = e.detail || {};
-    const sessionName = typeof detail === 'string'
-      ? detail
-      : (detail.sessionName || getAcademicSession());
-    const startYear = typeof detail === 'object' && detail.startYear != null
-      ? detail.startYear
-      : parseSessionYears(sessionName).startYear;
-
-    callback({
-      startYear,
-      sessionName,
-      session: sessionName,
-      toString() { return sessionName; },
-      valueOf() { return sessionName; }
-    }, sessionName);
+  _sessionSubscribers.add(callback);
+  return () => {
+    _sessionSubscribers.delete(callback);
   };
-  window.addEventListener(SESSION_EVENT_NAME, handler);
-  return () => window.removeEventListener(SESSION_EVENT_NAME, handler);
 }
 
 /**
@@ -344,10 +372,26 @@ export function calculateAcademicProgression(input, options = {}) {
       rawAdmissionYear = parseInt(input.admission_year, 10);
     } else if (input.admissionYear !== undefined && input.admissionYear !== null && input.admissionYear !== '') {
       rawAdmissionYear = parseInt(input.admissionYear, 10);
+    } else if (input.entry_year !== undefined && input.entry_year !== null && input.entry_year !== '') {
+      rawAdmissionYear = parseInt(input.entry_year, 10);
+    } else if (input.entryYear !== undefined && input.entryYear !== null && input.entryYear !== '') {
+      rawAdmissionYear = parseInt(input.entryYear, 10);
     } else if (regNo) {
       const parsed = parseAdmissionYear(regNo, currentYearStart);
       if (parsed.valid) {
         rawAdmissionYear = parsed.admissionYear;
+      }
+    }
+
+    // In case record has no explicit admission year and regNo lacks 4 digits,
+    // safely derive entry year from historical level if available
+    if (!rawAdmissionYear || isNaN(rawAdmissionYear)) {
+      const lvlMatch = String(input.level || input.current_level || '').match(/(\d{3})/);
+      if (lvlMatch) {
+        const numLvl = parseInt(lvlMatch[1], 10);
+        if (numLvl >= 100 && numLvl <= 600) {
+          rawAdmissionYear = currentYearStart - (numLvl / 100) + 1;
+        }
       }
     }
 

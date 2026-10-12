@@ -13,7 +13,8 @@ import {
   setActiveAcademicSession, 
   getActiveAcademicSession,
   getActiveAcademicYearStart,
-  calculateAcademicProgression
+  calculateAcademicProgression,
+  onAcademicSessionChange
 } from '@nacos/config/academic';
 
 const LOCAL_SESSIONS_KEY = 'nacos_academic_sessions_db';
@@ -71,16 +72,28 @@ export async function fetchAcademicSessionsFromDatabase() {
         return data;
       }
 
-      // If table is empty or doesn't exist yet, check academic_settings
-      const { data: settingsRow } = await supabase
-        .from('academic_settings')
-        .select('*')
+      // 2. Authoritative check: id_card_settings (where PortalAdminSettings saves academic_session)
+      const { data: idSettingsRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
         .eq('id', 'default')
         .maybeSingle();
 
-      if (settingsRow?.current_session) {
-        const parsed = parseSessionYears(settingsRow.current_session);
+      if (idSettingsRow?.academic_session && typeof idSettingsRow.academic_session === 'string' && idSettingsRow.academic_session.includes('/')) {
+        const parsed = parseSessionYears(idSettingsRow.academic_session);
         setActiveAcademicSession(parsed.startYear);
+      } else {
+        // 3. Fallback: check academic_settings
+        const { data: settingsRow } = await supabase
+          .from('academic_settings')
+          .select('*')
+          .eq('id', 'default')
+          .maybeSingle();
+
+        if (settingsRow?.current_session) {
+          const parsed = parseSessionYears(settingsRow.current_session);
+          setActiveAcademicSession(parsed.startYear);
+        }
       }
     } catch (e) {
       console.warn('[Academic Service] Supabase sessions query notice:', e.message);
@@ -94,6 +107,76 @@ export async function fetchAcademicSessionsFromDatabase() {
     setActiveAcademicSession(currentLocal.start_year);
   }
   return local;
+}
+
+let _academicSyncInitialized = false;
+
+/**
+ * Global Real-time Academic Session Synchronization Engine
+ * Automatically aligns the student portal with the administrator's authoritative
+ * academic session from Supabase in real-time.
+ */
+export function initAcademicSessionSync() {
+  if (typeof window === 'undefined') return;
+  if (_academicSyncInitialized) return;
+  _academicSyncInitialized = true;
+
+  // 1. Fetch immediately on application mount
+  fetchAcademicSessionsFromDatabase().catch(err => {
+    console.warn('[Academic Sync] Initial fetch notice:', err);
+  });
+
+  // 2. Setup Realtime subscription across all admin configuration tables
+  if (supabase) {
+    try {
+      supabase
+        .channel('academic-session-live-sync-global')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_settings' }, () => {
+          fetchAcademicSessionsFromDatabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'academic_settings' }, () => {
+          fetchAcademicSessionsFromDatabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'academic_sessions' }, () => {
+          fetchAcademicSessionsFromDatabase();
+        })
+        .subscribe();
+    } catch (_) {}
+  }
+
+  // 3. Re-sync on focus/visibility change
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      fetchAcademicSessionsFromDatabase();
+    }
+  });
+
+  // 4. Automatically re-enrich local user profile when active academic session changes
+  onAcademicSessionChange(({ sessionName, startYear }) => {
+    try {
+      const stored = localStorage.getItem('nacos_user');
+      if (stored) {
+        const u = JSON.parse(stored);
+        const progression = calculateAcademicProgression(u, sessionName);
+        const updated = {
+          ...u,
+          level: progression.levelString,
+          current_level: progression.levelString,
+          numeric_level: progression.numericLevel,
+          is_graduated: progression.isGraduated,
+          status: progression.isGraduated ? 'Graduated' : (u.status || 'Active'),
+          class_of: progression.classOf,
+          classOf: progression.classOf,
+          class_of_display: progression.classOfDisplay,
+          graduation_year: progression.expectedGraduationYear,
+          expected_graduation_year: progression.expectedGraduationYear,
+          academic_session: sessionName
+        };
+        localStorage.setItem('nacos_user', JSON.stringify(updated));
+        window.dispatchEvent(new Event('nacos_user_updated'));
+      }
+    } catch (_) {}
+  });
 }
 
 /**

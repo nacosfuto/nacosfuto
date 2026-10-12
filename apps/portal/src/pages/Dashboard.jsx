@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import PortalLayout from '../components/PortalLayout';
 import { supabase, getLocalPaymentsDatabase, fetchResultsForStudent, fetchCourses, getDepartmentalDuesFee } from '@nacos/supabase';
+import { enrichStudentProfile } from '@nacos/supabase/auth';
 import { 
   calculateAcademicProgression, 
   getActiveAcademicSession, 
@@ -59,7 +60,7 @@ const Dashboard = () => {
 
   const deriveLevelNum = (u) => {
     if (!u) return '100';
-    const prog = calculateAcademicProgression(u, getActiveAcademicSession());
+    const prog = calculateAcademicProgression(u);
     if (prog && prog.valid && prog.numericLevel) {
       return String(prog.numericLevel * 100);
     }
@@ -279,8 +280,8 @@ const Dashboard = () => {
         return false;
       }
 
-      // Merge latest live Supabase database attributes with user state
-      const mergedUser = { ...currentUser, ...data };
+      // Merge latest live Supabase database attributes with user state and authoritatively enrich progression
+      const mergedUser = enrichStudentProfile({ ...currentUser, ...data }) || { ...currentUser, ...data };
       setUser(mergedUser);
       localStorage.setItem('nacos_user', JSON.stringify(mergedUser));
       await loadStudentClearanceHistory(mergedUser);
@@ -468,7 +469,7 @@ const Dashboard = () => {
             <div className="mt-3 space-y-1.5">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs sm:text-sm font-normal text-gray-600 dark:text-gray-300">
-                  Total Paid (100L Till Date)
+                  Total Paid ({studentLevelNum}L Cumulative)
                 </h4>
                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
                   isRevoked

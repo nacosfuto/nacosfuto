@@ -17,6 +17,7 @@ import {
 import PortalLayout from '../components/PortalLayout';
 import { getAppUrls } from '@nacos/config/urls';
 import { fetchCourses } from '@nacos/supabase';
+import { calculateAcademicProgression } from '@nacos/config/academic';
 
 const Courses = () => {
   // User Authentication / State
@@ -34,16 +35,14 @@ const Courses = () => {
 
   // Calculate Student Current Level
   const currentStudentLevel = useMemo(() => {
-    const levelStr = (user.level || '').toString();
+    const prog = calculateAcademicProgression(user);
+    if (prog && prog.valid && prog.numericLevel) {
+      return Math.min(500, Math.max(100, prog.numericLevel * 100));
+    }
+    const levelStr = (user.level || user.current_level || '').toString();
     const match = levelStr.match(/(\d{3})/);
     if (match) return parseInt(match[1], 10);
-    if (user.admission_year) {
-      const num = 2026 - parseInt(user.admission_year, 10) + 1;
-      if (num >= 5) return 500;
-      if (num <= 1) return 100;
-      return num * 100;
-    }
-    return 300;
+    return 100;
   }, [user]);
 
   // Courses Dynamic State (from database, defaults to [])

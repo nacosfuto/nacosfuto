@@ -13,6 +13,7 @@
  */
 
 import { supabase, isSupabaseConfigured } from './client.js';
+import { calculateAcademicProgression } from '@nacos/config/academic';
 
 // Ephemeral cache keys (used solely for offline / fast re-render cache, never initialized with mock data)
 const ELECTIONS_LIST_STORAGE_KEY = 'nacos_electra_all_elections_db';
@@ -95,7 +96,7 @@ function normalizeCandidate(row) {
     postId: row.position_id || row.postId,
     name: row.name,
     matricNumber: row.matric_number || row.matricNumber || '',
-    level: row.level || '300 Level',
+    level: row.level || calculateAcademicProgression(row.matric_number || row.matricNumber).levelString || '100 Level',
     runningPost: row.running_post || row.runningPost || '',
     slogan: row.slogan || '',
     photoUrl: row.photo_url || row.photoUrl || '',
@@ -838,7 +839,7 @@ export async function adminSaveContestant(contestantData, candidateId = null) {
         position_id: item.postId,
         name: item.name,
         matric_number: item.matricNumber,
-        level: item.level || '300 Level',
+        level: item.level || calculateAcademicProgression(item.matricNumber).levelString || '100 Level',
         running_post: item.runningPost || '',
         slogan: item.slogan || '',
         photo_url: item.photoUrl || '',

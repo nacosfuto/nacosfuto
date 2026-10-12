@@ -27,8 +27,9 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import { hashPassword, isLocalEnvironment } from '@nacos/supabase/auth';
+import { hashPassword, isLocalEnvironment, enrichStudentProfile } from '@nacos/supabase/auth';
 import { supabase, fetchActivePopupNotice } from '@nacos/supabase';
+import { calculateAcademicProgression, onAcademicSessionChange } from '@nacos/config/academic';
 import { getAppUrls } from '@nacos/config/urls';
 import NoticeModal from './NoticeModal';
 import logoDark from '../assets/full-logo-dark.png';
@@ -75,7 +76,9 @@ const PortalLayout = ({ children }) => {
       const stored = localStorage.getItem('nacos_user');
       if (stored) {
         try {
-          setUser(JSON.parse(stored));
+          const parsed = JSON.parse(stored);
+          const enriched = enrichStudentProfile(parsed) || parsed;
+          setUser(enriched);
         } catch (e) {
           console.error(e);
         }
@@ -85,9 +88,11 @@ const PortalLayout = ({ children }) => {
     handleUserUpdate();
     window.addEventListener('storage', handleUserUpdate);
     window.addEventListener('nacos_user_updated', handleUserUpdate);
+    const unsubSession = onAcademicSessionChange(() => handleUserUpdate());
     return () => {
       window.removeEventListener('storage', handleUserUpdate);
       window.removeEventListener('nacos_user_updated', handleUserUpdate);
+      if (unsubSession) unsubSession();
     };
   }, []);
 
@@ -102,7 +107,8 @@ const PortalLayout = ({ children }) => {
     let isMounted = true;
     const checkPopup = async () => {
       try {
-        const studentLevel = user?.level || user?.currentLevel || user?.current_level;
+        const prog = calculateAcademicProgression(user);
+        const studentLevel = prog.valid ? prog.levelString : (user?.level || user?.currentLevel || user?.current_level);
         const notice = await fetchActivePopupNotice({ level: studentLevel });
         if (isMounted) {
           setActivePopupNotice(notice);

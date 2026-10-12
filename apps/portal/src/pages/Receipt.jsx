@@ -14,7 +14,7 @@ import PortalLayout from '../components/PortalLayout';
 import { printReceiptSlip } from '../utils/printReceipt';
 import logoLight from '../assets/full-logo-light.png';
 import { supabase, getDepartmentalDuesFee, getIdCardSettings } from '@nacos/supabase';
-import { getActiveAcademicSession } from '@nacos/config/academic';
+import { getActiveAcademicSession, calculateAcademicProgression } from '@nacos/config/academic';
 
 /**
  * Official In-Portal Payment & Clearance Receipt Page
@@ -159,7 +159,7 @@ const Receipt = () => {
           studentName: currentUser?.full_name || currentUser?.name || 'Student Member',
           matricNo: cleanMatric || '',
           department: currentUser?.department || 'Computer Science',
-          level: dbPayment?.level || dbPayment?.metadata?.level || (currentUser?.level ? `${currentUser.level} Level` : ''),
+          level: dbPayment?.level || dbPayment?.metadata?.level || (currentUser ? calculateAcademicProgression(currentUser).levelString : ''),
           session: dbPayment?.academic_session || dbPayment?.metadata?.academic_session || dbPayment?.session || currentUser?.academic_session || getActiveAcademicSession(),
           amount: amt,
           rawAmount: amt,

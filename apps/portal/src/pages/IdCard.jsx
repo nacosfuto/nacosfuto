@@ -49,6 +49,7 @@ import {
   saveGeneratedIdCardAsset
 } from '@nacos/supabase/idCard';
 import { supabase } from '@nacos/supabase';
+import { enrichStudentProfile } from '@nacos/supabase/auth';
 import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
 import { MediaUpload, CLOUDINARY_FOLDERS, getOptimizedImageUrl, idTemplateMaster, idTemplateBack, idTemplateFrame } from '@nacos/media';
 import StepUpAuthModal from '../components/StepUpAuthModal';
@@ -144,7 +145,10 @@ const IdCard = () => {
 
     try {
       let parsed = JSON.parse(stored);
+      parsed = enrichStudentProfile(parsed) || parsed;
       setStudent(parsed);
+      const studentProg = calculateAcademicProgression(parsed);
+      const studentCurrentLevel = studentProg.levelString;
       const pObs = getStudentApplicableLevelSessions(parsed);
       const curOb = pObs.find(o => o.isCurrent) || pObs[pObs.length - 1];
       if (curOb) {
@@ -192,7 +196,7 @@ const IdCard = () => {
 
       // Check payment status dynamically (level-aware) with timeout
       const payStatus = await withTimeout(
-        checkStudentPaymentStatus(cleanMatric, parsed?.level || parsed?.current_level),
+        checkStudentPaymentStatus(cleanMatric, studentCurrentLevel),
         3500
       ).catch(() => ({ isPaid: false }));
 
@@ -374,7 +378,8 @@ const IdCard = () => {
 
           const currentStudent = studentRef.current;
           const currentSettings = settingsRef.current;
-          const lvl = currentStudent?.level ? `${currentStudent.level} Level` : '300 Level';
+          const studentProg = calculateAcademicProgression(currentStudent);
+          const lvl = studentProg.levelString || '100 Level';
           const feeAmt = Number(event.data.amount || currentSettings?.id_card_fee || 0);
           const payload = {
             receiptNo: event.data.reference || `NACOS/IDCARD/${Date.now().toString().slice(-6)}`,

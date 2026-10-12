@@ -22,6 +22,7 @@ const HackathonDetail = lazy(() => import('./pages/HackathonDetail'));
 const HackathonApply = lazy(() => import('./pages/HackathonApply'));
 const AdminHub = lazy(() => import('./pages/AdminHub'));
 import { getAppUrls } from '@nacos/config/urls';
+import { initAcademicSessionSync } from '@nacos/supabase';
 
 const PortalPageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-[#041801]">
@@ -147,6 +148,10 @@ function PortalSEOHandler() {
 
 function App() {
   const isNestedUnderPortal = typeof window !== 'undefined' && window.location.pathname.startsWith('/portal');
+
+  useEffect(() => {
+    initAcademicSessionSync();
+  }, []);
 
   return (
     <ThemeProvider>

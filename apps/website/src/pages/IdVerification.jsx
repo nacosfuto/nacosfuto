@@ -15,6 +15,7 @@ import {
   Lock
 } from 'lucide-react';
 import { verifyIdCardPublic } from '@nacos/supabase/idCard';
+import { calculateAcademicProgression, getActiveAcademicSession } from '@nacos/config/academic';
 import logoDark from '../assets/full-logo-dark.png';
 import logoLight from '../assets/full-logo-light.png';
 import { useTheme } from '../context/ThemeContext';
@@ -128,12 +129,14 @@ const IdVerification = () => {
 
                   <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-100 dark:border-[#138601]/20">
                     <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-green-200/50 block">Academic Level</span>
-                    <span className="font-semibold text-gray-800 dark:text-gray-200">{result.student?.level || '300 Level'}</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">
+                      {result.student?.level || (result.student ? calculateAcademicProgression(result.student).levelString : '100 Level')}
+                    </span>
                   </div>
 
                   <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-100 dark:border-[#138601]/20">
                     <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-green-200/50 block">Session</span>
-                    <span className="font-semibold text-gray-800 dark:text-gray-200">{result.student?.session || '2026/2027'}</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">{result.student?.session || getActiveAcademicSession()}</span>
                   </div>
 
                   <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-100 dark:border-[#138601]/20">

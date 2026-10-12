@@ -702,7 +702,7 @@ export async function handleElectoralAccreditation({ electionId, registrationNum
 
   // 4. Create or update pending accreditation record
   const officialFullName = officialRecord.full_name || `${officialRecord.first_name || ''} ${officialRecord.last_name || ''}`.trim() || 'Student Elector';
-  const officialLevel = officialRecord.level || '300 Level';
+  const officialLevel = officialRecord.level || calculateAcademicProgression(officialRecord).levelString || '100 Level';
 
   const accreditationId = existingAccreditation?.id || `acc-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const accreditationRecord = {

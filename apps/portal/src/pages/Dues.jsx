@@ -20,11 +20,13 @@ import {
 import PortalLayout from '../components/PortalLayout';
 import { useTheme } from '../context/ThemeContext';
 import { supabase, recordStudentPayment, getDuesSettings, getLocalPaymentsDatabase } from '@nacos/supabase';
+import { enrichStudentProfile } from '@nacos/supabase/auth';
 import {
   getActiveAcademicSession,
   SUPPORTED_ACADEMIC_SESSIONS,
   calculateAcademicProgression,
-  extractEntryYearFromRegNumber
+  extractEntryYearFromRegNumber,
+  onAcademicSessionChange
 } from '@nacos/config/academic';
 import StepUpAuthModal from '../components/StepUpAuthModal';
 import PosThermalReceipt from '../components/PosThermalReceipt';
@@ -122,7 +124,10 @@ const Dues = () => {
     const matric = currentUser?.registration_number || currentUser?.matric || currentUser?.matricNumber || '';
     const cleanMatric = String(matric).trim().toUpperCase();
     const userId = currentUser?.id;
-    const studentHomeLevel = String(currentUser?.level || currentUser?.current_level || '100').match(/\d{3}/)?.[0] || '100';
+    const progression = calculateAcademicProgression(currentUser);
+    const studentHomeLevel = progression.valid && progression.numericLevel 
+      ? String(progression.numericLevel * 100) 
+      : (String(currentUser?.level || currentUser?.current_level || '100').match(/\d{3}/)?.[0] || '100');
 
     const newMap = {
       '100': null,
@@ -282,7 +287,7 @@ const Dues = () => {
           amount: currentUser.dues_amount || duesFee || 0,
           status: 'successful',
           level: studentHomeLevel,
-          session: currentUser.academic_session || '2026/2027',
+          session: progression.academicSession || currentUser.academic_session || getActiveAcademicSession(),
           paid_at: currentUser.dues_paid_at || new Date().toISOString()
         });
       }
@@ -444,19 +449,38 @@ const Dues = () => {
         if (stored) {
           try {
             const parsed = JSON.parse(stored);
-            setUser(parsed);
-            checkStatus(parsed);
+            const enriched = enrichStudentProfile(parsed) || parsed;
+            setUser(enriched);
+            checkStatus(enriched);
           } catch (err) {}
         }
       }
     };
 
+    const handleUserUpdated = () => {
+      const stored = localStorage.getItem('nacos_user');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          const enriched = enrichStudentProfile(parsed) || parsed;
+          setUser(enriched);
+          checkStatus(enriched);
+        } catch (err) {}
+      }
+    };
+
     window.addEventListener('storage', handleStorageEvent);
+    window.addEventListener('nacos_user_updated', handleUserUpdated);
+    const unsubSession = onAcademicSessionChange(() => {
+      handleUserUpdated();
+    });
 
     return () => {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
       if (channel) channel.close();
       window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('nacos_user_updated', handleUserUpdated);
+      if (unsubSession) unsubSession();
     };
   }, [user, duesFee, formSession]);
 
@@ -656,7 +680,7 @@ const Dues = () => {
               </p>
             </div>
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-[#0e8040] dark:text-[#4bd043] border border-emerald-200 dark:border-emerald-800/40 w-fit">
-              Current Standing: {user?.level || 100} Level
+              Current Standing: {calculateAcademicProgression(user).levelString || '100 Level'}
             </span>
           </div>
 
