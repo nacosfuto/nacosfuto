@@ -72,6 +72,9 @@ const PaymentSuccess = () => {
         setDynamicFee(liveAmount);
         setLoading(false);
 
+        const payLvl = paymentData?.level || paymentData?.payment?.level || null;
+        const paySess = paymentData?.academicSession || paymentData?.payment?.academic_session || null;
+
         // Broadcast authoritative confirmation across all browser tabs
         try {
           const channel = new BroadcastChannel('nacos_payment_sync');
@@ -79,7 +82,9 @@ const PaymentSuccess = () => {
             status: 'successful', 
             reference, 
             paymentType: isDues ? 'dues' : 'id_card',
-            amount: liveAmount
+            amount: liveAmount,
+            level: payLvl,
+            session: paySess
           });
           setTimeout(() => channel.close(), 1500);
         } catch (e) {}
@@ -88,6 +93,8 @@ const PaymentSuccess = () => {
           reference, 
           paymentType: isDues ? 'dues' : 'id_card',
           amount: liveAmount,
+          level: payLvl,
+          session: paySess,
           timestamp: Date.now() 
         }));
         window.dispatchEvent(new Event('nacos_user_updated'));

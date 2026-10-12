@@ -143,7 +143,7 @@ export default function ContestantsPage({ onOpenBallot, onOpenManifesto }) {
                         : 'bg-white text-slate-700 hover:text-[#138601] border border-slate-200'
                     }`}
                   >
-                    <span>{post.title}</span>
+                    <span>{post?.title}</span>
                     <span className="ml-1 opacity-60">({count})</span>
                   </button>
                 );

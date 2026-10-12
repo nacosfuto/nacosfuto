@@ -330,7 +330,37 @@ export async function checkStudentPaymentStatus(matricNumber, currentLevel = nul
       .order('paid_at', { ascending: false });
 
     if (Array.isArray(allBachsPayments) && allBachsPayments.length > 0) {
-      // Level or session-based check: find payment matching student's active level or session
+      if (cleanTargetLevel) {
+        const exactLevelMatch = allBachsPayments.find(p => {
+          const pLevel = String(p.level || p.metadata?.level || p.metadata?.assignedLevel || '').replace(/[^0-9]/g, '');
+          return Boolean(pLevel && pLevel === cleanTargetLevel);
+        });
+
+        if (exactLevelMatch) {
+          const paymentLevel = String(exactLevelMatch.level || exactLevelMatch.metadata?.level || exactLevelMatch.metadata?.assignedLevel || cleanTargetLevel).replace(/[^0-9]/g, '');
+          return {
+            isPaid: true,
+            isExpired: false,
+            payment: exactLevelMatch,
+            provider: exactLevelMatch.provider || 'BACHS',
+            reference: exactLevelMatch.reference,
+            amount: exactLevelMatch.amount,
+            paidLevel: paymentLevel,
+            currentLevel: cleanTargetLevel,
+            paidDate: exactLevelMatch.paid_at || exactLevelMatch.created_at
+          };
+        } else {
+          return {
+            isPaid: false,
+            isExpired: false,
+            needsRenewal: true,
+            payment: null,
+            currentLevel: cleanTargetLevel
+          };
+        }
+      }
+
+      // Fallback for general query without cleanTargetLevel:
       const levelMatch = allBachsPayments.find(p => {
         const pLevel = String(p.level || p.metadata?.level || p.metadata?.assignedLevel || '').replace(/[^0-9]/g, '');
         const pSess = String(p.academic_session || p.metadata?.academic_session || p.metadata?.academicSession || '').trim();
@@ -509,10 +539,11 @@ export async function recordStudentPayment(matricNumber, amount = null) {
  * Fetch the active ID card application for a student.
  * Returns null if student has never applied (State 1: Not Applied).
  */
-export async function getStudentIdApplication(matricOrId) {
+export async function getStudentIdApplication(matricOrId, targetLevel = null) {
   if (!matricOrId) return null;
 
   const cleanMatric = String(matricOrId).trim().toUpperCase();
+  const cleanTargetLevel = targetLevel ? String(targetLevel).replace(/[^0-9]/g, '') : null;
 
   // 1. Try Supabase remote
   try {
@@ -533,15 +564,33 @@ export async function getStudentIdApplication(matricOrId) {
       orFilter += `,student_id.eq.${studentUuid}`;
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('id_card_applications')
       .select('*')
-      .or(orFilter)
+      .or(orFilter);
+
+    if (cleanTargetLevel) {
+      query = query.ilike('level', `%${cleanTargetLevel}%`);
+    }
+
+    let { data, error } = await query
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (!error && data) {
+    // If level-specific app not found, fallback to latest general app
+    if (!data && cleanTargetLevel) {
+      const fallbackRes = await supabase
+        .from('id_card_applications')
+        .select('*')
+        .or(orFilter)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      data = fallbackRes.data;
+    }
+
+    if (data) {
       return {
         ...data,
         matric_number: data.matric_number || cleanMatric,

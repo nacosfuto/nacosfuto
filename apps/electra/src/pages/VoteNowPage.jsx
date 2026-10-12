@@ -170,10 +170,6 @@ export default function VoteNowPage({
         
         {/* ── Page Header (Clean, authoritative) ── */}
         <div className="space-y-2 border-b border-slate-200 pb-6">
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[3px] bg-green-50 text-[#138601] border border-green-200 text-xs font-bold uppercase tracking-wider">
-            <Vote className="w-3.5 h-3.5 text-[#138601]" />
-            <span>Certified Electoral Ballot</span>
-          </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 font-display tracking-tight">
             Official Ballot: Vote Now
           </h1>
@@ -323,7 +319,7 @@ export default function VoteNowPage({
             <Vote className="w-10 h-10 text-slate-400 mx-auto" />
             <h2 className="text-lg font-bold text-slate-900">No Offices Opened for Balloting</h2>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              The Electoral Commission has not configured any contested offices or positions for {election.title} yet.
+              The Electoral Commission has not configured any contested offices or positions for {election?.title || 'this election'} yet.
             </p>
           </div>
         ) : (
@@ -352,7 +348,7 @@ export default function VoteNowPage({
                         #{post.order || postIndex + 1}
                       </span>
                       <h3 className="text-base sm:text-lg font-bold text-slate-900 font-display">
-                        {post.title}
+                        {post?.title}
                       </h3>
                       <span className="text-[10px] font-mono font-bold text-[#138601] bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-[2px]">
                         {post.code}

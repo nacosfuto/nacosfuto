@@ -300,16 +300,18 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
           registration_number: regNo,
           matric_number: regNo,
           id_card_number: existingApp.id_card_number || cleanDigits,
+          payment_status: 'paid',
+          status: targetStatus,
           updated_at: now
         };
 
-        // If paying for the active or higher level, activate/advance application
+        // If paying for the active or higher level, update application level and session
         if (shouldUpdateAppLevel) {
-          updatePayload.payment_status = 'paid';
           updatePayload.level = `${studentLevel} Level`;
           updatePayload.academic_session = paymentSession;
-          updatePayload.status = targetStatus;
           updatePayload.generated_at = resolvedPhoto ? (existingApp.generated_at || now) : existingApp.generated_at;
+        } else if (resolvedPhoto && !existingApp.generated_at) {
+          updatePayload.generated_at = now;
         }
 
         await supabase
@@ -663,9 +665,6 @@ export async function createPaymentCheckout({
           currency: config.currency,
           status: 'pending',
           reference: reference,
-          academic_session: targetSession,
-          level: studentLevelDisplay,
-          session_start_year: sessionYears.startYear,
           metadata: {
             customer_name: customerName,
             customer_email: customerEmail,
@@ -1112,11 +1111,12 @@ export async function processBachsWebhook(event) {
 /**
  * Universal Status Lookup for ANY Payment Reference or Student
  */
-export async function getPaymentStatus({ reference, checkoutId, paymentType, registrationNumber, studentId }) {
+export async function getPaymentStatus({ reference, checkoutId, paymentType, registrationNumber, studentId, level }) {
   const cleanCheckoutId = (checkoutId || '').trim();
   const cleanRef = (reference || '').trim();
   const cleanRegNo = (registrationNumber || '').trim().toUpperCase();
   const cleanStudentId = (studentId || '').trim();
+  const cleanLevel = level ? String(level).replace(/[^0-9]/g, '') : null;
 
   if (!cleanRef && !cleanCheckoutId && !cleanRegNo && !cleanStudentId) {
     return { error: 'Provide reference, checkoutId, registrationNumber, or studentId', statusCode: 400 };
@@ -1132,9 +1132,11 @@ export async function getPaymentStatus({ reference, checkoutId, paymentType, reg
       } else if (cleanRegNo) {
         query = query.eq('registration_number', cleanRegNo);
         if (paymentType) query = query.eq('payment_type', paymentType.toUpperCase());
+        if (cleanLevel) query = query.filter('metadata->>level', 'ilike', `%${cleanLevel}%`);
       } else if (cleanStudentId) {
         query = query.eq('student_id', cleanStudentId);
         if (paymentType) query = query.eq('payment_type', paymentType.toUpperCase());
+        if (cleanLevel) query = query.filter('metadata->>level', 'ilike', `%${cleanLevel}%`);
       }
 
       let { data, error } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();

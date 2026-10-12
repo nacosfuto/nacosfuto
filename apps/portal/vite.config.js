@@ -148,10 +148,11 @@ function cloudinaryDevPlugin() {
           if (req.url.startsWith('/api/payments/id-card/status')) paymentType = 'ID_CARD';
           const registrationNumber = urlObj.searchParams.get('registrationNumber') || urlObj.searchParams.get('regNo');
           const studentId = urlObj.searchParams.get('studentId');
+          const level = urlObj.searchParams.get('level');
 
           (async () => {
             try {
-              const result = await getPaymentStatus({ reference, checkoutId, paymentType, registrationNumber, studentId });
+              const result = await getPaymentStatus({ reference, checkoutId, paymentType, registrationNumber, studentId, level });
               res.setHeader('Content-Type', 'application/json');
               res.statusCode = result.statusCode || (result.error ? 400 : 200);
               res.end(JSON.stringify(result));

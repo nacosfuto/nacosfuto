@@ -9,7 +9,8 @@ import {
   Sparkles, 
   Award,
   Wifi,
-  Zap
+  Zap,
+  BarChart3
 } from 'lucide-react';
 import { 
   getLiveElectionResults, 
@@ -316,7 +317,7 @@ export default function LiveResultsPage() {
             <BarChart3 className="w-10 h-10 text-slate-400 mx-auto mb-2" />
             <h3 className="text-base font-bold text-slate-900 mb-1">No results recorded yet</h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              No offices or votes have been recorded for {activeElection.title}. Live tallies will update immediately when electors submit ballots.
+              No offices or votes have been recorded for {activeElection?.title || 'this election'}. Live tallies will update immediately when electors submit ballots.
             </p>
           </div>
         ) : (
@@ -333,7 +334,7 @@ export default function LiveResultsPage() {
                     {post.code}
                   </span>
                   <h2 className="text-lg font-bold text-slate-900 font-display">
-                    {post.title}
+                    {post?.title}
                   </h2>
                 </div>
                 <p className="text-xs text-slate-500">{post.description}</p>

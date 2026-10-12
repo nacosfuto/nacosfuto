@@ -149,7 +149,7 @@ export default function ElectraHome({
                 <span>Active Election Session</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-display">
-                {activeElection.title}
+                {activeElection?.title}
               </h2>
               <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
                 {activeElection.description || 'Annual general election for the executive council of the Nigeria Association of Computing Students (NACOS), FUTO Chapter.'}

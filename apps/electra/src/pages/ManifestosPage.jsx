@@ -72,7 +72,7 @@ export default function ManifestosPage({ onOpenManifesto, onOpenBallot }) {
           Candidate Manifestos
         </h1>
         <p className="text-xs sm:text-sm text-slate-500">
-          Official Electoral Registry • {activeElection.title || 'NACOS FUTO General Elections'}
+          Official Electoral Registry • {activeElection?.title || 'NACOS FUTO General Elections'}
         </p>
       </div>
 
@@ -98,7 +98,7 @@ export default function ManifestosPage({ onOpenManifesto, onOpenBallot }) {
                 const count = allContestants.filter(c => c.postId === post.id).length;
                 return (
                   <option key={post.id} value={post.id}>
-                    {post.title} ({count})
+                    {post?.title || 'Office'} ({count})
                   </option>
                 );
               })}

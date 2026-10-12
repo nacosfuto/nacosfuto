@@ -212,8 +212,9 @@ export default async function handler(req, res) {
       if (route.includes('/id-card/')) paymentType = 'ID_CARD';
       const registrationNumber = fullUrl.searchParams.get('registrationNumber') || fullUrl.searchParams.get('matricNumber');
       const studentId = fullUrl.searchParams.get('studentId');
+      const level = fullUrl.searchParams.get('level');
 
-      const result = await getPaymentStatus({ reference, checkoutId, paymentType, registrationNumber, studentId });
+      const result = await getPaymentStatus({ reference, checkoutId, paymentType, registrationNumber, studentId, level });
       return res.status(result.statusCode || 200).json(result);
     }
 

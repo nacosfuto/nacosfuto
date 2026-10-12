@@ -225,7 +225,7 @@ export default function BallotVotingModal({
                           : 'bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200'
                       }`}
                     >
-                      <span>{post.title}</span>
+                      <span>{post?.title}</span>
                       {hasSelection && <CheckCircle2 className="w-3.5 h-3.5" />}
                     </button>
                   );
