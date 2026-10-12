@@ -155,8 +155,13 @@ export async function handleAdminLogin({ email, password, targetPlatform = 'webs
       isAllowed = 
         scope === 'student_portal' || 
         scope === 'portal' || 
+        scope === 'electoral_admin' ||
+        scope === 'electra_admin' ||
+        scope === 'electra' ||
         scope === 'all' ||
         role === 'portal_admin' || 
+        role === 'electoral_admin' ||
+        role === 'isec_admin' || 
         role === 'course_adviser' ||
         role === 'hod' ||
         role === 'dean' ||

@@ -152,13 +152,21 @@ export function getPortalAdminSession() {
 
     const isPortalAllowed = 
       session.scope === 'student_portal' || 
-      session.scope === 'super_admin' ||
-      session.scope === 'electoral_admin' ||
-      session.scope === 'electra_admin' ||
-      session.role === 'super_admin' ||
-      session.role === 'portal_admin' ||
-      session.role === 'course_adviser' ||
-      session.role === 'electoral_admin';
+      session.scope === 'portal' ||
+      session.scope === 'all' ||
+      session.scope === 'super_admin' || 
+      session.scope === 'electoral_admin' || 
+      session.scope === 'electra_admin' || 
+      session.scope === 'electra' || 
+      session.role === 'super_admin' || 
+      session.role === 'portal_admin' || 
+      session.role === 'course_adviser' || 
+      session.role === 'hod' || 
+      session.role === 'dean' || 
+      session.role === 'admin' || 
+      session.role === 'electoral_admin' || 
+      session.role === 'isec_admin' || 
+      session.is_super_admin === true;
 
     if (isPortalAllowed) {
       return session;
@@ -356,11 +364,15 @@ export async function loginPortalAdmin(email, password) {
 
   // 1. Try Serverless Production Endpoint
   try {
-    const res = await fetch('/api/admin/auth/login', {
+    const fetchOptions = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: cleanEmail, password, targetPlatform: 'portal' })
-    });
+    };
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+      fetchOptions.signal = AbortSignal.timeout(3500);
+    }
+    const res = await fetch('/api/admin/auth/login', fetchOptions);
 
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.success && data.session) {
@@ -369,7 +381,8 @@ export async function loginPortalAdmin(email, password) {
       return { success: true, session: data.session, admin: data.session };
     }
 
-    if (!res.ok && data.error) {
+    // Only return error immediately if the server explicitly rejected credentials (401/403)
+    if (!res.ok && (res.status === 401 || res.status === 403) && data.error) {
       return { error: data.error };
     }
   } catch (apiErr) {

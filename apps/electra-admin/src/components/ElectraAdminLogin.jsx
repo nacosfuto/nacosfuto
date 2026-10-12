@@ -10,7 +10,7 @@ import {
   Vote,
   ExternalLink
 } from 'lucide-react';
-import { loginPortalAdmin } from '@nacos/auth';
+import { loginPortalAdmin, getPortalAdminSession } from '@nacos/auth';
 import { getAppUrls } from '@nacos/config/urls';
 import electraLogo from '../assets/electra-logo.png';
 
@@ -21,6 +21,16 @@ export default function ElectraAdminLogin({ onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Auto-continue if already authenticated with active, valid session
+  React.useEffect(() => {
+    try {
+      const active = getPortalAdminSession();
+      if (active && onLoginSuccess) {
+        onLoginSuccess(active);
+      }
+    } catch (_) {}
+  }, [onLoginSuccess]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

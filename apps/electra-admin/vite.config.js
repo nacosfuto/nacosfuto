@@ -5,6 +5,12 @@ import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import crypto from 'crypto';
 import { handleStorageRequest } from '../../packages/supabase/src/server/b2StorageDispatcher.js';
+import {
+  handleAdminLogin,
+  handleVerifyAdminSession,
+  handleAdminForgotPassword,
+  handleAdminResetPassword
+} from '../../packages/supabase/src/server/adminAuthApi.js';
 
 function electraAdminDevPlugin() {
   return {
@@ -75,6 +81,49 @@ function electraAdminDevPlugin() {
         if (req.url === '/api/cloudinary/delete' && req.method === 'POST') {
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ result: 'ok' }));
+          return;
+        }
+
+        // --- ELECTRA ADMIN AUTHENTICATION DEV ENDPOINTS ---
+        if (req.url?.startsWith('/api/admin/auth/')) {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const url = new URL(req.url, 'http://localhost');
+              const pathname = url.pathname;
+              const data = body ? JSON.parse(body || '{}') : {};
+              const authHeader = req.headers.authorization || '';
+              const token = authHeader.replace(/^Bearer\s+/i, '').trim() || data.token || url.searchParams.get('token');
+
+              let result = { success: false, error: 'Endpoint not found.' };
+              let status = 404;
+
+              if (pathname === '/api/admin/auth/login' && req.method === 'POST') {
+                result = await handleAdminLogin(data);
+                status = result.success ? 200 : 401;
+              } else if ((pathname === '/api/admin/auth/verify-session' || pathname === '/api/admin/auth/me') && (req.method === 'GET' || req.method === 'POST')) {
+                result = await handleVerifyAdminSession({ token });
+                status = result.valid ? 200 : 401;
+              } else if (pathname === '/api/admin/auth/forgot-password' && req.method === 'POST') {
+                const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
+                result = await handleAdminForgotPassword({ ...data, ipAddress: clientIp });
+                status = result.success ? 200 : 400;
+              } else if (pathname === '/api/admin/auth/reset-password' && req.method === 'POST') {
+                result = await handleAdminResetPassword(data);
+                status = result.success ? 200 : 400;
+              }
+
+              res.statusCode = status;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify(result));
+            } catch (authErr) {
+              console.error('[Electra Admin Dev Auth Error]:', authErr);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: authErr.message }));
+            }
+          });
           return;
         }
 

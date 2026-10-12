@@ -662,11 +662,11 @@ export default function App() {
   const navTabs = [
     { id: 'overview', label: 'Console Overview', icon: LayoutDashboard },
     { id: 'voters', label: 'Voters & Accreditation', icon: Users },
-    { id: 'elections', label: 'Elections & Sessions', icon: Calendar, badge: allElections.length },
-    { id: 'contestants', label: 'Certified Contestants', icon: Award, badge: contestants.length },
-    { id: 'offices', label: 'Executive Offices', icon: Layers, badge: posts.length },
-    { id: 'news', label: 'News & Press Releases', icon: Newspaper, badge: newsList.length },
-    { id: 'audit', label: 'Cryptographic Tallies', icon: ShieldCheck, badge: results.totalBallots },
+    { id: 'elections', label: 'Elections & Sessions', icon: Calendar, badge: allElections?.length || 0 },
+    { id: 'contestants', label: 'Certified Contestants', icon: Award, badge: contestants?.length || 0 },
+    { id: 'offices', label: 'Executive Offices', icon: Layers, badge: posts?.length || 0 },
+    { id: 'news', label: 'News & Press Releases', icon: Newspaper, badge: newsList?.length || 0 },
+    { id: 'audit', label: 'Cryptographic Tallies', icon: ShieldCheck, badge: results?.totalBallots || 0 },
   ];
 
   if (!adminSession) {
