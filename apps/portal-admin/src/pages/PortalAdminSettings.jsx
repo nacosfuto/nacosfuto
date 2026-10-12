@@ -20,7 +20,9 @@ import {
   Eye,
   ArrowRight,
   Sparkles,
-  History
+  History,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { 
   getIdCardSettings, 
@@ -42,12 +44,12 @@ import {
 } from '@nacos/config/academic';
 import { useTheme } from '../context/ThemeContext';
 import { 
-  getLocalPortalAdmins, 
   fetchPortalAdminsFromSupabase, 
   updateAdminAssignedLevel, 
   getPortalAdminSession,
   createPortalAdmin,
-  togglePortalAdminStatus
+  togglePortalAdminStatus,
+  deletePortalAdmin
 } from '@nacos/auth';
 
 export const PortalAdminSettings = () => {
@@ -84,9 +86,9 @@ export const PortalAdminSettings = () => {
     fullName: '',
     email: '',
     role: 'course_adviser',
-    assignedLevel: '100',
-    password: 'password'
+    assignedLevel: '100'
   });
+  const [deleteAdminModal, setDeleteAdminModal] = useState({ isOpen: false, admin: null, isDeleting: false });
 
   useEffect(() => {
     // 1. Authoritative fetch directly from Supabase database
@@ -256,6 +258,25 @@ export const PortalAdminSettings = () => {
       }
     } catch (e) {
       setAdminUpdateMsg(`Status update error: ${e.message}`);
+    }
+  };
+
+  const executeDeleteAdmin = async () => {
+    if (!deleteAdminModal.admin) return;
+    setDeleteAdminModal(prev => ({ ...prev, isDeleting: true }));
+    try {
+      const res = await deletePortalAdmin(deleteAdminModal.admin.id);
+      if (res?.error) {
+        setAdminUpdateMsg(`Error: ${res.error}`);
+      } else {
+        setPortalAdmins(res.admins || []);
+        setAdminUpdateMsg(`Administrator ${deleteAdminModal.admin.full_name} permanently deleted.`);
+      }
+    } catch (e) {
+      setAdminUpdateMsg(`Deletion error: ${e.message}`);
+    } finally {
+      setDeleteAdminModal({ isOpen: false, admin: null, isDeleting: false });
+      setTimeout(() => setAdminUpdateMsg(''), 4000);
     }
   };
 
@@ -665,6 +686,23 @@ export const PortalAdminSettings = () => {
                       >
                         {admin.is_active !== false ? 'Active' : 'Disabled'}
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (currentAdmin && (currentAdmin.id === admin.id || currentAdmin.email === admin.email)) {
+                            setAdminUpdateMsg('Security Safeguard: You cannot delete your own active account.');
+                            setTimeout(() => setAdminUpdateMsg(''), 3500);
+                            return;
+                          }
+                          setDeleteAdminModal({ isOpen: true, admin, isDeleting: false });
+                        }}
+                        disabled={currentAdmin && (currentAdmin.id === admin.id || currentAdmin.email === admin.email)}
+                        className="p-1 rounded text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Delete Administrator Permanently"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
 
@@ -1056,6 +1094,52 @@ export const PortalAdminSettings = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+        {/* Modal: Confirm Administrator Deletion */}
+        {deleteAdminModal.isOpen && deleteAdminModal.admin && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#083002] border border-red-300 dark:border-red-800/80 p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+              <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
+                <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-950/80 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white">Delete Administrator</h3>
+                  <p className="text-xs text-red-600 dark:text-red-400">Database deletion is permanent and immediate.</p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl text-xs space-y-2 text-gray-700 dark:text-red-200">
+                <p>Are you sure you want to delete administrator rights for:</p>
+                <div className="font-bold text-gray-900 dark:text-white">
+                  {deleteAdminModal.admin.full_name} ({deleteAdminModal.admin.email})
+                </div>
+                <p className="text-[11px] text-red-700 dark:text-red-300">
+                  This revokes access immediately across all devices and removes their record from the database.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  disabled={deleteAdminModal.isDeleting}
+                  onClick={() => setDeleteAdminModal({ isOpen: false, admin: null, isDeleting: false })}
+                  className="px-4 py-2 rounded-lg text-gray-600 bg-gray-100 dark:bg-white/10 dark:text-gray-300 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deleteAdminModal.isDeleting}
+                  onClick={executeDeleteAdmin}
+                  className="px-5 py-2 rounded-lg text-white bg-red-600 hover:bg-red-700 font-semibold cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{deleteAdminModal.isDeleting ? 'Deleting...' : 'Delete Permanently'}</span>
+                </button>
+              </div>
             </div>
           </div>
         )}

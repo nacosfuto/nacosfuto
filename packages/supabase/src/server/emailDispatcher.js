@@ -532,8 +532,15 @@ export async function dispatchEmail(payload = {}, overrideEnv = {}) {
     return sendOTPEmail({ to, code, expiryMinutes, studentName, regNumber, replyTo }, overrideEnv);
   }
 
-  if (type === 'password_reset') {
-    return sendPasswordResetEmail({ to, code, expiryMinutes, studentName, regNumber, replyTo }, overrideEnv);
+  if (type === 'password_reset' || type === 'admin_password_reset') {
+    return sendPasswordResetEmail({
+      to,
+      code,
+      expiryMinutes,
+      studentName: payload.adminName || studentName || 'Administrator',
+      regNumber: payload.roleTitle || regNumber || 'Admin Officer',
+      replyTo
+    }, overrideEnv);
   }
 
   if (type === 'admin_assignment') {

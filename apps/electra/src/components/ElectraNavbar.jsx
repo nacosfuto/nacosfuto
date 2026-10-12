@@ -2,16 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   LogOut, 
-  ExternalLink,
   Menu,
   X
 } from 'lucide-react';
-import { getAppUrls } from '@nacos/config/urls';
 import electraLogo from '../assets/electra-logo.png';
 
 export default function ElectraNavbar({ voter, onDisconnect }) {
   const location = useLocation();
-  const urls = getAppUrls();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Auto-close mobile menu on route change
@@ -79,18 +76,6 @@ export default function ElectraNavbar({ voter, onDisconnect }) {
 
         {/* Right Action Items Strip - Removed Vote Now & Accreditation buttons */}
         <div className="hidden sm:flex items-center gap-4 shrink-0">
-          {/* Commission Admin Link */}
-          <a
-            href={urls.electraAdmin}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm font-semibold uppercase tracking-wide text-slate-600 hover:text-[#138601] flex items-center gap-1.5 transition-colors px-2 py-1.5 rounded-[4px] hover:bg-slate-50"
-            title="Open Election Commission Admin"
-          >
-            <span>Commission Admin</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-
           {/* Voter Authentication Status (if already accredited) */}
           {voter && (
             <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
@@ -164,27 +149,6 @@ export default function ElectraNavbar({ voter, onDisconnect }) {
                 </Link>
               ))}
             </nav>
-
-            <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
-              <a
-                href={urls.electraAdmin}
-                target="_blank"
-                rel="noreferrer"
-                className="px-3 py-2 text-sm font-semibold uppercase tracking-wide text-slate-600 hover:text-[#138601] flex items-center justify-between rounded-[4px] hover:bg-slate-50"
-              >
-                <span>Electoral Commission Admin</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-              <a
-                href={urls.portal}
-                target="_blank"
-                rel="noreferrer"
-                className="px-3 py-2 text-sm font-semibold uppercase tracking-wide text-slate-600 hover:text-[#138601] flex items-center justify-between rounded-[4px] hover:bg-slate-50"
-              >
-                <span>NACOS Student Portal</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
           </div>
         </>
       )}

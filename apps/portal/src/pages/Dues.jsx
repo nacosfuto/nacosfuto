@@ -40,13 +40,11 @@ export const getProgressiveLevels = (u) => {
     return ['100', '200', '300', '400', '500'];
   }
 
-  const reg = u.registration_number || u.matric || u.matricNumber;
-  const entryYear = extractEntryYearFromRegNumber(reg) || (u.admission_year ? parseInt(u.admission_year, 10) : null);
+  const progression = calculateAcademicProgression(u, getActiveAcademicSession());
   let lvlNum = 100;
 
-  if (entryYear) {
-    const progression = calculateAcademicProgression(entryYear, getActiveAcademicSession());
-    lvlNum = progression.levelNumber * 100;
+  if (progression && progression.valid && progression.numericLevel) {
+    lvlNum = progression.numericLevel * 100;
   } else {
     const raw = String(u.level || u.current_level || '100');
     const match = raw.match(/(\d{3})/);

@@ -195,6 +195,21 @@ export default function App() {
     };
   }, [selectedElectionId]);
 
+  // Strict 1-hour session expiration watcher for Electra Admin
+  useEffect(() => {
+    if (!adminSession) return;
+    const checkExpiration = () => {
+      const current = getPortalAdminSession();
+      if (!current) {
+        logoutPortalAdmin();
+        setAdminSession(null);
+      }
+    };
+    checkExpiration();
+    const timer = setInterval(checkExpiration, 15000);
+    return () => clearInterval(timer);
+  }, [adminSession]);
+
   // When selected election changes, reload contestants and results
   useEffect(() => {
     setContestants(getContestants(null, selectedElectionId));

@@ -2,6 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Download, ChevronDown, Filter, GraduationCap, Award, BookOpen, Clock, FileText } from 'lucide-react';
 import PortalLayout from '../components/PortalLayout';
 import { fetchResultsForStudent } from '@nacos/supabase';
+import { 
+  calculateAcademicProgression, 
+  getActiveAcademicSession, 
+  onAcademicSessionChange 
+} from '@nacos/config/academic';
 
 const Results = () => {
   const [user, setUser] = useState(() => {
@@ -16,27 +21,33 @@ const Results = () => {
     return {};
   });
 
+  const [activeSession, setActiveSession] = useState(getActiveAcademicSession);
+
+  useEffect(() => {
+    const unsub = onAcademicSessionChange(({ sessionName }) => {
+      setActiveSession(sessionName);
+    });
+    return () => {
+      if (unsub) unsub();
+    };
+  }, []);
+
   // Determine current student level (e.g. 100, 200, 300, 400, 500)
   const currentLevel = useMemo(() => {
-    const levelStr = (user.level || '').toString();
+    if (user.is_graduated || user.level === 'Graduated' || String(user.level).toLowerCase().includes('graduat')) {
+      return 500;
+    }
+    const prog = calculateAcademicProgression(user, activeSession);
+    if (prog && prog.valid && prog.numericLevel) {
+      return Math.min(500, Math.max(100, prog.numericLevel * 100));
+    }
+    const levelStr = (user.level || user.current_level || '').toString();
     const match = levelStr.match(/(\d{3})/);
     if (match) {
       return parseInt(match[1], 10);
     }
-    if (levelStr.toLowerCase().includes('alumni') || levelStr.toLowerCase().includes('graduated')) {
-      return 500;
-    }
-    if (user.role && (user.role.toLowerCase().includes('admin') || user.role.toLowerCase().includes('president'))) {
-      return 500;
-    }
-    if (user.admission_year) {
-      const num = 2026 - parseInt(user.admission_year, 10) + 1;
-      if (num >= 5) return 500;
-      if (num <= 1) return 100;
-      return num * 100;
-    }
-    return 300; // default fallback
-  }, [user]);
+    return 100;
+  }, [user, activeSession]);
 
   // Semesters Data State (dynamic from database)
   const [allSemesters, setAllSemesters] = useState([]);

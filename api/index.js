@@ -53,6 +53,17 @@ import {
   handleSubmitElectoralVote,
   handleGetAuthoritativeResults
 } from '../packages/supabase/src/server/electraAuthApi.js';
+import {
+  handleAdminLogin,
+  handleVerifyAdminSession,
+  handleAdminForgotPassword,
+  handleAdminResetPassword,
+  handleGetAdminUsers,
+  handleCreateAdminUser,
+  handleUpdateAdminStatus,
+  handleDeleteAdminUser,
+  handleResendAdminInvite
+} from '../packages/supabase/src/server/adminAuthApi.js';
 
 // --- Backblaze B2 Helper State ---
 let cachedB2Auth = null;
@@ -757,6 +768,107 @@ export default async function handler(req, res) {
       const body = await parseRequestBody(req);
       const result = await handleAdminDeleteStudent(body);
       return res.status(result.success ? 200 : 400).json(result);
+    }
+
+    // =========================================================================
+    // 9. AUTHORITATIVE ADMIN AUTH & MANAGEMENT (/api/admin/auth/*, /api/admin/users/*)
+    // =========================================================================
+    if (route.startsWith('/api/admin/auth/') || route.startsWith('/api/admin/users')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+
+      // Helper to extract Bearer token from headers or body/query
+      const authHeader = req.headers.authorization || '';
+      const bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+      // 9a. Database-Backed Admin Login
+      if (route === '/api/admin/auth/login' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleAdminLogin(body);
+        return res.status(result.success ? 200 : 401).json(result);
+      }
+
+      // 9b. Verify Admin Session (checks 1-hour expiration & live database status)
+      if ((route === '/api/admin/auth/verify-session' || route === '/api/admin/auth/me') && (method === 'GET' || method === 'POST')) {
+        const body = method === 'POST' ? await parseRequestBody(req) : {};
+        const token = bearerToken || body.token || fullUrl.searchParams.get('token');
+        const result = await handleVerifyAdminSession({ token });
+        return res.status(result.valid ? 200 : 401).json(result);
+      }
+
+      // 9c. Admin Forgot Password (Request OTP via Resend)
+      if (route === '/api/admin/auth/forgot-password' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
+        const result = await handleAdminForgotPassword({ ...body, ipAddress: clientIp });
+        return res.status(result.success ? 200 : 400).json(result);
+      }
+
+      // 9d. Admin Reset Password (Verify OTP & Set New Password)
+      if (route === '/api/admin/auth/reset-password' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleAdminResetPassword(body);
+        return res.status(result.success ? 200 : 400).json(result);
+      }
+
+      // 9e. Get All Admin Users (Super Admin Only)
+      if (route === '/api/admin/users' && method === 'GET') {
+        const token = bearerToken || fullUrl.searchParams.get('token');
+        const result = await handleGetAdminUsers({ token });
+        return res.status(result.success ? 200 : 403).json(result);
+      }
+
+      // 9f. Create New Administrator (Super Admin Only - dispatches welcome email)
+      if ((route === '/api/admin/users' || route === '/api/admin/users/create') && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const token = bearerToken || body.token;
+        const originUrl = req.headers.origin || `http://${req.headers.host || 'localhost:5173'}`;
+        const result = await handleCreateAdminUser({
+          token,
+          email: body.email,
+          fullName: body.fullName || body.full_name,
+          role: body.role,
+          scope: body.scope,
+          assignedLevel: body.assignedLevel || body.assigned_level,
+          permissions: body.permissions,
+          originUrl
+        });
+        return res.status(result.success ? 201 : 400).json(result);
+      }
+
+      // 9g. Suspend or Reactivate Administrator (Super Admin Only)
+      if (route === '/api/admin/users/status' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const token = bearerToken || body.token;
+        const result = await handleUpdateAdminStatus({
+          token,
+          adminId: body.adminId || body.admin_id,
+          isActive: body.isActive !== undefined ? body.isActive : body.is_active
+        });
+        return res.status(result.success ? 200 : 400).json(result);
+      }
+
+      // 9h. Delete Administrator (Super Admin Only - with safeguards)
+      if (route === '/api/admin/users/delete' && (method === 'POST' || method === 'DELETE')) {
+        const body = await parseRequestBody(req);
+        const token = bearerToken || body.token || fullUrl.searchParams.get('token');
+        const adminId = body.adminId || body.admin_id || fullUrl.searchParams.get('adminId');
+        const result = await handleDeleteAdminUser({ token, adminId });
+        return res.status(result.success ? 200 : 400).json(result);
+      }
+
+      // 9i. Resend Admin Invitation / Scope Email
+      if (route === '/api/admin/users/resend-invite' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const token = bearerToken || body.token;
+        const originUrl = req.headers.origin || `http://${req.headers.host || 'localhost:5173'}`;
+        const result = await handleResendAdminInvite({
+          token,
+          adminId: body.adminId || body.admin_id,
+          originUrl
+        });
+        return res.status(result.success ? 200 : 400).json(result);
+      }
     }
 
     // Default 404 for unmapped API routes

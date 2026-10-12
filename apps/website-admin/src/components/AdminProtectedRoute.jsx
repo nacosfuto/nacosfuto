@@ -1,20 +1,46 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { getWebsiteAdminSession, hasPermission } from '@nacos/supabase/adminAuth';
+import { getWebsiteAdminSession, hasPermission, logoutWebsiteAdmin, verifyLiveAdminSession } from '@nacos/supabase/adminAuth';
 import { ShieldAlert, ArrowLeft, LogOut } from 'lucide-react';
-import { logoutWebsiteAdmin } from '@nacos/supabase/adminAuth';
 
 export const AdminProtectedRoute = ({ children, requiredPermission = 'main_website.view' }) => {
   const location = useLocation();
   const admin = getWebsiteAdminSession();
 
+  // Background Live Verification & Strict 1-Hour Expiration Check
+  useEffect(() => {
+    if (!admin) return;
+
+    // Check expiration on every render/mount
+    const checkSession = async () => {
+      const res = await verifyLiveAdminSession('website');
+      if (!res.valid) {
+        await logoutWebsiteAdmin();
+        window.location.href = window.location.pathname.startsWith('/admin') ? '/admin/login?reason=session_expired' : '/login?reason=session_expired';
+      }
+    };
+
+    checkSession();
+
+    // Check every 30 seconds for 1-hour expiration deadline
+    const interval = setInterval(() => {
+      const current = getWebsiteAdminSession();
+      if (!current) {
+        clearInterval(interval);
+        window.location.href = window.location.pathname.startsWith('/admin') ? '/admin/login?reason=session_expired' : '/login?reason=session_expired';
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Step 1: Authentication & Scope Check
   if (!admin) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/login?reason=session_expired" state={{ from: location }} replace />;
   }
 
   // Step 2: Validate Scope is explicitly main_website or super_admin
-  if (admin.scope !== 'main_website' && admin.scope !== 'super_admin') {
+  if (admin.scope !== 'main_website' && admin.scope !== 'super_admin' && admin.role !== 'super_admin' && admin.role !== 'website_admin') {
     return (
       <div className="min-h-screen bg-[#041801] text-white flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-[#083002] border border-red-800/60 rounded-3xl p-8 text-center space-y-4 shadow-2xl">

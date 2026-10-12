@@ -327,12 +327,12 @@ export async function checkStudentPaymentStatus(matricNumber, currentLevel = nul
     if (Array.isArray(allBachsPayments) && allBachsPayments.length > 0) {
       // Level-based check: find payment matching student's active level, or latest payment
       const levelMatch = allBachsPayments.find(p => {
-        const pLevel = String(p.metadata?.level || p.metadata?.assignedLevel || '').replace(/[^0-9]/g, '');
+        const pLevel = String(p.level || p.metadata?.level || p.metadata?.assignedLevel || '').replace(/[^0-9]/g, '');
         return pLevel && pLevel === activeLevel;
       });
 
       const chosenPayment = levelMatch || allBachsPayments[0];
-      const paymentLevel = String(chosenPayment.metadata?.level || chosenPayment.metadata?.assignedLevel || activeLevel).replace(/[^0-9]/g, '');
+      const paymentLevel = String(chosenPayment.level || chosenPayment.metadata?.level || chosenPayment.metadata?.assignedLevel || activeLevel).replace(/[^0-9]/g, '');
 
       // Check if student has advanced beyond the level paid for
       const isPastLevel = activeLevel && paymentLevel && parseInt(activeLevel, 10) > parseInt(paymentLevel, 10);

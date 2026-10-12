@@ -62,8 +62,8 @@ export const PortalAdminLogin = () => {
   // If already logged in with fresh session, auto-continue immediately
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('reason') === 'inactivity') {
-      setError('You were automatically logged out after 1 hour of inactivity for your security.');
+    if (params.get('reason') === 'inactivity' || params.get('reason') === 'session_expired') {
+      setError('Your administrative session expired after 1 hour for security. Please sign in again.');
     }
 
     const existing = getPortalAdminSession();

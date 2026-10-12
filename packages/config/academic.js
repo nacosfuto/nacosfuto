@@ -280,8 +280,21 @@ export function calculateExpectedGraduation(admissionYear, programmeDuration = D
  * @returns {object} Comprehensive progression details
  */
 export function calculateAcademicProgression(input, options = {}) {
+  let resolvedYearStart = null;
+  if (typeof options === 'string') {
+    resolvedYearStart = parseSessionYears(options).startYear;
+  } else if (typeof options === 'number') {
+    resolvedYearStart = options;
+  } else if (options && typeof options === 'object') {
+    if (options.currentYearStart != null) resolvedYearStart = options.currentYearStart;
+    else if (options.academicYearStart != null) resolvedYearStart = options.academicYearStart;
+    else if (options.targetSessionStartYear != null) resolvedYearStart = options.targetSessionStartYear;
+    else if (options.academicSession != null) resolvedYearStart = parseSessionYears(options.academicSession).startYear;
+    else if (options.session != null) resolvedYearStart = parseSessionYears(options.session).startYear;
+  }
+
   const currentYearStart = parseInt(
-    options.currentYearStart ?? options.academicYearStart ?? getActiveAcademicYearStart(),
+    resolvedYearStart ?? getActiveAcademicYearStart(),
     10
   ) || DEFAULT_ACADEMIC_YEAR_START;
 
@@ -366,7 +379,10 @@ export function calculateAcademicProgression(input, options = {}) {
       currentYearStart,
       academicSession: sessionName,
       numericLevel: null,
+      levelNumber: null,
+      level: 'Level unavailable',
       levelString: 'Level unavailable',
+      levelDisplay: 'Level unavailable',
       isGraduated: false,
       status: 'Level unavailable',
       expectedGraduationYear: null,
@@ -390,7 +406,10 @@ export function calculateAcademicProgression(input, options = {}) {
       currentYearStart,
       academicSession: sessionName,
       numericLevel: 1,
+      levelNumber: 1,
+      level: '100 Level',
       levelString: '100 Level (Upcoming Cohort)',
+      levelDisplay: '100 Level',
       isGraduated: false,
       status: 'Admitted',
       expectedGraduationYear,
@@ -412,7 +431,10 @@ export function calculateAcademicProgression(input, options = {}) {
       currentYearStart,
       academicSession: sessionName,
       numericLevel,
+      levelNumber: numericLevel,
+      level: 'Graduated',
       levelString: 'Graduated',
+      levelDisplay: 'Graduated',
       isGraduated: true,
       status: 'Graduated',
       expectedGraduationYear,
@@ -430,7 +452,10 @@ export function calculateAcademicProgression(input, options = {}) {
     currentYearStart,
     academicSession: sessionName,
     numericLevel,
+    levelNumber: numericLevel,
+    level: levelString,
     levelString,
+    levelDisplay: levelString,
     isGraduated: false,
     status: 'Active',
     expectedGraduationYear,
@@ -496,3 +521,35 @@ export function previewProgression(
     };
   });
 }
+
+/**
+ * Generate all applicable levels and their corresponding academic sessions
+ * for a student from their entry year through their current calculated level.
+ * 
+ * E.g. A student admitted in 2024 with current active session 2026/2027 (300L) gets:
+ * [
+ *   { levelNumber: 1, level: '100', levelString: '100 Level', session: '2024/2025', startYear: 2024, isCurrent: false },
+ *   { levelNumber: 2, level: '200', levelString: '200 Level', session: '2025/2026', startYear: 2025, isCurrent: false },
+ *   { levelNumber: 3, level: '300', levelString: '300 Level', session: '2026/2027', startYear: 2026, isCurrent: true }
+ * ]
+ */
+export function getStudentApplicableLevelSessions(student, currentYearStart = getActiveAcademicYearStart()) {
+  const progression = calculateAcademicProgression(student, currentYearStart);
+  const admissionYear = progression.admissionYear || extractEntryYearFromRegNumber(student?.registration_number || student?.matricNumber || student?.matric) || 2024;
+  const maxLevelNum = Math.min(5, Math.max(1, progression.numericLevel || 1));
+  const items = [];
+  for (let i = 1; i <= maxLevelNum; i++) {
+    const startYear = admissionYear + (i - 1);
+    const sessionName = getAcademicSession(startYear);
+    items.push({
+      levelNumber: i,
+      level: `${i * 100}`,
+      levelString: `${i * 100} Level`,
+      session: sessionName,
+      startYear,
+      isCurrent: i === maxLevelNum
+    });
+  }
+  return items;
+}
+

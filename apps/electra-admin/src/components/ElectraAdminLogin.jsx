@@ -10,7 +10,7 @@ import {
   Vote,
   ExternalLink
 } from 'lucide-react';
-import { loginPortalAdmin, getLocalPortalAdmins } from '@nacos/auth';
+import { loginPortalAdmin } from '@nacos/auth';
 import { getAppUrls } from '@nacos/config/urls';
 import electraLogo from '../assets/electra-logo.png';
 
@@ -50,37 +50,8 @@ export default function ElectraAdminLogin({ onLoginSuccess }) {
         return;
       }
 
-      // Check local seeded admins fallback
-      const localAdmins = getLocalPortalAdmins();
-      const matched = localAdmins.find(a => 
-        a.email?.toLowerCase() === email.trim().toLowerCase() && a.is_active !== false
-      );
-
-      const isDefaultPass = password === 'password' || password === 'admin123' || password === 'admin' || password === 'isec2026' || password === 'electra2026' || password === 'nacos2026';
-
-      if (matched && isDefaultPass) {
-        const localSession = {
-          userId: matched.user_id || matched.id,
-          user_id: matched.user_id || matched.id,
-          id: matched.id || matched.user_id,
-          email: matched.email,
-          full_name: matched.full_name || 'Electoral Commission Admin',
-          role: matched.role || 'electoral_admin',
-          scope: matched.scope || 'electoral_admin',
-          permissions: matched.permissions || ['*'],
-          token: `electra_adm_${Date.now()}`
-        };
-        localStorage.setItem('nacos_portal_admin_session', JSON.stringify(localSession));
-        localStorage.setItem('nacos_portal_admin_last_activity', Date.now().toString());
-        setIsLoading(false);
-        if (onLoginSuccess) {
-          onLoginSuccess(localSession);
-        }
-        return;
-      }
-
       setIsLoading(false);
-      setError(res?.error || 'Invalid administrative credentials. Access restricted to authorized NACOS ISEC electoral officers.');
+      setError(res?.error || 'Invalid administrative credentials. Access restricted to authorized NACOS ISEC electoral officers in database.');
     } catch (err) {
       setIsLoading(false);
       setError(err.message || 'Authentication error. Please check your network connection.');

@@ -60,8 +60,13 @@ export const AdminLogin = () => {
 
   // If already logged in with authorized scope, redirect immediately
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('reason') === 'session_expired') {
+      setError('Your administrative session expired after 1 hour for security. Please sign in again.');
+    }
+
     const existing = getWebsiteAdminSession();
-    if (existing) {
+    if (existing && !params.get('reason')) {
       navigate('/', { replace: true });
     }
   }, [navigate]);

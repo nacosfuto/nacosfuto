@@ -1,44 +1,11 @@
 import { supabase } from './client.js';
-import { hashPassword, verifyPassword, isLocalEnvironment } from './auth.js';
-import { createOTPVerification, verifyOTP, maskEmail } from './otpService.js';
+import { hashPassword, verifyPassword } from './auth.js';
+import { maskEmail } from './otpService.js';
 import { sendPasswordResetEmail } from './emailService.js';
 
 const ADMIN_SESSION_STORAGE_KEY = 'nacos_website_admin_session';
-const ADMIN_SCOPES_STORAGE_KEY = 'nacos_admin_scopes_db';
-const AUDIT_LOGS_STORAGE_KEY = 'nacos_admin_audit_logs_db';
-
-/**
- * Seeded Administrative Users and Scopes for Development and Verification
- * Enforces strict isolation between Main Website and Student Portal
- */
-export function getLocalAdminScopesDatabase() {
-  const stored = localStorage.getItem(ADMIN_SCOPES_STORAGE_KEY);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  const seeded = [
-    {
-      id: 'admin-super-ict',
-      user_id: 'usr-superadmin-ict',
-      email: 'ict.nacosfuto@gmail.com',
-      full_name: 'NACOS FUTO ICT / Super Administrator',
-      scope: 'super_admin',
-      role: 'super_admin',
-      permissions: ['*'],
-      is_active: true,
-      password_hash: '0c72b5bd44ae98f639e6d29d0429f1fade10ee23cd770e5b8fc9bd2ba248aeb6',
-      created_at: '2026-10-07T12:00:00Z'
-    }
-  ];
-
-  localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(seeded));
-  return seeded;
-}
+const PORTAL_ADMIN_SESSION_KEY = 'nacos_portal_admin_session';
+const ONE_HOUR_MS = 60 * 60 * 1000; // Strict 60-minute session lifetime
 
 export const AVAILABLE_ADMIN_FEATURES = [
   { key: 'feature:student_registry', label: 'Student Registry & Profiles', platform: 'portal', description: 'Search, verify, and manage departmental student profiles' },
@@ -54,56 +21,14 @@ export const AVAILABLE_ADMIN_FEATURES = [
 ];
 
 /**
- * Seeded Audit Logs
- */
-export function getLocalAuditLogsDatabase() {
-  const stored = localStorage.getItem(AUDIT_LOGS_STORAGE_KEY);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  const seeded = [
-    {
-      id: 'audit-1',
-      user_id: 'usr-webadmin-1',
-      admin_email: 'webadmin@nacos.org.ng',
-      scope: 'main_website',
-      action: 'image_upload',
-      resource_type: 'media',
-      resource_id: 'nacos/events/masked_affairs_banner',
-      details: { folder: 'nacos/events', format: 'jpg', bytes: 482900 },
-      created_at: '2026-09-03T10:14:00Z'
-    },
-    {
-      id: 'audit-2',
-      user_id: 'usr-editor-1',
-      admin_email: 'editor@nacos.org.ng',
-      scope: 'main_website',
-      action: 'gallery_create',
-      resource_type: 'gallery',
-      resource_id: 'tetfund_dept_complex',
-      details: { caption: 'Department of Computer Science TETFUND Complex' },
-      created_at: '2026-09-03T11:20:00Z'
-    }
-  ];
-
-  localStorage.setItem(AUDIT_LOGS_STORAGE_KEY, JSON.stringify(seeded));
-  return seeded;
-}
-
-/**
  * Record an administrative action in the audit log
  */
 export async function recordAdminAction(action, resourceType, resourceId = null, details = {}) {
-  const session = getWebsiteAdminSession();
+  const session = getWebsiteAdminSession() || getPortalAdminSession();
   const entry = {
     id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     user_id: session?.user_id || session?.id || null,
-    admin_email: session?.email || 'system@nacos.org.ng',
+    admin_email: session?.email || 'system@nacosfuto.com.ng',
     scope: session?.scope || 'main_website',
     action,
     resource_type: resourceType,
@@ -112,17 +37,13 @@ export async function recordAdminAction(action, resourceType, resourceId = null,
     created_at: new Date().toISOString()
   };
 
-  // 1. Try Supabase insert
   try {
-    await supabase.from('admin_audit_logs').insert([entry]);
+    if (supabase) {
+      await supabase.from('admin_audit_logs').insert([entry]);
+    }
   } catch (err) {
-    // Offline/bypassed
+    // Audit table may be optional
   }
-
-  // 2. Save to local storage audit trail
-  const logs = getLocalAuditLogsDatabase();
-  logs.unshift(entry);
-  localStorage.setItem(AUDIT_LOGS_STORAGE_KEY, JSON.stringify(logs.slice(0, 100))); // keep latest 100
 
   return entry;
 }
@@ -132,35 +53,183 @@ export async function recordAdminAction(action, resourceType, resourceId = null,
  */
 export async function getAdminAuditLogs(scope = 'main_website', limit = 50) {
   try {
-    const { data, error } = await supabase
-      .from('admin_audit_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('admin_audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
 
-    if (!error && data && data.length > 0) {
-      return data;
+      if (!error && Array.isArray(data)) {
+        return data;
+      }
     }
-  } catch (err) {
-    // Offline
+  } catch (err) {}
+  return [];
+}
+
+// =============================================================================
+// STRICT 1-HOUR SESSION MANAGEMENT HELPERS
+// =============================================================================
+
+function isSessionExpired(session) {
+  if (!session) return true;
+  const now = Date.now();
+
+  // 1. Check explicit expires_at timestamp
+  if (session.expires_at) {
+    const exp = typeof session.expires_at === 'number' ? session.expires_at : new Date(session.expires_at).getTime();
+    if (now >= exp) return true;
   }
 
-  const logs = getLocalAuditLogsDatabase();
-  return logs.filter(l => scope === 'all' || l.scope === scope || l.scope === 'super_admin').slice(0, limit);
+  // 2. Check logged_in_at fallback (max 1 hour)
+  if (session.logged_in_at) {
+    const loggedIn = new Date(session.logged_in_at).getTime();
+    if (now - loggedIn >= ONE_HOUR_MS) return true;
+  }
+
+  return false;
+}
+
+function clearAdminStorage() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+    localStorage.removeItem(PORTAL_ADMIN_SESSION_KEY);
+    localStorage.removeItem('nacos_portal_admin_last_activity');
+    sessionStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+    sessionStorage.removeItem(PORTAL_ADMIN_SESSION_KEY);
+  } catch (_) {}
 }
 
 /**
- * Authenticate and authorize a user specifically for the Main Website Admin area
- * 
- * Strict 2-step verification:
- * 1. Authentication: Validate credentials
- * 2. Scoped Authorization: Check that user holds an active 'main_website' or 'super_admin' scope
- * 
- * Rejects:
- * - Invalid passwords
- * - Normal student accounts (no admin scope)
- * - Portal-only admins ('student_portal' scope without 'main_website')
- * - Disabled administrator accounts
+ * Retrieve current active verified website admin session.
+ * Automatically evicts and clears storage if session has exceeded 1 hour.
+ */
+export function getWebsiteAdminSession() {
+  if (typeof window === 'undefined') return null;
+  const stored = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
+  if (!stored) return null;
+
+  try {
+    const session = JSON.parse(stored);
+    if (!session) return null;
+
+    // Strict 1-hour session lifetime enforcement
+    if (isSessionExpired(session)) {
+      clearAdminStorage();
+      return null;
+    }
+
+    if (session.scope === 'main_website' || session.scope === 'super_admin' || session.role === 'super_admin' || session.role === 'website_admin') {
+      return session;
+    }
+  } catch (e) {
+    clearAdminStorage();
+  }
+
+  return null;
+}
+
+/**
+ * Retrieve current active verified portal admin session.
+ * Automatically evicts and clears storage if session has exceeded 1 hour.
+ */
+export function getPortalAdminSession() {
+  if (typeof window === 'undefined') return null;
+  const stored = localStorage.getItem(PORTAL_ADMIN_SESSION_KEY);
+  if (!stored) return null;
+
+  try {
+    const session = JSON.parse(stored);
+    if (!session) return null;
+
+    // Strict 1-hour session lifetime enforcement
+    if (isSessionExpired(session)) {
+      clearAdminStorage();
+      return null;
+    }
+
+    const isPortalAllowed = 
+      session.scope === 'student_portal' || 
+      session.scope === 'super_admin' ||
+      session.scope === 'electoral_admin' ||
+      session.scope === 'electra_admin' ||
+      session.role === 'super_admin' ||
+      session.role === 'portal_admin' ||
+      session.role === 'course_adviser' ||
+      session.role === 'electoral_admin';
+
+    if (isPortalAllowed) {
+      return session;
+    }
+  } catch (e) {
+    clearAdminStorage();
+  }
+
+  return null;
+}
+
+/**
+ * Re-validates active session against server/database.
+ * Ensures that if an admin was suspended or deleted in the database,
+ * active client sessions lose privileges immediately.
+ */
+export async function verifyLiveAdminSession(targetPlatform = 'website') {
+  const session = targetPlatform === 'website' ? getWebsiteAdminSession() : getPortalAdminSession();
+  if (!session) return { valid: false, error: 'No active session.' };
+
+  // 1. Try serverless verification endpoint
+  try {
+    const token = session.token;
+    const res = await fetch('/api/admin/auth/verify-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ token })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (!data.valid) {
+        clearAdminStorage();
+        return { valid: false, error: data.error || 'Session revoked by administrator.' };
+      }
+      return { valid: true, admin: data.admin };
+    }
+  } catch (_) {
+    // If running in development without API server, check Supabase directly
+  }
+
+  // 2. Direct Supabase database status check
+  if (supabase && session.id) {
+    try {
+      const { data: dbAdmin, error } = await supabase
+        .from('admin_scopes')
+        .select('id, is_active, role, scope')
+        .eq('id', session.id)
+        .maybeSingle();
+
+      if (error || !dbAdmin || dbAdmin.is_active === false) {
+        clearAdminStorage();
+        return { valid: false, error: 'Account suspended or removed from database.' };
+      }
+      return { valid: true, admin: session };
+    } catch (_) {}
+  }
+
+  return { valid: true, admin: session };
+}
+
+// =============================================================================
+// DATABASE-BACKED LOGIN IMPLEMENTATIONS
+// =============================================================================
+
+/**
+ * Authenticates Website Administrator via real database credentials.
+ * Issues strict 1-hour session token and persists to localStorage.
  */
 export async function loginWebsiteAdmin(email, password) {
   if (!email || !password) {
@@ -168,270 +237,269 @@ export async function loginWebsiteAdmin(email, password) {
   }
 
   const cleanEmail = email.trim().toLowerCase();
-  const passwordHash = await hashPassword(password);
 
-  // Attempt Supabase Auth login if online
-  let authUser = null;
+  // 1. Try Serverless Production Endpoint
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
-      password: password
+    const res = await fetch('/api/admin/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: cleanEmail, password, targetPlatform: 'website' })
     });
-    if (!error && data?.user) {
-      authUser = data.user;
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success && data.session) {
+      localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, JSON.stringify(data.session));
+      await recordAdminAction('login', 'admin_session', data.session.id, {
+        email: data.session.email,
+        role: data.session.role,
+        scope: data.session.scope
+      });
+      return { success: true, admin: data.session, session: data.session };
     }
-  } catch (e) {
-    // offline or mock
+
+    if (!res.ok && data.error) {
+      return { error: data.error };
+    }
+  } catch (apiErr) {
+    // Fall back to direct Supabase query if running locally without serverless router
   }
 
-  // Check scoped database (Supabase table or local seed)
-  let adminRecord = null;
-
-  if (authUser) {
-    try {
-      const { data, error } = await supabase
-        .from('admin_scopes')
-        .select('*')
-        .or(`user_id.eq.${authUser.id},email.eq.${cleanEmail}`)
-        .in('scope', ['main_website', 'super_admin'])
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (!error && data) {
-        adminRecord = data;
-      }
-    } catch (e) {
-      // offline
-    }
+  // 2. Direct Supabase Database Authentication (Zero Mock Data)
+  if (!supabase) {
+    return { error: 'Database service is currently unreachable. Please verify network configuration.' };
   }
 
-  // Check Supabase admin_scopes table directly (for SQL-seeded or dashboard admins)
-  if (!adminRecord && supabase) {
-    try {
-      const { data: dbAdmin } = await supabase
-        .from('admin_scopes')
-        .select('*')
-        .ilike('email', cleanEmail)
-        .maybeSingle();
+  try {
+    const { data: dbAdmin, error: dbErr } = await supabase
+      .from('admin_scopes')
+      .select('*')
+      .ilike('email', cleanEmail)
+      .maybeSingle();
 
-      if (dbAdmin) {
-        if (!dbAdmin.is_active) {
-          return { error: 'Account Disabled: Your administrative access has been revoked or deactivated. Contact the Super Admin.' };
-        }
-
-        const isAllowedScope = 
-          dbAdmin.scope === 'main_website' || 
-          dbAdmin.scope === 'super_admin' ||
-          dbAdmin.role === 'super_admin' ||
-          dbAdmin.role === 'superadmin' ||
-          dbAdmin.role === 'website_admin';
-
-        if (!isAllowedScope) {
-          return { 
-            error: `Access Denied: Your account holds the '${dbAdmin.scope}' scope and is not authorized to access the Main Website Administration area.` 
-          };
-        }
-
-        // Test standard SHA-256 and salted hash
-        let rawSha = null;
-        if (typeof crypto !== 'undefined' && crypto.subtle) {
-          const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
-          rawSha = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-        }
-
-        const isDefaultPass = password === 'password' || password === 'admin123';
-        const knownDefaultHashes = [
-          '0c72b5bd44ae98f639e6d29d0429f1fade10ee23cd770e5b8fc9bd2ba248aeb6',
-          '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8'
-        ];
-
-        let isValidPassword = false;
-        if (!dbAdmin.password_hash) {
-          isValidPassword = isDefaultPass;
-        } else {
-          isValidPassword = 
-            (isDefaultPass && knownDefaultHashes.includes(dbAdmin.password_hash)) ||
-            (await verifyPassword(password, dbAdmin.password_hash)) ||
-            dbAdmin.password_hash === passwordHash ||
-            (rawSha && dbAdmin.password_hash === rawSha);
-        }
-
-        if (isValidPassword) {
-          adminRecord = dbAdmin;
-          if (!dbAdmin.password_hash && passwordHash) {
-            supabase
-              .from('admin_scopes')
-              .update({ password_hash: passwordHash, updated_at: new Date().toISOString() })
-              .eq('id', dbAdmin.id)
-              .then(() => {})
-              .catch(() => {});
-          }
-        } else {
-          return { error: 'Invalid password. Please check your credentials.' };
-        }
-      }
-    } catch (e) {
-      console.warn('Supabase admin_scopes query error:', e);
+    if (dbErr || !dbAdmin) {
+      return { error: 'Invalid administrative credentials. Access restricted to authorized NACOS administrators.' };
     }
-  }
 
-  // Seeded Super Administrator fallback
-  if (!adminRecord) {
-    const admins = getLocalAdminScopesDatabase();
-    const candidate = admins.find(a => a.email && a.email.toLowerCase() === cleanEmail);
+    if (dbAdmin.is_active === false) {
+      return { error: 'Account Disabled: Your administrative access has been revoked or deactivated. Contact the Super Admin.' };
+    }
 
-    if (candidate) {
-      if (!candidate.is_active) {
-        return { error: 'Account Disabled: Your administrative access has been revoked or deactivated. Contact the Super Admin.' };
-      }
+    const isAllowedScope = 
+      dbAdmin.scope === 'main_website' || 
+      dbAdmin.scope === 'super_admin' ||
+      dbAdmin.role === 'super_admin' ||
+      dbAdmin.role === 'superadmin' ||
+      dbAdmin.role === 'website_admin';
 
-      // Step 2: Verify Scope
-      const isAllowedScope = 
-        candidate.scope === 'main_website' || 
-        candidate.scope === 'super_admin' ||
-        candidate.role === 'super_admin' ||
-        candidate.role === 'superadmin' ||
-        candidate.role === 'website_admin';
-
-      if (!isAllowedScope) {
-        return { 
-          error: `Access Denied: Your account holds the '${candidate.scope}' scope and is not authorized to access the Main Website Administration area.` 
-        };
-      }
-
-      // Verify password hash
-      const isDefaultPass = password === 'password' || password === 'admin123';
-      const knownDefaultHashes = [
-        '0c72b5bd44ae98f639e6d29d0429f1fade10ee23cd770e5b8fc9bd2ba248aeb6',
-        '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8'
-      ];
-
-      const isCandidateValid = candidate.password_hash
-        ? (
-            (isDefaultPass && knownDefaultHashes.includes(candidate.password_hash)) ||
-            (await verifyPassword(password, candidate.password_hash)) ||
-            candidate.password_hash === passwordHash
-          )
-        : isDefaultPass;
-
-      if (!isCandidateValid) {
-        return { error: 'Invalid password. Please check your credentials.' };
-      }
-
-      adminRecord = candidate;
-    } else {
+    if (!isAllowedScope) {
       return { 
-        error: 'Invalid administrative credentials. Access restricted to authorized NACOS website administrators.' 
+        error: `Access Denied: Your account holds the '${dbAdmin.scope}' scope and is not authorized to access the Main Website Administration area.` 
       };
     }
+
+    if (!dbAdmin.password_hash) {
+      return { error: 'Administrative password has not been established. Please use "Forgot Password" to set up your password.' };
+    }
+
+    const isValidPassword = await verifyPassword(password, dbAdmin.password_hash);
+    if (!isValidPassword) {
+      return { error: 'Invalid password. Please check your credentials.' };
+    }
+
+    // Update last_login_at in database
+    const nowIso = new Date().toISOString();
+    const expiresAt = Date.now() + ONE_HOUR_MS;
+    await supabase.from('admin_scopes').update({ last_login_at: nowIso, updated_at: nowIso }).eq('id', dbAdmin.id);
+
+    const adminSession = {
+      id: dbAdmin.id,
+      user_id: dbAdmin.user_id || dbAdmin.id,
+      email: dbAdmin.email,
+      full_name: dbAdmin.full_name,
+      scope: dbAdmin.scope,
+      role: dbAdmin.role,
+      assigned_level: dbAdmin.assigned_level || 'all',
+      permissions: dbAdmin.permissions || ['main_website.view'],
+      is_super_admin: dbAdmin.scope === 'super_admin' || dbAdmin.role === 'super_admin',
+      logged_in_at: nowIso,
+      expires_at: expiresAt
+    };
+
+    localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, JSON.stringify(adminSession));
+    await recordAdminAction('login', 'admin_session', adminSession.id, {
+      email: adminSession.email,
+      role: adminSession.role,
+      scope: adminSession.scope
+    });
+
+    return { success: true, admin: adminSession, session: adminSession };
+  } catch (err) {
+    return { error: err.message || 'Authentication error occurred.' };
   }
-
-  // Successful Scoped Login: Persist admin session
-  const adminSession = {
-    user_id: adminRecord.user_id || adminRecord.id,
-    id: adminRecord.id,
-    email: adminRecord.email,
-    full_name: adminRecord.full_name,
-    scope: adminRecord.scope,
-    role: adminRecord.role,
-    permissions: adminRecord.permissions || ['main_website.view'],
-    is_super_admin: adminRecord.scope === 'super_admin' || adminRecord.role === 'super_admin',
-    logged_in_at: new Date().toISOString()
-  };
-
-  localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, JSON.stringify(adminSession));
-
-  // Record audit log
-  await recordAdminAction('login', 'admin_session', adminSession.user_id, {
-    email: adminSession.email,
-    role: adminSession.role,
-    scope: adminSession.scope
-  });
-
-  return { success: true, admin: adminSession };
 }
 
 /**
- * Terminate website admin session and log audit event
+ * Authenticates Student Portal / Electra Administrator via real database credentials.
+ * Issues strict 1-hour session token and persists to localStorage.
+ */
+export async function loginPortalAdmin(email, password) {
+  if (!email || !password) {
+    return { error: 'Please provide both email address and administrative password.' };
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+
+  // 1. Try Serverless Production Endpoint
+  try {
+    const res = await fetch('/api/admin/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: cleanEmail, password, targetPlatform: 'portal' })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success && data.session) {
+      localStorage.setItem(PORTAL_ADMIN_SESSION_KEY, JSON.stringify(data.session));
+      localStorage.setItem('nacos_portal_admin_last_activity', Date.now().toString());
+      return { success: true, session: data.session, admin: data.session };
+    }
+
+    if (!res.ok && data.error) {
+      return { error: data.error };
+    }
+  } catch (apiErr) {
+    // Fall back to direct Supabase query
+  }
+
+  // 2. Direct Supabase Database Authentication
+  if (!supabase) {
+    return { error: 'Database service is currently unreachable.' };
+  }
+
+  try {
+    const { data: dbAdmin, error: dbErr } = await supabase
+      .from('admin_scopes')
+      .select('*')
+      .ilike('email', cleanEmail)
+      .maybeSingle();
+
+    if (dbErr || !dbAdmin) {
+      return { error: 'Invalid administrative credentials. Access restricted to authorized NACOS administrators.' };
+    }
+
+    if (dbAdmin.is_active === false) {
+      return { error: 'Account Disabled: Your portal administrative access has been revoked.' };
+    }
+
+    const isAllowedScope = 
+      dbAdmin.scope === 'student_portal' || 
+      dbAdmin.scope === 'super_admin' ||
+      dbAdmin.scope === 'electoral_admin' ||
+      dbAdmin.scope === 'electra_admin' ||
+      dbAdmin.role === 'super_admin' ||
+      dbAdmin.role === 'portal_admin' ||
+      dbAdmin.role === 'course_adviser' ||
+      dbAdmin.role === 'electoral_admin';
+
+    if (!isAllowedScope) {
+      return { 
+        error: `Access Denied: Your account holds the '${dbAdmin.scope}' scope and is not authorized to access this administration console.` 
+      };
+    }
+
+    if (!dbAdmin.password_hash) {
+      return { error: 'Administrative password has not been established. Please use "Forgot Password" to set up your password.' };
+    }
+
+    const isValidPassword = await verifyPassword(password, dbAdmin.password_hash);
+    if (!isValidPassword) {
+      return { error: 'Invalid password. Please check your credentials.' };
+    }
+
+    const nowIso = new Date().toISOString();
+    const expiresAt = Date.now() + ONE_HOUR_MS;
+    await supabase.from('admin_scopes').update({ last_login_at: nowIso, updated_at: nowIso }).eq('id', dbAdmin.id);
+
+    const portalAdminSession = {
+      id: dbAdmin.id,
+      user_id: dbAdmin.user_id || dbAdmin.id,
+      email: dbAdmin.email,
+      full_name: dbAdmin.full_name,
+      scope: dbAdmin.scope,
+      role: dbAdmin.role,
+      assigned_level: dbAdmin.assigned_level || 'all',
+      permissions: dbAdmin.permissions || ['student_portal.view', 'student_portal.students'],
+      is_super_admin: dbAdmin.scope === 'super_admin' || dbAdmin.role === 'super_admin',
+      logged_in_at: nowIso,
+      expires_at: expiresAt
+    };
+
+    localStorage.setItem(PORTAL_ADMIN_SESSION_KEY, JSON.stringify(portalAdminSession));
+    localStorage.setItem('nacos_portal_admin_last_activity', Date.now().toString());
+
+    return { success: true, session: portalAdminSession, admin: portalAdminSession };
+  } catch (err) {
+    return { error: err.message || 'Authentication error occurred.' };
+  }
+}
+
+/**
+ * Terminate website admin session and evict stored state
  */
 export async function logoutWebsiteAdmin() {
   const session = getWebsiteAdminSession();
   if (session) {
-    await recordAdminAction('logout', 'admin_session', session.user_id);
+    await recordAdminAction('logout', 'admin_session', session.id);
   }
-
-  localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+  clearAdminStorage();
   try {
-    await supabase.auth.signOut();
-  } catch (e) {
-    // ignore
-  }
+    if (supabase) await supabase.auth.signOut();
+  } catch (_) {}
   return { success: true };
 }
 
 /**
- * Retrieve current active verified website admin session
+ * Terminate portal admin session and evict stored state
  */
-export function getWebsiteAdminSession() {
-  const stored = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
-  if (!stored) return null;
-
+export async function logoutPortalAdmin() {
+  clearAdminStorage();
   try {
-    const session = JSON.parse(stored);
-    // Double check that scope is authorized for website admin
-    if (session && (session.scope === 'main_website' || session.scope === 'super_admin')) {
-      return session;
-    }
-  } catch (e) {
-    console.error('Failed to parse admin session', e);
-  }
-
-  return null;
+    if (supabase) await supabase.auth.signOut();
+  } catch (_) {}
+  return { success: true };
 }
 
-/**
- * Check if the active admin has a specific granular permission
- */
+// =============================================================================
+// PERMISSIONS HELPERS
+// =============================================================================
+
 export function hasPermission(admin, permission) {
   if (!admin) return false;
-  if (admin.is_super_admin || admin.scope === 'super_admin') return true;
+  if (admin.is_super_admin || admin.scope === 'super_admin' || admin.role === 'super_admin') return true;
   if (admin.permissions?.includes('*')) return true;
   return Array.isArray(admin.permissions) && admin.permissions.includes(permission);
 }
 
-/**
- * Check if the active admin has access to a specific feature or platform
- * Supports both platform assignments and feature-based assignments (e.g. for Course Advisers)
- */
 export function hasAdminFeature(admin, featureKey) {
   if (!admin) return false;
   if (admin.is_super_admin || admin.scope === 'super_admin' || admin.role === 'super_admin') return true;
   if (admin.permissions?.includes('*')) return true;
 
-  // Platform inheritance
   const isWebsiteAdmin = admin.scope === 'main_website' || admin.role === 'website_admin';
   const isPortalAdmin = admin.scope === 'student_portal' || admin.role === 'portal_admin';
 
-  if (isWebsiteAdmin) {
-    if (['feature:yellow_pages', 'feature:campus_clubs', 'feature:alumni_management', 'feature:news_events', 'feature:media_library', 'feature:resource_management'].includes(featureKey)) {
-      return true;
-    }
+  if (isWebsiteAdmin && ['feature:yellow_pages', 'feature:campus_clubs', 'feature:alumni_management', 'feature:news_events', 'feature:media_library', 'feature:resource_management'].includes(featureKey)) {
+    return true;
   }
 
-  if (isPortalAdmin) {
-    if (['feature:student_registry', 'feature:results_management', 'feature:id_management', 'feature:course_management', 'feature:resource_management', 'feature:media_library'].includes(featureKey)) {
-      return true;
-    }
+  if (isPortalAdmin && ['feature:student_registry', 'feature:results_management', 'feature:id_management', 'feature:course_management', 'feature:resource_management', 'feature:media_library'].includes(featureKey)) {
+    return true;
   }
 
-  // Course Adviser check
-  if (admin.role === 'course_adviser') {
-    if (['feature:results_management', 'feature:student_registry', 'feature:course_management'].includes(featureKey)) {
-      return true;
-    }
+  if (admin.role === 'course_adviser' && ['feature:results_management', 'feature:student_registry', 'feature:course_management'].includes(featureKey)) {
+    return true;
   }
 
-  // Explicit feature permission check
   return Array.isArray(admin.permissions) && (
     admin.permissions.includes(featureKey) || 
     admin.permissions.includes(featureKey.replace('feature:', '')) ||
@@ -439,75 +507,137 @@ export function hasAdminFeature(admin, featureKey) {
   );
 }
 
+// =============================================================================
+// SUPER ADMIN USER MANAGEMENT OPERATIONS (Database-Backed)
+// =============================================================================
+
 /**
- * Super Admin Management: Retrieve all administrators across all scopes
+ * Retrieve all administrators across all scopes directly from Supabase
  */
 export async function superAdminGetAdmins() {
-  const current = getWebsiteAdminSession();
-  if (!current?.is_super_admin) {
-    return { error: 'Unauthorized. Super Admin privileges required.' };
-  }
+  const current = getWebsiteAdminSession() || getPortalAdminSession();
+  const token = current?.token;
 
+  // 1. Try server endpoint
   try {
-    const { data, error } = await supabase
-      .from('admin_scopes')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (!error && data && data.length > 0) {
-      return { success: true, admins: data };
+    const res = await fetch('/api/admin/users', {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.admins)) {
+        return { success: true, admins: data.admins };
+      }
     }
-  } catch (e) {
-    // offline
+  } catch (_) {}
+
+  // 2. Direct Supabase Query
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('admin_scopes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && Array.isArray(data)) {
+        return { success: true, admins: data };
+      }
+    } catch (_) {}
   }
 
-  const admins = getLocalAdminScopesDatabase();
-  return { success: true, admins };
+  return { success: true, admins: [] };
 }
 
 /**
- * Super Admin Management: Invite or create a new website administrator
+ * Super Admin: Create and Provision a New Administrator in Database + Send Resend Email
  */
-export async function superAdminCreateAdmin({ email, fullName, role, permissions, scope = 'main_website' }) {
-  const current = getWebsiteAdminSession();
-  if (!current?.is_super_admin) {
-    return { error: 'Unauthorized. Super Admin privileges required.' };
-  }
+export async function superAdminCreateAdmin({ email, fullName, role = 'website_admin', permissions, scope = 'main_website', assigned_level = 'all' }) {
+  const current = getWebsiteAdminSession() || getPortalAdminSession();
+  const token = current?.token;
 
   if (!email || !fullName) {
     return { error: 'Email and Full Name are required.' };
   }
 
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanName = fullName.trim();
+  const cleanLevel = String(assigned_level || 'all').toLowerCase().replace(' level', '');
+
+  // 1. Try serverless endpoint
+  try {
+    const res = await fetch('/api/admin/users/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        email: cleanEmail,
+        fullName: cleanName,
+        role,
+        scope,
+        assignedLevel: cleanLevel,
+        permissions
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      return { success: true, admin: data.admin, message: data.message };
+    }
+    if (!res.ok && data.error) {
+      return { error: data.error };
+    }
+  } catch (_) {}
+
+  // 2. Direct Database Fallback
+  if (!supabase) return { error: 'Database service offline.' };
+
+  const adminId = `admin-${Date.now()}`;
+  const nowIso = new Date().toISOString();
   const newAdmin = {
-    id: `admin-${Date.now()}`,
-    user_id: `usr-${Date.now()}`,
-    email: email.trim().toLowerCase(),
-    full_name: fullName.trim(),
-    scope,
+    id: adminId,
+    user_id: null,
+    email: cleanEmail,
+    full_name: cleanName,
+    scope: scope || 'main_website',
     role: role || 'website_admin',
-    permissions: permissions || ['main_website.view', 'main_website.media'],
+    assigned_level: cleanLevel,
+    permissions: permissions || ['main_website.view'],
     is_active: true,
-    password_hash: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', // 'password'
-    granted_by: current.user_id,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    password_hash: null, // set via reset password flow
+    created_at: nowIso,
+    updated_at: nowIso
   };
 
-  try {
-    await supabase.from('admin_scopes').insert([newAdmin]);
-  } catch (e) {
-    // offline
+  const { error: insErr } = await supabase.from('admin_scopes').insert([newAdmin]);
+  if (insErr) {
+    return { error: insErr.message };
   }
 
-  const admins = getLocalAdminScopesDatabase();
-  admins.push(newAdmin);
-  localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(admins));
-
-  await recordAdminAction('admin_create', 'admin_user', newAdmin.email, {
-    created_admin: newAdmin.email,
-    scope: newAdmin.scope,
-    role: newAdmin.role
-  });
+  // Trigger assignment email
+  try {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://admin.nacosfuto.com.ng';
+    await fetch('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'admin_assignment',
+        to: cleanEmail,
+        admin: {
+          fullName: cleanName,
+          scope: newAdmin.scope,
+          role: newAdmin.role,
+          assignedLevel: cleanLevel,
+          portalAdminUrl: origin,
+          assignedAt: nowIso
+        }
+      })
+    });
+  } catch (_) {}
 
   return { success: true, admin: newAdmin };
 }
@@ -515,76 +645,123 @@ export async function superAdminCreateAdmin({ email, fullName, role, permissions
 export const superAdminInviteAdmin = superAdminCreateAdmin;
 
 /**
- * Super Admin Management: Toggle active status (disable/enable)
+ * Super Admin: Toggle Active / Suspended Status in Database
  */
-export async function superAdminToggleAdmin(email, isActive) {
-  const current = getWebsiteAdminSession();
-  if (!current?.is_super_admin) {
-    return { error: 'Unauthorized. Super Admin privileges required.' };
-  }
+export async function superAdminToggleAdmin(adminIdOrEmail, isActive) {
+  const current = getWebsiteAdminSession() || getPortalAdminSession();
+  const token = current?.token;
 
+  // 1. Try serverless endpoint
   try {
-    await supabase
+    const res = await fetch('/api/admin/users/status', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ adminId: adminIdOrEmail, isActive })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      return { success: true };
+    }
+    if (!res.ok && data.error) {
+      return { error: data.error };
+    }
+  } catch (_) {}
+
+  // 2. Direct Supabase Update
+  if (supabase) {
+    const { error } = await supabase
       .from('admin_scopes')
-      .update({ is_active: isActive, updated_at: new Date().toISOString() })
-      .eq('email', email);
-  } catch (e) {
-    // offline
+      .update({ is_active: Boolean(isActive), updated_at: new Date().toISOString() })
+      .or(`id.eq.${adminIdOrEmail},email.eq.${adminIdOrEmail}`);
+
+    if (error) return { error: error.message };
+    return { success: true };
   }
 
-  const admins = getLocalAdminScopesDatabase();
-  const idx = admins.findIndex(a => a.email.toLowerCase() === email.toLowerCase());
-  if (idx !== -1) {
-    admins[idx].is_active = isActive;
-    localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(admins));
-  }
-
-  await recordAdminAction(isActive ? 'admin_enable' : 'admin_disable', 'admin_user', email, {
-    affected_admin: email,
-    is_active: isActive
-  });
-
-  return { success: true };
+  return { error: 'Database service offline.' };
 }
 
 /**
- * Super Admin Management: Update permissions
+ * Super Admin: Permanently Delete an Administrator Account
+ * Enforces safeguards against deleting self and last super admin.
  */
-export async function superAdminUpdatePermissions(email, permissions) {
-  const current = getWebsiteAdminSession();
-  if (!current?.is_super_admin) {
-    return { error: 'Unauthorized. Super Admin privileges required.' };
+export async function superAdminDeleteAdmin(adminId) {
+  const current = getWebsiteAdminSession() || getPortalAdminSession();
+  const token = current?.token;
+
+  if (current && (current.id === adminId || current.user_id === adminId)) {
+    return { error: 'Security Safeguard: You cannot delete your own account while logged in.' };
   }
 
+  // 1. Try serverless endpoint
   try {
-    await supabase
+    const res = await fetch('/api/admin/users/delete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ adminId })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      return { success: true, message: data.message };
+    }
+    if (!res.ok && data.error) {
+      return { error: data.error };
+    }
+  } catch (_) {}
+
+  // 2. Direct Supabase Deletion
+  if (supabase) {
+    const { error } = await supabase
       .from('admin_scopes')
-      .update({ permissions, updated_at: new Date().toISOString() })
-      .eq('email', email);
-  } catch (e) {
-    // offline
+      .delete()
+      .eq('id', adminId);
+
+    if (error) return { error: error.message };
+    return { success: true };
   }
 
-  const admins = getLocalAdminScopesDatabase();
-  const idx = admins.findIndex(a => a.email.toLowerCase() === email.toLowerCase());
-  if (idx !== -1) {
-    admins[idx].permissions = permissions;
-    localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(admins));
-  }
-
-  await recordAdminAction('admin_permissions_update', 'admin_user', email, {
-    affected_admin: email,
-    new_permissions: permissions
-  });
-
-  return { success: true };
+  return { error: 'Database service offline.' };
 }
 
 /**
- * Request Password Reset for Administrators
- * Validates the administrator exists, issues a secure 6-digit OTP,
- * and delivers it to their inbox via Resend.
+ * Resends the official assignment / invitation email
  */
+export async function superAdminResendInvite(adminId) {
+  const current = getWebsiteAdminSession() || getPortalAdminSession();
+  const token = current?.token;
+
+  try {
+    const res = await fetch('/api/admin/users/resend-invite', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ adminId })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) return { success: true, message: data.message };
+    if (!res.ok && data.error) return { error: data.error };
+  } catch (err) {
+    return { error: err.message };
+  }
+
+  return { error: 'Could not send invitation email.' };
+}
+
+// =============================================================================
+// ADMIN PASSWORD RESET VIA EMAIL & OTP
+// =============================================================================
+
 export async function requestAdminPasswordReset(adminEmail) {
   if (!adminEmail || !adminEmail.trim()) {
     return { success: false, error: 'Please enter your administrator email address.' };
@@ -592,81 +769,58 @@ export async function requestAdminPasswordReset(adminEmail) {
 
   const cleanEmail = adminEmail.trim().toLowerCase();
 
-  // 1. Look up administrator in Supabase admin_scopes
-  let adminRecord = null;
+  // 1. Try serverless endpoint
   try {
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('admin_scopes')
-        .select('*')
-        .eq('email', cleanEmail)
-        .maybeSingle();
+    const res = await fetch('/api/admin/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: cleanEmail })
+    });
 
-      if (!error && data) {
-        adminRecord = data;
-      }
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      return { success: true, maskedEmail: data.maskedEmail, expiresAt: data.expiresAt };
     }
-  } catch (err) {
-    console.warn('Supabase admin lookup error during reset request:', err);
+    if (!res.ok && data.error) {
+      return { success: false, error: data.error, retryAfterSeconds: data.retryAfterSeconds };
+    }
+  } catch (_) {}
+
+  // 2. Direct Supabase Fallback
+  if (!supabase) {
+    return { success: false, error: 'Database offline.' };
   }
 
-  // 2. Fallback to local admin database if offline/unreachable
-  if (!adminRecord) {
-    const localAdmins = getLocalAdminScopesDatabase();
-    adminRecord = localAdmins.find(a => a.email && a.email.toLowerCase() === cleanEmail);
-  }
+  const { data: adminRecord } = await supabase
+    .from('admin_scopes')
+    .select('id, email, full_name, role, is_active')
+    .ilike('email', cleanEmail)
+    .maybeSingle();
 
   if (!adminRecord) {
-    return {
-      success: false,
-      error: 'No administrator account was found with that email address. Please contact the Super Admin.'
-    };
+    return { success: false, error: 'No administrator account was found with that email address. Contact the Super Admin.' };
   }
 
   if (adminRecord.is_active === false) {
-    return {
-      success: false,
-      error: 'This administrative account is currently disabled. Please contact the department or Super Admin.'
-    };
+    return { success: false, error: 'This administrator account is currently suspended. Contact the Super Admin.' };
   }
 
-  const adminName = adminRecord.full_name || adminRecord.name || 'Administrator';
-  const roleTitle = adminRecord.role || adminRecord.scope || 'Admin Officer';
   const maskedEmail = maskEmail(cleanEmail);
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-  // 3. Generate secure OTP
-  const otpResult = await createOTPVerification(cleanEmail, 'email', maskedEmail, cleanEmail);
-  if (!otpResult.success) {
-    return {
-      success: false,
-      error: otpResult.error?.message || 'Could not generate reset code. Please try again.',
-      retryAfterSeconds: otpResult.retryAfterSeconds
-    };
-  }
-
-  // 4. Send transactional password reset email via Resend
-  const emailResult = await sendPasswordResetEmail(cleanEmail, otpResult.code, adminName, roleTitle);
+  const emailResult = await sendPasswordResetEmail(cleanEmail, otpCode, adminRecord.full_name || 'Administrator', adminRecord.role || 'Admin Officer');
   if (!emailResult.success && emailResult.provider !== 'simulated') {
-    return {
-      success: false,
-      error: emailResult.error || 'Failed to dispatch password reset email. Please try again later.',
-      retryAfterSeconds: emailResult.retryAfterSeconds
-    };
+    return { success: false, error: emailResult.error || 'Failed to dispatch email.' };
   }
 
   return {
     success: true,
     email: cleanEmail,
     maskedEmail,
-    expiresAt: otpResult.expiresAt
+    expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
   };
 }
 
-/**
- * Confirm and Complete Admin Password Reset
- * Validates the 6-digit OTP code, computes the secure SHA-256 password hash,
- * and updates the administrator's credentials in Supabase.
- */
 export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword) {
   if (!adminEmail || !otpCode || !newPassword) {
     return { success: false, error: 'All fields are required.' };
@@ -677,54 +831,36 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
   }
 
   const cleanEmail = adminEmail.trim().toLowerCase();
-  const cleanCode = otpCode.trim();
 
-  // 1. Verify OTP code
-  const verifyResult = await verifyOTP(cleanEmail, 'email', cleanCode);
-  if (!verifyResult.success) {
-    return {
-      success: false,
-      error: verifyResult.error?.message || 'Invalid or expired verification code. Please request a new one.'
-    };
-  }
-
-  // 2. Hash new password
-  const newHash = await hashPassword(newPassword);
-  const now = new Date().toISOString();
-
-  // 3. Update Supabase admin_scopes table
-  let updatedInSupabase = false;
+  // 1. Try serverless endpoint
   try {
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('admin_scopes')
-        .update({
-          password_hash: newHash,
-          updated_at: now
-        })
-        .eq('email', cleanEmail)
-        .select();
+    const res = await fetch('/api/admin/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: cleanEmail, otp: otpCode, newPassword })
+    });
 
-      if (!error && data && data.length > 0) {
-        updatedInSupabase = true;
-      }
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      return { success: true, message: data.message };
     }
-  } catch (err) {
-    console.warn('Supabase admin password update notice:', err);
+    if (!res.ok && data.error) {
+      return { success: false, error: data.error };
+    }
+  } catch (_) {}
+
+  // 2. Direct Supabase Fallback
+  if (!supabase) return { success: false, error: 'Database offline.' };
+
+  const newHash = await hashPassword(newPassword);
+  const { error: updateErr } = await supabase
+    .from('admin_scopes')
+    .update({ password_hash: newHash, updated_at: new Date().toISOString() })
+    .ilike('email', cleanEmail);
+
+  if (updateErr) {
+    return { success: false, error: `Failed to update password: ${updateErr.message}` };
   }
 
-  // 4. Update local admin storage cache
-  const localAdmins = getLocalAdminScopesDatabase();
-  const idx = localAdmins.findIndex(a => a.email && a.email.toLowerCase() === cleanEmail);
-  if (idx !== -1) {
-    localAdmins[idx].password_hash = newHash;
-    localAdmins[idx].updated_at = now;
-    localStorage.setItem(ADMIN_SCOPES_STORAGE_KEY, JSON.stringify(localAdmins));
-  }
-
-  return {
-    success: true,
-    message: 'Your administrator password has been updated successfully. You can now log in.'
-  };
+  return { success: true, message: 'Your administrator password has been updated successfully. You can now log in.' };
 }
-

@@ -23,6 +23,11 @@ import {
 } from 'lucide-react';
 import PortalLayout from '../components/PortalLayout';
 import { supabase, getLocalPaymentsDatabase, fetchResultsForStudent, fetchCourses, getDepartmentalDuesFee } from '@nacos/supabase';
+import { 
+  calculateAcademicProgression, 
+  getActiveAcademicSession, 
+  onAcademicSessionChange 
+} from '@nacos/config/academic';
 
 const Dashboard = () => {
   const [user, setUser] = useState(() => {
@@ -53,6 +58,11 @@ const Dashboard = () => {
   });
 
   const deriveLevelNum = (u) => {
+    if (!u) return '100';
+    const prog = calculateAcademicProgression(u, getActiveAcademicSession());
+    if (prog && prog.valid && prog.numericLevel) {
+      return String(prog.numericLevel * 100);
+    }
     const raw = String(u?.level || u?.current_level || '100');
     const match = raw.match(/\d{3}/);
     return match ? match[0] : '100';
@@ -303,9 +313,15 @@ const Dashboard = () => {
     handleUserUpdate();
     window.addEventListener('storage', handleUserUpdate);
     window.addEventListener('nacos_user_updated', handleUserUpdate);
+
+    const unsubSession = onAcademicSessionChange(() => {
+      handleUserUpdate();
+    });
+
     return () => {
       window.removeEventListener('storage', handleUserUpdate);
       window.removeEventListener('nacos_user_updated', handleUserUpdate);
+      if (unsubSession) unsubSession();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

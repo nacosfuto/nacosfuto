@@ -1,19 +1,57 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { getPortalAdminSession, logoutPortalAdmin } from '@nacos/auth';
+import { getPortalAdminSession, logoutPortalAdmin, verifyLiveAdminSession } from '@nacos/auth';
 import { ShieldAlert, LogOut } from 'lucide-react';
 
 export const PortalAdminProtectedRoute = ({ children, requiredPermission = 'student_portal.view' }) => {
   const location = useLocation();
   const admin = getPortalAdminSession();
 
+  // Background Live Verification & Strict 1-Hour Expiration Check
+  useEffect(() => {
+    if (!admin) return;
+
+    // Check on mount
+    const checkSession = async () => {
+      const res = await verifyLiveAdminSession('portal');
+      if (!res.valid) {
+        await logoutPortalAdmin();
+        window.location.href = window.location.pathname.startsWith('/portal-admin') 
+          ? '/portal-admin/login?reason=session_expired' 
+          : '/login?reason=session_expired';
+      }
+    };
+
+    checkSession();
+
+    // Check every 30 seconds for 1-hour expiration deadline
+    const interval = setInterval(() => {
+      const current = getPortalAdminSession();
+      if (!current) {
+        clearInterval(interval);
+        window.location.href = window.location.pathname.startsWith('/portal-admin') 
+          ? '/portal-admin/login?reason=session_expired' 
+          : '/login?reason=session_expired';
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Step 1: Authentication Check
   if (!admin) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/login?reason=session_expired" state={{ from: location }} replace />;
   }
 
   // Step 2: Validate Scope is student_portal or super_admin
-  if (admin.scope !== 'student_portal' && admin.scope !== 'super_admin') {
+  const isAllowedScope = 
+    admin.scope === 'student_portal' || 
+    admin.scope === 'super_admin' || 
+    admin.role === 'super_admin' || 
+    admin.role === 'portal_admin' || 
+    admin.role === 'course_adviser';
+
+  if (!isAllowedScope) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-slate-900 border border-red-800/60 rounded-3xl p-8 text-center space-y-4 shadow-2xl">
