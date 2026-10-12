@@ -194,6 +194,8 @@ export default function App() {
           <Route path="/electra" element={renderHome()} />
           <Route path="/contestants" element={renderContestants()} />
           <Route path="/electra/contestants" element={renderContestants()} />
+          <Route path="/candidates" element={renderContestants()} />
+          <Route path="/electra/candidates" element={renderContestants()} />
           <Route path="/manifestos" element={renderManifestos()} />
           <Route path="/electra/manifestos" element={renderManifestos()} />
           <Route path="/results" element={<LiveResultsPage />} />

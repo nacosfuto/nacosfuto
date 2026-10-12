@@ -200,10 +200,17 @@ export function getElectraPosts() {
 export const getVotingPosts = getElectraPosts;
 
 export function getContestants(postId = null, electionId = null) {
+  const allowAll = (electionId === 'all' || electionId === false);
   const activeEl = getActiveElection();
-  const targetElectionId = (electionId === 'all' || electionId === false)
+  const targetElectionId = allowAll
     ? null
     : (electionId || activeEl?.id || null);
+
+  // Safeguard: If no specific election is requested and there is NO active election,
+  // strictly return an empty array. Inactive/past election candidates must NEVER leak to public pages!
+  if (!allowAll && !targetElectionId) {
+    return [];
+  }
 
   let list = memoryState.contestants;
   if (list.length === 0 && typeof window !== 'undefined') {
@@ -229,7 +236,7 @@ export function getContestants(postId = null, electionId = null) {
 }
 
 export function getContestantById(contestantId) {
-  const all = getContestants();
+  const all = getContestants(null, 'all');
   return all.find(c => c.id === contestantId) || null;
 }
 
@@ -369,6 +376,14 @@ export async function fetchLiveElectraData() {
     }
   }
 
+  // Scoped public data: if active election exists, strictly scope to election.id; otherwise empty!
+  const publicContestants = election
+    ? contestants.filter(c => c.electionId === election.id)
+    : [];
+  const publicPosts = election
+    ? posts.filter(p => !p.electionId || p.electionId === election.id)
+    : [];
+
   // Update memory state
   memoryState = {
     allElections,
@@ -390,9 +405,155 @@ export async function fetchLiveElectraData() {
     } catch (_) {}
   }
 
-  return { allElections, election, posts, contestants, newsList };
+  return {
+    allElections,
+    election,
+    posts: publicPosts,
+    contestants: publicContestants,
+    allPosts: posts,
+    allContestants: contestants,
+    newsList
+  };
 }
 export const fetchLiveVotingData = fetchLiveElectraData;
+
+// =============================================================================
+// ELECTION CARD & NAVBAR VISIBILITY SETTINGS (DATABASE PERSISTED)
+// =============================================================================
+
+export const ELECTION_CARD_VISIBILITY_KEY = 'nacos_election_card_visibility';
+export const ELECTION_SETTINGS_ROW_ID = 'store_election_settings';
+
+let memoryElectionCardVisible = null;
+
+export function getElectionCardVisibility() {
+  if (memoryElectionCardVisible !== null) return memoryElectionCardVisible;
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(ELECTION_CARD_VISIBILITY_KEY);
+      if (stored !== null) {
+        memoryElectionCardVisible = stored === 'true';
+        return memoryElectionCardVisible;
+      }
+      const cms = localStorage.getItem('nacos_homepage_cms_db');
+      if (cms) {
+        const parsed = JSON.parse(cms);
+        if (typeof parsed?.election_card_visible === 'boolean') {
+          memoryElectionCardVisible = parsed.election_card_visible;
+          return memoryElectionCardVisible;
+        }
+      }
+    } catch (_) {}
+  }
+  return true; // Default ON
+}
+
+export async function fetchElectionCardVisibility() {
+  let isVisible = getElectionCardVisibility();
+  if (supabase) {
+    try {
+      // 1. Check dedicated store_election_settings row
+      const { data: elRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', ELECTION_SETTINGS_ROW_ID)
+        .maybeSingle();
+
+      if (elRow?.academic_session) {
+        try {
+          const parsed = JSON.parse(elRow.academic_session);
+          if (typeof parsed?.election_card_visible === 'boolean') {
+            isVisible = parsed.election_card_visible;
+          }
+        } catch (_) {}
+      } else {
+        // 2. Check store_homepage_content row
+        const { data: hpRow } = await supabase
+          .from('id_card_settings')
+          .select('academic_session')
+          .eq('id', 'store_homepage_content')
+          .maybeSingle();
+
+        if (hpRow?.academic_session) {
+          try {
+            const parsed = JSON.parse(hpRow.academic_session);
+            if (typeof parsed?.election_card_visible === 'boolean') {
+              isVisible = parsed.election_card_visible;
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (err) {
+      console.warn('[Electra Service] fetchElectionCardVisibility warning:', err);
+    }
+  }
+
+  memoryElectionCardVisible = isVisible;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(ELECTION_CARD_VISIBILITY_KEY, String(isVisible));
+    } catch (_) {}
+  }
+  return isVisible;
+}
+
+export async function setElectionCardVisibility(visible) {
+  const boolVal = Boolean(visible);
+  memoryElectionCardVisible = boolVal;
+
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(ELECTION_CARD_VISIBILITY_KEY, String(boolVal));
+      window.dispatchEvent(new CustomEvent('nacos_election_card_visibility_changed', { detail: boolVal }));
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('nacos_election_channel');
+        bc.postMessage({ type: 'visibility_change', visible: boolVal });
+        bc.close();
+      }
+    } catch (_) {}
+  }
+
+  if (supabase) {
+    try {
+      // 1. Upsert store_election_settings
+      await supabase.from('id_card_settings').upsert({
+        id: ELECTION_SETTINGS_ROW_ID,
+        academic_session: JSON.stringify({ election_card_visible: boolVal }),
+        updated_at: new Date().toISOString()
+      });
+
+      // 2. Update store_homepage_content for synchrony with website CMS
+      const { data: hpRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_homepage_content')
+        .maybeSingle();
+
+      let currentCms = {};
+      if (hpRow?.academic_session) {
+        try { currentCms = JSON.parse(hpRow.academic_session); } catch (_) {}
+      }
+      currentCms.election_card_visible = boolVal;
+
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_homepage_content',
+        academic_session: JSON.stringify(currentCms),
+        updated_at: new Date().toISOString()
+      });
+
+      // 3. Also update website_homepage_content table if it exists
+      try {
+        await supabase
+          .from('website_homepage_content')
+          .upsert({ id: 'default', content: currentCms, updated_at: new Date().toISOString() });
+      } catch (_) {}
+    } catch (e) {
+      console.warn('[Electra Service] setElectionCardVisibility error:', e);
+    }
+  }
+
+  return boolVal;
+}
 
 // =============================================================================
 // ADMIN ELECTIONS MANAGEMENT (PERSISTS DIRECTLY TO SUPABASE)

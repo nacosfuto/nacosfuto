@@ -52,7 +52,10 @@ import {
   fetchLiveElectraData,
   getElectraNews,
   adminSaveElectraNews,
-  adminDeleteElectraNews
+  adminDeleteElectraNews,
+  getElectionCardVisibility,
+  setElectionCardVisibility,
+  fetchElectionCardVisibility
 } from '@nacos/supabase/electraService';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { storageService } from '@nacos/supabase/storageService';
@@ -86,6 +89,27 @@ export default function App() {
   const [contestants, setContestants] = useState(() => getContestants(null, selectedElectionId));
   const [results, setResults] = useState(() => getLiveElectionResults(selectedElectionId));
   const [newsList, setNewsList] = useState(() => getElectraNews());
+  const [electionCardVisible, setElectionCardVisibleState] = useState(() => getElectionCardVisibility());
+
+  useEffect(() => {
+    fetchElectionCardVisibility().then(v => setElectionCardVisibleState(v));
+    const onVisChange = (e) => {
+      if (typeof e.detail === 'boolean') setElectionCardVisibleState(e.detail);
+      else setElectionCardVisibleState(getElectionCardVisibility());
+    };
+    window.addEventListener('nacos_election_card_visibility_changed', onVisChange);
+    return () => window.removeEventListener('nacos_election_card_visibility_changed', onVisChange);
+  }, []);
+
+  const handleToggleCardVisibility = async (val) => {
+    setElectionCardVisibleState(val);
+    try {
+      await setElectionCardVisibility(val);
+      showToast(`Election card visibility switched ${val ? 'ON' : 'OFF'}`);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
   
   // Modal states
   const [isCandidateModalOpen, setIsCandidateModalOpen] = useState(false);
@@ -1094,6 +1118,46 @@ export default function App() {
                   >
                     Publish Results
                   </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Election Card & Navigation Visibility Setting */}
+            <div className={`p-5 sm:p-6 rounded-[5px] border transition-all ${
+              isDark 
+                ? 'bg-[#083002]/60 backdrop-blur border-[#138601]/30 text-white' 
+                : 'bg-white border-gray-200 text-gray-900 shadow-xs'
+            }`}>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Vote className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
+                    <h3 className="text-sm sm:text-base font-bold">
+                      Election Card Visibility
+                    </h3>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xl leading-relaxed">
+                    Control whether the ELECTRA election card is displayed on the public website homepage and whether the ELECTIONS link is visible in the navbar. When disabled, the card and link are completely removed and the layout realigns naturally.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className={`text-xs font-extrabold uppercase px-2.5 py-1 rounded-[3px] border ${
+                    electionCardVisible
+                      ? 'bg-green-50 text-[#138601] border-green-200 dark:bg-green-950/60 dark:text-[#4bd043] dark:border-[#138601]/40'
+                      : 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-white/5 dark:text-gray-400 dark:border-white/10'
+                  }`}>
+                    {electionCardVisible ? 'ON' : 'OFF'}
+                  </span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={electionCardVisible}
+                      onChange={(e) => handleToggleCardVisibility(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-[#138601]"></div>
+                  </label>
                 </div>
               </div>
             </div>

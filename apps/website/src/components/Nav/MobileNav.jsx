@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FiChevronDown, FiChevronRight, FiX } from "react-icons/fi";
 import { BsSun, BsMoon } from "react-icons/bs";
 import { useLocation } from "react-router-dom";
@@ -6,12 +6,52 @@ import ScrollToTopLink from "../ScrollToTopLink";
 import logoLight from "../../assets/full-logo-light.png";
 import logoDark from "../../assets/full-logo-dark.png";
 import { getAppUrls } from "@nacos/config/urls";
+import { getElectionCardVisibility, fetchElectionCardVisibility } from "@nacos/supabase/electraService";
 
 const MobileNav = ({ isOpen, closeMenu, toggleDarkMode, darkMode, isNacosExec }) => {
   const location = useLocation();
   const theme = darkMode ? "dark" : "light";
   const [openCategory, setOpenCategory] = useState(null);
-  const { upskillHub, portal } = getAppUrls();
+  const { upskillHub, portal, electra } = getAppUrls();
+
+  const [electionNavVisible, setElectionNavVisible] = useState(() => getElectionCardVisibility());
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchElectionCardVisibility().then(vis => {
+      if (isMounted) setElectionNavVisible(vis);
+    });
+
+    const handleVisibilityChange = (e) => {
+      if (typeof e.detail === 'boolean') {
+        setElectionNavVisible(e.detail);
+      } else {
+        setElectionNavVisible(getElectionCardVisibility());
+      }
+    };
+
+    window.addEventListener('nacos_election_card_visibility_changed', handleVisibilityChange);
+    window.addEventListener('storage', handleVisibilityChange);
+
+    let bc = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        bc = new BroadcastChannel('nacos_election_channel');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'visibility_change' && typeof event.data.visible === 'boolean') {
+            setElectionNavVisible(event.data.visible);
+          }
+        };
+      } catch (_) {}
+    }
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('nacos_election_card_visibility_changed', handleVisibilityChange);
+      window.removeEventListener('storage', handleVisibilityChange);
+      if (bc) bc.close();
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -130,6 +170,26 @@ const MobileNav = ({ isOpen, closeMenu, toggleDarkMode, darkMode, isNacosExec })
               <FiChevronRight className="ml-2 text-white" />
             </a>
           </div>
+
+          {/* Direct ELECTIONS Link: completely omitted from DOM when visibility is OFF */}
+          {electionNavVisible && (
+            <div className="mb-2">
+              <a
+                href={electra}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={closeMenu}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded cursor-pointer ${
+                  darkMode
+                    ? "bg-[#083002] text-[#4bd043] border border-[#138601]/30 hover:bg-[#0d4603]"
+                    : "bg-gray-50 text-black border border-gray-200 hover:text-[#138601] hover:bg-gray-100"
+                } font-semibold text-base sm:text-lg transition-all duration-200 shadow-sm`}
+              >
+                <span>ELECTIONS</span>
+                <FiChevronRight className={`ml-2 ${darkMode ? "text-[#4bd043]" : "text-[#138601]"}`} />
+              </a>
+            </div>
+          )}
 
           {Object.entries(resources).map(([category, items]) => (
             <div key={category} className="mb-2">

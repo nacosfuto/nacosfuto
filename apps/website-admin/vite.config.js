@@ -157,6 +157,7 @@ export default defineConfig({
       '@nacos/auth': path.resolve(__dirname, '../../packages/auth/src/index.js'),
       '@nacos/database': path.resolve(__dirname, '../../packages/database/src/index.js'),
       '@nacos/media': path.resolve(__dirname, '../../packages/media/src/index.js'),
+      '@nacos/supabase/electraService': path.resolve(__dirname, '../../packages/supabase/src/electraService.js'),
       '@nacos/supabase/adminAuth': path.resolve(__dirname, '../../packages/supabase/src/adminAuth.js'),
       '@nacos/supabase/idCard': path.resolve(__dirname, '../../packages/supabase/src/idCard.js'),
       '@nacos/supabase/auth': path.resolve(__dirname, '../../packages/supabase/src/auth.js'),

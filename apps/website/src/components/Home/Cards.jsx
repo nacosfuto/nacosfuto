@@ -1,12 +1,53 @@
-import React from 'react';
-import { FaGraduationCap, FaLaptopCode, FaUserShield, FaRocket, FaArrowRight } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';
+import { FaGraduationCap, FaLaptopCode, FaUserShield, FaRocket, FaArrowRight, FaVoteYea } from 'react-icons/fa';
 import ScrollToTopLink from '../ScrollToTopLink';
 import { getAppUrls } from '@nacos/config/urls';
+import { getElectionCardVisibility, fetchElectionCardVisibility } from '@nacos/supabase/electraService';
 
 const Cards = () => {
-  const { portal, upskillHub } = getAppUrls();
+  const { portal, upskillHub, electra } = getAppUrls();
   const portalUrl = portal.includes('login') ? portal : `${portal}/login`;
   const upskillHubUrl = upskillHub;
+  const electraUrl = electra;
+
+  const [electionCardVisible, setElectionCardVisible] = useState(() => getElectionCardVisibility());
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchElectionCardVisibility().then(vis => {
+      if (isMounted) setElectionCardVisible(vis);
+    });
+
+    const handleVisibilityChange = (e) => {
+      if (typeof e.detail === 'boolean') {
+        setElectionCardVisible(e.detail);
+      } else {
+        setElectionCardVisible(getElectionCardVisibility());
+      }
+    };
+
+    window.addEventListener('nacos_election_card_visibility_changed', handleVisibilityChange);
+    window.addEventListener('storage', handleVisibilityChange);
+
+    let bc = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        bc = new BroadcastChannel('nacos_election_channel');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'visibility_change' && typeof event.data.visible === 'boolean') {
+            setElectionCardVisible(event.data.visible);
+          }
+        };
+      } catch (_) {}
+    }
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('nacos_election_card_visibility_changed', handleVisibilityChange);
+      window.removeEventListener('storage', handleVisibilityChange);
+      if (bc) bc.close();
+    };
+  }, []);
 
   const quickAccessLinks = [
     {
@@ -33,6 +74,16 @@ const Cards = () => {
       buttonText: "Launch Upskill Hub",
       isExternal: true
     },
+    // Conditionally include Election Card: completely omitted from array when visibility is OFF
+    ...(electionCardVisible ? [{
+      icon: <FaVoteYea />,
+      title: "ELECTRA Elections",
+      description: "Cast verified student ballots, inspect cleared aspirant profiles, and follow tamper-proof live tally updates in real time.",
+      link: electraUrl,
+      buttonText: "Election Portal",
+      isExternal: true,
+      badge: "LIVE POLLS"
+    }] : []),
     {
       icon: <FaUserShield />,
       title: "Student Portal",
@@ -55,7 +106,11 @@ const Cards = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
+        <div className={`grid grid-cols-1 ${
+          quickAccessLinks.length >= 5
+            ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
+            : 'md:grid-cols-2 lg:grid-cols-4'
+        } gap-4 sm:gap-5 lg:gap-6`}>
           {quickAccessLinks.map((item, index) => {
             const CardWrapper = item.isExternal ? 'a' : ScrollToTopLink;
             const linkProps = item.isExternal

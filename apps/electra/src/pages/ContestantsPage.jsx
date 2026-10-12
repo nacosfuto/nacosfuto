@@ -20,8 +20,8 @@ import {
 export default function ContestantsPage({ onOpenBallot, onOpenManifesto }) {
   const navigate = useNavigate();
   const [activeElection, setActiveElection] = useState(() => getActiveElection());
-  const [posts, setPosts] = useState(() => getElectraPosts());
-  const [allContestants, setAllContestants] = useState(() => getContestants());
+  const [posts, setPosts] = useState(() => getActiveElection() ? getElectraPosts() : []);
+  const [allContestants, setAllContestants] = useState(() => getActiveElection() ? getContestants() : []);
   const [isLoading, setIsLoading] = useState(true);
 
   const [selectedPostFilter, setSelectedPostFilter] = useState('all');
@@ -43,17 +43,20 @@ export default function ContestantsPage({ onOpenBallot, onOpenManifesto }) {
     });
 
     const handleUpdate = () => {
-      setPosts(getElectraPosts());
-      setAllContestants(getContestants());
-      setActiveElection(getActiveElection());
+      const active = getActiveElection();
+      setActiveElection(active);
+      setPosts(active ? getElectraPosts() : []);
+      setAllContestants(active ? getContestants() : []);
     };
 
     window.addEventListener('nacos_electra_contestants_updated', handleUpdate);
     window.addEventListener('nacos_electra_posts_updated', handleUpdate);
+    window.addEventListener('nacos_electra_elections_updated', handleUpdate);
     return () => {
       isMounted = false;
       window.removeEventListener('nacos_electra_contestants_updated', handleUpdate);
       window.removeEventListener('nacos_electra_posts_updated', handleUpdate);
+      window.removeEventListener('nacos_electra_elections_updated', handleUpdate);
     };
   }, []);
 
@@ -83,78 +86,101 @@ export default function ContestantsPage({ onOpenBallot, onOpenManifesto }) {
         </p>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center mb-8">
-        
-        {/* Office Filter Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          <button
-            type="button"
-            onClick={() => setSelectedPostFilter('all')}
-            className={`px-3 py-1.5 rounded-[3px] text-xs font-bold transition-all cursor-pointer ${
-              selectedPostFilter === 'all'
-                ? 'bg-[#138601] text-white shadow-xs'
-                : 'bg-white text-slate-700 hover:text-[#138601] border border-slate-200'
-            }`}
-          >
-            All Positions ({allContestants.length})
-          </button>
-          {posts.map((post) => {
-            const count = allContestants.filter(c => c.postId === post.id).length;
-            return (
+      {isLoading ? (
+        <div className="py-20 text-center">
+          <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-xs text-slate-500 font-medium">Checking active election and certified candidates...</p>
+        </div>
+      ) : !activeElection ? (
+        /* Empty State: When there is NO active election */
+        <div className="py-16 px-6 text-center rounded-[4px] bg-white border border-slate-200 shadow-2xs max-w-2xl mx-auto my-8">
+          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4 text-slate-500">
+            <Vote className="w-8 h-8 text-slate-400" />
+          </div>
+          <h3 className="text-xl font-bold text-slate-900 mb-2 font-display">
+            There is currently no active election.
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed mb-6">
+            The Independent Student Electoral Commission (NACOS ISEC) has not opened an active balloting session. Candidates and manifestos will appear here once an election is officially activated.
+          </p>
+          <div className="flex justify-center gap-3">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[3px] text-xs font-bold bg-[#138601] hover:bg-[#0f6c01] text-white transition-colors cursor-pointer shadow-xs"
+            >
+              <span>Return to Overview</span>
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Filter and Search Bar */}
+          <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center mb-8">
+            
+            {/* Office Filter Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
               <button
-                key={post.id}
                 type="button"
-                onClick={() => setSelectedPostFilter(post.id)}
-                className={`px-3 py-1.5 rounded-[3px] text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                  selectedPostFilter === post.id
+                onClick={() => setSelectedPostFilter('all')}
+                className={`px-3 py-1.5 rounded-[3px] text-xs font-bold transition-all cursor-pointer ${
+                  selectedPostFilter === 'all'
                     ? 'bg-[#138601] text-white shadow-xs'
                     : 'bg-white text-slate-700 hover:text-[#138601] border border-slate-200'
                 }`}
               >
-                <span>{post.title}</span>
-                <span className="ml-1 opacity-60">({count})</span>
+                All Positions ({allContestants.length})
               </button>
-            );
-          })}
-        </div>
+              {posts.map((post) => {
+                const count = allContestants.filter(c => c.postId === post.id).length;
+                return (
+                  <button
+                    key={post.id}
+                    type="button"
+                    onClick={() => setSelectedPostFilter(post.id)}
+                    className={`px-3 py-1.5 rounded-[3px] text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      selectedPostFilter === post.id
+                        ? 'bg-[#138601] text-white shadow-xs'
+                        : 'bg-white text-slate-700 hover:text-[#138601] border border-slate-200'
+                    }`}
+                  >
+                    <span>{post.title}</span>
+                    <span className="ml-1 opacity-60">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
 
-        {/* Search Input */}
-        <div className="relative w-full md:w-64 shrink-0">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search candidate name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-[3px] bg-white border border-slate-300 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#138601] transition-colors"
-          />
-        </div>
+            {/* Search Input */}
+            <div className="relative w-full md:w-64 shrink-0">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search candidate name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 rounded-[3px] bg-white border border-slate-300 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#138601] transition-colors"
+              />
+            </div>
 
-      </div>
+          </div>
 
-      {/* Contestants Grid */}
-      {isLoading ? (
-        <div className="py-20 text-center">
-          <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-xs text-slate-500 font-medium">Loading certified candidates from database...</p>
-        </div>
-      ) : allContestants.length === 0 ? (
-        <div className="py-16 text-center rounded-[4px] bg-white border border-slate-200 shadow-2xs">
-          <Vote className="w-10 h-10 text-slate-400 mx-auto mb-2" />
-          <h3 className="text-base font-bold text-slate-900 mb-1">No certified candidates registered yet</h3>
-          <p className="text-xs text-slate-500 max-w-md mx-auto">
-            The Independent Student Electoral Commission (NACOS ISEC) has not published any cleared candidates for this election session.
-          </p>
-        </div>
-      ) : filteredContestants.length === 0 ? (
-        <div className="py-16 text-center rounded-[4px] bg-white border border-slate-200">
-          <Vote className="w-10 h-10 text-slate-400 mx-auto mb-2" />
-          <h3 className="text-base font-bold text-slate-900 mb-1">No candidates match your criteria</h3>
-          <p className="text-xs text-slate-500">Try adjusting your filters or search keywords.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Contestants Grid */}
+          {allContestants.length === 0 ? (
+            <div className="py-16 text-center rounded-[4px] bg-white border border-slate-200 shadow-2xs">
+              <Vote className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+              <h3 className="text-base font-bold text-slate-900 mb-1">No certified candidates registered yet</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                The Independent Student Electoral Commission (NACOS ISEC) has not published any cleared candidates for this election session.
+              </p>
+            </div>
+          ) : filteredContestants.length === 0 ? (
+            <div className="py-16 text-center rounded-[4px] bg-white border border-slate-200">
+              <Vote className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+              <h3 className="text-base font-bold text-slate-900 mb-1">No candidates match your criteria</h3>
+              <p className="text-xs text-slate-500">Try adjusting your filters or search keywords.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredContestants.map((cnd) => (
             <div
               key={cnd.id}
@@ -224,6 +250,8 @@ export default function ContestantsPage({ onOpenBallot, onOpenManifesto }) {
           ))}
         </div>
       )}
+    </>
+  )}
 
     </div>
   );

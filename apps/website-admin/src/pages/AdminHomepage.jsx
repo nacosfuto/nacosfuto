@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import WebsiteAdminLayout from '../components/WebsiteAdminLayout';
-import { Home, Save, CheckCircle, AlertCircle, RefreshCw, Eye, Sparkles } from 'lucide-react';
+import { Home, Save, CheckCircle, AlertCircle, RefreshCw, Eye, Sparkles, Vote } from 'lucide-react';
 import { supabase } from '@nacos/supabase';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
+import { setElectionCardVisibility, fetchElectionCardVisibility } from '@nacos/supabase/electraService';
 
 const AdminHomepage = () => {
   const [loading, setLoading] = useState(true);
@@ -15,6 +16,7 @@ const AdminHomepage = () => {
     announcement_active: true,
     announcement_text: 'Registration for 2026/2027 Academic Session & BuildX NACOS National Hackathon is now live!',
     announcement_link: '/announcements',
+    election_card_visible: true,
     stat_students: '1,850+',
     stat_faculty: '45+',
     stat_courses: '80+',
@@ -30,8 +32,11 @@ const AdminHomepage = () => {
     try {
       const stored = localStorage.getItem('nacos_homepage_cms_db');
       if (stored) {
-        setFormData(JSON.parse(stored));
+        setFormData(prev => ({ ...prev, ...JSON.parse(stored) }));
       }
+
+      // Check election card visibility setting
+      const cardVis = await fetchElectionCardVisibility();
 
       // 1. Authoritative check on live Supabase store_homepage_content row
       const { data: storeRow } = await supabase
@@ -44,8 +49,15 @@ const AdminHomepage = () => {
         try {
           const parsed = JSON.parse(storeRow.academic_session);
           if (parsed && typeof parsed === 'object') {
-            setFormData(parsed);
-            localStorage.setItem('nacos_homepage_cms_db', JSON.stringify(parsed));
+            setFormData(prev => ({
+              ...prev,
+              ...parsed,
+              election_card_visible: typeof parsed.election_card_visible === 'boolean' ? parsed.election_card_visible : cardVis
+            }));
+            localStorage.setItem('nacos_homepage_cms_db', JSON.stringify({
+              ...parsed,
+              election_card_visible: typeof parsed.election_card_visible === 'boolean' ? parsed.election_card_visible : cardVis
+            }));
           }
         } catch (_) {}
       } else {
@@ -57,7 +69,13 @@ const AdminHomepage = () => {
           .maybeSingle();
 
         if (!error && data?.content) {
-          setFormData(data.content);
+          setFormData(prev => ({
+            ...prev,
+            ...data.content,
+            election_card_visible: typeof data.content.election_card_visible === 'boolean' ? data.content.election_card_visible : cardVis
+          }));
+        } else {
+          setFormData(prev => ({ ...prev, election_card_visible: cardVis }));
         }
       }
     } catch (e) {}
@@ -67,6 +85,9 @@ const AdminHomepage = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
+
+    const isVisible = formData.election_card_visible !== false;
+    await setElectionCardVisibility(isVisible);
 
     localStorage.setItem('nacos_homepage_cms_db', JSON.stringify(formData));
 
@@ -89,11 +110,12 @@ const AdminHomepage = () => {
 
     await recordAdminAction('homepage_content_updated', 'homepage', 'default', {
       headline: formData.hero_headline,
-      announcement_active: formData.announcement_active
+      announcement_active: formData.announcement_active,
+      election_card_visible: isVisible
     });
 
     setSaving(false);
-    setNotification({ message: 'Homepage content updated successfully!', type: 'success' });
+    setNotification({ message: 'Homepage content & Election Card visibility updated successfully!', type: 'success' });
     setTimeout(() => setNotification({ message: '', type: '' }), 4000);
   };
 
@@ -180,6 +202,42 @@ const AdminHomepage = () => {
                   onChange={(e) => setFormData({ ...formData, announcement_text: e.target.value })}
                   className="w-full px-4 py-2.5 text-xs rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 text-gray-900 dark:text-white"
                 />
+              </div>
+            </div>
+
+            {/* Election Card & Navbar Link Visibility */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Vote className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                      Election Card Visibility
+                    </h3>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-green-200/70 max-w-xl leading-relaxed">
+                    Control whether the ELECTRA election card appears on the public homepage and whether the ELECTIONS link is visible in the main navigation bar. When disabled, the card and link are completely removed and the layout realigns naturally.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className={`text-xs font-extrabold uppercase px-2.5 py-1 rounded-[3px] border ${
+                    formData.election_card_visible !== false
+                      ? 'bg-green-50 text-[#138601] border-green-200 dark:bg-green-950/60 dark:text-[#4bd043] dark:border-[#138601]/40'
+                      : 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'
+                  }`}>
+                    {formData.election_card_visible !== false ? 'ON' : 'OFF'}
+                  </span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.election_card_visible !== false}
+                      onChange={(e) => setFormData({ ...formData, election_card_visible: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-[#138601]"></div>
+                  </label>
+                </div>
               </div>
             </div>
 

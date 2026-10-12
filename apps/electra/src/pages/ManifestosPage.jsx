@@ -16,8 +16,8 @@ import {
 export default function ManifestosPage({ onOpenManifesto, onOpenBallot }) {
   const navigate = useNavigate();
   const [activeElection, setActiveElection] = useState(() => getActiveElection());
-  const [allContestants, setAllContestants] = useState(() => getContestants());
-  const [posts, setPosts] = useState(() => getElectraPosts());
+  const [allContestants, setAllContestants] = useState(() => getActiveElection() ? getContestants() : []);
+  const [posts, setPosts] = useState(() => getActiveElection() ? getElectraPosts() : []);
   const [isLoading, setIsLoading] = useState(true);
 
   const [selectedPost, setSelectedPost] = useState('all');
@@ -38,17 +38,20 @@ export default function ManifestosPage({ onOpenManifesto, onOpenBallot }) {
     });
 
     const handleUpdate = () => {
-      setAllContestants(getContestants());
-      setPosts(getElectraPosts());
-      setActiveElection(getActiveElection());
+      const active = getActiveElection();
+      setActiveElection(active);
+      setAllContestants(active ? getContestants() : []);
+      setPosts(active ? getElectraPosts() : []);
     };
 
     window.addEventListener('nacos_electra_contestants_updated', handleUpdate);
     window.addEventListener('nacos_electra_posts_updated', handleUpdate);
+    window.addEventListener('nacos_electra_elections_updated', handleUpdate);
     return () => {
       isMounted = false;
       window.removeEventListener('nacos_electra_contestants_updated', handleUpdate);
       window.removeEventListener('nacos_electra_posts_updated', handleUpdate);
+      window.removeEventListener('nacos_electra_elections_updated', handleUpdate);
     };
   }, []);
 
@@ -149,6 +152,16 @@ export default function ManifestosPage({ onOpenManifesto, onOpenBallot }) {
                   <td colSpan={4} className="py-16 text-center text-slate-500">
                     <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
                     <p className="text-xs font-semibold text-slate-600">Loading candidate manifestos from database...</p>
+                  </td>
+                </tr>
+              ) : !activeElection ? (
+                <tr>
+                  <td colSpan={4} className="py-14 text-center text-slate-500">
+                    <Vote className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-slate-800">There is currently no active election.</p>
+                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                      Candidate manifestos and policy documents will appear here once an official election session is activated.
+                    </p>
                   </td>
                 </tr>
               ) : allContestants.length === 0 ? (
