@@ -381,15 +381,6 @@ const Dashboard = () => {
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
               Welcome, {firstName}!
             </h1>
-            {isGraduated ? (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-[#041801] text-gray-800 dark:text-green-200 border border-gray-200 dark:border-[#138601]/30">
-                Alumni • Class of {graduationYear}
-              </span>
-            ) : (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-[#041801] text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-[#138601]/30">
-                {studentLevelNum} Level • {getActiveAcademicSession()} Session
-              </span>
-            )}
           </div>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 mt-0.5 font-normal">
             {isGraduated 
@@ -450,7 +441,7 @@ const Dashboard = () => {
             </div>
             <div className="mt-3 space-y-1.5">
               <h4 className="text-xs sm:text-sm font-normal text-gray-600 dark:text-gray-300">
-                {isGraduated ? 'Academic Standing' : 'Courses Registered'}
+                {isGraduated ? 'Degree Conferred' : 'Courses Registered'}
               </h4>
               <div className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
                 {getCoursesCount()}

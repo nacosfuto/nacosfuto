@@ -344,19 +344,29 @@ export async function updatePaymentFee(feeKey, amount, label = '', session = nul
 export async function adminGetAllDuesPayments() {
   if (!supabase) return [];
   try {
-    const { data, error } = await supabase
-      .from('payments')
-      .select('*')
-      .eq('payment_type', 'DEPARTMENTAL_DUES')
-      .order('created_at', { ascending: false });
+    let allDues = [];
+    let page = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('payment_type', 'DEPARTMENTAL_DUES')
+        .order('created_at', { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
 
-    if (error) {
-      console.warn('[Dues Payments Ledger Fetch Warning]:', error.message);
-      return [];
+      if (error) {
+        console.warn('[Dues Payments Ledger Fetch Warning]:', error.message);
+        break;
+      }
+      if (!data || data.length === 0) break;
+      allDues.push(...data);
+      if (data.length < pageSize) break;
+      page++;
     }
 
     // Normalize top-level academic_session and level if only present in metadata
-    return (data || []).map(p => ({
+    return allDues.map(p => ({
       ...p,
       academic_session: p.academic_session || p.metadata?.academic_session || p.metadata?.academicSession || '2026/2027',
       level: p.level || p.metadata?.level || '100 Level'

@@ -63,9 +63,19 @@ const StepUpAuthModal = ({
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  // Reset state when opening & listen for Escape key
+  // Prevent wiping password on re-renders: only reset state on initial modal open transition
+  const prevIsOpenRef = React.useRef(false);
+  const onCloseRef = React.useRef(onClose);
+  const isLoadingRef = React.useRef(isLoading);
+
   useEffect(() => {
-    if (isOpen) {
+    onCloseRef.current = onClose;
+    isLoadingRef.current = isLoading;
+  });
+
+  // Reset state strictly when transitioning from closed to open
+  useEffect(() => {
+    if (isOpen && !prevIsOpenRef.current) {
       setPassword('');
       setOtpCode('');
       setError('');
@@ -73,17 +83,20 @@ const StepUpAuthModal = ({
       setOtpSent(false);
       setMethod('password');
     }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen]);
 
+  // Handle Escape key cleanly without resetting password state
+  useEffect(() => {
+    if (!isOpen) return;
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen && !isLoading) {
-        onClose();
+      if (e.key === 'Escape' && !isLoadingRef.current && onCloseRef.current) {
+        onCloseRef.current();
       }
     };
-    if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-    }
+    window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isLoading, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

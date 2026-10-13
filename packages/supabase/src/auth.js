@@ -473,19 +473,52 @@ export async function signOutStudent() {
 // ADMIN STUDENT MANAGEMENT METHODS
 // ==========================================
 
-export async function adminGetAllStudents() {
-  // 1. Fetch live records from Supabase profiles table
+/**
+ * Get total exact count of registered student profiles directly from Supabase
+ */
+export async function adminGetStudentsCount() {
+  if (!supabase) return 0;
   try {
-    const { data, error } = await supabase
+    const { count, error } = await supabase
       .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*', { count: 'exact', head: true });
+    if (!error && typeof count === 'number') {
+      return count;
+    }
+  } catch (e) {
+    console.warn('adminGetStudentsCount query notice:', e);
+  }
+  return 0;
+}
 
-    if (!error && Array.isArray(data)) {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+export async function adminGetAllStudents() {
+  // 1. Fetch live records from Supabase profiles table across pages (bypassing 1000 row PostgREST limit)
+  try {
+    let allProfiles = [];
+    let page = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (error) {
+        console.warn('adminGetAllStudents Supabase page fetch error:', error.message);
+        break;
       }
-      return data.map(s => enrichStudentProfile(s));
+      if (!data || data.length === 0) break;
+      allProfiles.push(...data);
+      if (data.length < pageSize) break;
+      page++;
+    }
+
+    if (allProfiles.length > 0) {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allProfiles));
+      }
+      return allProfiles.map(s => enrichStudentProfile(s));
     }
   } catch (e) {
     console.warn('adminGetAllStudents Supabase query notice:', e);

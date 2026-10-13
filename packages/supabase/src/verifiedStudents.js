@@ -672,26 +672,85 @@ export async function syncRosterStoreToSupabase(rosterList) {
 }
 
 /**
+ * Get total exact count of verified students directly from Supabase
+ */
+export async function adminGetVerifiedStudentsCount() {
+  if (!supabase) return 0;
+  try {
+    const { count, error } = await supabase
+      .from('verified_students')
+      .select('*', { count: 'exact', head: true });
+    if (!error && typeof count === 'number') {
+      return count;
+    }
+  } catch (e) {
+    console.warn('adminGetVerifiedStudentsCount query notice:', e);
+  }
+  return 0;
+}
+
+/**
  * Get all verified students in the departmental roster
  */
 export async function adminGetAllVerifiedStudents() {
   try {
     if (supabase) {
-      const [vsRes, idSettingsRes, profsRes] = await Promise.all([
-        supabase.from('verified_students').select('*').order('registration_number', { ascending: true }),
-        supabase.from('id_card_settings').select('payload').eq('id', 'store_verified_roster').maybeSingle(),
-        supabase.from('profiles').select('registration_number, id, full_name, email')
+      // 1. Fetch all verified students across pages (bypassing PostgREST 1000 row limit)
+      const fetchAllVerifiedRecords = async () => {
+        let allRecords = [];
+        let page = 0;
+        const pageSize = 1000;
+        while (true) {
+          const { data, error } = await supabase
+            .from('verified_students')
+            .select('*')
+            .order('registration_number', { ascending: true })
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+          if (error) {
+            console.warn('Error fetching verified_students page', page, error.message);
+            break;
+          }
+          if (!data || data.length === 0) break;
+          allRecords.push(...data);
+          if (data.length < pageSize) break;
+          page++;
+        }
+        return allRecords;
+      };
+
+      // 2. Fetch all registered profile IDs & reg numbers across pages
+      const fetchAllProfileRegs = async () => {
+        let allProfs = [];
+        let page = 0;
+        const pageSize = 1000;
+        while (true) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('registration_number, id, full_name, email')
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+          if (error || !data || data.length === 0) break;
+          allProfs.push(...data);
+          if (data.length < pageSize) break;
+          page++;
+        }
+        return allProfs;
+      };
+
+      const [vsRecords, idSettingsRes, profsRecords] = await Promise.all([
+        fetchAllVerifiedRecords(),
+        Promise.resolve(supabase.from('id_card_settings').select('payload').eq('id', 'store_verified_roster').maybeSingle()).catch(() => ({ data: null })),
+        fetchAllProfileRegs()
       ]);
 
       const map = new Map();
-      if (Array.isArray(vsRes.data) && !vsRes.error) {
-        vsRes.data.forEach(s => {
+      if (Array.isArray(vsRecords) && vsRecords.length > 0) {
+        vsRecords.forEach(s => {
           if (s.registration_number) {
             map.set(s.registration_number.toUpperCase(), { ...s });
           }
         });
-      } else if (idSettingsRes.data?.payload?.roster && Array.isArray(idSettingsRes.data.payload.roster)) {
-        // Fallback only if verified_students query failed
+      } else if (idSettingsRes?.data?.payload?.roster && Array.isArray(idSettingsRes.data.payload.roster)) {
+        // Fallback only if verified_students query returned no rows
         idSettingsRes.data.payload.roster.forEach(s => {
           const reg = s.registration_number?.toUpperCase();
           if (reg && !map.has(reg)) {
@@ -701,7 +760,7 @@ export async function adminGetAllVerifiedStudents() {
       }
 
       const registeredRegs = new Set(
-        (Array.isArray(profsRes.data) ? profsRes.data : [])
+        (Array.isArray(profsRecords) ? profsRecords : [])
           .map(p => p.registration_number?.toUpperCase())
           .filter(Boolean)
       );

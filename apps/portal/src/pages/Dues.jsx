@@ -680,9 +680,6 @@ const Dues = () => {
                 Departmental dues obligations are recorded per level and must be cleared sequentially.
               </p>
             </div>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-[#0e8040] dark:text-[#4bd043] border border-emerald-200 dark:border-emerald-800/40 w-fit">
-              Current Standing: {calculateAcademicProgression(user).levelString || '100 Level'}
-            </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

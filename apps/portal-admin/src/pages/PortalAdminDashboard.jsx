@@ -25,8 +25,8 @@ import {
   ChevronRight
 } from 'lucide-react';
 import PortalAdminLayout from '../components/PortalAdminLayout';
-import { adminGetAllVerifiedStudents } from '@nacos/supabase/verifiedStudents';
-import { adminGetAllStudents } from '@nacos/supabase/auth';
+import { adminGetAllVerifiedStudents, adminGetVerifiedStudentsCount } from '@nacos/supabase/verifiedStudents';
+import { adminGetAllStudents, adminGetStudentsCount } from '@nacos/supabase/auth';
 import { portalAdminGetApplications } from '@nacos/supabase/idCard';
 import { getDuesSettings, getDynamicAcademicSession, adminGetAllDuesPayments, supabase } from '@nacos/supabase';
 import { 
@@ -120,12 +120,22 @@ export const PortalAdminDashboard = () => {
   const loadDashboardData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const [whitelistRes, accountsRes, idCardsRes, duesSettingsRes, duesPaymentsRes] = await Promise.all([
+      const [
+        whitelistRes, 
+        accountsRes, 
+        idCardsRes, 
+        duesSettingsRes, 
+        duesPaymentsRes,
+        vsCountRes,
+        profsCountRes
+      ] = await Promise.all([
         adminGetAllVerifiedStudents().catch(() => []),
         adminGetAllStudents().catch(() => []),
         portalAdminGetApplications({ status: 'ALL' }).catch(() => []),
         getDuesSettings().catch(() => ({ dues_amount: 0, academic_session: getActiveAcademicSession() })),
-        adminGetAllDuesPayments().catch(() => [])
+        adminGetAllDuesPayments().catch(() => []),
+        adminGetVerifiedStudentsCount().catch(() => 0),
+        adminGetStudentsCount().catch(() => 0)
       ]);
 
       const whitelist = Array.isArray(whitelistRes) 
@@ -163,9 +173,13 @@ export const PortalAdminDashboard = () => {
       setAccountsList(accounts);
       setIdCardsList(idCards);
 
+      // Exact database count (surpassing 1000 limit)
+      const exactWhitelistCount = vsCountRes > 0 ? vsCountRes : whitelist.length;
+      const exactAccountsCount = profsCountRes > 0 ? profsCountRes : accounts.length;
+
       setStats({
-        whitelistTotal: whitelist.length,
-        activeAccounts: accounts.length,
+        whitelistTotal: exactWhitelistCount,
+        activeAccounts: exactAccountsCount,
         totalIdCards: idCards.length,
         pendingIdCards: pending,
         approvedIdCards: approvedOrGenerated,
