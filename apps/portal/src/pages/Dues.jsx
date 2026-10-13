@@ -567,23 +567,13 @@ const Dues = () => {
     try {
       gatewayTab = window.open('about:blank', '_blank');
       if (gatewayTab && gatewayTab.document) {
-        gatewayTab.document.title = 'Connecting to Secure Payment Gateway | NACOS FUTO';
+        gatewayTab.document.title = 'Connecting to Payment Gateway | NACOS FUTO';
         gatewayTab.document.body.style.backgroundColor = '#f8fafc';
         gatewayTab.document.body.style.margin = '0';
         gatewayTab.document.body.innerHTML = `
-          <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f8fafc;color:#0f172a;padding:20px;box-sizing:border-box;">
-            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:24px;padding:40px 32px;max-width:420px;width:100%;text-align:center;box-shadow:0 20px 40px -15px rgba(0,0,0,0.07);">
-              <div style="width:72px;height:72px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;">
-                <img src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png" alt="Loading" style="width:68px;height:68px;object-fit:contain;animation:spin 2s linear infinite;" />
-              </div>
-              <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
-              <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:12px;">
-                <span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;"></span>
-                NACOS Secure Checkout
-              </div>
-              <h1 style="font-size:19px;font-weight:700;margin:0 0 8px;color:#0f172a;letter-spacing:-0.01em;">Connecting to Payment Gateway</h1>
-              <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">Opening secure payment checkout. Please wait while you are redirected to the gateway...</p>
-            </div>
+          <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f8fafc;">
+            <img src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png" alt="Loading" style="width:120px;height:120px;object-fit:contain;animation:spin 3s linear infinite;" />
+            <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
           </div>
         `;
       }
@@ -593,8 +583,11 @@ const Dues = () => {
   };
 
   // Authoritative Checkout Handler: Opens Gateway in New Tab
-  const executeCheckout = async (actionToken = null, existingGatewayTab = null) => {
+  const executeCheckout = async (actionToken = null, existingGatewayTab = null, targetLevel = null, targetSession = null) => {
     setIsProcessing(true);
+    const activeLevel = targetLevel || formLevel;
+    const activeSession = targetSession || formSession;
+
     try {
       const resp = await fetch('/api/payments/dues/create-checkout', {
         method: 'POST',
@@ -604,8 +597,8 @@ const Dues = () => {
         },
         body: JSON.stringify({
           student: user,
-          academicSession: formSession,
-          level: formLevel,
+          academicSession: activeSession,
+          level: activeLevel,
           stepUpToken: actionToken
         })
       });
@@ -641,13 +634,22 @@ const Dues = () => {
         // 3. Keep current portal tab active with live listening
         setIsAwaitingGateway(true);
         setGatewayRef(data.providerCheckoutId || data.reference || '');
-        startAwaitingPaymentSync(data.reference, data.providerCheckoutId, formLevel);
+        startAwaitingPaymentSync(data.reference, data.providerCheckoutId, activeLevel);
         return;
       }
 
       if (data.error) {
         if (existingGatewayTab && !existingGatewayTab.closed) {
-          existingGatewayTab.close();
+          try {
+            existingGatewayTab.document.body.innerHTML = `
+              <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;background:#f8fafc;padding:24px;text-align:center;">
+                <img src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png" alt="NACOS" style="width:80px;height:80px;object-fit:contain;margin-bottom:16px;" />
+                <h2 style="font-size:18px;font-weight:700;color:#dc2626;margin-bottom:8px;">Payment Gateway Notice</h2>
+                <p style="font-size:13px;color:#64748b;max-width:400px;margin-bottom:20px;line-height:1.5;">${data.error}</p>
+                <button onclick="window.close()" style="background:#0e8040;color:white;border:none;padding:10px 24px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">Return to Portal</button>
+              </div>
+            `;
+          } catch (_) { existingGatewayTab.close(); }
         }
         setIsProcessing(false);
         showNotification(data.error, 'error');
@@ -699,11 +701,29 @@ const Dues = () => {
 
   const handlePayLevel = (lvl, session = null) => {
     const lvlNum = String(lvl || '').replace(/\D/g, '') || formLevel;
+    const targetSession = session || formSession;
     setFormLevel(lvlNum);
     if (session) {
       setFormSession(session);
     }
-    setIsNewInvoiceOpen(true);
+
+    let gatewayTab = null;
+    try {
+      gatewayTab = window.open('about:blank', '_blank');
+      if (gatewayTab && gatewayTab.document) {
+        gatewayTab.document.title = 'Connecting to Payment Gateway | NACOS FUTO';
+        gatewayTab.document.body.style.backgroundColor = '#f8fafc';
+        gatewayTab.document.body.style.margin = '0';
+        gatewayTab.document.body.innerHTML = `
+          <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f8fafc;">
+            <img src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png" alt="Loading" style="width:120px;height:120px;object-fit:contain;animation:spin 3s linear infinite;" />
+            <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+          </div>
+        `;
+      }
+    } catch (_) {}
+
+    executeCheckout(null, gatewayTab, lvlNum, targetSession);
   };
 
   // Dynamic Progression & Obligation Generation matching ID Card obligations
@@ -736,27 +756,14 @@ const Dues = () => {
     <PortalLayout>
       <div className="space-y-6">
 
-        {/* Top Header with "New Invoice" Action Button (Matching User Image 1) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-              Departmental Dues &amp; Levies
-            </h1>
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
-              Official clearance history and electronic POS receipts for Department of Computer Science.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleOpenNewInvoice}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-sm active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Payment</span>
-            </button>
-          </div>
+        {/* Top Header */}
+        <div className="print:hidden">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+            Departmental Dues &amp; Levies
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
+            Official clearance history and electronic POS receipts for Department of Computer Science.
+          </p>
         </div>
 
         {/* Revocation Alert Banner */}
@@ -790,22 +797,6 @@ const Dues = () => {
         {/* LEVEL-BY-LEVEL SCHOOL DUES OBLIGATIONS & CLEARANCE TABLE             */}
         {/* ==================================================================== */}
         <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200/80 dark:border-[#138601]/30 shadow-xs overflow-hidden">
-          <div className="p-5 border-b border-gray-100 dark:border-[#138601]/25 flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-bold text-gray-900 dark:text-white">
-                School Dues Clearance Status by Academic Level
-              </h2>
-              <p className="text-xs text-gray-500 dark:text-green-200/70 mt-0.5">
-                Obligations per academic level from 100 Level upward. Clear each level to unlock official clearance receipts.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 text-xs font-semibold">
-              <span className="px-2.5 py-1 rounded-full bg-gray-100 dark:bg-[#041801] text-gray-600 dark:text-gray-300">
-                Cleared: <strong className="text-gray-900 dark:text-white">{duesLevelObligations.filter(o => o.isPaid).length} / {duesLevelObligations.length}</strong>
-              </span>
-            </div>
-          </div>
-
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs sm:text-sm">
               <thead>

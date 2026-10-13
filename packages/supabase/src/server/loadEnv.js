@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 /**
  * Synchronously loads root .env into process.env if in Node.js
@@ -7,16 +8,22 @@ import path from 'path';
 export function ensureEnvLoaded() {
   if (typeof process === 'undefined') return;
 
+  let moduleDir = '';
+  try {
+    moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  } catch (_) {}
+
   const candidateDirs = [
     process.cwd(),
-    path.resolve(process.cwd(), '../../'),
     path.resolve(process.cwd(), '../'),
-    path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../../')
-  ];
+    path.resolve(process.cwd(), '../../'),
+    moduleDir ? path.resolve(moduleDir, '../../../../') : null,
+    moduleDir ? path.resolve(moduleDir, '../../../') : null,
+    moduleDir ? path.resolve(moduleDir, '../../') : null
+  ].filter(Boolean);
 
   for (const dir of candidateDirs) {
-    const cleanDir = dir.replace(/^\/([a-zA-Z]:)/, '$1'); // Fix Windows leading slash if any
-    const envPath = path.resolve(cleanDir, '.env');
+    const envPath = path.resolve(dir, '.env');
     if (fs.existsSync(envPath)) {
       try {
         const content = fs.readFileSync(envPath, 'utf8');

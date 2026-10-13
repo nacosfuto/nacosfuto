@@ -29,8 +29,8 @@ const PortalPageLoader = () => (
     <img
       src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png"
       alt="Loading"
-      className="w-14 h-14 object-contain animate-spin"
-      style={{ animationDuration: '2s' }}
+      className="w-28 h-28 object-contain animate-spin"
+      style={{ animationDuration: '3s' }}
     />
   </div>
 );

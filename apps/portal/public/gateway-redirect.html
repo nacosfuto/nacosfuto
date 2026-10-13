@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Connecting to Secure Payment Gateway | NACOS FUTO</title>
+  <title>Connecting to Payment Gateway | NACOS FUTO</title>
   <link rel="icon" type="image/svg+xml" href="/logo.png" />
   <style>
     * {
@@ -12,145 +12,59 @@
       padding: 0;
     }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: #f8fafc;
-      color: #0f172a;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
-    }
-    .card {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 24px;
-      padding: 40px 32px;
-      max-width: 420px;
-      width: 100%;
-      text-align: center;
-      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.07);
-      animation: fadeIn 0.3s ease-out;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
+      overflow: hidden;
     }
     .spinner-wrap {
-      width: 72px;
-      height: 72px;
-      margin: 0 auto 20px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
     .spinning-logo {
-      width: 68px;
-      height: 68px;
+      width: 120px;
+      height: 120px;
       object-fit: contain;
-      animation: spin 2s linear infinite;
+      animation: spin 3s linear infinite;
     }
     @keyframes spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 12px;
-      border-radius: 999px;
-      background: #ecfdf5;
-      border: 1px solid #a7f3d0;
-      color: #047857;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      margin-bottom: 12px;
-    }
-    .badge-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #10b981;
-      display: inline-block;
-      animation: pulse 1.5s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-    h1 {
-      font-size: 19px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      letter-spacing: -0.01em;
-      color: #0f172a;
-    }
-    p {
-      font-size: 13px;
-      line-height: 1.5;
-      color: #64748b;
-      margin-bottom: 20px;
-    }
-    .manual-btn {
+    .manual-link {
       display: none;
-      width: 100%;
-      padding: 12px 18px;
-      border-radius: 10px;
-      background: #0e8040;
-      color: #ffffff;
-      font-size: 13px;
-      font-weight: 600;
-      text-decoration: none;
-      border: none;
+      position: fixed;
+      bottom: 24px;
+      font-size: 12px;
+      color: #0e8040;
+      text-decoration: underline;
       cursor: pointer;
-      transition: background 0.2s;
-    }
-    .manual-btn:hover {
-      background: #0b6a34;
-    }
-    .footer {
-      font-size: 11px;
-      color: #94a3b8;
-      margin-top: 18px;
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="spinner-wrap">
-      <img
-        class="spinning-logo"
-        src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png"
-        alt="Loading"
-      />
-    </div>
-    <div class="badge">
-      <span class="badge-dot"></span>
-      <span>NACOS Secure Checkout</span>
-    </div>
-    <h1>Connecting to Payment Gateway</h1>
-    <p id="status-text">Opening secure payment checkout. Please wait while we redirect you to the gateway...</p>
-    
-    <a id="redirect-btn" class="manual-btn" href="#" target="_self">Click here to continue to Checkout &rarr;</a>
-
-    <div class="footer">
-      Official NACOS FUTO Portal • 256-Bit Encrypted
-    </div>
+  <div class="spinner-wrap">
+    <img
+      class="spinning-logo"
+      src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png"
+      alt="Loading"
+    />
   </div>
+
+  <a id="redirect-btn" class="manual-link" href="#" target="_self">Click here if not redirected automatically</a>
 
   <script>
     (function() {
       var redirected = false;
       var redirectBtn = document.getElementById('redirect-btn');
-      var statusText = document.getElementById('status-text');
 
       function doRedirect(targetUrl) {
         if (!targetUrl || redirected) return;
         redirected = true;
-        statusText.textContent = 'Redirecting to payment gateway...';
         try {
           window.location.replace(targetUrl);
         } catch (_) {
@@ -197,7 +111,7 @@
         }
       });
 
-      // 5. Fallback timer: If no redirect received after 4 seconds, show manual link if stored or notify
+      // 5. Fallback timer: If no redirect received after 4 seconds, show subtle manual link if stored
       setTimeout(function() {
         if (!redirected) {
           try {
@@ -207,14 +121,11 @@
               if (p && p.checkoutUrl) {
                 redirectBtn.href = p.checkoutUrl;
                 redirectBtn.style.display = 'block';
-                statusText.textContent = 'Ready to proceed. Click the button below if you are not automatically redirected:';
-                return;
               }
             }
           } catch (_) {}
-          statusText.textContent = 'Still establishing connection with payment gateway. Please wait...';
         }
-      }, 3500);
+      }, 4000);
     })();
   </script>
 </body>

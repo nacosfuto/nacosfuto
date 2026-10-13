@@ -11,6 +11,7 @@
  * 3. Never expose BACHS_API_KEY or BACHS_WEBHOOK_SECRET to client bundles.
  * 4. Webhook is authoritative for payment confirmation; browser redirects are not proof.
  */
+import './loadEnv.js';
 import crypto from 'crypto';
 import { supabase } from '../client.js';
 import { sendPaymentConfirmationEmail } from './emailDispatcher.js';
@@ -100,12 +101,14 @@ export function validateStudentEligibility(student) {
     return { eligible: false, reason: 'Missing verified institutional registration number.' };
   }
 
-  const name = (student.full_name || student.name || `${student.first_name || ''} ${student.last_name || ''}`).trim();
-  if (!name || name.length < 3) {
-    return { eligible: false, reason: 'Profile incomplete: Full student name required.' };
-  }
+  const resolvedName = (
+    student.full_name ||
+    student.name ||
+    [student.first_name, student.middle_name, student.surname || student.last_name].filter(Boolean).join(' ') ||
+    regNo
+  ).trim();
 
-  return { eligible: true, registrationNumber: regNo, fullName: name };
+  return { eligible: true, registrationNumber: regNo, fullName: resolvedName || 'Student Member' };
 }
 
 /**

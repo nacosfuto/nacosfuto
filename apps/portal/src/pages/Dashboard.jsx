@@ -441,40 +441,10 @@ const Dashboard = () => {
       <div className="space-y-6 font-sans">
 
         {/* Top Header: Clean, open Welcome greeting */}
-        <div className="space-y-1.5 sm:space-y-2 pt-1 pb-1 text-left">
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-[#138601] dark:text-[#4bd043] border border-emerald-200 dark:border-emerald-800/40 whitespace-nowrap">
-              Session {getActiveAcademicSession()}
-            </span>
-            <span className="text-xs text-gray-400">•</span>
-            <span className="text-[11px] sm:text-xs font-semibold text-gray-500 dark:text-green-300/80 whitespace-nowrap">
-              {isGraduated ? 'Alumni Member' : `${studentLevelNum} Level`}
-            </span>
-          </div>
-
+        <div className="pt-1 pb-1 text-left">
           <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight leading-tight">
             Welcome Back, {firstName}!
           </h1>
-
-          <p className="text-[11px] sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed font-normal max-w-xl line-clamp-2 sm:line-clamp-none">
-            {isGraduated
-              ? 'Department of Computer Science • Federal University of Technology, Owerri (Alumni Member). Your complete academic records are permanently archived.'
-              : 'Department of Computer Science • Federal University of Technology, Owerri. Keep track of your departmental clearance, course registrations, and semester records.'}
-          </p>
-
-          <div className="flex items-center gap-1.5 sm:gap-2 pt-0.5 sm:pt-1 flex-wrap text-[11px] sm:text-xs text-gray-500 dark:text-green-300/70">
-            <div className="inline-flex items-center gap-1 sm:gap-1.5 font-mono font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-              <span className="truncate max-w-[120px] sm:max-w-none">{user.registration_number || user.matric_number || user.matric || 'NACOS Member'}</span>
-            </div>
-            <span>•</span>
-            <div className="inline-flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span className="font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                {isPaid ? 'Bursary Cleared' : 'Clearance Pending'}
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* Revocation Warning Alert if Dues are Revoked */}
@@ -495,90 +465,94 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Square Intuitive Financial & Academic Summary Cards (Aspect-Square, Clean without pill badges) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Financial & Academic Summary Metric Cards (Web Standard Rectangular Cards) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
           {/* Card 1: Total Payable (Amount Student is Owing) */}
           <Link
             to={totalPayable > 0 ? (isPaid ? "/id-card" : "/dues") : "/dues"}
-            className="aspect-square w-full p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] transition-all flex flex-col items-center justify-center text-center shadow-xs group cursor-pointer active:scale-[0.98]"
+            className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] hover:shadow-md transition-all flex items-center justify-between shadow-xs group cursor-pointer active:scale-[0.98]"
           >
-            {/* Centered Coins Icon Container */}
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gray-50 dark:bg-[#041801] text-gray-700 dark:text-green-300 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-105 transition-transform shadow-xs">
-              <Coins className="w-6 h-6 sm:w-7 sm:h-7" />
+            <div className="space-y-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-green-200/70 block">
+                Total Payable
+              </span>
+              <div className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                ₦{totalPayable.toLocaleString()}
+              </div>
+              <span className="text-[11px] font-medium text-gray-400 dark:text-green-200/60 block">
+                {totalPayable > 0 ? (
+                  <span className="text-amber-600 dark:text-amber-400 font-semibold">• Action required</span>
+                ) : (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">• All dues cleared</span>
+                )}
+              </span>
             </div>
-
-            {/* Prominent Amount */}
-            <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-              ₦{totalPayable.toLocaleString()}
-            </div>
-
-            {/* Label */}
-            <div className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 mt-1">
-              Total Payable
+            <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#041801] text-gray-700 dark:text-green-300 flex items-center justify-center shrink-0 border border-gray-200/60 dark:border-[#138601]/30 group-hover:scale-105 group-hover:bg-[#138601] group-hover:text-white transition-all shadow-2xs">
+              <Coins className="w-6 h-6" />
             </div>
           </Link>
 
           {/* Card 2: Total Paid */}
           <Link
             to="/receipt"
-            className="aspect-square w-full p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] transition-all flex flex-col items-center justify-center text-center shadow-xs group cursor-pointer active:scale-[0.98]"
+            className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] hover:shadow-md transition-all flex items-center justify-between shadow-xs group cursor-pointer active:scale-[0.98]"
           >
-            {/* Centered Cash & Coins Icon Container */}
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gray-50 dark:bg-[#041801] text-gray-700 dark:text-green-300 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-105 transition-transform shadow-xs">
-              <Banknote className="w-6 h-6 sm:w-7 sm:h-7" />
+            <div className="space-y-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-green-200/70 block">
+                Total Paid
+              </span>
+              <div className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                ₦{totalLifetimePayments.toLocaleString()}
+              </div>
+              <span className="text-[11px] font-medium text-gray-400 dark:text-green-200/60 block">
+                Verified receipts
+              </span>
             </div>
-
-            {/* Prominent Amount */}
-            <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-              ₦{totalLifetimePayments.toLocaleString()}
-            </div>
-
-            {/* Label */}
-            <div className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 mt-1">
-              Total Paid
+            <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#041801] text-gray-700 dark:text-green-300 flex items-center justify-center shrink-0 border border-gray-200/60 dark:border-[#138601]/30 group-hover:scale-105 group-hover:bg-[#138601] group-hover:text-white transition-all shadow-2xs">
+              <Banknote className="w-6 h-6" />
             </div>
           </Link>
 
           {/* Card 3: Courses Registered */}
           <Link
             to="/courses"
-            className="aspect-square w-full p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] transition-all flex flex-col items-center justify-center text-center shadow-xs group cursor-pointer active:scale-[0.98]"
+            className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] hover:shadow-md transition-all flex items-center justify-between shadow-xs group cursor-pointer active:scale-[0.98]"
           >
-            {/* Centered Book Icon Container */}
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gray-50 dark:bg-[#041801] text-gray-700 dark:text-green-300 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-105 transition-transform shadow-xs">
-              <BookOpen className="w-6 h-6 sm:w-7 sm:h-7" />
+            <div className="space-y-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-green-200/70 block">
+                Courses Registered
+              </span>
+              <div className="text-base sm:text-lg font-bold text-gray-900 dark:text-white tracking-tight">
+                {getCoursesCount()}
+              </div>
+              <span className="text-[11px] font-medium text-gray-400 dark:text-green-200/60 block">
+                Enrolled syllabus
+              </span>
             </div>
-
-            {/* Prominent Stat */}
-            <div className="text-base sm:text-lg md:text-xl font-bold text-gray-900 dark:text-white tracking-tight">
-              {getCoursesCount()}
-            </div>
-
-            {/* Label */}
-            <div className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 mt-1">
-              Courses Registered
+            <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#041801] text-gray-700 dark:text-green-300 flex items-center justify-center shrink-0 border border-gray-200/60 dark:border-[#138601]/30 group-hover:scale-105 group-hover:bg-[#138601] group-hover:text-white transition-all shadow-2xs">
+              <BookOpen className="w-6 h-6" />
             </div>
           </Link>
 
           {/* Card 4: Academic Results */}
           <Link
             to="/results"
-            className="aspect-square w-full p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] transition-all flex flex-col items-center justify-center text-center shadow-xs group cursor-pointer active:scale-[0.98]"
+            className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] hover:shadow-md transition-all flex items-center justify-between shadow-xs group cursor-pointer active:scale-[0.98]"
           >
-            {/* Centered Bar Chart Icon Container */}
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gray-50 dark:bg-[#041801] text-gray-700 dark:text-green-300 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-105 transition-transform shadow-xs">
-              <BarChart3 className="w-6 h-6 sm:w-7 sm:h-7" />
+            <div className="space-y-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-green-200/70 block">
+                Academic Results
+              </span>
+              <div className="text-base sm:text-lg font-bold text-gray-900 dark:text-white tracking-tight">
+                {getResultsCount()}
+              </div>
+              <span className="text-[11px] font-medium text-gray-400 dark:text-green-200/60 block">
+                Semester transcript
+              </span>
             </div>
-
-            {/* Prominent Stat */}
-            <div className="text-base sm:text-lg md:text-xl font-bold text-gray-900 dark:text-white tracking-tight">
-              {getResultsCount()}
-            </div>
-
-            {/* Label */}
-            <div className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 mt-1">
-              Academic Results
+            <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#041801] text-gray-700 dark:text-green-300 flex items-center justify-center shrink-0 border border-gray-200/60 dark:border-[#138601]/30 group-hover:scale-105 group-hover:bg-[#138601] group-hover:text-white transition-all shadow-2xs">
+              <BarChart3 className="w-6 h-6" />
             </div>
           </Link>
 
