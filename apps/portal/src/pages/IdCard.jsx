@@ -29,6 +29,7 @@ import { getProgressiveLevels } from './Dues';
 import { 
   SUPPORTED_ACADEMIC_SESSIONS, 
   getActiveAcademicSession, 
+  getActiveAcademicYearStart,
   calculateAcademicProgression,
   getStudentApplicableLevelSessions,
   onAcademicSessionChange 
@@ -1414,13 +1415,26 @@ const IdCard = () => {
   }
 
   // Dynamic Progression & Obligation Generation from shared academic engine
-  const studentProgression = calculateAcademicProgression(student, getActiveAcademicSession());
+  let studentProgression = { numericLevel: 1, levelString: '100 Level' };
+  try {
+    studentProgression = calculateAcademicProgression(student, getActiveAcademicSession()) || studentProgression;
+  } catch (err) {
+    console.warn('Progression calculation fallback in IdCard:', err);
+  }
   const currentAcademicSession = getActiveAcademicSession();
   const studentLevel = studentProgression.levelString || '100 Level';
   const activeLevelNum = (studentProgression.numericLevel || 1) * 100;
 
   // Base applicable obligations for levels the student has reached (100L up to current active level)
-  const baseObligations = getStudentApplicableLevelSessions(student, getActiveAcademicYearStart()) || [];
+  let baseObligations = [];
+  try {
+    baseObligations = getStudentApplicableLevelSessions(student, getActiveAcademicYearStart()) || [];
+  } catch (err) {
+    console.warn('Applicable obligations calculation fallback:', err);
+    baseObligations = [
+      { levelNumber: 1, numericLevel: 100, levelCode: '100', level: '100 Level', session: currentAcademicSession, isCurrent: true }
+    ];
+  }
 
   // Filter to strictly guarantee NO future-level obligations exist as unpaid options
   const applicableObligations = baseObligations.filter(ob => {

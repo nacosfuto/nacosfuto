@@ -23,6 +23,7 @@ const HackathonApply = lazy(() => import('./pages/HackathonApply'));
 const AdminHub = lazy(() => import('./pages/AdminHub'));
 import { getAppUrls } from '@nacos/config/urls';
 import { initAcademicSessionSync } from '@nacos/supabase';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const PortalPageLoader = () => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#f8fafc] dark:bg-[#041801] w-full min-h-[100dvh] h-full p-4 overflow-hidden">
@@ -164,63 +165,65 @@ function App() {
     <ThemeProvider>
       <BrowserRouter basename={isNestedUnderPortal ? '/portal' : '/'}>
         <PortalSEOHandler />
-        <Suspense fallback={<PortalPageLoader />}>
-          <Routes>
-            {/* Authentication & Student Entry */}
-            <Route path="/" element={<Login />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
+        <ErrorBoundary>
+          <Suspense fallback={<PortalPageLoader />}>
+            <Routes>
+              {/* Authentication & Student Entry */}
+              <Route path="/" element={<Login />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
 
-            {/* Core Student Academic Portal */}
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/notices" element={<Notices />} />
-            <Route path="/bulletin" element={<Notices />} />
-            <Route path="/results" element={<Results />} />
-            <Route path="/dues" element={<Dues />} />
-            <Route path="/courses" element={<Courses />} />
-            <Route path="/resources" element={<Courses />} />
-            <Route path="/resource-hub" element={<Courses />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/id-card" element={<IdCard />} />
-            <Route path="/receipt" element={<Receipt />} />
-            <Route path="/receipt/:reference" element={<Receipt />} />
-            <Route path="/payment/success" element={<PaymentSuccess />} />
-            <Route path="/payment/verify" element={<PaymentSuccess />} />
+              {/* Core Student Academic Portal */}
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/notices" element={<Notices />} />
+              <Route path="/bulletin" element={<Notices />} />
+              <Route path="/results" element={<Results />} />
+              <Route path="/dues" element={<Dues />} />
+              <Route path="/courses" element={<Courses />} />
+              <Route path="/resources" element={<Courses />} />
+              <Route path="/resource-hub" element={<Courses />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/id-card" element={<IdCard />} />
+              <Route path="/receipt" element={<Receipt />} />
+              <Route path="/receipt/:reference" element={<Receipt />} />
+              <Route path="/payment/success" element={<PaymentSuccess />} />
+              <Route path="/payment/verify" element={<PaymentSuccess />} />
 
-            {/* Dedicated Administrative Direct Login & Dashboard Routes */}
-            <Route path="/admin/login" element={<WebsiteAdminRedirect />} />
-            <Route path="/admin/*" element={<WebsiteAdminRedirect />} />
-            <Route path="/portal-admin" element={<PortalAdminRedirect />} />
-            <Route path="/portal-admin/login" element={<PortalAdminRedirect />} />
-            <Route path="/portal-admin/*" element={<PortalAdminRedirect />} />
+              {/* Dedicated Administrative Direct Login & Dashboard Routes */}
+              <Route path="/admin/login" element={<WebsiteAdminRedirect />} />
+              <Route path="/admin/*" element={<WebsiteAdminRedirect />} />
+              <Route path="/portal-admin" element={<PortalAdminRedirect />} />
+              <Route path="/portal-admin/login" element={<PortalAdminRedirect />} />
+              <Route path="/portal-admin/*" element={<PortalAdminRedirect />} />
 
-            {/* Dedicated ELECTRA Electoral Platform & Admin Routes */}
-            <Route path="/electra" element={<ElectraRedirect />} />
-            <Route path="/electra/*" element={<ElectraRedirect />} />
-            <Route path="/electra-admin" element={<ElectraAdminRedirect />} />
-            <Route path="/electra-admin/*" element={<ElectraAdminRedirect />} />
+              {/* Dedicated ELECTRA Electoral Platform & Admin Routes */}
+              <Route path="/electra" element={<ElectraRedirect />} />
+              <Route path="/electra/*" element={<ElectraRedirect />} />
+              <Route path="/electra-admin" element={<ElectraAdminRedirect />} />
+              <Route path="/electra-admin/*" element={<ElectraAdminRedirect />} />
 
-            {/* Dedicated Administrative Gateway & Control Center */}
-            <Route path="/admin-hub" element={<AdminHub />} />
-            <Route path="/admin-portal" element={<AdminHub />} />
-            <Route path="/admin-gateway" element={<AdminHub />} />
-            <Route path="/admin-access" element={<AdminHub />} />
-            <Route path="/admin-login" element={<WebsiteAdminRedirect />} />
-            <Route path="/admin" element={<WebsiteAdminRedirect />} />
+              {/* Dedicated Administrative Gateway & Control Center */}
+              <Route path="/admin-hub" element={<AdminHub />} />
+              <Route path="/admin-portal" element={<AdminHub />} />
+              <Route path="/admin-gateway" element={<AdminHub />} />
+              <Route path="/admin-access" element={<AdminHub />} />
+              <Route path="/admin-login" element={<WebsiteAdminRedirect />} />
+              <Route path="/admin" element={<WebsiteAdminRedirect />} />
 
-            {/* Public Verification Route */}
-            <Route path="/verify/id/:id" element={<IdVerification />} />
+              {/* Public Verification Route */}
+              <Route path="/verify/id/:id" element={<IdVerification />} />
 
-            {/* Dedicated National Hackathon Module (Accessible via button/link without cluttering student portal) */}
-            <Route path="/hackathons" element={<Navigate to="/hackathons/BuildXNACOS" replace />} />
-            <Route path="/hackathons/BuildXNACOS" element={<HackathonDetail />} />
-            <Route path="/hackathons/BuildXNACOS/apply" element={<HackathonApply />} />
+              {/* Dedicated National Hackathon Module (Accessible via button/link without cluttering student portal) */}
+              <Route path="/hackathons" element={<Navigate to="/hackathons/BuildXNACOS" replace />} />
+              <Route path="/hackathons/BuildXNACOS" element={<HackathonDetail />} />
+              <Route path="/hackathons/BuildXNACOS/apply" element={<HackathonApply />} />
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
       </BrowserRouter>
     </ThemeProvider>
   );
