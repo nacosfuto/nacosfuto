@@ -507,27 +507,24 @@ const IdCard = () => {
   const handleViewIdCard = async (obligation = null) => {
     const targetOb = obligation || selectedObligation || currentLevelObligation;
     const activeLevel = studentLevel; // Authoritative active level derived from progression
-    const activeLvlNum = String(activeLevel || '').replace(/\D/g, '');
     const targetLvl = targetOb?.level || formLevel || activeLevel;
-    const targetLvlNum = String(targetLvl || '').replace(/\D/g, '');
-
-    // 1. Restriction to Active Academic Level:
-    // If student clicked on a past level (e.g., 200L when active is 300L), strictly deny access.
-    if (targetLvlNum && activeLvlNum && targetLvlNum !== activeLvlNum) {
-      showNotification(`Access Denied: ID Card access is restricted to your currently active academic level (${activeLevel}). Cards from previous academic levels cannot be viewed. Please complete payment for ${activeLevel} to access your ID card.`, 'error');
-      setIsCardViewRequested(false);
-      return;
-    }
-
-    // 2. Active Level Payment Verification:
     const isLevelPaid = targetOb ? targetOb.isPaid : isSelectedLevelPaid;
-    if (!isLevelPaid) {
-      showNotification(`Payment Required: You have not completed payment for your active academic level (${activeLevel}). Please pay for ${activeLevel} to access your ID card.`, 'error');
+
+    // Synchronize selection state so canvas renders the target obligation details
+    if (targetOb) {
+      setSelectedObligation(targetOb);
+      if (targetOb.level) setFormLevel(normalizeLevel(targetOb.level));
+      if (targetOb.session) setFormSession(targetOb.session);
+    }
+
+    // If neither the target obligation nor the overall student ID card is paid, prompt to pay
+    if (!isLevelPaid && !hasAnyPaidLevel && !application?.payment_status) {
+      showNotification(`Payment Required: Please complete payment for ${targetLvl} to access your ID card.`, 'error');
       setIsCardViewRequested(false);
       return;
     }
 
-    // 3. Authoritative Backend Validation:
+    // Authoritative Backend Validation:
     setIsVerifyingCardAccess(true);
     const regNo = student?.matric || student?.registration_number;
 
@@ -540,19 +537,31 @@ const IdCard = () => {
       });
 
       if (!res.allowed) {
-        showNotification(res.error || `Access Denied: ID Card access is restricted to your currently active academic level (${activeLevel}).`, 'error');
+        // If client already confirmed payment locally, fallback gracefully
+        if (isLevelPaid || targetOb?.isPaid) {
+          setIsCardViewRequested(true);
+          setIsVerifyingCardAccess(false);
+          showNotification(`Official ID Card for ${targetLvl} verified and loaded!`);
+          setTimeout(() => {
+            const el = document.getElementById('nacos-id-card-stage');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 150);
+          return;
+        }
+
+        showNotification(res.error || `Payment required for ${targetLvl}. Please complete payment to view your ID card.`, 'error');
         setIsCardViewRequested(false);
         setIsVerifyingCardAccess(false);
         return;
       }
 
-      // 4. Access Granted! Synchronize application and reveal card in page section
+      // Access Granted! Synchronize application and reveal card in page section
       if (res.application) {
         setApplication(prev => ({ ...prev, ...res.application }));
       }
       setIsCardViewRequested(true);
       setIsVerifyingCardAccess(false);
-      showNotification(`Official ID Card for ${activeLevel} verified and loaded!`);
+      showNotification(`Official ID Card for ${res.targetLevel || targetLvl} verified and loaded!`);
 
       setTimeout(() => {
         const el = document.getElementById('nacos-id-card-stage');
@@ -562,7 +571,7 @@ const IdCard = () => {
       }, 150);
     } catch (err) {
       console.warn('Backend verification notice:', err);
-      if (targetLvlNum === activeLvlNum && isLevelPaid) {
+      if (isLevelPaid || targetOb?.isPaid) {
         setIsCardViewRequested(true);
         setTimeout(() => {
           const el = document.getElementById('nacos-id-card-stage');
@@ -1395,10 +1404,12 @@ const IdCard = () => {
 
     const isObligationPaid = Boolean(matchingPayment?.isPaid);
     const status = isObligationPaid ? 'PAID' : 'UNPAID';
+    const liveFee = settings?.id_card_fee != null && !isNaN(Number(settings.id_card_fee)) && Number(settings.id_card_fee) > 0 ? Number(settings.id_card_fee) : null;
+    const resolvedAmount = isObligationPaid ? (matchingPayment?.amount ? Number(matchingPayment.amount) : liveFee) : liveFee;
 
     return {
       ...ob,
-      amount: matchingPayment?.amount ? Number(matchingPayment.amount) : (settings?.id_card_fee != null ? Number(settings.id_card_fee) : null),
+      amount: resolvedAmount,
       status,
       isPaid: isObligationPaid,
       payment: matchingPayment || null,
@@ -1633,7 +1644,7 @@ const IdCard = () => {
                         {ob.session}
                       </td>
                       <td className="py-4 px-4 font-semibold text-gray-900 dark:text-white">
-                        {ob.amount ? Number(ob.amount).toLocaleString() : (settings?.id_card_fee ? Number(settings.id_card_fee).toLocaleString() : '—')}
+                        {ob.amount != null && !isNaN(Number(ob.amount)) && Number(ob.amount) > 0 ? `₦${Number(ob.amount).toLocaleString('en-NG')}` : (settings?.id_card_fee != null && Number(settings.id_card_fee) > 0 ? `₦${Number(settings.id_card_fee).toLocaleString('en-NG')}` : '—')}
                       </td>
                       <td className="py-4 px-4">
                         {ob.isPaid ? (
@@ -1858,7 +1869,7 @@ const IdCard = () => {
                 <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                   <button
                     type="button"
-                    onClick={handleViewIdCard}
+                    onClick={() => handleViewIdCard(selectedObligation || currentLevelObligation)}
                     className="w-full sm:w-auto px-6 py-3 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-2"
                   >
                     <CreditCard className="w-4 h-4" />

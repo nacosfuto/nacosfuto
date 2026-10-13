@@ -148,6 +148,7 @@ export async function getDuesSettings() {
 
   if (supabase) {
     try {
+      // 1. Primary check: id_card_settings for dues row
       const { data: duesRow, error } = await supabase
         .from('id_card_settings')
         .select('*')
@@ -171,9 +172,48 @@ export async function getDuesSettings() {
           updated_at: duesRow.updated_at
         };
       }
+
+      // 2. Secondary check: public.payment_fees table
+      const { data: feeRow } = await supabase
+        .from('payment_fees')
+        .select('*')
+        .or('fee_key.eq.departmental_dues,fee_key.eq.dues')
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (feeRow && feeRow.amount && !isNaN(Number(feeRow.amount))) {
+        return {
+          id: 'dues',
+          dues_amount: Number(feeRow.amount),
+          academic_session: feeRow.academic_session || getActiveAcademicSession(),
+          is_open: true,
+          updated_at: feeRow.updated_at
+        };
+      }
     } catch (err) {
       console.warn('[Dues Settings Fetch Warning]:', err.message);
     }
+  }
+
+  // 3. Client fetch from server fee resolver if running in browser
+  if (typeof window !== 'undefined') {
+    try {
+      const res = await fetch('/api/payments/fees?feeKey=departmental_dues');
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.amount != null && !isNaN(Number(json.amount)) && Number(json.amount) > 0) {
+          return {
+            id: 'dues',
+            dues_amount: Number(json.amount),
+            academic_session: getActiveAcademicSession(),
+            is_open: true,
+            updated_at: new Date().toISOString()
+          };
+        }
+      }
+    } catch (_) {}
   }
 
   return defaultSettings;

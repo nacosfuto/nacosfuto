@@ -51,13 +51,14 @@ function getLocalIdSettingsDatabase() {
 export async function getIdCardSettings() {
   if (supabase) {
     try {
+      // 1. Primary check: id_card_settings for default row
       const { data, error } = await supabase
         .from('id_card_settings')
         .select('*')
         .eq('id', 'default')
         .maybeSingle();
 
-      if (!error && data && data.id_card_fee) {
+      if (!error && data && data.id_card_fee != null && !isNaN(Number(data.id_card_fee)) && Number(data.id_card_fee) > 0) {
         if (data.academic_session && typeof data.academic_session === 'string' && data.academic_session.includes('/')) {
           const p = parseSessionYears(data.academic_session);
           if (p.startYear && p.startYear !== getActiveAcademicYearStart()) {
@@ -72,9 +73,48 @@ export async function getIdCardSettings() {
           updated_at: data.updated_at
         };
       }
+
+      // 2. Secondary check: public.payment_fees table
+      const { data: feeRow } = await supabase
+        .from('payment_fees')
+        .select('*')
+        .or('fee_key.eq.id_card,fee_key.eq.idcard')
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (feeRow && feeRow.amount != null && !isNaN(Number(feeRow.amount)) && Number(feeRow.amount) > 0) {
+        return {
+          id: 'default',
+          id_card_fee: Number(feeRow.amount),
+          academic_session: feeRow.academic_session || getDynamicAcademicSession(),
+          is_application_open: true,
+          updated_at: feeRow.updated_at
+        };
+      }
     } catch (e) {
       console.warn('Supabase ID settings notice:', e);
     }
+  }
+
+  // 3. Client fetch from server fee resolver if running in browser
+  if (typeof window !== 'undefined') {
+    try {
+      const res = await fetch('/api/payments/fees?feeKey=id_card');
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.amount != null && !isNaN(Number(json.amount)) && Number(json.amount) > 0) {
+          return {
+            id: 'default',
+            id_card_fee: Number(json.amount),
+            academic_session: getDynamicAcademicSession(),
+            is_application_open: true,
+            updated_at: new Date().toISOString()
+          };
+        }
+      }
+    } catch (_) {}
   }
 
   return getLocalIdSettingsDatabase();

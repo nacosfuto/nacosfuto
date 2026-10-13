@@ -533,16 +533,7 @@ const Dues = () => {
 
   useEffect(() => {
     const init = async () => {
-      const stored = localStorage.getItem('nacos_user');
-      let currentUser = user;
-      if (stored) {
-        try {
-          currentUser = JSON.parse(stored);
-          setUser(currentUser);
-        } catch (e) {}
-      }
-      await checkStatus(currentUser);
-
+      // 1. Fetch live dues fee immediately from database / server
       try {
         const ds = await getDuesSettings();
         if (ds?.dues_amount && !isNaN(Number(ds.dues_amount))) {
@@ -552,6 +543,17 @@ const Dues = () => {
           setFormSession(ds.academic_session);
         }
       } catch (e) {}
+
+      // 2. Load user and payment history
+      const stored = localStorage.getItem('nacos_user');
+      let currentUser = user;
+      if (stored) {
+        try {
+          currentUser = JSON.parse(stored);
+          setUser(currentUser);
+        } catch (e) {}
+      }
+      await checkStatus(currentUser);
     };
 
     init();
@@ -821,8 +823,12 @@ const Dues = () => {
     const isPaid = Boolean(paidRow && paidRow.isPaid);
 
     const session = paidRow?.session || anyRow?.session || defaultSession;
-    const amountVal = paidRow?.rawAmount || anyRow?.rawAmount || duesFee || null;
-    const amountFormatted = amountVal ? `₦${Number(amountVal).toLocaleString()}` : (duesFee ? `₦${Number(duesFee).toLocaleString()}` : '—');
+    // For paid rows, show what was actually paid from receipt.
+    // For unpaid rows, ALWAYS show the live price of the moment from the database!
+    const amountVal = isPaid ? (paidRow?.rawAmount || duesFee) : duesFee;
+    const amountFormatted = amountVal != null && !isNaN(Number(amountVal)) && Number(amountVal) > 0
+      ? `₦${Number(amountVal).toLocaleString('en-NG')}`
+      : (duesFee != null && Number(duesFee) > 0 ? `₦${Number(duesFee).toLocaleString('en-NG')}` : '—');
 
     return {
       levelCode: lvl,
