@@ -11,10 +11,14 @@
  * 3. Never expose BACHS_API_KEY or BACHS_WEBHOOK_SECRET to client bundles.
  * 4. Webhook is authoritative for payment confirmation; browser redirects are not proof.
  */
-
 import crypto from 'crypto';
 import { supabase } from '../client.js';
 import { sendPaymentConfirmationEmail } from './emailDispatcher.js';
+import {
+  dispatchPaymentNotification,
+  retryPaymentNotification,
+  getPaymentNotificationLogs
+} from './paymentNotificationEngine.js';
 import { 
   calculateAcademicProgression, 
   getActiveAcademicSession, 
@@ -206,15 +210,19 @@ export async function resolveDynamicFee({ paymentType = 'ID_CARD', academicSessi
 
   // 3. Fallback to process.env explicitly set for that specific fee key (if set)
   const env = typeof process !== 'undefined' ? process.env : {};
-  if (pType === 'ID_CARD' && env.NACOS_ID_CARD_AMOUNT) {
-    const envAmt = Number(env.NACOS_ID_CARD_AMOUNT);
-    if (!isNaN(envAmt) && envAmt > 0) return envAmt;
-  } else if ((pType === 'DEPARTMENTAL_DUES' || pType === 'DUES') && env.NACOS_DUES_AMOUNT) {
-    const envAmt = Number(env.NACOS_DUES_AMOUNT);
-    if (!isNaN(envAmt) && envAmt > 0) return envAmt;
+  if (pType === 'ID_CARD') {
+    if (env.NACOS_ID_CARD_AMOUNT) {
+      const envAmt = Number(env.NACOS_ID_CARD_AMOUNT);
+      if (!isNaN(envAmt) && envAmt > 0) return envAmt;
+    }
+  } else if (pType === 'DEPARTMENTAL_DUES' || pType === 'DUES') {
+    if (env.NACOS_DUES_AMOUNT) {
+      const envAmt = Number(env.NACOS_DUES_AMOUNT);
+      if (!isNaN(envAmt) && envAmt > 0) return envAmt;
+    }
   }
 
-  // Strictly return null if configuration is unavailable - NEVER substitute hardcoded 5000!
+  // Strictly return null if configuration is unavailable - NEVER substitute hardcoded amounts!
   return null;
 }
 
@@ -404,47 +412,14 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
       }
     }
     
-    // Dispatch official payment receipt confirmation email via Resend for all payment types
-    let recipientEmail = (paymentRecord.metadata?.customer_email || paymentRecord.customer_email || '').trim();
-    let studentName = paymentRecord.metadata?.customer_name || 'Student Member';
-
-    if (!recipientEmail && supabase) {
-      try {
-        let pLookup = supabase.from('profiles').select('email, full_name');
-        if (studentId && studentId.length === 36) {
-          pLookup = pLookup.eq('id', studentId);
-        } else if (regNo) {
-          pLookup = pLookup.or(`registration_number.eq.${regNo},matric_number.eq.${regNo}`);
-        }
-        const { data: prof } = await pLookup.maybeSingle();
-        if (prof?.email) recipientEmail = prof.email;
-        if (prof?.full_name) studentName = prof.full_name;
-      } catch (_) {}
-    }
-
-    if (recipientEmail) {
-      let friendlyType = pType;
-      if (pType === 'ID_CARD') {
-        friendlyType = 'Digital Student ID Card Issuance';
-      } else if (pType === 'DEPARTMENTAL_DUES' || pType === 'DUES') {
-        const sessionTag = paymentRecord.metadata?.academic_session ? ` (${paymentRecord.metadata.academic_session})` : '';
-        friendlyType = `NACOS Departmental Dues Clearance${sessionTag}`;
-      } else if (pType === 'EVENT_TICKET') {
-        friendlyType = paymentRecord.metadata?.eventTitle ? `Event Ticket: ${paymentRecord.metadata.eventTitle}` : 'NACOS Event Ticket';
-      }
-
-      sendPaymentConfirmationEmail({
-        to: recipientEmail,
-        customerName: studentName,
-        reference: paymentRecord.reference,
-        paymentType: friendlyType,
-        amount: paymentRecord.amount,
-        currency: paymentRecord.currency || 'NGN',
-        paidAt: now,
-        regNumber: paymentRecord.registration_number || paymentRecord.metadata?.registration_number || '',
-        level: paymentRecord.metadata?.level ? `${paymentRecord.metadata.level} Level` : '',
-        session: paymentRecord.metadata?.academic_session || '2026/2027'
-      }).catch(e => console.warn('[Bachs Email Receipt Warning]:', e.message));
+    // Authoritative idempotent automated email notification via paymentNotificationEngine
+    try {
+      await dispatchPaymentNotification({
+        paymentRecord,
+        notificationType: 'PAYMENT_SUCCESS'
+      });
+    } catch (notifErr) {
+      console.warn('[Bachs Payment Notification Notice]:', notifErr.message);
     }
   } catch (err) {
     console.error(`[Bachs Fulfillment Error] Failed for ${pType}:`, err.message);
@@ -732,35 +707,44 @@ export async function createPaymentCheckout({
       bachsCancelUrl += (bachsCancelUrl.includes('?') ? '&' : '?') + `reference=${encodeURIComponent(reference)}`;
     }
 
-    const response = await fetch(`${config.baseUrl}/v1/checkout-sessions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        customer: {
-          name: customerName,
-          email: customerEmail,
-          ...(customerPhone ? { phone: customerPhone } : {})
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    let response;
+    try {
+      response = await fetch(`${config.baseUrl}/v1/checkout-sessions`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Authorization': `Bearer ${config.apiKey}`,
+          'Content-Type': 'application/json'
         },
-        pricing: {
-          amount: Number(chargeAmount).toFixed(2),
-          currency: config.currency || 'NGN'
-        },
-        success_url: bachsSuccessUrl,
-        cancel_url: bachsCancelUrl,
-        reference: reference,
-        metadata: {
-          student_id: studentId,
-          registration_number: regNo,
-          payment_type: normalizedType,
-          payment_record_id: paymentRecordId,
-          product_id: productId,
-          ...metadata
-        }
-      })
-    });
+        body: JSON.stringify({
+          customer: {
+            name: customerName,
+            email: customerEmail,
+            ...(customerPhone ? { phone: customerPhone } : {})
+          },
+          pricing: {
+            amount: Number(chargeAmount).toFixed(2),
+            currency: config.currency || 'NGN'
+          },
+          success_url: bachsSuccessUrl,
+          cancel_url: bachsCancelUrl,
+          reference: reference,
+          metadata: {
+            student_id: studentId,
+            registration_number: regNo,
+            payment_type: normalizedType,
+            payment_record_id: paymentRecordId,
+            product_id: productId,
+            ...metadata
+          }
+        })
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     const result = await response.json();
     if (!response.ok || !result) {
@@ -1012,13 +996,103 @@ export async function processBachsWebhook(event) {
     console.warn('[Bachs Webhook] Idempotency record error:', idempErr);
   }
 
-  // 2. Only confirm on successful payment events
+  // 2. Identify transaction outcome events
   const isPaymentSuccess = 
     eventType === 'payment.successful' || 
     eventType === 'checkout.completed' ||
     eventType === 'charge.success' ||
     payload.status === 'successful' ||
     payload.status === 'paid';
+
+  const isPaymentFailed = 
+    eventType === 'payment.failed' ||
+    eventType === 'charge.failed' ||
+    eventType === 'checkout.failed' ||
+    eventType === 'payment.cancelled' ||
+    eventType === 'checkout.cancelled' ||
+    payload.status === 'failed' ||
+    payload.status === 'cancelled';
+
+  const isPaymentRefunded = 
+    eventType === 'payment.reversed' ||
+    eventType === 'payment.refunded' ||
+    eventType === 'charge.refunded' ||
+    payload.status === 'refunded' ||
+    payload.status === 'reversed';
+
+  // Handle Definitively Failed Payments
+  if (isPaymentFailed) {
+    const reference = payload.reference || payload.metadata?.reference;
+    const providerCheckoutId = payload.checkout_id || payload.session_id || '';
+    let paymentRecord = null;
+    if (supabase) {
+      try {
+        let q = supabase.from('payments').select('*');
+        if (reference) q = q.eq('reference', reference);
+        else if (providerCheckoutId) q = q.eq('provider_checkout_id', providerCheckoutId);
+        const { data } = await q.maybeSingle();
+        paymentRecord = data;
+
+        if (paymentRecord && paymentRecord.status !== 'successful') {
+          await supabase.from('payments').update({
+            status: 'failed',
+            updated_at: now,
+            metadata: {
+              ...paymentRecord.metadata,
+              failed_at: now,
+              failure_reason: payload.failure_reason || payload.message || 'Payment failed or cancelled'
+            }
+          }).eq('id', paymentRecord.id);
+
+          await dispatchPaymentNotification({
+            paymentRecord: { ...paymentRecord, status: 'failed' },
+            notificationType: 'PAYMENT_FAILED',
+            failureReason: payload.failure_reason || payload.message || 'Payment failed or cancelled'
+          });
+        }
+      } catch (err) {
+        console.warn('[Bachs Webhook Failed Notice]:', err.message);
+      }
+    }
+    return { success: true, message: `Payment failure acknowledged and processed for ${reference || 'record'}.` };
+  }
+
+  // Handle Reversed or Refunded Payments
+  if (isPaymentRefunded) {
+    const reference = payload.reference || payload.metadata?.reference;
+    const providerCheckoutId = payload.checkout_id || payload.session_id || '';
+    let paymentRecord = null;
+    if (supabase) {
+      try {
+        let q = supabase.from('payments').select('*');
+        if (reference) q = q.eq('reference', reference);
+        else if (providerCheckoutId) q = q.eq('provider_checkout_id', providerCheckoutId);
+        const { data } = await q.maybeSingle();
+        paymentRecord = data;
+
+        if (paymentRecord) {
+          await supabase.from('payments').update({
+            status: 'refunded',
+            updated_at: now,
+            metadata: {
+              ...paymentRecord.metadata,
+              refunded_at: now,
+              reversal_reason: payload.refund_reason || payload.message || 'Payment reversed'
+            }
+          }).eq('id', paymentRecord.id);
+
+          await dispatchPaymentNotification({
+            paymentRecord: { ...paymentRecord, status: 'refunded' },
+            notificationType: 'PAYMENT_REFUNDED',
+            failureReason: payload.refund_reason || payload.message || 'Payment reversed'
+          });
+        }
+      } catch (err) {
+        console.warn('[Bachs Webhook Refund Notice]:', err.message);
+      }
+    }
+    return { success: true, message: `Payment reversal acknowledged and processed for ${reference || 'record'}.` };
+  }
 
   if (!isPaymentSuccess) {
     console.log(`[Bachs Webhook] Non-success event received (${eventType}).`);
@@ -1186,7 +1260,7 @@ export async function getPaymentStatus({ reference, checkoutId, paymentType, reg
               const verifiedReg = verifyData.metadata?.registration_number || verifyData.metadata?.regNo || cleanRegNo || '';
               const verifiedStudentId = verifyData.metadata?.student_id || cleanStudentId || verifiedReg;
               const verifiedType = verifyData.metadata?.payment_type || paymentType || 'ID_CARD';
-              const verifiedAmt = Number(verifyData.pricing?.amount || verifyData.amount || data?.amount || 500);
+              const verifiedAmt = Number(verifyData.pricing?.amount || verifyData.amount || data?.amount || 0);
 
               if (data) {
                 await supabase.from('payments').update({
@@ -1265,3 +1339,10 @@ export async function getPaymentStatus({ reference, checkoutId, paymentType, reg
 
   return { status: 'unknown', isPaid: false };
 }
+
+export {
+  dispatchPaymentNotification,
+  retryPaymentNotification,
+  getPaymentNotificationLogs
+};
+

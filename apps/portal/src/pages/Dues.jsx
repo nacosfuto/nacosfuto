@@ -535,11 +535,16 @@ const Dues = () => {
   };
 
   const handleSubmitNewInvoice = () => {
-    setIsStepUpOpen(true);
+    let gatewayTab = null;
+    try {
+      gatewayTab = window.open('/gateway-redirect.html', '_blank');
+    } catch (_) {}
+    setIsNewInvoiceOpen(false);
+    executeCheckout(null, gatewayTab);
   };
 
   // Authoritative Checkout Handler: Opens Gateway in New Tab
-  const executeCheckout = async (actionToken) => {
+  const executeCheckout = async (actionToken = null, existingGatewayTab = null) => {
     setIsProcessing(true);
     try {
       const resp = await fetch('/api/payments/dues/create-checkout', {
@@ -559,8 +564,30 @@ const Dues = () => {
       const data = await resp.json();
 
       if (data.checkoutUrl) {
-        // 1. OPEN IN NEW TAB
-        window.open(data.checkoutUrl, '_blank');
+        // Broadcast to localStorage for seamless cross-window sync
+        try {
+          localStorage.setItem('nacos_active_gateway_redirect', JSON.stringify({
+            checkoutUrl: data.checkoutUrl,
+            timestamp: Date.now()
+          }));
+        } catch (_) {}
+
+        // 1. Direct gateway window to checkoutUrl
+        let gatewayTab = existingGatewayTab;
+        if (gatewayTab && !gatewayTab.closed) {
+          try {
+            gatewayTab.location.replace(data.checkoutUrl);
+          } catch (_) {
+            try { gatewayTab.location.href = data.checkoutUrl; } catch (_) {}
+          }
+          try {
+            gatewayTab.postMessage({ checkoutUrl: data.checkoutUrl }, '*');
+          } catch (_) {}
+        } else {
+          try {
+            window.open(data.checkoutUrl, '_blank');
+          } catch (_) {}
+        }
 
         // 2. Close New Invoice Form
         setIsNewInvoiceOpen(false);
@@ -980,7 +1007,8 @@ const Dues = () => {
                       className="px-6 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-xs inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
-                      <span>{isAlreadyPaid ? 'Already Paid' : 'Pay Now'}</span>
+                      <span>{isAlreadyPaid ? 'Already Paid' : `Make Payment (₦${Number(duesFee || 0).toLocaleString()})`}</span>
+                      {!isAlreadyPaid && !isProcessing && <ExternalLink className="w-4 h-4" />}
                     </button>
                   );
                 })()}

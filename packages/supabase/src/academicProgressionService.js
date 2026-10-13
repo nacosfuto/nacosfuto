@@ -312,24 +312,39 @@ export async function setActiveAcademicSessionInDatabase(sessionIdentifier) {
           .eq('academic_session', targetSessionName);
 
         if (!fees || fees.length === 0) {
-          await supabase.from('payment_fees').upsert([
-            {
-              fee_key: 'id_card',
-              title: 'Digital Student ID Card Issuance',
-              academic_session: targetSessionName,
-              amount: 5000,
-              currency: 'NGN',
-              is_active: true
-            },
-            {
-              fee_key: 'departmental_dues',
-              title: 'NACOS Departmental Dues',
-              academic_session: targetSessionName,
-              amount: 2500,
-              currency: 'NGN',
-              is_active: true
+          const { data: currentSettings } = await supabase
+            .from('id_card_settings')
+            .select('id, id_card_fee')
+            .in('id', ['default', 'dues']);
+          const idFee = currentSettings?.find(s => s.id === 'default')?.id_card_fee ?? null;
+          const duesFee = currentSettings?.find(s => s.id === 'dues')?.id_card_fee ?? null;
+
+          if (idFee != null || duesFee != null) {
+            const upsertRows = [];
+            if (idFee != null) {
+              upsertRows.push({
+                fee_key: 'id_card',
+                title: 'Digital Student ID Card Issuance',
+                academic_session: targetSessionName,
+                amount: Number(idFee),
+                currency: 'NGN',
+                is_active: true
+              });
             }
-          ], { onConflict: 'fee_key,academic_session' });
+            if (duesFee != null) {
+              upsertRows.push({
+                fee_key: 'departmental_dues',
+                title: 'NACOS Departmental Dues',
+                academic_session: targetSessionName,
+                amount: Number(duesFee),
+                currency: 'NGN',
+                is_active: true
+              });
+            }
+            if (upsertRows.length > 0) {
+              await supabase.from('payment_fees').upsert(upsertRows, { onConflict: 'fee_key,academic_session' });
+            }
+          }
         }
       } catch (_) {}
 

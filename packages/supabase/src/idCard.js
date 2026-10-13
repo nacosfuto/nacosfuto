@@ -595,12 +595,13 @@ export async function getStudentIdApplication(matricOrId, targetLevel = null) {
       .limit(1)
       .maybeSingle();
 
-    // If level-specific app not found, fallback to latest general app
+    // If level-specific app not found, fallback to latest general app (where level is not specified)
     if (!data && cleanTargetLevel) {
       const fallbackRes = await supabase
         .from('id_card_applications')
         .select('*')
         .or(orFilter)
+        .is('level', null)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -725,6 +726,8 @@ export async function createIdCardApplication(student) {
     const dbPayload = {
       matric_number: cleanMatric,
       application_number: appNumber,
+      level: student.level || (student.current_level ? `${student.current_level} Level` : null) || null,
+      academic_session: student.academic_session || student.session || null,
       status: initialStatus,
       payment_status: paymentStatus,
       payment_reference: paymentRef,
@@ -1511,6 +1514,8 @@ function traceRoundedHexagon(ctx, vertices, radius = 18) {
 /**
  * Image loader helper with fallback URLs and cross-origin handling
  */
+const _idCardImageCache = new Map();
+
 function loadTemplateImage(primaryUrl, fallbackUrl) {
   return new Promise((resolve) => {
     if (typeof window === 'undefined') return resolve(null);
@@ -1521,6 +1526,17 @@ function loadTemplateImage(primaryUrl, fallbackUrl) {
       ID_CARD_TEMPLATE.masterTemplateUrl
     ].filter(Boolean);
     const uniqueUrls = [...new Set(candidates)];
+
+    // Check in-memory cache first
+    for (const u of uniqueUrls) {
+      if (_idCardImageCache.has(u)) {
+        const cached = _idCardImageCache.get(u);
+        if (cached && cached.naturalWidth > 0) {
+          resolve(cached);
+          return;
+        }
+      }
+    }
 
     let index = 0;
     const tryNext = () => {
@@ -1535,6 +1551,7 @@ function loadTemplateImage(primaryUrl, fallbackUrl) {
       }
       img.onload = () => {
         if (img.naturalWidth > 0) {
+          _idCardImageCache.set(url, img);
           resolve(img);
         } else {
           tryNext();
@@ -1553,11 +1570,21 @@ function loadTemplateImage(primaryUrl, fallbackUrl) {
 function loadOptionalImage(src) {
   return new Promise((resolve) => {
     if (typeof window === 'undefined' || !src) return resolve(null);
+    if (_idCardImageCache.has(src)) {
+      const cached = _idCardImageCache.get(src);
+      if (cached && cached.naturalWidth > 0) {
+        resolve(cached);
+        return;
+      }
+    }
     const img = new Image();
     if (typeof src === 'string' && (src.startsWith('http://') || src.startsWith('https://'))) {
       img.crossOrigin = 'anonymous';
     }
-    img.onload = () => resolve(img);
+    img.onload = () => {
+      _idCardImageCache.set(src, img);
+      resolve(img);
+    };
     img.onerror = () => resolve(null);
     img.src = src;
   });
@@ -1576,12 +1603,19 @@ function loadOptionalImage(src) {
  */
 export async function drawIdCardOnCanvas(canvas, student, photoImg, cardInfo = null, options = {}) {
   if (!canvas) return;
-  const ctx = canvas.getContext('2d');
   const t = ID_CARD_TEMPLATE;
 
-  // Set exact master card resolution: 662 × 1075 px
-  canvas.width = t.dimensions.width;
-  canvas.height = t.dimensions.height;
+  if (canvas.width !== t.dimensions.width || canvas.height !== t.dimensions.height) {
+    canvas.width = t.dimensions.width;
+    canvas.height = t.dimensions.height;
+  }
+
+  // Use an offscreen buffer canvas so visible canvas transitions in a single atomic frame (NO FLICKER)
+  const isBrowser = typeof document !== 'undefined';
+  const bufferCanvas = isBrowser ? document.createElement('canvas') : canvas;
+  bufferCanvas.width = t.dimensions.width;
+  bufferCanvas.height = t.dimensions.height;
+  const ctx = bufferCanvas.getContext('2d');
 
   // 1. Load Master Template Image (Priority: options URL -> static asset -> Cloudinary URL)
   const templateSrc = options.templateImgUrl || options.templateUrl || idTemplateMaster || t.masterTemplateUrl;
@@ -1590,47 +1624,47 @@ export async function drawIdCardOnCanvas(canvas, student, photoImg, cardInfo = n
   const hasMasterTemplate = templateImg && templateImg.complete && templateImg.naturalWidth > 0;
 
   if (hasMasterTemplate) {
-    ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(templateImg, 0, 0, bufferCanvas.width, bufferCanvas.height);
   } else {
     // -------------------------------------------------------------------------
     // HIGH-FIDELITY PROCEDURAL MASTER CARD FRONT (Draws complete official template)
     // -------------------------------------------------------------------------
     // Card Base (CR-80 Portrait)
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, bufferCanvas.height);
     bgGrad.addColorStop(0, '#041801');
     bgGrad.addColorStop(0.5, '#083002');
     bgGrad.addColorStop(1, '#052201');
     ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, bufferCanvas.width, bufferCanvas.height);
 
     // Subtle decorative circuit / security lines
     ctx.save();
     ctx.strokeStyle = 'rgba(75, 208, 67, 0.08)';
     ctx.lineWidth = 2;
-    for (let x = 40; x < canvas.width; x += 60) {
+    for (let x = 40; x < bufferCanvas.width; x += 60) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvas.height);
+      ctx.lineTo(x, bufferCanvas.height);
       ctx.stroke();
     }
-    for (let y = 50; y < canvas.height; y += 70) {
+    for (let y = 50; y < bufferCanvas.height; y += 70) {
       ctx.beginPath();
       ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
+      ctx.lineTo(bufferCanvas.width, y);
       ctx.stroke();
     }
     ctx.restore();
 
     // Top Header Banner
-    const headerGrad = ctx.createLinearGradient(0, 0, canvas.width, 160);
+    const headerGrad = ctx.createLinearGradient(0, 0, bufferCanvas.width, 160);
     headerGrad.addColorStop(0, '#062901');
     headerGrad.addColorStop(1, '#0f5c02');
     ctx.fillStyle = headerGrad;
-    ctx.fillRect(0, 0, canvas.width, 165);
+    ctx.fillRect(0, 0, bufferCanvas.width, 165);
 
     // Gold Accent Border Line under Header
     ctx.fillStyle = '#eab308';
-    ctx.fillRect(0, 165, canvas.width, 5);
+    ctx.fillRect(0, 165, bufferCanvas.width, 5);
 
     // Header Typography
     ctx.textAlign = 'center';
@@ -1861,6 +1895,16 @@ export async function drawIdCardOnCanvas(canvas, student, photoImg, cardInfo = n
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(regNo, t.registrationNumber.centerX, t.registrationNumber.y); // (331, 940-956)
+
+  // Atomically transfer buffer canvas to visible canvas in a single frame (zero flicker)
+  if (canvas !== bufferCanvas) {
+    if (canvas.width !== t.dimensions.width || canvas.height !== t.dimensions.height) {
+      canvas.width = t.dimensions.width;
+      canvas.height = t.dimensions.height;
+    }
+    const targetCtx = canvas.getContext('2d');
+    targetCtx.drawImage(bufferCanvas, 0, 0);
+  }
 }
 
 /**

@@ -27,8 +27,10 @@ import {
   Building,
   User,
   Hash,
-  DollarSign
+  DollarSign,
+  Mail
 } from 'lucide-react';
+import PaymentNotificationsMonitor from '../components/PaymentNotificationsMonitor';
 import {
   getDuesSettings,
   getDynamicAcademicSession,
@@ -53,6 +55,9 @@ import { useTheme } from '../context/ThemeContext';
 export default function PortalAdminDues() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+
+  // Navigation tab state: 'clearance' | 'email_logs'
+  const [activeTab, setActiveTab] = useState('clearance');
 
   // Data States
   const [loading, setLoading] = useState(true);
@@ -599,7 +604,38 @@ export default function PortalAdminDues() {
           </div>
         </div>
 
-        {/* ─── Metric Cards Grid (Just like ID Card own) ─── */}
+        {/* Navigation Sub-Tabs: Dues Clearance vs Payment Email Logs */}
+        <div className="flex items-center gap-2 border-b border-gray-200 dark:border-white/10 pb-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('clearance')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'clearance'
+                ? 'bg-[#138601] text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
+            }`}
+          >
+            <Coins className="w-4 h-4" />
+            <span>Student Dues Clearance</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('email_logs')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'email_logs'
+                ? 'bg-[#138601] text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
+            }`}
+          >
+            <Mail className="w-4 h-4" />
+            <span>Payment Email Logs & Deliveries</span>
+          </button>
+        </div>
+
+        {activeTab === 'clearance' ? (
+          <>
+            {/* ─── Metric Cards Grid (Just like ID Card own) ─── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           
           {/* Card 1: Total Revenue */}
@@ -997,6 +1033,10 @@ export default function PortalAdminDues() {
             </div>
           )}
         </div>
+          </>
+        ) : (
+          <PaymentNotificationsMonitor isDark={isDark} />
+        )}
 
       </div>
 

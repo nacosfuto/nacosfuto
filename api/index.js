@@ -62,8 +62,14 @@ import {
   handleCreateAdminUser,
   handleUpdateAdminStatus,
   handleDeleteAdminUser,
-  handleResendAdminInvite
+  handleResendAdminInvite,
+  verifyAdminToken
 } from '../packages/supabase/src/server/adminAuthApi.js';
+import {
+  getPaymentNotificationLogs,
+  retryPaymentNotification
+} from '../packages/supabase/src/server/paymentNotificationEngine.js';
+
 
 // --- Backblaze B2 Helper State ---
 let cachedB2Auth = null;
@@ -930,6 +936,46 @@ export default async function handler(req, res) {
           originUrl
         });
         return res.status(result.success ? 200 : 400).json(result);
+      }
+    }
+
+    // =========================================================================
+    // 10. ADMIN PAYMENT EMAIL NOTIFICATIONS MONITORING & RETRY (/api/admin/payment-notifications/*)
+    // =========================================================================
+    if (route.startsWith('/api/admin/payment-notifications')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+
+      const authHeader = req.headers.authorization || '';
+      const bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+      const token = bearerToken || fullUrl.searchParams.get('token') || fullUrl.searchParams.get('adminToken');
+      
+      const session = verifyAdminToken(token);
+      const isDev = process.env.NODE_ENV !== 'production';
+
+      if (!session && !isDev) {
+        return res.status(401).json({ error: 'Unauthorized: Admin authentication token required' });
+      }
+
+      if (route === '/api/admin/payment-notifications' && method === 'GET') {
+        const status = fullUrl.searchParams.get('status') || 'ALL';
+        const paymentType = fullUrl.searchParams.get('paymentType') || 'ALL';
+        const search = fullUrl.searchParams.get('search') || '';
+        const limit = parseInt(fullUrl.searchParams.get('limit') || '50', 10);
+        const offset = parseInt(fullUrl.searchParams.get('offset') || '0', 10);
+
+        const logs = await getPaymentNotificationLogs({ status, paymentType, search, limit, offset });
+        return res.status(200).json(logs);
+      }
+
+      if ((route === '/api/admin/payment-notifications/retry' || route === '/api/admin/payment-notifications') && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const notificationId = body.notificationId || body.id;
+        if (!notificationId) {
+          return res.status(400).json({ error: 'Missing notificationId parameter for retry.' });
+        }
+
+        const retryResult = await retryPaymentNotification({ notificationId });
+        return res.status(retryResult.success ? 200 : 400).json(retryResult);
       }
     }
 

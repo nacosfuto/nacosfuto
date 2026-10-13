@@ -258,166 +258,600 @@ export function renderPasswordResetEmail({ code, expiryMinutes = 10, studentName
 }
 
 /**
- * Payment Confirmation Email Template (Styled as Official Institutional Paper Receipt)
+ * Formats raw payment type into a clean, human-readable institutional category name
  */
-export function renderPaymentConfirmationEmail({
+export function formatPaymentCategoryName(paymentType = '') {
+  if (!paymentType) return 'Departmental Service Payment';
+  const clean = String(paymentType).trim().toUpperCase();
+
+  if (clean === 'ID_CARD' || clean === 'STUDENT_ID' || clean === 'STUDENT ID CARD' || clean === 'ID CARD') {
+    return 'Student ID Card';
+  }
+  if (clean === 'DEPARTMENTAL_DUES' || clean === 'DUES' || clean === 'NACOS DUES') {
+    return 'Departmental Dues';
+  }
+  if (clean.includes('LEVY')) {
+    if (clean === 'LEVY' || clean === 'LEVIES' || clean === 'SPECIAL DEPARTMENTAL LEVY') {
+      return 'Special Departmental Levy';
+    }
+    return clean.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
+  if (clean === 'EVENT_TICKET' || clean === 'EVENT') return 'Event / Hackathon Ticket';
+  if (clean === 'RESOURCE') return 'Academic Resource Access Fee';
+  if (clean === 'MERCHANDISE') return 'Departmental Merchandise';
+  if (clean === 'DONATION') return 'Alumni & Partner Donation';
+  if (clean === 'CUSTOM') return 'Departmental Service Fee';
+
+  return clean.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/**
+ * Resolves the public student portal URL
+ */
+function resolvePortalUrl(customUrl = '') {
+  if (customUrl && typeof customUrl === 'string' && customUrl.startsWith('http')) {
+    return customUrl.replace(/\/+$/, '');
+  }
+  const env = typeof process !== 'undefined' ? process.env : {};
+  return (
+    env.PUBLIC_PORTAL_URL ||
+    env.NEXT_PUBLIC_PORTAL_URL ||
+    env.VITE_PORTAL_URL ||
+    'https://portal.nacosfuto.com.ng'
+  ).replace(/\/+$/, '');
+}
+
+/**
+ * 1. Payment Success Email Template
+ * Sent only after backend confirms transaction succeeded and recorded in database.
+ */
+export function renderPaymentSuccessEmail({
   customerName = 'Student',
-  reference,
+  regNumber = '',
+  reference = '',
   paymentType = 'Payment',
-  amount,
+  amount = 0,
   currency = 'NGN',
   paidAt = new Date().toISOString(),
-  regNumber = '',
   level = '',
-  session = '2026/2027'
+  session = '2026/2027',
+  isIdCardGenerated = false,
+  portalUrl = ''
 }) {
   const safeName = sanitizeHtml(customerName);
   const safeRef = sanitizeHtml(reference);
-  const safeType = sanitizeHtml(paymentType.replace(/_/g, ' '));
+  const friendlyType = formatPaymentCategoryName(paymentType);
+  const safeType = sanitizeHtml(friendlyType);
   const safeReg = sanitizeHtml(regNumber);
   const safeLevel = sanitizeHtml(level);
   const safeSession = sanitizeHtml(session);
-  const formattedAmount = Number(amount || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const dateFormatted = new Date(paidAt).toLocaleString('en-NG', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
+  const normType = String(paymentType).toUpperCase();
+  const isIdCard = normType === 'ID_CARD' || normType.includes('ID CARD') || normType.includes('STUDENT ID') || normType.includes('ID_CARD');
+  const isDues = normType.includes('DUE');
+  const isLevy = normType.includes('LEVY');
+
+  const formattedAmount = Number(amount || 0).toLocaleString('en-NG', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   });
 
-  const preheader = `Official Receipt: ${safeType} - ${currency} ${formattedAmount} [Ref: ${safeRef}]`;
+  const dateFormatted = new Date(paidAt).toLocaleString('en-NG', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Africa/Lagos'
+  });
+
+  const basePortalUrl = resolvePortalUrl(portalUrl);
+  const idCardUrl = `${basePortalUrl}/id-card`;
+  const duesUrl = `${basePortalUrl}/dues`;
+  const targetPortalLink = isIdCard ? idCardUrl : (isDues ? duesUrl : basePortalUrl);
+
+  // Subject line customized per payment category
+  let subject = `Payment Confirmation | NACOS FUTO`;
+  if (isIdCard) {
+    subject = `ID Card Payment Confirmed | NACOS FUTO`;
+  } else if (isDues) {
+    subject = `NACOS Dues Payment Receipt | NACOS FUTO`;
+  } else if (isLevy) {
+    subject = `Levy Payment Confirmation | NACOS FUTO`;
+  } else {
+    subject = `${friendlyType} Payment Confirmed | NACOS FUTO`;
+  }
+
+  const preheader = `Payment Successful: ${friendlyType} - ${currency} ${formattedAmount} [Ref: ${safeRef}]`;
+
+  // Specific Next Steps / Outcome Guidance
+  let specificGuidanceHtml = '';
+  if (isIdCard) {
+    if (isIdCardGenerated) {
+      specificGuidanceHtml = `
+        <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-left: 4px solid #16a34a; border-radius: 8px; padding: 14px 18px; margin: 20px 0;">
+          <p style="color: #14532d; margin: 0 0 6px; font-weight: 700; font-size: 13px;">
+            &#127881; Your Digital Student ID Card is Ready!
+          </p>
+          <p style="color: #166534; margin: 0; font-size: 13px; line-height: 1.5;">
+            Your student ID card has been generated and verified. You can access, view, and download your two-sided digital card with secure QR verification directly from your student portal.
+          </p>
+        </div>
+      `;
+    } else {
+      specificGuidanceHtml = `
+        <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #2563eb; border-radius: 8px; padding: 14px 18px; margin: 20px 0;">
+          <p style="color: #1e3a8a; margin: 0 0 6px; font-weight: 700; font-size: 13px;">
+            &#128247; Action Required: Upload Passport Photograph
+          </p>
+          <p style="color: #1e40af; margin: 0; font-size: 13px; line-height: 1.5;">
+            Your payment of <strong>${currency} ${formattedAmount}</strong> has been confirmed and recorded. To complete your ID card issuance, please proceed to the <strong>Student ID Card</strong> section to upload your front-facing passport photograph and submit your application.
+          </p>
+        </div>
+      `;
+    }
+  } else if (isDues || isLevy) {
+    specificGuidanceHtml = `
+      <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-left: 4px solid #16a34a; border-radius: 8px; padding: 14px 18px; margin: 20px 0;">
+        <p style="color: #14532d; margin: 0 0 4px; font-weight: 700; font-size: 13px;">
+          &#10003; Clearance Status Cleared
+        </p>
+        <p style="color: #166534; margin: 0; font-size: 13px; line-height: 1.5;">
+          Your <strong>${safeType}</strong> for the <strong>${safeSession}</strong> academic session${safeLevel ? ` (${safeLevel})` : ''} has been officially recorded. Your departmental clearance profile is now synchronized.
+        </p>
+      </div>
+    `;
+  } else {
+    specificGuidanceHtml = `
+      <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-left: 4px solid #16a34a; border-radius: 8px; padding: 14px 18px; margin: 20px 0;">
+        <p style="color: #14532d; margin: 0; font-size: 13px; line-height: 1.5;">
+          Your payment for <strong>${safeType}</strong> has been successfully confirmed and recorded on your student account.
+        </p>
+      </div>
+    `;
+  }
 
   const contentHtml = `
-    <!-- A4 Proportion POS Thermal Slip Container -->
-    <div style="max-width: 440px; margin: 0 auto; background-color: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; padding: 24px 22px; font-family: 'Courier New', Courier, monospace, 'SFMono-Regular', Consolas; font-size: 12px; color: #111827; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);">
-      
-      <!-- Top Logo Centered (No text at top as requested) -->
-      <div style="text-align: center; margin-bottom: 14px;">
-        <img src="https://res.cloudinary.com/a2mmcttn/image/upload/v1788569315/nacos/general/full-logo-light.png" alt="NACOS FUTO" width="160" style="display: inline-block; max-height: 48px; width: auto; object-fit: contain;" />
+    <!-- Success Status Badge -->
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div style="display: inline-block; background-color: #dcfce7; border: 1px solid #86efac; padding: 6px 16px; border-radius: 9999px;">
+        <span style="color: #15803d; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
+          &#10003; Payment Status: Successful
+        </span>
       </div>
+      <h2 style="color: #0f172a; margin: 14px 0 4px; font-size: 22px; font-weight: 800;">Payment Confirmation</h2>
+      <p style="color: #64748b; margin: 0; font-size: 13px;">Official NACOS FUTO Transaction Receipt</p>
+    </div>
 
-      <!-- Slip Type Badge -->
-      <div style="border-top: 1px dashed #9ca3af; border-bottom: 1px dashed #9ca3af; padding: 6px 0; text-align: center; font-weight: bold; font-size: 11px; margin-bottom: 12px;">
-        *** OFFICIAL PAYMENT RECEIPT ***
+    <!-- Student Greeting -->
+    <p style="color: #334155; margin: 0 0 16px; font-size: 14px; line-height: 1.6;">
+      Hello <strong>${safeName}</strong>${safeReg ? ` (${safeReg})` : ''},
+    </p>
+    <p style="color: #475569; margin: 0 0 16px; font-size: 14px; line-height: 1.6;">
+      This email confirms that your payment of <strong>${currency} ${formattedAmount}</strong> has been successfully verified by the backend and recorded in the NACOS FUTO institutional database.
+    </p>
+
+    <!-- Specific Next Steps Banner -->
+    ${specificGuidanceHtml}
+
+    <!-- Structured Transaction Receipt Table -->
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #fafafa; font-size: 13px;">
+      <tr style="background-color: #083002;">
+        <td colspan="2" style="padding: 12px 18px; color: #ffffff; font-weight: 700; font-size: 13px; letter-spacing: 0.5px;">
+          TRANSACTION SUMMARY
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Payment Category:</td>
+        <td align="right" style="padding: 10px 18px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #e2e8f0;">${safeType}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Amount Paid:</td>
+        <td align="right" style="padding: 10px 18px; color: #15803d; font-weight: 800; font-size: 15px; border-bottom: 1px solid #e2e8f0;">${currency} ${formattedAmount}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Transaction Reference:</td>
+        <td align="right" style="padding: 10px 18px; color: #0f172a; font-family: 'SFMono-Regular', Consolas, monospace; font-weight: 700; border-bottom: 1px solid #e2e8f0;">${safeRef}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Academic Session:</td>
+        <td align="right" style="padding: 10px 18px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">${safeSession}</td>
+      </tr>
+      ${safeLevel ? `
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Academic Level:</td>
+        <td align="right" style="padding: 10px 18px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">${safeLevel}</td>
+      </tr>` : ''}
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Date & Time:</td>
+        <td align="right" style="padding: 10px 18px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">${dateFormatted}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b;">Payment Status:</td>
+        <td align="right" style="padding: 10px 18px; color: #166534; font-weight: 800;">APPROVED / CLEARED</td>
+      </tr>
+    </table>
+
+    <!-- Call to Action Button -->
+    <div style="text-align: center; margin: 30px 0 10px;">
+      <a href="${targetPortalLink}" target="_blank" style="display: inline-block; background-color: #138601; background: linear-gradient(135deg, #138601 0%, #0d5e01 100%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 14px 28px; border-radius: 8px; box-shadow: 0 4px 12px rgba(19, 134, 1, 0.25);">
+        ${isIdCard ? 'Access Student ID Card Section &rarr;' : 'Open Student Portal &rarr;'}
+      </a>
+    </div>
+    <p style="text-align: center; margin: 8px 0 0; font-size: 11px; color: #94a3b8;">
+      Portal link: <a href="${basePortalUrl}" style="color: #16a34a;">${basePortalUrl}</a>
+    </p>
+  `;
+
+  const textLines = [
+    'NACOS FUTO - PAYMENT CONFIRMATION RECEIPT',
+    '=========================================',
+    '',
+    `Hello ${customerName}${regNumber ? ` (${regNumber})` : ''},`,
+    '',
+    'Your payment has been successfully verified and recorded in the database.',
+    '',
+    'TRANSACTION DETAILS:',
+    '-----------------------------------------',
+    `Payment Category: ${friendlyType}`,
+    `Amount Paid: ${currency} ${formattedAmount}`,
+    `Transaction Reference: ${reference}`,
+    `Academic Session: ${session}`,
+    ...(level ? [`Academic Level: ${level}`] : []),
+    `Date & Time: ${dateFormatted}`,
+    'Payment Channel: Bachs Online Gateway',
+    'Payment Status: SUCCESSFUL (APPROVED & CLEARED)',
+    '-----------------------------------------',
+    ''
+  ];
+
+  if (isIdCard) {
+    if (isIdCardGenerated) {
+      textLines.push(
+        'ID CARD STATUS: Your digital ID card is generated and ready to download.',
+        `Access your ID card on the portal: ${idCardUrl}`
+      );
+    } else {
+      textLines.push(
+        'ID CARD NEXT STEP: Payment is confirmed.',
+        'Please upload your passport photograph in the Student ID Card section to complete issuance.',
+        `Upload photo here: ${idCardUrl}`
+      );
+    }
+  } else if (isDues || isLevy) {
+    textLines.push(
+      `CLEARANCE STATUS: Your clearance for ${friendlyType} (${session}) is now recorded.`,
+      `View dues clearance: ${duesUrl}`
+    );
+  } else {
+    textLines.push(`View your payment record: ${basePortalUrl}`);
+  }
+
+  textLines.push(
+    '',
+    '-----------------------------------------',
+    'Department of Computer Science',
+    'Federal University of Technology, Owerri (FUTO)'
+  );
+
+  return {
+    subject,
+    html: buildBaseEmailLayout({ title: 'Payment Confirmation', preheader, contentHtml }),
+    text: textLines.join('\n')
+  };
+}
+
+/**
+ * 2. Payment Failed Email Template
+ * Sent when a payment transaction is definitively verified as failed.
+ */
+export function renderPaymentFailedEmail({
+  customerName = 'Student',
+  regNumber = '',
+  reference = '',
+  paymentType = 'Payment',
+  amount = 0,
+  currency = 'NGN',
+  failedAt = new Date().toISOString(),
+  failureReason = '',
+  level = '',
+  session = '2026/2027',
+  portalUrl = ''
+}) {
+  const safeName = sanitizeHtml(customerName);
+  const safeRef = sanitizeHtml(reference);
+  const friendlyType = formatPaymentCategoryName(paymentType);
+  const safeType = sanitizeHtml(friendlyType);
+  const safeReg = sanitizeHtml(regNumber);
+  const safeReason = sanitizeHtml(failureReason || 'Transaction was declined or cancelled by payment gateway');
+  const safeSession = sanitizeHtml(session);
+  const safeLevel = sanitizeHtml(level);
+
+  const formattedAmount = Number(amount || 0).toLocaleString('en-NG', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+  const dateFormatted = new Date(failedAt).toLocaleString('en-NG', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Africa/Lagos'
+  });
+
+  const basePortalUrl = resolvePortalUrl(portalUrl);
+
+  const subject = `Payment Unsuccessful | NACOS FUTO`;
+  const preheader = `Payment Unsuccessful: ${friendlyType} [Ref: ${safeRef}]`;
+
+  const contentHtml = `
+    <!-- Failed Status Badge -->
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div style="display: inline-block; background-color: #fee2e2; border: 1px solid #fca5a5; padding: 6px 16px; border-radius: 9999px;">
+        <span style="color: #991b1b; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
+          &#9888; Payment Status: Unsuccessful
+        </span>
       </div>
+      <h2 style="color: #0f172a; margin: 14px 0 4px; font-size: 22px; font-weight: 800;">Payment Was Not Completed</h2>
+      <p style="color: #64748b; margin: 0; font-size: 13px;">Transaction Failure Notification</p>
+    </div>
 
-      <!-- Receipt & Transaction Info -->
-      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 11px; margin-bottom: 8px;">
-        <tr>
-          <td style="color: #6b7280; padding: 2px 0;">RECEIPT REF:</td>
-          <td align="right" style="font-weight: 700; font-family: monospace;">${safeRef}</td>
-        </tr>
-        <tr>
-          <td style="color: #6b7280; padding: 2px 0;">DATE / TIME:</td>
-          <td align="right">${dateFormatted}</td>
-        </tr>
-        <tr>
-          <td style="color: #6b7280; padding: 2px 0;">PAYMENT STATUS:</td>
-          <td align="right" style="font-weight: 900; color: #166534;">APPROVED / CLEARED</td>
-        </tr>
-        <tr>
-          <td style="color: #6b7280; padding: 2px 0;">CHANNEL:</td>
-          <td align="right">Bachs Online Gateway</td>
-        </tr>
-      </table>
+    <!-- Student Greeting -->
+    <p style="color: #334155; margin: 0 0 16px; font-size: 14px; line-height: 1.6;">
+      Hello <strong>${safeName}</strong>${safeReg ? ` (${safeReg})` : ''},
+    </p>
+    <p style="color: #475569; margin: 0 0 16px; font-size: 14px; line-height: 1.6;">
+      We were unable to process your payment for <strong>${safeType}</strong>. The transaction was not completed and <strong>no funds have been credited</strong> to your student account for this service.
+    </p>
 
-      <!-- Dashed Divider -->
-      <div style="border-top: 1px dashed #9ca3af; margin: 8px 0;"></div>
+    <!-- Advisory Box -->
+    <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-left: 4px solid #e11d48; border-radius: 8px; padding: 14px 18px; margin: 20px 0;">
+      <p style="color: #9f1239; margin: 0 0 6px; font-weight: 700; font-size: 13px;">
+        Important Information Before Trying Again:
+      </p>
+      <ul style="color: #881337; margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5;">
+        <li>Check your bank account to confirm if funds were debited. If debited, your bank typically issues an automatic reversal within 24 to 48 hours.</li>
+        <li>Ensure your payment card is authorized for online transactions and has sufficient balance.</li>
+        <li>Visit your student portal to review your payment status before initiating another checkout.</li>
+      </ul>
+    </div>
 
-      <!-- Student Particulars -->
-      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 11px; margin-bottom: 8px;">
-        <tr>
-          <td style="color: #6b7280; padding: 2px 0;">NAME:</td>
-          <td align="right" style="font-weight: 700; text-transform: uppercase;">${safeName}</td>
-        </tr>
-        ${safeReg ? `
-        <tr>
-          <td style="color: #6b7280; padding: 2px 0;">REG / MATRIC:</td>
-          <td align="right" style="font-weight: 700; font-family: monospace;">${safeReg}</td>
-        </tr>` : ''}
-        ${safeLevel ? `
-        <tr>
-          <td style="color: #6b7280; padding: 2px 0;">LEVEL:</td>
-          <td align="right" style="font-weight: 700;">${safeLevel}</td>
-        </tr>` : ''}
-        <tr>
-          <td style="color: #6b7280; padding: 2px 0;">DEPARTMENT:</td>
-          <td align="right">Computer Science</td>
-        </tr>
-        <tr>
-          <td style="color: #6b7280; padding: 2px 0;">SESSION:</td>
-          <td align="right">${safeSession}</td>
-        </tr>
-      </table>
+    <!-- Transaction Summary Table -->
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #fafafa; font-size: 13px;">
+      <tr style="background-color: #334155;">
+        <td colspan="2" style="padding: 12px 18px; color: #ffffff; font-weight: 700; font-size: 13px;">
+          ATTEMPTED TRANSACTION DETAILS
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Payment Category:</td>
+        <td align="right" style="padding: 10px 18px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #e2e8f0;">${safeType}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Attempted Amount:</td>
+        <td align="right" style="padding: 10px 18px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #e2e8f0;">${currency} ${formattedAmount}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Transaction Reference:</td>
+        <td align="right" style="padding: 10px 18px; color: #0f172a; font-family: 'SFMono-Regular', Consolas, monospace; font-weight: 700; border-bottom: 1px solid #e2e8f0;">${safeRef}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Date & Time:</td>
+        <td align="right" style="padding: 10px 18px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">${dateFormatted}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Academic Session:</td>
+        <td align="right" style="padding: 10px 18px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">${safeSession}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Outcome Status:</td>
+        <td align="right" style="padding: 10px 18px; color: #b91c1c; font-weight: 800; border-bottom: 1px solid #e2e8f0;">UNSUCCESSFUL</td>
+      </tr>
+      ${safeReason ? `
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b;">Failure Detail:</td>
+        <td align="right" style="padding: 10px 18px; color: #b91c1c; font-weight: 600;">${safeReason}</td>
+      </tr>
+      ` : ''}
+    </table>
 
-      <!-- Double Dashed Divider -->
-      <div style="border-top: 2px dashed #6b7280; margin: 10px 0 6px;"></div>
-
-      <!-- Itemized Table -->
-      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 11px; margin-bottom: 8px;">
-        <tr style="border-bottom: 1px dashed #d1d5db; font-weight: bold;">
-          <th align="left" style="padding-bottom: 4px;">DESCRIPTION</th>
-          <th align="center" style="padding-bottom: 4px;">QTY</th>
-          <th align="right" style="padding-bottom: 4px;">AMOUNT</th>
-        </tr>
-        <tr>
-          <td style="padding: 6px 0 2px; font-weight: 700;">${safeType}</td>
-          <td align="center" style="padding: 6px 0 2px;">1</td>
-          <td align="right" style="padding: 6px 0 2px; font-weight: 700;">${currency} ${formattedAmount}</td>
-        </tr>
-        <tr style="font-size: 10px; color: #6b7280;">
-          <td style="padding: 2px 0;">E-Portal Clearance Levy</td>
-          <td align="center" style="padding: 2px 0;">1</td>
-          <td align="right" style="padding: 2px 0;">₦0.00</td>
-        </tr>
-        <tr style="font-size: 10px; color: #6b7280;">
-          <td style="padding: 2px 0;">Secretariat Tech Levy</td>
-          <td align="center" style="padding: 2px 0;">1</td>
-          <td align="right" style="padding: 2px 0;">₦0.00</td>
-        </tr>
-      </table>
-
-      <!-- Total Box -->
-      <div style="border-top: 2px solid #111827; border-bottom: 2px solid #111827; padding: 8px 0; margin: 8px 0;">
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 13px; font-weight: 900;">
-          <tr>
-            <td>TOTAL PAID:</td>
-            <td align="right">${currency} ${formattedAmount}</td>
-          </tr>
-        </table>
-      </div>
-
-      <!-- Footer Notice -->
-      <div style="border-top: 1px dashed #9ca3af; padding-top: 8px; margin-top: 8px; text-align: center; font-size: 9px; color: #6b7280; line-height: 1.4;">
-        *** OFFICIAL NACOS RECEIPT &bull; RETAIN FOR CLEARANCE ***<br />
-        THANK YOU FOR SUPPORTING YOUR DEPARTMENT
-      </div>
-
+    <!-- Call to Action Button -->
+    <div style="text-align: center; margin: 30px 0 10px;">
+      <a href="${basePortalUrl}" target="_blank" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 14px 28px; border-radius: 8px;">
+        Return to Student Portal &rarr;
+      </a>
     </div>
   `;
 
-  const text = [
-    'NACOS FUTO - OFFICIAL PAYMENT CLEARANCE RECEIPT',
-    '=================================================',
+  const textLines = [
+    'NACOS FUTO - PAYMENT UNSUCCESSFUL NOTIFICATION',
+    '==============================================',
     '',
-    `Student Name: ${customerName}`,
-    ...(regNumber ? [`Reg Number: ${regNumber}`] : []),
-    `Item Description: ${paymentType.replace(/_/g, ' ')}`,
-    `Total Amount: ${currency} ${formattedAmount}`,
+    `Hello ${customerName}${regNumber ? ` (${regNumber})` : ''},`,
+    '',
+    `Your transaction for ${friendlyType} was unsuccessful.`,
+    'No funds have been cleared or recorded on your student account for this service.',
+    '',
+    'TRANSACTION DETAILS:',
+    '-----------------------------------------',
+    `Payment Category: ${friendlyType}`,
+    `Attempted Amount: ${currency} ${formattedAmount}`,
     `Reference: ${reference}`,
     `Date & Time: ${dateFormatted}`,
-    'Payment Channel: Bachs Online Gateway',
-    'Status: APPROVED & CLEARED',
+    `Academic Session: ${session}`,
+    'Status: UNSUCCESSFUL',
+    '-----------------------------------------',
     '',
-    'This is an official payment confirmation and clearance document issued by NACOS FUTO.',
+    'ADVICE BEFORE RETRYING:',
+    '1. Check your bank account to confirm if money was debited.',
+    '2. In case of debit without value, banks typically auto-reverse within 24-48 hours.',
+    '3. Check your student portal before initiating a new payment.',
+    '',
+    `Student Portal: ${basePortalUrl}`,
+    '',
+    '-----------------------------------------',
     'Department of Computer Science',
     'Federal University of Technology, Owerri (FUTO)'
-  ].join('\n');
+  ];
 
   return {
-    subject: `NACOS FUTO Official Receipt: ${safeType} [${safeRef}]`,
-    html: buildBaseEmailLayout({ title: 'Official Payment Clearance Receipt', preheader, contentHtml }),
-    text
+    subject,
+    html: buildBaseEmailLayout({ title: 'Payment Unsuccessful', preheader, contentHtml }),
+    text: textLines.join('\n')
   };
 }
+
+/**
+ * 3. Payment Reversed / Refunded Email Template
+ * Sent when a transaction reversal or refund is confirmed by the backend.
+ */
+export function renderPaymentReversedEmail({
+  customerName = 'Student',
+  regNumber = '',
+  reference = '',
+  paymentType = 'Payment',
+  amount = 0,
+  currency = 'NGN',
+  reversedAt = new Date().toISOString(),
+  reversalReason = '',
+  level = '',
+  session = '2026/2027',
+  portalUrl = ''
+}) {
+  const safeName = sanitizeHtml(customerName);
+  const safeRef = sanitizeHtml(reference);
+  const friendlyType = formatPaymentCategoryName(paymentType);
+  const safeType = sanitizeHtml(friendlyType);
+  const safeReg = sanitizeHtml(regNumber);
+  const safeSession = sanitizeHtml(session);
+  const safeLevel = sanitizeHtml(level);
+  const safeReason = sanitizeHtml(reversalReason || 'Administrative clearance reversal or gateway refund');
+
+  const formattedAmount = Number(amount || 0).toLocaleString('en-NG', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+  const dateFormatted = new Date(reversedAt).toLocaleString('en-NG', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Africa/Lagos'
+  });
+
+  const basePortalUrl = resolvePortalUrl(portalUrl);
+
+  const subject = `Payment Reversal Notification | NACOS FUTO`;
+  const preheader = `Payment Reversal: ${friendlyType} - ${currency} ${formattedAmount} [Ref: ${safeRef}]`;
+
+  const contentHtml = `
+    <!-- Reversal Status Badge -->
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div style="display: inline-block; background-color: #fef3c7; border: 1px solid #fcd34d; padding: 6px 16px; border-radius: 9999px;">
+        <span style="color: #92400e; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
+          &#8634; Payment Status: Reversed / Refunded
+        </span>
+      </div>
+      <h2 style="color: #0f172a; margin: 14px 0 4px; font-size: 22px; font-weight: 800;">Payment Reversal Confirmed</h2>
+      <p style="color: #64748b; margin: 0; font-size: 13px;">Official Clearance Ledger Update</p>
+    </div>
+
+    <!-- Student Greeting -->
+    <p style="color: #334155; margin: 0 0 16px; font-size: 14px; line-height: 1.6;">
+      Hello <strong>${safeName}</strong>${safeReg ? ` (${safeReg})` : ''},
+    </p>
+    <p style="color: #475569; margin: 0 0 16px; font-size: 14px; line-height: 1.6;">
+      This notification confirms that the payment for <strong>${safeType}</strong> associated with transaction reference <strong style="font-family: monospace;">${safeRef}</strong> has been officially marked as <strong>Reversed / Refunded</strong> in the NACOS FUTO portal system.
+    </p>
+
+    <!-- Details Box -->
+    <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 14px 18px; margin: 20px 0;">
+      <p style="color: #92400e; margin: 0; font-size: 13px; line-height: 1.5;">
+        Your student clearance status and associated records for this academic session have been updated accordingly. If you believe this reversal was made in error, please contact the NACOS Secretariat or Portal Administrator.
+      </p>
+    </div>
+
+    <!-- Transaction Summary Table -->
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #fafafa; font-size: 13px;">
+      <tr style="background-color: #78350f;">
+        <td colspan="2" style="padding: 12px 18px; color: #ffffff; font-weight: 700; font-size: 13px;">
+          REVERSAL RECORD DETAILS
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Payment Category:</td>
+        <td align="right" style="padding: 10px 18px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #e2e8f0;">${safeType}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Reversed Amount:</td>
+        <td align="right" style="padding: 10px 18px; color: #92400e; font-weight: 800; border-bottom: 1px solid #e2e8f0;">${currency} ${formattedAmount}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Transaction Reference:</td>
+        <td align="right" style="padding: 10px 18px; color: #0f172a; font-family: 'SFMono-Regular', Consolas, monospace; font-weight: 700; border-bottom: 1px solid #e2e8f0;">${safeRef}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Academic Session:</td>
+        <td align="right" style="padding: 10px 18px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">${safeSession}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Date of Reversal:</td>
+        <td align="right" style="padding: 10px 18px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">${dateFormatted}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Updated Status:</td>
+        <td align="right" style="padding: 10px 18px; color: #92400e; font-weight: 800; border-bottom: 1px solid #e2e8f0;">REVERSED / REFUNDED</td>
+      </tr>
+      ${safeReason ? `
+      <tr>
+        <td style="padding: 10px 18px; color: #64748b;">Reversal Detail:</td>
+        <td align="right" style="padding: 10px 18px; color: #92400e; font-weight: 600;">${safeReason}</td>
+      </tr>
+      ` : ''}
+    </table>
+
+    <!-- Call to Action Button -->
+    <div style="text-align: center; margin: 30px 0 10px;">
+      <a href="${basePortalUrl}" target="_blank" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 14px 28px; border-radius: 8px;">
+        Open Student Portal &rarr;
+      </a>
+    </div>
+  `;
+
+  const textLines = [
+    'NACOS FUTO - PAYMENT REVERSAL NOTIFICATION',
+    '==========================================',
+    '',
+    `Hello ${customerName}${regNumber ? ` (${regNumber})` : ''},`,
+    '',
+    `The payment for ${friendlyType} [${reference}] has been officially reversed or refunded.`,
+    'Your portal clearance status has been updated accordingly.',
+    '',
+    'TRANSACTION DETAILS:',
+    '-----------------------------------------',
+    `Payment Category: ${friendlyType}`,
+    `Amount Reversed: ${currency} ${formattedAmount}`,
+    `Reference: ${reference}`,
+    `Academic Session: ${session}`,
+    `Date & Time: ${dateFormatted}`,
+    'Updated Status: REVERSED / REFUNDED',
+    '-----------------------------------------',
+    '',
+    `Student Portal: ${basePortalUrl}`,
+    '',
+    '-----------------------------------------',
+    'Department of Computer Science',
+    'Federal University of Technology, Owerri (FUTO)'
+  ];
+
+  return {
+    subject,
+    html: buildBaseEmailLayout({ title: 'Payment Reversal Notification', preheader, contentHtml }),
+    text: textLines.join('\n')
+  };
+}
+
+/**
+ * Backward-compatible payment confirmation receipt alias
+ */
+export function renderPaymentConfirmationEmail(params) {
+  return renderPaymentSuccessEmail(params);
+}
+
 
 /**
  * Account Recovery Notification for Admins

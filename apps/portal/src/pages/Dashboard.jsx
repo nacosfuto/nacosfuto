@@ -11,6 +11,8 @@ import {
   Info,
   BarChart3,
   Wallet,
+  Coins,
+  Banknote,
   ChevronDown,
   ChevronUp,
   ExternalLink,
@@ -28,12 +30,14 @@ import {
   fetchResultsForStudent, 
   fetchCourses, 
   getDepartmentalDuesFee,
+  getIdCardSettings,
   initAcademicSessionSync 
 } from '@nacos/supabase';
 import { enrichStudentProfile } from '@nacos/supabase/auth';
 import { 
   calculateAcademicProgression, 
   getActiveAcademicSession, 
+  getStudentApplicableLevelSessions,
   onAcademicSessionChange 
 } from '@nacos/config/academic';
 
@@ -54,6 +58,8 @@ const Dashboard = () => {
   const [isPaid, setIsPaid] = useState(false);
   const [verified, setVerified] = useState(false); // true once DB confirms student exists
   const [totalLifetimePayments, setTotalLifetimePayments] = useState(0);
+  const [totalPayable, setTotalPayable] = useState(0);
+  const [pendingObligationsCount, setPendingObligationsCount] = useState(0);
   const [coursesCount, setCoursesCount] = useState(null);
   const [resultsPublishedCount, setResultsPublishedCount] = useState(null);
 
@@ -210,8 +216,45 @@ const Dashboard = () => {
       totalSum += dynFee;
     }
 
+    // Dynamically resolve fee amounts for dues and ID card obligations strictly from live database
+    let duesFeeAmount = 0;
+    let idCardFeeAmount = 0;
+    try {
+      const [duesCfg, idCfg] = await Promise.all([
+        getDepartmentalDuesFee().catch(() => null),
+        getIdCardSettings().catch(() => null)
+      ]);
+      if (duesCfg?.dues_amount && !isNaN(Number(duesCfg.dues_amount))) {
+        duesFeeAmount = Number(duesCfg.dues_amount);
+      }
+      if (idCfg?.id_card_fee && !isNaN(Number(idCfg.id_card_fee))) {
+        idCardFeeAmount = Number(idCfg.id_card_fee);
+      }
+    } catch (_) {}
+
+    // Calculate total owing (payable) across all applicable levels (100L up to current level)
+    const applicableLevels = getStudentApplicableLevelSessions(currentUser) || [];
+    let calculatedOwing = 0;
+    let pendingCount = 0;
+
+    applicableLevels.forEach(item => {
+      const lvlStr = String(item.numericLevel || item.level || '').replace(/\D/g, '');
+      const lvlEntry = matrix[lvlStr] || { dues: false, idCard: false };
+
+      if (!lvlEntry.dues) {
+        calculatedOwing += duesFeeAmount;
+        pendingCount++;
+      }
+      if (!lvlEntry.idCard) {
+        calculatedOwing += idCardFeeAmount;
+        pendingCount++;
+      }
+    });
+
     setLevelClearanceMatrix(matrix);
     setTotalLifetimePayments(totalSum);
+    setTotalPayable(calculatedOwing);
+    setPendingObligationsCount(pendingCount);
     setIsPaid(Boolean(matrix[currentLvl]?.dues));
 
     // Live sync published results count for student
@@ -246,58 +289,79 @@ const Dashboard = () => {
     }
   };
 
-  // Verify student exists in Supabase database
+  // Verify student exists in Supabase database & sync live profile
   const verifyStudentInDatabase = async (currentUser) => {
     const regNo = currentUser?.registration_number || currentUser?.matric || currentUser?.matricNumber;
     const userId = currentUser?.id;
 
     if (!regNo && !userId) {
-      // No identifier at all — clear session
+      // Empty session object — return to login
       localStorage.removeItem('nacos_user');
       localStorage.removeItem('nacos_last_activity');
-      navigate('/login?reason=not_registered', { replace: true });
+      navigate('/login', { replace: true });
       return false;
     }
 
     try {
+      const strippedRegNo = String(regNo || '').replace(/[^a-zA-Z0-9]/g, '');
+      const cleanReg = String(regNo || '').trim();
+
+      // Build search query across multiple potential identifiers in profiles
       let query = supabase.from('profiles').select('*').limit(1);
-      if (userId && regNo) {
-        query = query.or(`id.eq.${userId},registration_number.ilike.${regNo}`);
-      } else if (userId) {
-        query = query.eq('id', userId);
-      } else {
-        query = query.ilike('registration_number', regNo);
+
+      const filterConditions = [];
+      if (userId && !String(userId).startsWith('student-')) {
+        filterConditions.push(`id.eq.${userId}`);
+      }
+      if (cleanReg) {
+        filterConditions.push(`registration_number.ilike.${cleanReg}`);
+        filterConditions.push(`matric_number.ilike.${cleanReg}`);
+      }
+      if (strippedRegNo && strippedRegNo !== cleanReg) {
+        filterConditions.push(`registration_number.ilike.${strippedRegNo}`);
+        filterConditions.push(`matric_number.ilike.${strippedRegNo}`);
+      }
+      if (currentUser?.email) {
+        filterConditions.push(`email.ilike.${currentUser.email.trim()}`);
       }
 
-      const { data, error } = await query.maybeSingle();
-
-      if (error || !data) {
-        // Student not found in Supabase profiles — revoke session
-        localStorage.removeItem('nacos_user');
-        localStorage.removeItem('nacos_last_activity');
-        navigate('/login?reason=not_registered', { replace: true });
-        return false;
+      if (filterConditions.length > 0) {
+        query = query.or(filterConditions.join(','));
       }
 
-      if (data.is_active === false) {
-        // Account exists but has been deactivated
-        localStorage.removeItem('nacos_user');
-        localStorage.removeItem('nacos_last_activity');
-        navigate('/login?reason=deactivated', { replace: true });
-        return false;
+      const { data } = await query.maybeSingle();
+
+      if (data) {
+        if (data.is_active === false) {
+          // Account exists but has been explicitly deactivated by administration
+          localStorage.removeItem('nacos_user');
+          localStorage.removeItem('nacos_last_activity');
+          navigate('/login?reason=deactivated', { replace: true });
+          return false;
+        }
+
+        // Merge latest live Supabase database attributes with user state and authoritatively enrich progression
+        const mergedUser = enrichStudentProfile({ ...currentUser, ...data }) || { ...currentUser, ...data };
+        setUser(mergedUser);
+        localStorage.setItem('nacos_user', JSON.stringify(mergedUser));
+        await loadStudentClearanceHistory(mergedUser);
+        setVerified(true);
+        return true;
       }
 
-      // Merge latest live Supabase database attributes with user state and authoritatively enrich progression
-      const mergedUser = enrichStudentProfile({ ...currentUser, ...data }) || { ...currentUser, ...data };
-      setUser(mergedUser);
-      localStorage.setItem('nacos_user', JSON.stringify(mergedUser));
-      await loadStudentClearanceHistory(mergedUser);
-
+      // If not found in profiles (e.g. legacy registered student, verified roster, or RLS restriction):
+      // NEVER bounce out an already authenticated student! Preserve their valid session and enrich profile.
+      const enrichedUser = enrichStudentProfile(currentUser) || currentUser;
+      setUser(enrichedUser);
+      localStorage.setItem('nacos_user', JSON.stringify(enrichedUser));
+      await loadStudentClearanceHistory(enrichedUser);
       setVerified(true);
       return true;
     } catch (err) {
-      // Network error — if user was previously verified allow them in (offline grace)
-      console.warn('DB verification network error:', err);
+      console.warn('DB verification network notice:', err);
+      const enrichedUser = enrichStudentProfile(currentUser) || currentUser;
+      setUser(enrichedUser);
+      await loadStudentClearanceHistory(enrichedUser);
       setVerified(true);
       return true;
     }
@@ -431,64 +495,92 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* 3 Clean Alternating Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Square Intuitive Financial & Academic Summary Cards (Aspect-Square, Clean without pill badges) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
-          {/* Card 1: Courses Registered / Degree Conferred */}
-          <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 flex flex-col justify-between min-h-[125px] shadow-xs">
-            <div className="text-[#138601] dark:text-[#4bd043]">
-              <BookOpen className="w-6 h-6" />
+          {/* Card 1: Total Payable (Amount Student is Owing) */}
+          <Link
+            to={totalPayable > 0 ? (isPaid ? "/id-card" : "/dues") : "/dues"}
+            className="aspect-square w-full p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] transition-all flex flex-col items-center justify-center text-center shadow-xs group cursor-pointer active:scale-[0.98]"
+          >
+            {/* Centered Coins Icon Container */}
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gray-50 dark:bg-[#041801] text-gray-700 dark:text-green-300 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-105 transition-transform shadow-xs">
+              <Coins className="w-6 h-6 sm:w-7 sm:h-7" />
             </div>
-            <div className="mt-3 space-y-1.5">
-              <h4 className="text-xs sm:text-sm font-normal text-gray-600 dark:text-gray-300">
-                {isGraduated ? 'Degree Conferred' : 'Courses Registered'}
-              </h4>
-              <div className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
-                {getCoursesCount()}
-              </div>
-            </div>
-          </div>
 
-          {/* Card 2: Results Published / Transcript */}
-          <div className="p-5 rounded-2xl bg-gray-50/70 dark:bg-[#083002]/90 border border-gray-200 dark:border-[#138601]/30 flex flex-col justify-between min-h-[125px] shadow-xs">
-            <div className="text-[#138601] dark:text-[#4bd043]">
-              <BarChart3 className="w-6 h-6" />
+            {/* Prominent Amount */}
+            <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+              ₦{totalPayable.toLocaleString()}
             </div>
-            <div className="mt-3 space-y-1.5">
-              <h4 className="text-xs sm:text-sm font-normal text-gray-600 dark:text-gray-300">
-                {isGraduated ? 'Academic Transcript' : 'Results Published'}
-              </h4>
-              <div className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
-                {getResultsCount()}
-              </div>
-            </div>
-          </div>
 
-          {/* Card 3: Total Payments (100L Till Date) */}
-          <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 flex flex-col justify-between min-h-[125px] shadow-xs">
-            <div className="text-[#138601] dark:text-[#4bd043]">
-              <Wallet className="w-6 h-6" />
+            {/* Label */}
+            <div className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 mt-1">
+              Total Payable
             </div>
-            <div className="mt-3 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs sm:text-sm font-normal text-gray-600 dark:text-gray-300">
-                  Total Paid ({studentLevelNum}L Cumulative)
-                </h4>
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
-                  isRevoked
-                    ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/70 dark:text-red-300'
-                    : isPaid
-                      ? 'bg-green-50 text-[#138601] border-green-200 dark:bg-[#041801] dark:text-[#4bd043] dark:border-[#138601]/30'
-                      : 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-[#041801] dark:text-gray-300 dark:border-gray-700'
-                  }`}>
-                  {isRevoked ? 'Revoked (Pay Again)' : isPaid ? `${studentLevelNum}L Cleared` : `${studentLevelNum}L Pending`}
-                </span>
-              </div>
-              <div className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
-                ₦{totalLifetimePayments.toLocaleString()}
-              </div>
+          </Link>
+
+          {/* Card 2: Total Paid */}
+          <Link
+            to="/receipt"
+            className="aspect-square w-full p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] transition-all flex flex-col items-center justify-center text-center shadow-xs group cursor-pointer active:scale-[0.98]"
+          >
+            {/* Centered Cash & Coins Icon Container */}
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gray-50 dark:bg-[#041801] text-gray-700 dark:text-green-300 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-105 transition-transform shadow-xs">
+              <Banknote className="w-6 h-6 sm:w-7 sm:h-7" />
             </div>
-          </div>
+
+            {/* Prominent Amount */}
+            <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+              ₦{totalLifetimePayments.toLocaleString()}
+            </div>
+
+            {/* Label */}
+            <div className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 mt-1">
+              Total Paid
+            </div>
+          </Link>
+
+          {/* Card 3: Courses Registered */}
+          <Link
+            to="/courses"
+            className="aspect-square w-full p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] transition-all flex flex-col items-center justify-center text-center shadow-xs group cursor-pointer active:scale-[0.98]"
+          >
+            {/* Centered Book Icon Container */}
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gray-50 dark:bg-[#041801] text-gray-700 dark:text-green-300 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-105 transition-transform shadow-xs">
+              <BookOpen className="w-6 h-6 sm:w-7 sm:h-7" />
+            </div>
+
+            {/* Prominent Stat */}
+            <div className="text-base sm:text-lg md:text-xl font-bold text-gray-900 dark:text-white tracking-tight">
+              {getCoursesCount()}
+            </div>
+
+            {/* Label */}
+            <div className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 mt-1">
+              Courses Registered
+            </div>
+          </Link>
+
+          {/* Card 4: Academic Results */}
+          <Link
+            to="/results"
+            className="aspect-square w-full p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] transition-all flex flex-col items-center justify-center text-center shadow-xs group cursor-pointer active:scale-[0.98]"
+          >
+            {/* Centered Bar Chart Icon Container */}
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gray-50 dark:bg-[#041801] text-gray-700 dark:text-green-300 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-105 transition-transform shadow-xs">
+              <BarChart3 className="w-6 h-6 sm:w-7 sm:h-7" />
+            </div>
+
+            {/* Prominent Stat */}
+            <div className="text-base sm:text-lg md:text-xl font-bold text-gray-900 dark:text-white tracking-tight">
+              {getResultsCount()}
+            </div>
+
+            {/* Label */}
+            <div className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 mt-1">
+              Academic Results
+            </div>
+          </Link>
 
         </div>
 

@@ -502,5 +502,120 @@ export async function adminRevokeDuesClearance({ reference, registrationNumber, 
   return { success: true };
 }
 
+/**
+ * Administrative: Fetch payment email notification delivery logs
+ */
+export async function fetchPaymentNotificationLogs({
+  status = 'ALL',
+  paymentType = 'ALL',
+  search = '',
+  limit = 50,
+  offset = 0
+} = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (status && status !== 'ALL') params.set('status', status);
+    if (paymentType && paymentType !== 'ALL') params.set('paymentType', paymentType);
+    if (search) params.set('search', search);
+    params.set('limit', String(limit));
+    params.set('offset', String(offset));
+
+    let adminToken = '';
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem('nacos_portal_admin_session') || localStorage.getItem('nacos_admin_token');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          adminToken = parsed.token || stored;
+        } catch (_) {
+          adminToken = stored;
+        }
+      }
+    }
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
+
+    const res = await fetch(`/api/admin/payment-notifications?${params.toString()}`, { headers });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('[Fetch Notification Logs API Warning]:', err.message);
+  }
+
+  // Fallback direct check against Supabase
+  if (supabase) {
+    try {
+      let query = supabase.from('payment_notifications').select('*', { count: 'exact' });
+      if (status && status !== 'ALL') query = query.eq('status', status.toLowerCase());
+      if (paymentType && paymentType !== 'ALL') query = query.eq('payment_type', paymentType.toUpperCase());
+      if (search) {
+        query = query.or(`payment_reference.ilike.%${search}%,registration_number.ilike.%${search}%,student_name.ilike.%${search}%,recipient_email.ilike.%${search}%`);
+      }
+      const { data, count } = await query.order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+
+      const { data: allNotifs } = await supabase.from('payment_notifications').select('status');
+      const stats = { total: 0, sent: 0, failed: 0, queued: 0 };
+      if (Array.isArray(allNotifs)) {
+        stats.total = allNotifs.length;
+        allNotifs.forEach(n => {
+          if (n.status === 'sent') stats.sent++;
+          else if (n.status === 'failed') stats.failed++;
+          else stats.queued++;
+        });
+      }
+
+      return {
+        notifications: data || [],
+        totalCount: count || 0,
+        stats
+      };
+    } catch (_) {}
+  }
+
+  return { notifications: [], totalCount: 0, stats: { total: 0, sent: 0, failed: 0, queued: 0 } };
+}
+
+/**
+ * Administrative: Retry a failed payment email notification
+ */
+export async function retryPaymentNotificationApi({ notificationId }) {
+  if (!notificationId) return { success: false, error: 'Notification ID required' };
+
+  try {
+    let adminToken = '';
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem('nacos_portal_admin_session') || localStorage.getItem('nacos_admin_token');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          adminToken = parsed.token || stored;
+        } catch (_) {
+          adminToken = stored;
+        }
+      }
+    }
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
+
+    const res = await fetch('/api/admin/payment-notifications/retry', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ notificationId })
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+    const errData = await res.json().catch(() => ({}));
+    return { success: false, error: errData.error || `HTTP ${res.status}` };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+
 
 

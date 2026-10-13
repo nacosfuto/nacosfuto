@@ -16,6 +16,10 @@ import {
   renderVerificationEmail,
   renderPasswordResetEmail,
   renderPaymentConfirmationEmail,
+  renderPaymentSuccessEmail,
+  renderPaymentFailedEmail,
+  renderPaymentReversedEmail,
+  formatPaymentCategoryName,
   renderRecoveryNotificationEmail,
   renderAdminAssignmentEmail,
   renderAdminSecurityCodeEmail
@@ -258,7 +262,14 @@ async function sendViaResend(resendConfig, { to, subject, html, text, from, repl
     payload.replyTo = replyTo;
     payload.reply_to = replyTo; // Dual property compatibility
   }
-  if (tags && Array.isArray(tags)) payload.tags = tags;
+  if (tags && Array.isArray(tags)) {
+    payload.tags = tags
+      .map(t => ({
+        name: String(t.name || 'tag').toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50),
+        value: String(t.value || '').toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50)
+      }))
+      .filter(t => Boolean(t.name && t.value));
+  }
 
   const { data, error } = await resend.emails.send(payload);
 
@@ -461,10 +472,37 @@ export async function sendPasswordResetEmail({ to, code, expiryMinutes = 10, stu
 }
 
 /**
- * High-Level Reusable Function: Send Payment Confirmation Email
+ * High-Level Reusable Function: Send Payment Success / Confirmation Email
  */
-export async function sendPaymentConfirmationEmail({ to, customerName = 'Student', reference, paymentType, amount, currency, paidAt, regNumber, level, session, replyTo }, overrideEnv = {}) {
-  const template = renderPaymentConfirmationEmail({ customerName, reference, paymentType, amount, currency, paidAt, regNumber, level, session });
+export async function sendPaymentSuccessEmail({
+  to,
+  customerName = 'Student',
+  regNumber = '',
+  reference,
+  paymentType,
+  amount,
+  currency = 'NGN',
+  paidAt = new Date().toISOString(),
+  level = '',
+  session = '2026/2027',
+  isIdCardGenerated = false,
+  portalUrl = '',
+  replyTo
+}, overrideEnv = {}) {
+  const template = renderPaymentSuccessEmail({
+    customerName,
+    regNumber,
+    reference,
+    paymentType,
+    amount,
+    currency,
+    paidAt,
+    level,
+    session,
+    isIdCardGenerated,
+    portalUrl
+  });
+
   return sendEmail({
     to,
     subject: template.subject,
@@ -472,7 +510,109 @@ export async function sendPaymentConfirmationEmail({ to, customerName = 'Student
     text: template.text,
     replyTo,
     emailType: 'payment_receipt',
-    tags: [{ name: 'category', value: 'payment_receipt' }]
+    tags: [
+      { name: 'category', value: 'payment_receipt' },
+      { name: 'payment_type', value: String(paymentType || 'custom').toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50) }
+    ]
+  }, overrideEnv);
+}
+
+/**
+ * Backward-compatible payment confirmation receipt alias
+ */
+export async function sendPaymentConfirmationEmail(params, overrideEnv = {}) {
+  return sendPaymentSuccessEmail(params, overrideEnv);
+}
+
+/**
+ * High-Level Reusable Function: Send Payment Failed Email
+ */
+export async function sendPaymentFailedEmail({
+  to,
+  customerName = 'Student',
+  regNumber = '',
+  reference,
+  paymentType,
+  amount,
+  currency = 'NGN',
+  failedAt = new Date().toISOString(),
+  failureReason = '',
+  level = '',
+  session = '2026/2027',
+  portalUrl = '',
+  replyTo
+}, overrideEnv = {}) {
+  const template = renderPaymentFailedEmail({
+    customerName,
+    regNumber,
+    reference,
+    paymentType,
+    amount,
+    currency,
+    failedAt,
+    failureReason,
+    level,
+    session,
+    portalUrl
+  });
+
+  return sendEmail({
+    to,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
+    replyTo,
+    emailType: 'payment_failed',
+    tags: [
+      { name: 'category', value: 'payment_failed' },
+      { name: 'payment_type', value: String(paymentType || 'custom').toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50) }
+    ]
+  }, overrideEnv);
+}
+
+/**
+ * High-Level Reusable Function: Send Payment Reversal / Refund Email
+ */
+export async function sendPaymentReversedEmail({
+  to,
+  customerName = 'Student',
+  regNumber = '',
+  reference,
+  paymentType,
+  amount,
+  currency = 'NGN',
+  reversedAt = new Date().toISOString(),
+  reversalReason = '',
+  level = '',
+  session = '2026/2027',
+  portalUrl = '',
+  replyTo
+}, overrideEnv = {}) {
+  const template = renderPaymentReversedEmail({
+    customerName,
+    regNumber,
+    reference,
+    paymentType,
+    amount,
+    currency,
+    reversedAt,
+    reversalReason,
+    level,
+    session,
+    portalUrl
+  });
+
+  return sendEmail({
+    to,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
+    replyTo,
+    emailType: 'payment_reversed',
+    tags: [
+      { name: 'category', value: 'payment_reversed' },
+      { name: 'payment_type', value: String(paymentType || 'custom').toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50) }
+    ]
   }, overrideEnv);
 }
 

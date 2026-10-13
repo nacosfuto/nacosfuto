@@ -87,14 +87,29 @@ const IdCard = () => {
   const [application, setApplication] = useState(null);
   const [currentSide, setCurrentSide] = useState('front'); // 'front' | 'back'
 
+  const getInitialStudentLevel = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('nacos_user');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const prog = calculateAcademicProgression(parsed, getActiveAcademicSession());
+          return prog.levelString || parsed.level || (parsed.current_level ? `${parsed.current_level} Level` : '100 Level');
+        }
+      } catch (_) {}
+    }
+    return '100 Level';
+  };
+
   const studentRef = useRef(student);
   const settingsRef = useRef(settings);
-  useEffect(() => {
-    studentRef.current = student;
-  }, [student]);
-  useEffect(() => {
-    settingsRef.current = settings;
-  }, [settings]);
+  const lastDrawnCardKeyRef = useRef('');
+  const lastFetchTimeRef = useRef(0);
+  const formLevelRef = useRef(getInitialStudentLevel());
+  const formSessionRef = useRef(getActiveAcademicSession());
+  const verifyingReferenceRef = useRef('');
+  const isVerifyingPaymentRef = useRef(false);
+  const paymentTransactionRef = useRef(null);
 
   // Interaction feedback states
   const [isApplying, setIsApplying] = useState(false);
@@ -126,7 +141,29 @@ const IdCard = () => {
   // Progressive Level & Session Selection Modal
   const [isNewPaymentModalOpen, setIsNewPaymentModalOpen] = useState(false);
   const [formSession, setFormSession] = useState(getActiveAcademicSession);
-  const [formLevel, setFormLevel] = useState('100');
+  const [formLevel, setFormLevel] = useState(getInitialStudentLevel);
+
+  useEffect(() => {
+    studentRef.current = student;
+  }, [student]);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+  useEffect(() => {
+    formLevelRef.current = formLevel;
+  }, [formLevel]);
+  useEffect(() => {
+    formSessionRef.current = formSession;
+  }, [formSession]);
+  useEffect(() => {
+    verifyingReferenceRef.current = verifyingReference;
+  }, [verifyingReference]);
+  useEffect(() => {
+    isVerifyingPaymentRef.current = isVerifyingPayment;
+  }, [isVerifyingPayment]);
+  useEffect(() => {
+    paymentTransactionRef.current = paymentTransaction;
+  }, [paymentTransaction]);
 
   useEffect(() => {
     loadStudentAndApplication();
@@ -142,8 +179,14 @@ const IdCard = () => {
           setIsVerifyingPayment(true);
           setPaymentStatusOutcome('PENDING');
           setVerifyingReference(savedTx.checkoutId || savedTx.reference || '');
-          if (savedTx.level) setFormLevel(savedTx.level);
-          if (savedTx.session) setFormSession(savedTx.session);
+          if (savedTx.level) {
+            formLevelRef.current = savedTx.level;
+            setFormLevel(savedTx.level);
+          }
+          if (savedTx.session) {
+            formSessionRef.current = savedTx.session;
+            setFormSession(savedTx.session);
+          }
           startPaymentVerificationPolling(savedTx.reference, savedTx.checkoutId, savedTx.level);
         } else {
           localStorage.removeItem('nacos_pending_id_card_tx');
@@ -159,8 +202,11 @@ const IdCard = () => {
     };
 
     const unsubSession = onAcademicSessionChange(({ sessionName }) => {
-      if (sessionName) setFormSession(sessionName);
-      loadStudentAndApplication();
+      if (sessionName && sessionName !== formSessionRef.current) {
+        formSessionRef.current = sessionName;
+        setFormSession(sessionName);
+        loadStudentAndApplication(formLevelRef.current);
+      }
     });
 
     window.addEventListener('nacos_id_card_settings_updated', handleSettingsUpdated);
@@ -194,9 +240,12 @@ const IdCard = () => {
 
       const pObs = getStudentApplicableLevelSessions(parsed) || [];
       const curOb = pObs.find(o => o.isCurrent) || pObs[pObs.length - 1];
+      const defaultStudentLevel = curOb?.level || parsed.level || (parsed.current_level ? `${parsed.current_level} Level` : '100 Level');
 
       const matric = parsed.matric || parsed.registration_number;
       const cleanMatric = String(matric || '').trim().toUpperCase();
+
+      const lookupLevel = preferredLevel || formLevelRef.current || defaultStudentLevel;
 
       // Parallelize settings, profile check, payments ledger, and application queries to eliminate waterfall
       const [cfg, profRow, dbPays, rawApp] = await Promise.all([
@@ -214,7 +263,7 @@ const IdCard = () => {
             ).then(res => res.data || []).catch(() => [])
           : Promise.resolve([]),
         cleanMatric
-          ? withTimeout(getStudentIdApplication(cleanMatric, preferredLevel || formLevel), 2500).catch(() => null)
+          ? withTimeout(getStudentIdApplication(cleanMatric, lookupLevel), 2500).catch(() => null)
           : Promise.resolve(null)
       ]);
 
@@ -253,7 +302,7 @@ const IdCard = () => {
           const isFailed = ['failed', 'cancelled', 'declined', 'error'].includes(rawStatus);
           const mappedStatus = isPaid ? 'PAID' : isPending ? 'PENDING' : isFailed ? 'FAILED' : 'UNPAID';
 
-          let payLevel = p.level || p.metadata?.level || '';
+          let payLevel = p.level || p.metadata?.level || p.metadata?.academic_level || '';
           let paySession = p.academic_session || p.metadata?.academic_session || p.metadata?.academicSession || p.session || '';
 
           if (!payLevel && paySession) {
@@ -262,6 +311,14 @@ const IdCard = () => {
           } else if (!paySession && payLevel) {
             const match = pObs.find(o => String(o.level).replace(/\D/g, '') === String(payLevel).replace(/\D/g, ''));
             if (match) paySession = match.session;
+          }
+
+          // If payment record has neither level nor session in DB, anchor to student's current obligation
+          if (!payLevel) {
+            payLevel = curOb?.level || defaultStudentLevel;
+          }
+          if (!paySession) {
+            paySession = curOb?.session || cfg?.academic_session || getActiveAcademicSession();
           }
 
           const payDate = p.paid_at || p.created_at || new Date().toISOString();
@@ -274,8 +331,8 @@ const IdCard = () => {
             transactionId: p.provider_payment_id || p.id || p.reference || 'TX-CONFIRMED',
             amount: amt,
             formattedAmount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
-            session: paySession || cfg?.academic_session || getActiveAcademicSession(),
-            level: payLevel ? (String(payLevel).includes('Level') ? payLevel : `${payLevel} Level`) : '',
+            session: paySession,
+            level: payLevel ? (String(payLevel).includes('Level') ? payLevel : `${payLevel} Level`) : (curOb?.level || defaultStudentLevel),
             paymentType: 'Student ID Card Issuance',
             paymentMethod: p.provider ? `${String(p.provider).replace(/bachs/gi, 'Online Gateway')} (${mappedStatus})` : `Online Gateway (${mappedStatus})`,
             date: !isNaN(dObj.getTime()) ? dObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Current Session',
@@ -289,38 +346,72 @@ const IdCard = () => {
         });
       }
 
-      // Determine the active target level
-      const targetLvl = preferredLevel || formLevel || curOb?.level;
-      const targetLvlNum = targetLvl ? String(targetLvl).replace(/[^0-9]/g, '') : null;
+      // If rawApp is verified/paid, ensure a corresponding paid entry exists in collectedIdCardPays
+      if (rawApp && (rawApp.payment_status === 'paid' || rawApp.payment_status === 'verified' || rawApp.status === 'generated')) {
+        const appLvl = rawApp.level || curOb?.level || defaultStudentLevel;
+        const appLvlNum = String(appLvl).replace(/\D/g, '');
+        const alreadyInPays = collectedIdCardPays.some(p => p.isPaid && String(p.level).replace(/\D/g, '') === appLvlNum);
+        if (!alreadyInPays) {
+          const amt = Number(rawApp.amount_paid || rawApp.amount || cfg?.id_card_fee || 0);
+          collectedIdCardPays.unshift({
+            id: rawApp.id || `idpay-${cleanMatric}`,
+            receiptNo: rawApp.payment_reference || `NACOS/IDCARD/${cleanMatric}`,
+            transactionId: rawApp.payment_reference || 'TX-CONFIRMED',
+            amount: amt,
+            formattedAmount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+            session: rawApp.academic_session || curOb?.session || cfg?.academic_session || getActiveAcademicSession(),
+            level: appLvl.includes('Level') ? appLvl : `${appLvl} Level`,
+            paymentType: 'Student ID Card Issuance',
+            paymentMethod: 'Online Gateway (Confirmed)',
+            date: rawApp.paid_at ? new Date(rawApp.paid_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+            time: rawApp.paid_at ? new Date(rawApp.paid_at).toLocaleTimeString('en-GB') : new Date().toLocaleTimeString('en-GB'),
+            status: 'APPROVED',
+            isPaid: true
+          });
+        }
+      }
 
-      let targetPaidRecord = collectedIdCardPays.find(p => {
-        if (!p.isPaid) return false;
-        const pLvlNum = String(p.level || '').replace(/[^0-9]/g, '');
-        return Boolean(pLvlNum && targetLvlNum && pLvlNum === targetLvlNum);
-      });
-
-      if (!preferredLevel && !targetPaidRecord) {
-        const anyPaid = collectedIdCardPays.find(p => p.isPaid);
-        if (anyPaid && anyPaid.level) {
-          const matchOb = pObs.find(o => String(o.level).replace(/[^0-9]/g, '') === String(anyPaid.level).replace(/[^0-9]/g, ''));
-          if (matchOb) {
-            targetPaidRecord = anyPaid;
-            setFormLevel(matchOb.level);
-            setFormSession(matchOb.session);
+      // Determine authoritative active level:
+      // Priority: explicitly requested level -> current level (if paid) -> any level (if paid) -> student's current level
+      let activeTargetLvl = preferredLevel || formLevelRef.current;
+      if (!preferredLevel) {
+        const curNum = String(curOb?.level || '').replace(/\D/g, '');
+        const curPaid = collectedIdCardPays.find(p => p.isPaid && String(p.level || '').replace(/\D/g, '') === curNum);
+        if (curPaid) {
+          activeTargetLvl = curOb.level;
+        } else {
+          const anyPaid = collectedIdCardPays.find(p => p.isPaid);
+          if (anyPaid && anyPaid.level) {
+            activeTargetLvl = anyPaid.level;
+          } else if (curOb?.level) {
+            activeTargetLvl = curOb.level;
           }
         }
       }
 
+      const activeTargetLvlNum = activeTargetLvl ? String(activeTargetLvl).replace(/\D/g, '') : null;
       const activeOb = pObs.find(o => {
-        const l1 = String(o.level || '').replace(/\D/g, '');
-        const l2 = String(formLevel || preferredLevel || '').replace(/\D/g, '');
-        return l1 && l2 && l1 === l2;
-      }) || (targetPaidRecord ? pObs.find(o => String(o.level).replace(/\D/g, '') === String(targetPaidRecord.level).replace(/\D/g, '')) : null) || curOb;
+        const lNum = String(o.level || '').replace(/\D/g, '');
+        return lNum && activeTargetLvlNum && lNum === activeTargetLvlNum;
+      }) || curOb || pObs[0];
 
       if (activeOb) {
-        setFormLevel(activeOb.level);
-        setFormSession(activeOb.session);
+        if (formLevelRef.current !== activeOb.level) {
+          formLevelRef.current = activeOb.level;
+          setFormLevel(activeOb.level);
+        }
+        if (formSessionRef.current !== activeOb.session) {
+          formSessionRef.current = activeOb.session;
+          setFormSession(activeOb.session);
+        }
       }
+
+      const activeObLvlNum = activeOb ? String(activeOb.level).replace(/\D/g, '') : null;
+      const targetPaidRecord = collectedIdCardPays.find(p => {
+        if (!p.isPaid) return false;
+        const pNum = String(p.level || '').replace(/\D/g, '');
+        return Boolean(pNum && activeObLvlNum && pNum === activeObLvlNum);
+      });
 
       const isTargetPaid = Boolean(targetPaidRecord);
       let app = rawApp;
@@ -343,12 +434,13 @@ const IdCard = () => {
           }
 
           if (photoToUse) {
+            const needsDbSync = app.status !== 'generated' || app.payment_status !== 'paid' || !app.passport_url || !app.id_card_number;
             app.status = 'generated';
             app.passport_url = photoToUse;
             if (!app.id_card_number) app.id_card_number = cleanDigits;
             app.generated_at = app.generated_at || new Date().toISOString();
 
-            if (supabase && app.id) {
+            if (needsDbSync && supabase && app.id) {
               supabase.from('id_card_applications').update({
                 status: 'generated',
                 payment_status: 'paid',
@@ -366,35 +458,27 @@ const IdCard = () => {
         }
       }
 
-      if (collectedIdCardPays.length === 0 && (app?.payment_status === 'paid' || app?.payment_status === 'verified' || app?.status === 'generated')) {
-        const amt = Number(cfg?.id_card_fee || 0);
-        collectedIdCardPays.push({
-          id: `idpay-${cleanMatric}`,
-          receiptNo: app?.payment_reference || `NACOS/IDCARD/${cleanMatric}`,
-          transactionId: app?.payment_reference || 'TX-CONFIRMED',
-          amount: amt,
-          formattedAmount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
-          session: app?.academic_session || cfg?.academic_session || getActiveAcademicSession(),
-          level: app?.level || (parsed?.level ? `${parsed.level} Level` : ''),
-          paymentType: 'Student ID Card Issuance',
-          paymentMethod: 'Online Gateway (Confirmed)',
-          date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-          time: new Date().toLocaleTimeString('en-GB'),
-          status: 'APPROVED',
-          isPaid: true
-        });
-      }
-
       setIdCardPayments(collectedIdCardPays);
       setApplication(app);
     } catch (err) {
       console.error('ID Card page data load notice:', err);
     } finally {
       setLoading(false);
+      lastFetchTimeRef.current = Date.now();
     }
   };
 
 
+
+
+  const handleViewIdCard = () => {
+    const el = document.getElementById('nacos-id-card-stage');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
@@ -550,26 +634,26 @@ const IdCard = () => {
 
         setPaymentStatusOutcome('SUCCESS');
         showNotification('Payment confirmed! Updating ID card...');
-        loadStudentAndApplication(paidLvl);
+        loadStudentAndApplication(paidLvl || formLevelRef.current);
         setTimeout(handleViewIdCard, 300);
       }
     };
     window.addEventListener('storage', handleStorageEvent);
 
-    // Automatic recheck when student switches back to this tab (visibilitychange & focus)
-    const handleVisibilityOrFocus = async () => {
+    // Automatic authoritative recheck when student switches back to this tab (visibilitychange only, throttled)
+    const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
-        const targetRef = paymentTransaction?.reference || verifyingReference || searchParams.get('reference');
-        const targetChk = paymentTransaction?.checkoutId || searchParams.get('checkout_id') || searchParams.get('checkoutId');
-        if (targetRef || targetChk || isVerifyingPayment) {
-          await checkPaymentStatusAuthoritative(targetRef, targetChk, formLevel);
-        } else {
-          await loadStudentAndApplication();
+        const targetRef = paymentTransactionRef.current?.reference || verifyingReferenceRef.current || searchParams.get('reference');
+        const targetChk = paymentTransactionRef.current?.checkoutId || searchParams.get('checkout_id') || searchParams.get('checkoutId');
+        if (targetRef || targetChk || isVerifyingPaymentRef.current) {
+          await checkPaymentStatusAuthoritative(targetRef, targetChk, formLevelRef.current);
+        } else if (Date.now() - lastFetchTimeRef.current > 30000) {
+          // Throttled: only re-fetch if at least 30s have elapsed
+          await loadStudentAndApplication(formLevelRef.current);
         }
       }
     };
-    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
-    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const paymentAction = searchParams.get('payment');
     const ref = searchParams.get('reference');
@@ -579,7 +663,7 @@ const IdCard = () => {
       setIsVerifyingPayment(true);
       setPaymentStatusOutcome('PENDING');
       setVerifyingReference(chkId || ref);
-      startPaymentVerificationPolling(ref, chkId, formLevel);
+      startPaymentVerificationPolling(ref, chkId, formLevelRef.current);
     } else if (paymentAction === 'cancelled') {
       setIsVerifyingPayment(true);
       setPaymentStatusOutcome('CANCELLED');
@@ -594,10 +678,9 @@ const IdCard = () => {
     return () => {
       if (channel) channel.close();
       window.removeEventListener('storage', handleStorageEvent);
-      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
-      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [searchParams, formLevel, verifyingReference, isVerifyingPayment, paymentTransaction]);
+  }, [searchParams]);
 
   useEffect(() => {
     return () => {
@@ -728,20 +811,17 @@ const IdCard = () => {
       setIsNewPaymentModalOpen(false);
       return;
     }
-    if (!application) {
-      setIsApplying(true);
-      const res = await createIdCardApplication(student);
-      setIsApplying(false);
-      if (res?.error) {
-        showNotification(res.error, 'error');
-        return;
-      }
-      if (res?.application) {
-        setApplication(res.application);
-      }
-    }
+
     setIsNewPaymentModalOpen(false);
-    setIsStepUpOpen(true);
+
+    // Synchronously open a new window on user click to guarantee no popup blocker interferes
+    let gatewayTab = null;
+    try {
+      gatewayTab = window.open('/gateway-redirect.html', '_blank');
+      gatewayWindowRef.current = gatewayTab;
+    } catch (_) {}
+
+    await executeIdCardCheckout(null, gatewayTab);
   };
 
   // State 2 -> State 3: Bachs Payment Checkout Session
@@ -753,10 +833,19 @@ const IdCard = () => {
     setIsNewPaymentModalOpen(true);
   };
 
-  const executeIdCardCheckout = async (actionToken) => {
+  const executeIdCardCheckout = async (actionToken = null, existingGatewayTab = null) => {
     setIsPaying(true);
 
     try {
+      if (!application) {
+        setIsApplying(true);
+        const res = await createIdCardApplication(student);
+        setIsApplying(false);
+        if (res?.application) {
+          setApplication(res.application);
+        }
+      }
+
       const resp = await fetch('/api/payments/id-card/create-checkout', {
         method: 'POST',
         headers: { 
@@ -775,21 +864,49 @@ const IdCard = () => {
       const data = await resp.json();
 
       if (data.alreadyPaid) {
+        if (existingGatewayTab && !existingGatewayTab.closed) {
+          existingGatewayTab.close();
+        }
         setIsPaying(false);
         showNotification('Payment already completed and confirmed!');
-        await loadStudentAndApplication();
+        await loadStudentAndApplication(formLevelRef.current);
         return;
       }
 
       if (data.error) {
+        if (existingGatewayTab && !existingGatewayTab.closed) {
+          existingGatewayTab.close();
+        }
         setIsPaying(false);
         showNotification(data.error, 'error');
         return;
       }
 
       if (data.checkoutUrl) {
-        // 1. Authoritative Bachs checkout opened in a NEW TAB
-        const gatewayTab = window.open(data.checkoutUrl, '_blank');
+        // Broadcast to localStorage for seamless cross-window / redirect sync
+        try {
+          localStorage.setItem('nacos_active_gateway_redirect', JSON.stringify({
+            checkoutUrl: data.checkoutUrl,
+            timestamp: Date.now()
+          }));
+        } catch (_) {}
+
+        // 1. Direct the new window to the payment gateway
+        let gatewayTab = existingGatewayTab;
+        if (gatewayTab && !gatewayTab.closed) {
+          try {
+            gatewayTab.location.replace(data.checkoutUrl);
+          } catch (_) {
+            try { gatewayTab.location.href = data.checkoutUrl; } catch (_) {}
+          }
+          try {
+            gatewayTab.postMessage({ checkoutUrl: data.checkoutUrl }, '*');
+          } catch (_) {}
+        } else {
+          try {
+            gatewayTab = window.open(data.checkoutUrl, '_blank');
+          } catch (_) {}
+        }
         gatewayWindowRef.current = gatewayTab;
 
         // 2. Persist active transaction in state & localStorage
@@ -797,7 +914,7 @@ const IdCard = () => {
           reference: data.reference,
           checkoutId: data.providerCheckoutId || '',
           checkoutUrl: data.checkoutUrl,
-          amount: data.amount || settingsRef.current?.id_card_fee || 500,
+          amount: Number(data.amount || settingsRef.current?.id_card_fee || 0),
           level: formLevel,
           session: formSession,
           initiatedAt: new Date().toISOString()
@@ -829,13 +946,19 @@ const IdCard = () => {
 
         // 4. Start backend polling
         startPaymentVerificationPolling(data.reference, data.providerCheckoutId, formLevel);
-        showNotification('Payment checkout opened in a new tab. Complete payment there to proceed.');
+        showNotification('Payment gateway opened in a new window. Complete payment there to proceed.');
         return;
       } else {
+        if (existingGatewayTab && !existingGatewayTab.closed) {
+          existingGatewayTab.close();
+        }
         setIsPaying(false);
         showNotification('Could not obtain checkout session. Please try again.', 'error');
       }
     } catch (e) {
+      if (existingGatewayTab && !existingGatewayTab.closed) {
+        existingGatewayTab.close();
+      }
       setIsPaying(false);
       showNotification('Payment service unreachable. Please try again.', 'error');
     }
@@ -862,15 +985,6 @@ const IdCard = () => {
     navigate(`/receipt?reference=${encodeURIComponent(row.receiptNo || row.id)}&type=id_card`, {
       state: { receiptData: payload }
     });
-  };
-
-  const handleViewIdCard = () => {
-    const el = document.getElementById('nacos-id-card-stage');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
   };
 
   // State 3 -> State 7: Photo Upload & Instant ID Generation
@@ -1049,18 +1163,6 @@ const IdCard = () => {
     }
   };
 
-  if (loading && !student) {
-    return (
-      <PortalLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center space-y-2">
-            <RefreshCw className="w-7 h-7 text-[#138601] animate-spin mx-auto" />
-            <p className="text-xs text-gray-500 font-medium">Verifying ID application status & records...</p>
-          </div>
-        </div>
-      </PortalLayout>
-    );
-  }
 
   if (!student) {
     return (
@@ -1115,7 +1217,7 @@ const IdCard = () => {
 
     return {
       ...ob,
-      amount: matchingPayment?.amount || Number(settings?.id_card_fee || 500),
+      amount: matchingPayment?.amount ? Number(matchingPayment.amount) : (settings?.id_card_fee != null ? Number(settings.id_card_fee) : 0),
       status,
       isPaid: isObligationPaid,
       isPending: isObligationPending,
@@ -1137,18 +1239,22 @@ const IdCard = () => {
   }) || levelObligations.find(o => String(o.session).trim() === String(formSession).trim()) || currentLevelObligation || levelObligations[0] || {
     level: formLevel || studentLevel || '100 Level',
     session: formSession || currentAcademicSession || '2026/2027',
-    amount: settings?.id_card_fee || 500,
+    amount: (settings?.id_card_fee != null ? Number(settings.id_card_fee) : 0),
     status: 'UNPAID',
     isPaid: false
   };
 
   const handleSelectObligation = async (ob) => {
+    formLevelRef.current = ob.level;
+    formSessionRef.current = ob.session;
     setFormLevel(ob.level);
     setFormSession(ob.session);
     await loadStudentAndApplication(ob.level);
   };
 
   const handlePayObligation = (ob) => {
+    formLevelRef.current = ob.level;
+    formSessionRef.current = ob.session;
     setFormLevel(ob.level);
     setFormSession(ob.session);
     setIsNewPaymentModalOpen(true);
@@ -1178,21 +1284,36 @@ const IdCard = () => {
   useEffect(() => {
     if ((isState7 || application?.status === 'generated') && canvasRef.current && student) {
       const photoUrl = application?.passport_url || student.profile_photo_url || student.avatar_url;
+      const cardLevel = selectedObligation?.level || application?.level || student?.level || '100 Level';
+      const cardSession = selectedObligation?.session || application?.academic_session || settings?.academic_session || '2026/2027';
+      const cardKey = `${student?.matric || student?.registration_number || 'NACOS'}-${cardLevel}-${cardSession}-${photoUrl || 'no_photo'}-${application?.status || 'gen'}`;
+
+      if (lastDrawnCardKeyRef.current === cardKey && canvasRef.current.width > 0) {
+        return;
+      }
+
       const cardInfo = {
         ...application,
-        level: selectedObligation?.level || application?.level || student?.level || '100 Level',
-        academic_session: selectedObligation?.session || application?.academic_session || settings?.academic_session
+        level: cardLevel,
+        academic_session: cardSession
       };
+
       const render = (img) => {
         drawIdCardOnCanvas(canvasRef.current, student, img, cardInfo, {
           templateImgUrl: masterTemplateAsset,
           frameImgUrl: frameAsset
         }).then(() => {
+          lastDrawnCardKeyRef.current = cardKey;
           if (!application?.id_card_image_url && canvasRef.current && application?.id) {
             try {
               const dataUrl = canvasRef.current.toDataURL('image/png');
-              saveGeneratedIdCardAsset(application.id, dataUrl);
-              setApplication(prev => ({ ...prev, id_card_image_url: dataUrl }));
+              if (dataUrl) {
+                saveGeneratedIdCardAsset(application.id, dataUrl);
+                setApplication(prev => {
+                  if (prev?.id_card_image_url === dataUrl) return prev;
+                  return { ...prev, id_card_image_url: dataUrl };
+                });
+              }
             } catch (e) { }
           }
         });
@@ -1208,7 +1329,7 @@ const IdCard = () => {
         render(null);
       }
     }
-  }, [application?.status, isState7, student, selectedObligation?.level, selectedObligation?.session]);
+  }, [application?.status, isState7, student?.matric, student?.profile_photo_url, selectedObligation?.level, selectedObligation?.session]);
 
   // Format card expiration date (1-year validity from generation or current session)
   const expiryDateFormatted = (() => {
@@ -1308,7 +1429,7 @@ const IdCard = () => {
                         {ob.session}
                       </td>
                       <td className="py-4 px-4 font-semibold text-gray-900 dark:text-white">
-                        {ob.amount ? Number(ob.amount).toLocaleString() : '500'}
+                        {ob.amount ? Number(ob.amount).toLocaleString() : (settings?.id_card_fee ? Number(settings.id_card_fee).toLocaleString() : '—')}
                       </td>
                       <td className="py-4 px-4 font-mono text-xs text-gray-700 dark:text-gray-200">
                         {ob.receiptNo ? (
@@ -1507,14 +1628,15 @@ const IdCard = () => {
                   </button>
 
                   {paymentTransaction?.checkoutUrl && (
-                    <button
-                      type="button"
-                      onClick={handleReopenGatewayTab}
-                      className="w-full sm:w-auto px-5 py-3 min-h-[44px] text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200 dark:border-[#138601]/30 rounded-xl transition-all cursor-pointer inline-flex items-center justify-center gap-2"
+                    <a
+                      href={paymentTransaction.checkoutUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full sm:w-auto px-5 py-3 min-h-[44px] text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] border border-transparent rounded-xl transition-all cursor-pointer inline-flex items-center justify-center gap-2 shadow-xs"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Reopen Payment Tab</span>
-                    </button>
+                      <span>Open Payment Gateway (New Window)</span>
+                    </a>
                   )}
 
                   <button
@@ -2552,9 +2674,9 @@ const IdCard = () => {
                     ? 'Already Settled'
                     : isVerifyingPayment && paymentStatusOutcome === 'PENDING'
                     ? 'Payment Pending Confirmation'
-                    : `Submit Payment (₦${Number(selectedObligation?.amount || settings?.id_card_fee || 0).toLocaleString()})`}
+                    : `Make Payment (₦${Number(selectedObligation?.amount || settings?.id_card_fee || 0).toLocaleString()})`}
                 </span>
-                {!selectedObligation?.isPaid && !(isVerifyingPayment && paymentStatusOutcome === 'PENDING') && <ArrowRight className="w-4 h-4" />}
+                {!selectedObligation?.isPaid && !(isVerifyingPayment && paymentStatusOutcome === 'PENDING') && <ExternalLink className="w-4 h-4" />}
               </button>
             </div>
 

@@ -414,10 +414,6 @@ const Profile = () => {
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight">
                   {displayName}
                 </h2>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-green-50 dark:bg-[#138601]/20 text-[#138601] dark:text-[#4bd043] border border-green-200 dark:border-[#138601]/30" title="Verified Database Account">
-                  <ShieldCheck className="w-3 h-3" />
-                  <span>Verified Database Record</span>
-                </span>
               </div>
 
               <p className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-green-200/80 font-mono">
