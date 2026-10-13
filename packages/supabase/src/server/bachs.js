@@ -454,20 +454,42 @@ export async function createPaymentCheckout({
   const customerPhone = (student?.phone_number || student?.phone || customer?.phone || '').trim();
 
   // 1b. Determine authoritative session and progressive level
-  const targetSession = String(
-    metadata?.academicSession || 
-    metadata?.academic_session || 
-    await getAuthoritativeActiveSession()
-  ).trim();
-  const sessionYears = parseSessionYears(targetSession);
+  const globalActiveSession = await getAuthoritativeActiveSession();
+  const sessionYears = parseSessionYears(globalActiveSession);
 
+  // Authoritative student progression under currently active session configured by admin
   const progression = calculateAcademicProgression(student || customer || { registration_number: regNo }, {
     targetSessionStartYear: sessionYears.startYear
   });
+
+  const maxAllowedLevel = (progression && progression.valid && progression.numericLevel)
+    ? progression.numericLevel * 100
+    : 100;
+
+  const targetSession = String(
+    metadata?.academicSession || 
+    metadata?.academic_session || 
+    globalActiveSession
+  ).trim();
+
   const requestedLevelNum = metadata?.level ? String(metadata.level).replace(/[^0-9]/g, '') : '';
+  const requestedLevelInt = requestedLevelNum ? parseInt(requestedLevelNum, 10) : maxAllowedLevel;
+
+  // Enforce progressive academic level restriction: students cannot initiate payments for future academic levels
+  if (
+    (normalizedType === 'ID_CARD' || normalizedType === 'DEPARTMENTAL_DUES' || normalizedType === 'DUES' || requestedLevelNum) &&
+    requestedLevelInt > maxAllowedLevel
+  ) {
+    return {
+      error: `Payment not allowed: You cannot initiate payment for future academic level (${requestedLevelInt} Level). Your active academic level is ${progression.levelString || `${maxAllowedLevel} Level`} under active session ${globalActiveSession}.`,
+      statusCode: 403,
+      progression
+    };
+  }
+
   const studentLevelDisplay = requestedLevelNum
     ? `${requestedLevelNum} Level`
-    : (progression.level || (student.level ? `${student.level} Level` : '100 Level'));
+    : (progression.level || (student?.level ? `${student.level} Level` : '100 Level'));
   const studentNumericLevel = requestedLevelNum ? parseInt(requestedLevelNum, 10) : (progression.numericLevel || 1);
 
   // 2. Prevent duplicate charges for non-repeatable payments
@@ -818,9 +840,23 @@ export async function createIdCardCheckout({ student, returnBaseUrl, academicSes
     return { error: eligibility.reason, statusCode: 400 };
   }
 
-  const targetSession = String(academicSession || await getAuthoritativeActiveSession()).trim();
-  const sessionYears = parseSessionYears(targetSession);
+  const globalActiveSession = await getAuthoritativeActiveSession();
+  const sessionYears = parseSessionYears(globalActiveSession);
   const progression = calculateAcademicProgression(student, { targetSessionStartYear: sessionYears.startYear });
+  const maxAllowedLevel = (progression && progression.valid && progression.numericLevel)
+    ? progression.numericLevel * 100
+    : 100;
+
+  const reqLvlNum = level ? parseInt(String(level).replace(/[^0-9]/g, ''), 10) : maxAllowedLevel;
+  if (!isNaN(reqLvlNum) && reqLvlNum > maxAllowedLevel) {
+    return {
+      error: `Payment not allowed: You cannot initiate payment for future academic level (${reqLvlNum} Level). Your active academic level is ${progression.levelString || `${maxAllowedLevel} Level`} under active session ${globalActiveSession}.`,
+      statusCode: 403,
+      progression
+    };
+  }
+
+  const targetSession = String(academicSession || globalActiveSession).trim();
   const targetLevel = level ? (String(level).includes('Level') ? String(level) : `${level} Level`) : (progression.level || '100 Level');
 
   return createPaymentCheckout({
@@ -847,9 +883,23 @@ export async function createDuesCheckout({ student, returnBaseUrl, academicSessi
     return { error: eligibility.reason, statusCode: 400 };
   }
 
-  const targetSession = String(academicSession || await getAuthoritativeActiveSession()).trim();
-  const sessionYears = parseSessionYears(targetSession);
+  const globalActiveSession = await getAuthoritativeActiveSession();
+  const sessionYears = parseSessionYears(globalActiveSession);
   const progression = calculateAcademicProgression(student, { targetSessionStartYear: sessionYears.startYear });
+  const maxAllowedLevel = (progression && progression.valid && progression.numericLevel)
+    ? progression.numericLevel * 100
+    : 100;
+
+  const reqLvlNum = level ? parseInt(String(level).replace(/[^0-9]/g, ''), 10) : maxAllowedLevel;
+  if (!isNaN(reqLvlNum) && reqLvlNum > maxAllowedLevel) {
+    return {
+      error: `Payment not allowed: You cannot initiate payment for future academic level (${reqLvlNum} Level). Your active academic level is ${progression.levelString || `${maxAllowedLevel} Level`} under active session ${globalActiveSession}.`,
+      statusCode: 403,
+      progression
+    };
+  }
+
+  const targetSession = String(academicSession || globalActiveSession).trim();
   const targetLevel = level ? (String(level).includes('Level') ? String(level) : `${level} Level`) : (progression.level || '100 Level');
 
   return createPaymentCheckout({

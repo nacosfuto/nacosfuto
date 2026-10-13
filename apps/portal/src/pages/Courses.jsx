@@ -17,7 +17,7 @@ import {
 import PortalLayout from '../components/PortalLayout';
 import { getAppUrls } from '@nacos/config/urls';
 import { fetchCourses } from '@nacos/supabase';
-import { calculateAcademicProgression } from '@nacos/config/academic';
+import { calculateAcademicProgression, getActiveAcademicSession, onAcademicSessionChange } from '@nacos/config/academic';
 
 const Courses = () => {
   // User Authentication / State
@@ -33,9 +33,20 @@ const Courses = () => {
     return {};
   });
 
+  const [activeSession, setActiveSession] = useState(getActiveAcademicSession);
+
+  useEffect(() => {
+    const unsub = onAcademicSessionChange(({ sessionName }) => {
+      if (sessionName) setActiveSession(sessionName);
+    });
+    return () => {
+      if (unsub) unsub();
+    };
+  }, []);
+
   // Calculate Student Current Level
   const currentStudentLevel = useMemo(() => {
-    const prog = calculateAcademicProgression(user);
+    const prog = calculateAcademicProgression(user, getActiveAcademicSession());
     if (prog && prog.valid && prog.numericLevel) {
       return Math.min(500, Math.max(100, prog.numericLevel * 100));
     }
@@ -43,7 +54,11 @@ const Courses = () => {
     const match = levelStr.match(/(\d{3})/);
     if (match) return parseInt(match[1], 10);
     return 100;
-  }, [user]);
+  }, [user, activeSession]);
+
+  const availableLevels = useMemo(() => {
+    return [100, 200, 300, 400, 500].filter((lvl) => lvl <= currentStudentLevel);
+  }, [currentStudentLevel]);
 
   // Courses Dynamic State (from database, defaults to [])
   const [coursesList, setCoursesList] = useState([]);
@@ -91,9 +106,23 @@ const Courses = () => {
   // Course Details Modal State
   const [activeCourseModal, setActiveCourseModal] = useState(null);
 
+  useEffect(() => {
+    if (selectedLevel !== 'all') {
+      const numLvl = parseInt(selectedLevel, 10);
+      if (!isNaN(numLvl) && numLvl > currentStudentLevel) {
+        setSelectedLevel('all');
+      }
+    }
+  }, [currentStudentLevel, selectedLevel]);
+
   // Filtered registered courses
   const filteredCourses = useMemo(() => {
     return coursesList.filter((course) => {
+      // Future courses beyond current academic level must never be shown
+      const courseLvl = parseInt(String(course.level || '').replace(/\D/g, ''), 10);
+      if (!isNaN(courseLvl) && courseLvl > currentStudentLevel) {
+        return false;
+      }
       if (selectedLevel !== 'all' && String(course.level) !== selectedLevel) {
         return false;
       }
@@ -112,7 +141,7 @@ const Courses = () => {
       }
       return true;
     });
-  }, [coursesList, selectedLevel, selectedSemester, searchTerm]);
+  }, [coursesList, selectedLevel, selectedSemester, searchTerm, currentStudentLevel]);
 
   // Total Credit Units for currently displayed curriculum
   const totalUnits = useMemo(() => {
@@ -205,12 +234,12 @@ const Courses = () => {
                   onChange={(e) => setSelectedLevel(e.target.value)}
                   className="px-3 py-1.5 text-xs rounded-lg bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/40 text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-1 focus:ring-[#138601] cursor-pointer"
                 >
-                  <option value="all">All Levels (100L – 500L)</option>
-                  <option value="100">100 Level</option>
-                  <option value="200">200 Level</option>
-                  <option value="300">300 Level</option>
-                  <option value="400">400 Level</option>
-                  <option value="500">500 Level</option>
+                  <option value="all">
+                    {currentStudentLevel >= 500 ? 'All Levels (100L – 500L)' : `All Levels (100L – ${currentStudentLevel}L)`}
+                  </option>
+                  {availableLevels.map((lvl) => (
+                    <option key={lvl} value={String(lvl)}>{lvl} Level</option>
+                  ))}
                 </select>
               </div>
 

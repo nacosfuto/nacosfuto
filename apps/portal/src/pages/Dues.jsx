@@ -565,6 +565,14 @@ const Dues = () => {
   };
 
   const handleSubmitNewInvoice = () => {
+    const prog = calculateAcademicProgression(user, getActiveAcademicSession());
+    const maxAllowedLvl = (prog?.numericLevel || 1) * 100;
+    const lvlNum = parseInt(String(formLevel).replace(/\D/g, ''), 10);
+    if (!isNaN(lvlNum) && lvlNum > maxAllowedLvl) {
+      alert(`Payment not allowed: You cannot initiate payment for future academic level (${lvlNum} Level). Your active level is ${prog?.levelString || '100 Level'}.`);
+      return;
+    }
+
     let gatewayTab = null;
     try {
       gatewayTab = window.open('about:blank', '_blank');
@@ -629,6 +637,19 @@ const Dues = () => {
     setIsProcessing(true);
     const activeLevel = targetLevel || formLevel;
     const activeSession = targetSession || formSession;
+
+    // Progressive academic-level guard: students cannot pay for future levels
+    const prog = calculateAcademicProgression(user, getActiveAcademicSession());
+    const maxAllowedLvl = (prog?.numericLevel || 1) * 100;
+    const lvlInt = parseInt(String(activeLevel).replace(/\D/g, ''), 10);
+    if (!isNaN(lvlInt) && lvlInt > maxAllowedLvl) {
+      if (existingGatewayTab && !existingGatewayTab.closed) {
+        existingGatewayTab.close();
+      }
+      setIsProcessing(false);
+      alert(`Payment not allowed: You cannot initiate payment for future academic level (${lvlInt} Level). Your active level is ${prog?.levelString || '100 Level'}.`);
+      return;
+    }
 
     try {
       const resp = await fetch('/api/payments/dues/create-checkout', {
@@ -744,6 +765,15 @@ const Dues = () => {
   const handlePayLevel = (lvl, session = null) => {
     const lvlNum = String(lvl || '').replace(/\D/g, '') || formLevel;
     const targetSession = session || formSession;
+
+    // Validate level eligibility against student's current active level
+    const prog = calculateAcademicProgression(user, getActiveAcademicSession());
+    const maxAllowedLvl = (prog?.numericLevel || 1) * 100;
+    if (parseInt(lvlNum, 10) > maxAllowedLvl) {
+      alert(`Payment not allowed: You cannot initiate payment for future academic level (${lvlNum} Level). Your active academic level is ${prog?.levelString || '100 Level'}.`);
+      return;
+    }
+
     setFormLevel(lvlNum);
     if (session) {
       setFormSession(session);
@@ -808,10 +838,17 @@ const Dues = () => {
     executeCheckout(null, gatewayTab, lvlNum, targetSession);
   };
 
-  // Authoritative Level-by-Level Dues Representation (100L through 500L, exactly one row per level)
-  const ACADEMIC_LEVELS = ['100', '200', '300', '400', '500'];
+  // Progressive Academic-Level Representation:
+  // Students only see payment options/rows for levels they have reached under the active session.
+  // Preserves any historical paid dues for previously completed levels even if session moves backwards.
   const progression = calculateAcademicProgression(user, getActiveAcademicSession());
   const admissionYear = progression?.admissionYear || extractEntryYearFromRegNumber(user?.registration_number || user?.matric) || 2024;
+  const reachableLevels = getProgressiveLevels(user);
+  const paidHistoricalLevels = Object.keys(levelDuesMap).filter(lvl => {
+    const p = levelDuesMap[lvl];
+    return p && p.isPaid && !reachableLevels.includes(lvl);
+  });
+  const ACADEMIC_LEVELS = Array.from(new Set([...reachableLevels, ...paidHistoricalLevels])).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
 
   const duesRowsByLevel = ACADEMIC_LEVELS.map(lvl => {
     const lvlNum = parseInt(lvl, 10);

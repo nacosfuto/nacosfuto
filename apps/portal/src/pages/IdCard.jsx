@@ -260,7 +260,11 @@ const IdCard = () => {
       const matric = parsed.matric || parsed.registration_number;
       const cleanMatric = String(matric || '').trim().toUpperCase();
 
-      const lookupLevel = preferredLevel ? normalizeLevel(preferredLevel) : (formLevelRef.current || defaultStudentLevel);
+      const pProg = calculateAcademicProgression(parsed, getActiveAcademicSession());
+      const maxLvlNum = (pProg?.numericLevel || 1) * 100;
+      let rawLookupLevel = preferredLevel ? normalizeLevel(preferredLevel) : (formLevelRef.current || defaultStudentLevel);
+      const rawLookupNum = parseInt(String(rawLookupLevel).replace(/\D/g, ''), 10);
+      const lookupLevel = (!isNaN(rawLookupNum) && rawLookupNum > maxLvlNum) ? defaultStudentLevel : rawLookupLevel;
 
       // Parallelize settings, profile check, payments ledger, and application queries to eliminate waterfall
       const [cfg, profRow, dbPays, rawApp] = await Promise.all([
@@ -512,9 +516,14 @@ const IdCard = () => {
 
     // Synchronize selection state so canvas renders the target obligation details
     if (targetOb) {
-      setSelectedObligation(targetOb);
-      if (targetOb.level) setFormLevel(normalizeLevel(targetOb.level));
-      if (targetOb.session) setFormSession(targetOb.session);
+      if (targetOb.level) {
+        formLevelRef.current = normalizeLevel(targetOb.level);
+        setFormLevel(normalizeLevel(targetOb.level));
+      }
+      if (targetOb.session) {
+        formSessionRef.current = targetOb.session;
+        setFormSession(targetOb.session);
+      }
     }
 
     // If neither the target obligation nor the overall student ID card is paid, prompt to pay
@@ -981,11 +990,23 @@ const IdCard = () => {
     await executeIdCardCheckout(null, gatewayTab);
   };
 
-  // State 2 -> State 3: Bachs Payment Checkout Session
   const handlePayment = () => {
     if (isVerifyingPayment && paymentStatusOutcome === 'PENDING') {
       showNotification('A payment transaction is already pending verification.', 'error');
       return;
+    }
+    // If selected formLevel is ahead of student's active level, reset to active level
+    const prog = calculateAcademicProgression(student, getActiveAcademicSession());
+    const maxAllowedLvl = (prog?.numericLevel || 1) * 100;
+    const curFormLvlNum = parseInt(String(formLevel || '').replace(/\D/g, ''), 10);
+    if (!isNaN(curFormLvlNum) && curFormLvlNum > maxAllowedLvl) {
+      const fallbackOb = levelObligations.find(o => o.isCurrent) || levelObligations[0];
+      if (fallbackOb) {
+        setFormLevel(fallbackOb.level);
+        setFormSession(fallbackOb.session);
+        formLevelRef.current = fallbackOb.level;
+        formSessionRef.current = fallbackOb.session;
+      }
     }
     setIsNewPaymentModalOpen(true);
   };
@@ -994,6 +1015,19 @@ const IdCard = () => {
     setIsPaying(true);
     const activeLevel = targetLevel || formLevel;
     const activeSession = targetSession || formSession;
+
+    // Progressive level check: students cannot pay for future academic levels
+    const prog = calculateAcademicProgression(student, getActiveAcademicSession());
+    const maxAllowedLvl = (prog?.numericLevel || 1) * 100;
+    const reqLvlNum = parseInt(String(activeLevel || '').replace(/\D/g, ''), 10);
+    if (!isNaN(reqLvlNum) && reqLvlNum > maxAllowedLvl) {
+      if (existingGatewayTab && !existingGatewayTab.closed) {
+        existingGatewayTab.close();
+      }
+      setIsPaying(false);
+      showNotification(`Payment not allowed: You cannot pay for future academic level (${reqLvlNum} Level). Your active level is ${prog?.levelString || '100 Level'}.`, 'error');
+      return;
+    }
 
     try {
       if (!application) {
@@ -1383,11 +1417,48 @@ const IdCard = () => {
   const studentProgression = calculateAcademicProgression(student, getActiveAcademicSession());
   const currentAcademicSession = getActiveAcademicSession();
   const studentLevel = studentProgression.levelString || '100 Level';
+  const activeLevelNum = (studentProgression.numericLevel || 1) * 100;
 
-  const applicableObligations = getStudentApplicableLevelSessions(student) || [];
+  // Base applicable obligations for levels the student has reached (100L up to current active level)
+  const baseObligations = getStudentApplicableLevelSessions(student, getActiveAcademicYearStart()) || [];
+
+  // Filter to strictly guarantee NO future-level obligations exist as unpaid options
+  const applicableObligations = baseObligations.filter(ob => {
+    const obNum = parseInt(String(ob.level).replace(/[^0-9]/g, ''), 10);
+    return isNaN(obNum) || obNum <= activeLevelNum;
+  });
+
+  // Preserve any historical paid records that might exist for other levels (e.g. if admin moved session backwards)
+  const paidHistoricalPayments = idCardPayments.filter(p => {
+    if (!p.isPaid) return false;
+    const pLvlNum = parseInt(String(p.level || '').replace(/[^0-9]/g, ''), 10);
+    return pLvlNum && !applicableObligations.some(ob => parseInt(String(ob.level).replace(/[^0-9]/g, ''), 10) === pLvlNum);
+  });
+
+  const historicalPaidObligations = paidHistoricalPayments.map(p => {
+    const lvlNum = parseInt(String(p.level).replace(/[^0-9]/g, ''), 10) || 100;
+    const lvlStr = `${lvlNum} Level`;
+    return {
+      levelNumber: Math.floor(lvlNum / 100),
+      numericLevel: lvlNum,
+      levelCode: `${lvlNum}`,
+      level: lvlStr,
+      levelString: lvlStr,
+      session: p.session || currentAcademicSession,
+      academicSession: p.session || currentAcademicSession,
+      isCurrent: false,
+      isHistoricalPaid: true
+    };
+  });
+
+  const mergedObligations = [...applicableObligations, ...historicalPaidObligations].sort((a, b) => {
+    const lA = parseInt(String(a.level).replace(/[^0-9]/g, ''), 10) || 0;
+    const lB = parseInt(String(b.level).replace(/[^0-9]/g, ''), 10) || 0;
+    return lA - lB;
+  });
 
   // Map each applicable obligation to its payment status from database
-  const levelObligations = applicableObligations.map(ob => {
+  const levelObligations = mergedObligations.map(ob => {
     const obLvlNum = String(ob.level).replace(/[^0-9]/g, '');
     const obSess = String(ob.session).trim();
 
@@ -1443,6 +1514,12 @@ const IdCard = () => {
   };
 
   const handlePayObligation = (ob) => {
+    const obLvlNum = parseInt(String(ob?.level || '').replace(/\D/g, ''), 10);
+    if (!isNaN(obLvlNum) && obLvlNum > activeLevelNum) {
+      showNotification(`Payment not allowed: You cannot pay for future academic level (${obLvlNum} Level). Your active level is ${studentLevel}.`, 'error');
+      return;
+    }
+
     formLevelRef.current = ob.level;
     formSessionRef.current = ob.session;
     setFormLevel(ob.level);
@@ -1529,7 +1606,7 @@ const IdCard = () => {
 
   // Redraw canvas whenever student requests card view and application reaches 'generated' state
   useEffect(() => {
-    if (isCardViewRequested && (isState7 || application?.status === 'generated') && canvasRef.current && student) {
+    if (isCardViewRequested && canvasRef.current && student) {
       const photoUrl = application?.passport_url || student.profile_photo_url || student.avatar_url;
       const cardLevel = selectedObligation?.level || application?.level || student?.level || '100 Level';
       const cardSession = selectedObligation?.session || application?.academic_session || settings?.academic_session || '2026/2027';
@@ -2119,132 +2196,7 @@ const IdCard = () => {
           </div>
         )}
 
-        {/* ====================================================================
-            STATE 2: PAYMENT REQUIRED (Pending Payment)
-            ==================================================================== */}
-        {isState2 && (
-          <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 text-center space-y-6 shadow-xs">
-            <div className="w-16 h-16 rounded-2xl bg-green-50 dark:bg-[#041801] text-[#138601] dark:text-[#4bd043] flex items-center justify-center mx-auto border border-[#138601]/30">
-              <CreditCard className="w-8 h-8" />
-            </div>
 
-            <div className="max-w-md mx-auto space-y-2">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                Payment Required to Continue
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
-                Your ID card application (<span className="font-mono font-bold text-gray-800 dark:text-white">{application?.application_number || 'PENDING'}</span>) has been initiated. Select your obligation level and complete payment securely.
-              </p>
-            </div>
-
-                {/* Obligation Level Switcher */}
-                <div className="max-w-md mx-auto space-y-2 text-left">
-                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    Select Level Obligation to Settle:
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {levelObligations.map(ob => {
-                      const isSelected = selectedObligation?.level === ob.level;
-                      return (
-                        <button
-                          key={ob.level}
-                          type="button"
-                          onClick={() => handleSelectObligation(ob)}
-                          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                            isSelected
-                              ? 'border-[#0e8040] bg-emerald-50/70 dark:bg-[#0e8040]/25 ring-1 ring-[#0e8040]'
-                              : 'border-gray-200 dark:border-[#138601]/25 hover:border-gray-300 dark:hover:border-[#138601]/50 bg-white dark:bg-[#041801]'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-xs text-gray-900 dark:text-white">{ob.level}</span>
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                              ob.isPaid ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-[#4bd043]' :
-                              'bg-gray-100 text-gray-700 dark:bg-[#041801] dark:text-gray-300'
-                            }`}>
-                              {ob.isPaid ? 'PAID' : 'UNPAID'}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-gray-500 dark:text-green-200/60 font-mono mt-0.5">{ob.session}</div>
-                          <div className="text-[11px] font-semibold text-[#0e8040] dark:text-[#4bd043] mt-0.5">
-                            {ob.amount || settings?.id_card_fee ? `₦${Number(ob.amount || settings?.id_card_fee).toLocaleString()}` : '—'}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Invoice Summary Box */}
-                <div className="p-5 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2.5">
-                  <div className="flex justify-between pb-2 border-b border-gray-200/60 dark:border-[#138601]/20">
-                    <span className="text-gray-500 dark:text-green-200/60">Student Reg No:</span>
-                    <span className="font-mono font-bold text-gray-900 dark:text-white">{student?.matric || student?.registration_number || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-green-200/60">Selected Level:</span>
-                    <span className="font-bold text-gray-900 dark:text-white">{selectedObligation?.level}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-green-200/60">Academic Session:</span>
-                    <span className="font-medium text-gray-700 dark:text-gray-300">{selectedObligation?.session || settings?.academic_session || 'Current'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-green-200/60">Obligation Status:</span>
-                    <span className={`font-bold ${
-                      selectedObligation?.isPaid ? 'text-emerald-600 dark:text-emerald-400' :
-                      'text-gray-600 dark:text-gray-300'
-                    }`}>{selectedObligation?.isPaid ? 'PAID' : 'UNPAID'}</span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-gray-200/60 dark:border-[#138601]/20 text-sm">
-                    <span className="font-bold text-gray-700 dark:text-gray-300">Amount Payable:</span>
-                    <span className="font-bold text-[#138601] dark:text-[#4bd043]">
-                      {selectedObligation?.amount || settings?.id_card_fee ? `₦${Number(selectedObligation?.amount || settings?.id_card_fee).toLocaleString()}.00` : '—'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {selectedObligation?.isPaid ? (
-                    <div className="space-y-2">
-                      <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200">
-                        This obligation for <strong>{selectedObligation?.level} ({selectedObligation?.session})</strong> is already settled and verified.
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenReceipt(selectedObligation?.payment || {
-                          receiptNo: selectedObligation?.receiptNo,
-                          transactionId: selectedObligation?.transactionId,
-                          amount: selectedObligation?.amount,
-                          level: selectedObligation?.level,
-                          session: selectedObligation?.session,
-                          date: selectedObligation?.date
-                        })}
-                        className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
-                      >
-                        <FileText className="w-4 h-4" />
-                        <span>Print Receipt ({selectedObligation?.level || 'Card'})</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handlePayObligation(selectedObligation)}
-                      disabled={isPaying || !settings?.id_card_fee}
-                      className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-                      <span>{isPaying ? 'Connecting...' : `Pay Now for ${selectedObligation?.level}`}</span>
-                    </button>
-                  )}
-
-                  <div className="flex items-center justify-center gap-2 text-[11px] text-gray-400 dark:text-green-200/50">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
-                    <span>256-bit encrypted • Authoritative server verification</span>
-                  </div>
-                </div>
-          </div>
-        )}
 
         {/* ====================================================================
             STATE 3: PAYMENT CONFIRMED / PHOTO REQUIRED
@@ -2448,7 +2400,7 @@ const IdCard = () => {
             STATE 7: GENERATED (Active Official Digital ID Card)
             Appears ONLY when student clicks "View ID Card" & passes verification
             ==================================================================== */}
-        {isCardViewRequested && isState7 && (
+        {isCardViewRequested && (
           <div className="space-y-6">
 
             {/* Visual Canvas Two-Sided ID Card Preview Container */}

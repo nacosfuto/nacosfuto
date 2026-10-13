@@ -259,10 +259,7 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
 
           {/* Right Header Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-500/10 text-[#138601] dark:text-[#4bd043] border border-[#138601]/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#138601] animate-pulse"></span>
-              <span>System Live</span>
-            </span>
+
 
             {/* Launch Student Portal */}
             <a
