@@ -173,8 +173,15 @@ import SEOHandler from "./components/SEO/SEOHandler";
 
 // Loading fallback component
 const PageLoader = () => (
-  <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-900">
-    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-600"></div>
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#f8fafc] dark:bg-[#041801] w-full min-h-[100dvh] h-full p-4 overflow-hidden">
+    <div className="flex items-center justify-center p-4">
+      <img
+        src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png"
+        alt="Loading"
+        className="w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 max-w-[75vw] max-h-[75vh] object-contain animate-spin select-none pointer-events-none"
+        style={{ animationDuration: '3s' }}
+      />
+    </div>
   </div>
 );
 

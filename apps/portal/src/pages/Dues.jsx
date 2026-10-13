@@ -567,16 +567,56 @@ const Dues = () => {
     try {
       gatewayTab = window.open('about:blank', '_blank');
       if (gatewayTab && gatewayTab.document) {
-        gatewayTab.document.title = 'Connecting to Payment Gateway | NACOS FUTO';
-        gatewayTab.document.body.style.backgroundColor = '#f8fafc';
-        gatewayTab.document.body.style.margin = '0';
-        gatewayTab.document.body.innerHTML = `
-          <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f8fafc;">
-            <img src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png" alt="Loading" style="width:120px;height:120px;object-fit:contain;animation:spin 3s linear infinite;" />
-            <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
-          </div>
-        `;
+        gatewayTab.document.open();
+        gatewayTab.document.write(`
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+              <title>Connecting to Payment Gateway | NACOS FUTO</title>
+              <style>
+                * { box-sizing: border-box; margin: 0; padding: 0; }
+                html, body {
+                  width: 100%;
+                  height: 100%;
+                  min-height: 100dvh;
+                  background-color: #f8fafc;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  overflow: hidden;
+                }
+                .spinner-wrap {
+                  width: 100%;
+                  height: 100%;
+                  min-height: 100dvh;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  padding: 16px;
+                }
+                .spinning-logo {
+                  width: clamp(140px, 42vw, 220px);
+                  height: clamp(140px, 42vw, 220px);
+                  max-width: 80vw;
+                  max-height: 80vh;
+                  object-fit: contain;
+                  animation: spin 3s linear infinite;
+                }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+              </style>
+            </head>
+            <body>
+              <div class="spinner-wrap">
+                <img class="spinning-logo" src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png" alt="Loading" />
+              </div>
+            </body>
+          </html>
+        `);
+        gatewayTab.document.close();
       }
+      gatewayWindowRef.current = gatewayTab;
     } catch (_) {}
     setIsNewInvoiceOpen(false);
     executeCheckout(null, gatewayTab);
@@ -711,16 +751,56 @@ const Dues = () => {
     try {
       gatewayTab = window.open('about:blank', '_blank');
       if (gatewayTab && gatewayTab.document) {
-        gatewayTab.document.title = 'Connecting to Payment Gateway | NACOS FUTO';
-        gatewayTab.document.body.style.backgroundColor = '#f8fafc';
-        gatewayTab.document.body.style.margin = '0';
-        gatewayTab.document.body.innerHTML = `
-          <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f8fafc;">
-            <img src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png" alt="Loading" style="width:120px;height:120px;object-fit:contain;animation:spin 3s linear infinite;" />
-            <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
-          </div>
-        `;
+        gatewayTab.document.open();
+        gatewayTab.document.write(`
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+              <title>Connecting to Payment Gateway | NACOS FUTO</title>
+              <style>
+                * { box-sizing: border-box; margin: 0; padding: 0; }
+                html, body {
+                  width: 100%;
+                  height: 100%;
+                  min-height: 100dvh;
+                  background-color: #f8fafc;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  overflow: hidden;
+                }
+                .spinner-wrap {
+                  width: 100%;
+                  height: 100%;
+                  min-height: 100dvh;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  padding: 16px;
+                }
+                .spinning-logo {
+                  width: clamp(140px, 42vw, 220px);
+                  height: clamp(140px, 42vw, 220px);
+                  max-width: 80vw;
+                  max-height: 80vh;
+                  object-fit: contain;
+                  animation: spin 3s linear infinite;
+                }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+              </style>
+            </head>
+            <body>
+              <div class="spinner-wrap">
+                <img class="spinning-logo" src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png" alt="Loading" />
+              </div>
+            </body>
+          </html>
+        `);
+        gatewayTab.document.close();
       }
+      gatewayWindowRef.current = gatewayTab;
     } catch (_) {}
 
     executeCheckout(null, gatewayTab, lvlNum, targetSession);
@@ -1031,8 +1111,13 @@ const Dues = () => {
         {isAwaitingGateway && (
           <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="max-w-md w-full bg-white dark:bg-[#083002] rounded-2xl border border-gray-200 dark:border-[#138601]/40 shadow-2xl p-6 sm:p-8 text-center space-y-5">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-[#041801] text-[#0e8040] dark:text-[#4bd043] flex items-center justify-center mx-auto border border-[#0e8040]/30 animate-pulse">
-                <RefreshCw className="w-8 h-8 animate-spin" />
+              <div className="flex items-center justify-center mx-auto py-2">
+                <img
+                  src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png"
+                  alt="Loading"
+                  className="w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 object-contain animate-spin select-none pointer-events-none"
+                  style={{ animationDuration: '3s' }}
+                />
               </div>
 
               <div className="space-y-2">
