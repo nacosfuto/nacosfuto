@@ -23,7 +23,8 @@ import {
   processBachsWebhook,
   resolveDynamicFee,
   getBachsConfig,
-  getDynamicAcademicSession
+  getDynamicAcademicSession,
+  verifyIdCardAccess
 } from '../packages/supabase/src/server/bachs.js';
 import {
   dispatchEmail,
@@ -221,6 +222,32 @@ export default async function handler(req, res) {
       const level = fullUrl.searchParams.get('level');
 
       const result = await getPaymentStatus({ reference, checkoutId, paymentType, registrationNumber, studentId, level });
+      return res.status(result.statusCode || 200).json(result);
+    }
+
+    // ID Card Access Verification Endpoint (Enforces Active Level and Payment Checks)
+    if (
+      (route === '/api/id-card/verify-access' ||
+       route === '/api/payments/id-card/verify-access' ||
+       route === '/api/id-card/eligibility') &&
+      (method === 'GET' || method === 'POST')
+    ) {
+      let body = {};
+      if (method === 'POST') {
+        try { body = await parseRequestBody(req); } catch (_) {}
+      }
+      const regNo = fullUrl.searchParams.get('registrationNumber') || fullUrl.searchParams.get('matricNumber') || body.registrationNumber || body.matricNumber || body.regNo;
+      const studentId = fullUrl.searchParams.get('studentId') || body.studentId;
+      const requestedLevel = fullUrl.searchParams.get('level') || body.level;
+      const requestedSession = fullUrl.searchParams.get('academicSession') || fullUrl.searchParams.get('session') || body.academicSession || body.session;
+
+      const result = await verifyIdCardAccess({
+        registrationNumber: regNo,
+        studentId,
+        requestedLevel,
+        requestedSession
+      });
+
       return res.status(result.statusCode || 200).json(result);
     }
 

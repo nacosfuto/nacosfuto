@@ -2093,3 +2093,34 @@ export function subscribeToIdCardUpdates(matricOrId, callback) {
     clearInterval(intervalId);
   };
 }
+
+/**
+ * Client helper to verify student ID card viewing access and eligibility authoritatively against backend.
+ */
+export async function verifyStudentIdCardAccess({ registrationNumber, studentId, level, session }) {
+  const queryParams = new URLSearchParams();
+  if (registrationNumber) queryParams.set('registrationNumber', registrationNumber);
+  if (studentId) queryParams.set('studentId', studentId);
+  if (level) queryParams.set('level', level);
+  if (session) queryParams.set('session', session);
+
+  try {
+    const res = await fetch(`/api/id-card/verify-access?${queryParams.toString()}`);
+    if (res.ok) {
+      return await res.json();
+    }
+    const errData = await res.json().catch(() => ({}));
+    return {
+      allowed: false,
+      error: errData.error || `Access denied (Status ${res.status})`,
+      statusCode: res.status
+    };
+  } catch (err) {
+    return {
+      allowed: false,
+      error: err.message || 'Verification network error',
+      statusCode: 500
+    };
+  }
+}
+

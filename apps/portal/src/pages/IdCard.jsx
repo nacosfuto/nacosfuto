@@ -46,7 +46,8 @@ import {
   drawIdCardOnCanvas,
   downloadIdCardAsImage,
   downloadIdCardAsPdf,
-  saveGeneratedIdCardAsset
+  saveGeneratedIdCardAsset,
+  verifyStudentIdCardAccess
 } from '@nacos/supabase/idCard';
 import { supabase, getLocalPaymentsDatabase } from '@nacos/supabase';
 import { enrichStudentProfile } from '@nacos/supabase/auth';
@@ -145,6 +146,10 @@ const IdCard = () => {
   const [idCardPayments, setIdCardPayments] = useState([]);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
+
+  // ID Card Display On-Demand & Backend Access Verification States
+  const [isCardViewRequested, setIsCardViewRequested] = useState(false);
+  const [isVerifyingCardAccess, setIsVerifyingCardAccess] = useState(false);
 
   // Progressive Level & Session Selection Modal
   const [isNewPaymentModalOpen, setIsNewPaymentModalOpen] = useState(false);
@@ -390,23 +395,10 @@ const IdCard = () => {
         }
       }
 
-      // Determine authoritative active level:
-      // Priority: explicitly requested level -> current level (if paid) -> any level (if paid) -> student's current level
-      let activeTargetLvl = preferredLevel ? normalizeLevel(preferredLevel) : formLevelRef.current;
-      if (!preferredLevel) {
-        const curNum = String(curOb?.level || '').replace(/\D/g, '');
-        const curPaid = collectedIdCardPays.find(p => p.isPaid && String(p.level || '').replace(/\D/g, '') === curNum);
-        if (curPaid) {
-          activeTargetLvl = curOb.level;
-        } else {
-          const anyPaid = collectedIdCardPays.find(p => p.isPaid);
-          if (anyPaid && anyPaid.level) {
-            activeTargetLvl = anyPaid.level;
-          } else if (curOb?.level) {
-            activeTargetLvl = curOb.level;
-          }
-        }
-      }
+      // Authoritative Active Academic Level:
+      // Strictly determined by the current academic session and student progression.
+      // A previous-level payment must NEVER override or become the active level.
+      const activeTargetLvl = curOb?.level ? normalizeLevel(curOb.level) : defaultStudentLevel;
 
       const activeTargetLvlNum = activeTargetLvl ? String(activeTargetLvl).replace(/\D/g, '') : null;
       const activeOb = pObs.find(o => {
@@ -512,12 +504,75 @@ const IdCard = () => {
 
 
 
-  const handleViewIdCard = () => {
-    const el = document.getElementById('nacos-id-card-stage');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleViewIdCard = async (obligation = null) => {
+    const targetOb = obligation || selectedObligation || currentLevelObligation;
+    const activeLevel = studentLevel; // Authoritative active level derived from progression
+    const activeLvlNum = String(activeLevel || '').replace(/\D/g, '');
+    const targetLvl = targetOb?.level || formLevel || activeLevel;
+    const targetLvlNum = String(targetLvl || '').replace(/\D/g, '');
+
+    // 1. Restriction to Active Academic Level:
+    // If student clicked on a past level (e.g., 200L when active is 300L), strictly deny access.
+    if (targetLvlNum && activeLvlNum && targetLvlNum !== activeLvlNum) {
+      showNotification(`Access Denied: ID Card access is restricted to your currently active academic level (${activeLevel}). Cards from previous academic levels cannot be viewed. Please complete payment for ${activeLevel} to access your ID card.`, 'error');
+      setIsCardViewRequested(false);
+      return;
+    }
+
+    // 2. Active Level Payment Verification:
+    const isLevelPaid = targetOb ? targetOb.isPaid : isSelectedLevelPaid;
+    if (!isLevelPaid) {
+      showNotification(`Payment Required: You have not completed payment for your active academic level (${activeLevel}). Please pay for ${activeLevel} to access your ID card.`, 'error');
+      setIsCardViewRequested(false);
+      return;
+    }
+
+    // 3. Authoritative Backend Validation:
+    setIsVerifyingCardAccess(true);
+    const regNo = student?.matric || student?.registration_number;
+
+    try {
+      const res = await verifyStudentIdCardAccess({
+        registrationNumber: regNo,
+        studentId: student?.id,
+        level: targetLvl,
+        session: targetOb?.session || formSession
+      });
+
+      if (!res.allowed) {
+        showNotification(res.error || `Access Denied: ID Card access is restricted to your currently active academic level (${activeLevel}).`, 'error');
+        setIsCardViewRequested(false);
+        setIsVerifyingCardAccess(false);
+        return;
+      }
+
+      // 4. Access Granted! Synchronize application and reveal card in page section
+      if (res.application) {
+        setApplication(prev => ({ ...prev, ...res.application }));
+      }
+      setIsCardViewRequested(true);
+      setIsVerifyingCardAccess(false);
+      showNotification(`Official ID Card for ${activeLevel} verified and loaded!`);
+
+      setTimeout(() => {
+        const el = document.getElementById('nacos-id-card-stage');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 150);
+    } catch (err) {
+      console.warn('Backend verification notice:', err);
+      if (targetLvlNum === activeLvlNum && isLevelPaid) {
+        setIsCardViewRequested(true);
+        setTimeout(() => {
+          const el = document.getElementById('nacos-id-card-stage');
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+      } else {
+        showNotification('Unable to verify ID card clearance. Please try again.', 'error');
+        setIsCardViewRequested(false);
+      }
+      setIsVerifyingCardAccess(false);
     }
   };
 
@@ -571,7 +626,6 @@ const IdCard = () => {
           setFormLevel(canonicalLvl);
 
           await loadStudentAndApplication(canonicalLvl);
-          setTimeout(handleViewIdCard, 300);
           return 'SUCCESS';
         }
 
@@ -651,7 +705,6 @@ const IdCard = () => {
           setFormLevel(canonicalLvl);
 
           await loadStudentAndApplication(canonicalLvl);
-          setTimeout(handleViewIdCard, 300);
         }
       };
     } catch (e) {}
@@ -675,7 +728,6 @@ const IdCard = () => {
         setPaymentStatusOutcome('SUCCESS');
         showNotification('Payment confirmed! Updating ID card...');
         loadStudentAndApplication(paidLvl ? normalizeLevel(paidLvl) : formLevelRef.current);
-        setTimeout(handleViewIdCard, 300);
       } else if (e.key === 'nacos_id_card_settings_db') {
         try {
           const cfg = JSON.parse(e.newValue || '{}');
@@ -1386,9 +1438,9 @@ const IdCard = () => {
   const isState8 = Boolean(application) && appStatus === 'rejected';
   const isState9 = Boolean(application) && appStatus === 'revoked';
 
-  // Redraw canvas whenever application reaches 'generated' state or selected level changes
+  // Redraw canvas whenever student requests card view and application reaches 'generated' state
   useEffect(() => {
-    if ((isState7 || application?.status === 'generated') && canvasRef.current && student) {
+    if (isCardViewRequested && (isState7 || application?.status === 'generated') && canvasRef.current && student) {
       const photoUrl = application?.passport_url || student.profile_photo_url || student.avatar_url;
       const cardLevel = selectedObligation?.level || application?.level || student?.level || '100 Level';
       const cardSession = selectedObligation?.session || application?.academic_session || settings?.academic_session || '2026/2027';
@@ -1435,7 +1487,7 @@ const IdCard = () => {
         render(null);
       }
     }
-  }, [application?.status, isState7, student?.matric, student?.profile_photo_url, selectedObligation?.level, selectedObligation?.session]);
+  }, [isCardViewRequested, application?.status, isState7, student?.matric, student?.profile_photo_url, selectedObligation?.level, selectedObligation?.session]);
 
   // Format card expiration date (1-year validity from generation or current session)
   const expiryDateFormatted = (() => {
@@ -1523,13 +1575,12 @@ const IdCard = () => {
                           <>
                             <button
                               type="button"
-                              onClick={() => {
-                                handleSelectObligation(ob);
-                                setTimeout(handleViewIdCard, 100);
-                              }}
-                              className="inline-block px-3 py-1.5 rounded-md text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200/80 dark:border-[#138601]/30 transition-colors cursor-pointer"
+                              onClick={() => handleViewIdCard(ob)}
+                              disabled={isVerifyingCardAccess}
+                              title={String(ob.level).replace(/\D/g, '') === String(studentLevel).replace(/\D/g, '') ? 'View ID Card' : `ID Card access is restricted to active level (${studentLevel})`}
+                              className="inline-block px-3 py-1.5 rounded-md text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200/80 dark:border-[#138601]/30 transition-colors cursor-pointer disabled:opacity-50"
                             >
-                              View ID Card
+                              {isVerifyingCardAccess ? 'Verifying...' : 'View ID Card'}
                             </button>
                             <button
                               type="button"
@@ -2301,8 +2352,9 @@ const IdCard = () => {
 
         {/* ====================================================================
             STATE 7: GENERATED (Active Official Digital ID Card)
+            Appears ONLY when student clicks "View ID Card" & passes verification
             ==================================================================== */}
-        {isState7 && (
+        {isCardViewRequested && isState7 && (
           <div className="space-y-6">
 
             {/* Visual Canvas Two-Sided ID Card Preview Container */}
@@ -2365,6 +2417,15 @@ const IdCard = () => {
                     <ExternalLink className="w-3.5 h-3.5" />
                     <span>Verify</span>
                   </a>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsCardViewRequested(false)}
+                    className="p-2 rounded-xl bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#138601]/20 text-gray-500 hover:text-gray-800 dark:text-green-200 border border-gray-200/80 dark:border-[#138601]/30 transition-colors cursor-pointer"
+                    title="Close ID Card View"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 

@@ -165,6 +165,46 @@ function cloudinaryDevPlugin() {
           return;
         }
 
+        if (req.url?.startsWith('/api/id-card/verify-access') || req.url?.startsWith('/api/payments/id-card/verify-access')) {
+          (async () => {
+            try {
+              const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost:5174'}`);
+              let bodyObj = {};
+              if (req.method === 'POST') {
+                bodyObj = await new Promise((resolve) => {
+                  let b = '';
+                  req.on('data', c => { b += c; });
+                  req.on('end', () => {
+                    try { resolve(JSON.parse(b || '{}')); } catch (_) { resolve({}); }
+                  });
+                });
+              }
+
+              const regNo = urlObj.searchParams.get('registrationNumber') || urlObj.searchParams.get('matricNumber') || bodyObj.registrationNumber || bodyObj.matricNumber || bodyObj.regNo;
+              const studentId = urlObj.searchParams.get('studentId') || bodyObj.studentId;
+              const requestedLevel = urlObj.searchParams.get('level') || bodyObj.level;
+              const requestedSession = urlObj.searchParams.get('academicSession') || urlObj.searchParams.get('session') || bodyObj.academicSession || bodyObj.session;
+
+              const { verifyIdCardAccess } = await import('../../packages/supabase/src/server/bachs.js');
+              const result = await verifyIdCardAccess({
+                registrationNumber: regNo,
+                studentId,
+                requestedLevel,
+                requestedSession
+              });
+
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = result.statusCode || 200;
+              res.end(JSON.stringify(result));
+            } catch (err) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          })();
+          return;
+        }
+
         if (req.url?.startsWith('/api/payments/fees')) {
           (async () => {
             try {
