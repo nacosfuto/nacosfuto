@@ -669,16 +669,20 @@ export default function App() {
     { id: 'audit', label: 'Cryptographic Tallies', icon: ShieldCheck, badge: results?.totalBallots || 0 },
   ];
 
+  const handleLoginSuccess = React.useCallback((sess) => {
+    setAdminSession(sess);
+  }, []);
+
   if (!adminSession) {
-    return <ElectraAdminLogin onLoginSuccess={(sess) => setAdminSession(sess)} />;
+    return <ElectraAdminLogin onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#041801] text-gray-900 dark:text-white flex flex-col font-sans selection:bg-[#138601] selection:text-white md:pl-16 print:pl-0 transition-colors">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#041801] text-gray-900 dark:text-white flex flex-col font-sans selection:bg-[#138601] selection:text-white print:pl-0 transition-colors">
       
-      {/* ─── Collapsed Vertical Icon Rail (Strictly matching Portal UI) ─── */}
+      {/* ─── Collapsed Vertical Icon Rail (Starts below header at top-16 sm:top-20) ─── */}
       <aside
-        className={`hidden md:flex fixed inset-y-0 left-0 top-0 bottom-0 w-16 flex-col justify-between items-center py-3.5 border-r z-30 select-none print:hidden transition-colors ${
+        className={`hidden md:flex fixed left-0 top-16 sm:top-20 bottom-0 w-16 flex-col justify-between items-center py-3.5 border-r z-30 select-none print:hidden transition-colors ${
           isDark
             ? 'bg-[#083002] border-[#138601]/25 text-white'
             : 'bg-white border-gray-200 text-gray-900 shadow-xs'
@@ -763,17 +767,17 @@ export default function App() {
         </div>
       </aside>
 
-      {/* ─── Slide-out Drawer Sidebar (Strictly matching Portal UI) ─── */}
+      {/* ─── Slide-out Drawer Sidebar (Stationary Navbar Untouched) ─── */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 z-40 backdrop-blur-xs transition-opacity"
+          className="fixed inset-x-0 top-16 sm:top-20 bottom-0 bg-black/60 z-40 backdrop-blur-xs transition-opacity"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <div
-        className={`fixed inset-y-0 left-0 w-72 z-50 flex flex-col justify-between shadow-2xl transition-transform duration-300 ease-in-out select-none border-r ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed top-16 sm:top-20 right-0 bottom-0 w-72 sm:w-80 max-w-[85vw] z-40 flex flex-col justify-between shadow-2xl transition-transform duration-300 ease-in-out select-none border-l ${
+          sidebarOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         } ${
           isDark
             ? 'bg-[#083002] border-[#138601]/25 text-white'
@@ -781,19 +785,14 @@ export default function App() {
         }`}
       >
         <div className="flex flex-col h-full overflow-y-auto">
-          {/* Header of Drawer: Full Horizontal Official ELECTRA Logo */}
+          {/* Header of Drawer: Clean Title & Close Button */}
           <div className="p-4 border-b border-gray-200 dark:border-[#138601]/20 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <img
-                src={electraLogo}
-                alt="ELECTRA NACOS FUTO"
-                className="h-9 w-auto object-contain"
-              />
-            </div>
+            <span className="text-xs font-bold tracking-wider uppercase text-gray-500 dark:text-gray-400">Commission Navigation</span>
             <button
               type="button"
               onClick={() => setSidebarOpen(false)}
               className="p-1.5 rounded-[5px] text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              title="Close menu"
             >
               <X className="w-5 h-5" />
             </button>
@@ -807,7 +806,7 @@ export default function App() {
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#138601] animate-pulse" />
               <span className="text-xs font-bold text-gray-900 dark:text-white truncate">
-                {activeElection.session} • {activeElection.title}
+                {activeElection ? `${activeElection.session || ''} • ${activeElection.title || ''}` : 'No Active Election'}
               </span>
             </div>
           </div>
@@ -899,10 +898,11 @@ export default function App() {
             <button
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="md:hidden p-2 rounded-[5px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
-              aria-label="Toggle navigation drawer"
+              className="p-2 rounded-[5px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              title={sidebarOpen ? "Close navigation drawer" : "Open navigation drawer"}
+              aria-label={sidebarOpen ? "Close navigation drawer" : "Open navigation drawer"}
             >
-              <Menu className="w-5 h-5" />
+              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
 
             {/* Logo and Subtitle */}
@@ -1004,7 +1004,7 @@ export default function App() {
       )}
 
       {/* ─── MAIN CONTENT CONTAINER (Padded & Responsive) ─── */}
-      <main className="flex-1 site-container py-6 sm:py-8 w-full space-y-6">
+      <main className="flex-1 site-container md:pl-16 py-6 sm:py-8 w-full space-y-6">
         
         {/* Navigation Tabs Bar */}
         <div className="flex items-center gap-2 border-b border-gray-200 dark:border-[#138601]/25 pb-3 overflow-x-auto">
@@ -1163,7 +1163,7 @@ export default function App() {
             </div>
 
             {/* Historical Archive Notice if viewing non-active election */}
-            {!isViewingActive && (
+            {!isViewingActive && currentElection && (
               <div className="p-3.5 rounded-[5px] bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 text-blue-800 dark:text-blue-300 text-xs flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
@@ -1171,13 +1171,15 @@ export default function App() {
                     Viewing Historical Archive: <strong>{currentElection?.session} • {currentElection?.title}</strong>. Certified tallies are isolated and locked.
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedElectionId(activeElection.id)}
-                  className="px-2.5 py-1 rounded bg-blue-600 text-white font-bold text-[11px] hover:bg-blue-700 cursor-pointer"
-                >
-                  Switch to Active Election
-                </button>
+                {activeElection && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedElectionId(activeElection.id)}
+                    className="px-2.5 py-1 rounded bg-blue-600 text-white font-bold text-[11px] hover:bg-blue-700 cursor-pointer"
+                  >
+                    Switch to Active Election
+                  </button>
+                )}
               </div>
             )}
 

@@ -131,11 +131,11 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
     .toUpperCase() || 'PO';
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#041801] text-gray-900 dark:text-white flex flex-col font-sans selection:bg-[#138601] selection:text-white md:pl-16 print:pl-0">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#041801] text-gray-900 dark:text-white flex flex-col font-sans selection:bg-[#138601] selection:text-white print:pl-0">
       
-      {/* ─── Collapsed Vertical Icon Rail (Matching Portal UI) ─── */}
+      {/* ─── Collapsed Vertical Icon Rail (Starts below header at top-16) ─── */}
       <aside
-        className={`hidden md:flex fixed inset-y-0 left-0 top-0 bottom-0 w-16 flex-col justify-between items-center py-3.5 border-r z-30 select-none print:hidden transition-colors ${
+        className={`hidden md:flex fixed left-0 top-16 bottom-0 w-16 flex-col justify-between items-center py-3.5 border-r z-30 select-none print:hidden transition-colors ${
           isDark
             ? 'bg-[#083002] border-[#138601]/25 text-white'
             : 'bg-white border-gray-200 text-gray-900 shadow-xs'
@@ -241,21 +241,21 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
       }`}>
         <div className="site-container h-16 flex items-center justify-between">
           
-          {/* Left: Mobile Hamburger Toggle & Logo */}
+          {/* Left: Stationary Hamburger Toggle & Logo */}
           <div className="flex items-center gap-3">
-            {/* Mobile Hamburger Toggle Button */}
+            {/* Stationary Hamburger Toggle Button */}
             <button
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className={`p-2 rounded cursor-pointer transition-colors relative w-9 h-9 flex items-center justify-center border shrink-0 md:hidden ${
+              className={`p-2 rounded cursor-pointer transition-colors relative w-9 h-9 flex items-center justify-center border shrink-0 ${
                 isDark
                   ? 'text-gray-200 hover:text-white bg-[#041801] hover:bg-[#138601]/20 border-[#138601]/30 active:scale-95'
                   : 'text-gray-700 bg-gray-100 hover:bg-gray-200 border-gray-200 active:scale-95'
               }`}
-              title="Open navigation menu"
-              aria-label="Open navigation menu"
+              title={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
             >
-              <Menu className="w-4.5 h-4.5" />
+              {sidebarOpen ? <X className="w-4.5 h-4.5" /> : <Menu className="w-4.5 h-4.5" />}
             </button>
 
             <Link to="/" className="flex items-center gap-3 shrink-0">
@@ -321,45 +321,38 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
         </div>
       </header>
 
-      {/* ─── Off-Canvas Navigation Sidebar Drawer & Backdrop ─── */}
+      {/* ─── Off-Canvas Navigation Sidebar Drawer & Backdrop (Stationary Navbar Untouched) ─── */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs transition-opacity duration-200 print:hidden"
+          className="fixed inset-x-0 top-16 bottom-0 z-40 bg-black/50 backdrop-blur-xs transition-opacity duration-200 print:hidden"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 top-0 left-0 bottom-0 z-50 w-72 sm:w-80 max-w-[85vw] flex flex-col justify-between overflow-y-auto sidebar-scroll transition-transform duration-300 ease-in-out print:hidden ${
+        className={`fixed top-16 right-0 bottom-0 z-40 w-72 sm:w-80 max-w-[85vw] flex flex-col justify-between overflow-y-auto sidebar-scroll transition-transform duration-300 ease-in-out print:hidden ${
           isDark
-            ? 'bg-[#083002] border-r border-[#138601]/30 text-white shadow-2xl'
-            : 'bg-white border-r border-gray-200 text-gray-900 shadow-2xl'
+            ? 'bg-[#083002] border-l border-[#138601]/30 text-white shadow-2xl'
+            : 'bg-white border-l border-gray-200 text-gray-900 shadow-2xl'
         } ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
+          sidebarOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
       >
-        {/* Drawer Brand Header: Covers top navbar completely */}
-        <div className={`h-16 px-4 sm:px-5 lg:px-6 flex items-center gap-3 border-b shrink-0 ${
+        {/* Drawer Header: Positioned below top navbar */}
+        <div className={`h-14 px-4 sm:px-5 flex items-center justify-between border-b shrink-0 ${
           isDark ? 'border-[#138601]/25 bg-[#083002]' : 'border-gray-200 bg-white'
         }`}>
+          <span className="text-xs font-bold tracking-wider uppercase text-gray-500 dark:text-gray-400">Admin Navigation</span>
           <button
             type="button"
             onClick={() => setSidebarOpen(false)}
-            className={`p-2 rounded cursor-pointer transition-colors relative w-9 h-9 flex items-center justify-center border shrink-0 ${
-              isDark
-                ? 'text-gray-200 hover:text-white bg-[#041801] hover:bg-[#138601]/20 border-[#138601]/30 active:scale-95'
-                : 'text-gray-700 bg-gray-100 hover:bg-gray-200 border-gray-200 active:scale-95'
-            }`}
+            className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-[#041801] text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
             title="Close navigation menu"
             aria-label="Close navigation menu"
           >
             <X className="w-4.5 h-4.5" />
           </button>
-
-          <Link to="/" onClick={() => setSidebarOpen(false)} className="flex items-center shrink-0">
-            <img src={isDark ? logoDark : logoLight} alt="NACOS FUTO Logo" className="h-8 md:h-9 w-auto object-contain" />
-          </Link>
         </div>
 
         {/* Drawer Scrollable Navigation Body */}
@@ -505,7 +498,7 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
           ? 'bg-[#083002]/40 border-[#138601]/20' 
           : 'bg-white border-gray-200 shadow-xs'
       }`}>
-        <div className="site-container py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="site-container md:pl-16 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
               {title || 'Portal Administration Dashboard'}
@@ -518,7 +511,7 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
       </div>
 
       {/* ─── Main Content Body ─── */}
-      <div className="flex-1 site-container w-full min-h-0 print:p-0 print:m-0 print:max-w-none print:w-full">
+      <div className="flex-1 site-container w-full min-h-0 md:pl-16 print:p-0 print:m-0 print:max-w-none print:w-full">
         <main className="w-full py-5 sm:py-6 space-y-6 overflow-x-hidden print:py-0 print:m-0 print:w-full">
           {children}
         </main>

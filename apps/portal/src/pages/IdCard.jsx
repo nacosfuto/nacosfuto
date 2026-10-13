@@ -140,6 +140,7 @@ const IdCard = () => {
     setLoading(true);
     const stored = localStorage.getItem('nacos_user');
     if (!stored) {
+      setLoading(false);
       navigate('/login');
       return;
     }
@@ -1034,7 +1035,13 @@ const IdCard = () => {
     const l1 = String(o.level || '').replace(/\D/g, '');
     const l2 = String(formLevel || '').replace(/\D/g, '');
     return l1 && l2 && l1 === l2;
-  }) || levelObligations.find(o => String(o.session).trim() === String(formSession).trim()) || currentLevelObligation || levelObligations[0];
+  }) || levelObligations.find(o => String(o.session).trim() === String(formSession).trim()) || currentLevelObligation || levelObligations[0] || {
+    level: formLevel || studentLevel || '100 Level',
+    session: formSession || currentAcademicSession || '2026/2027',
+    amount: settings?.id_card_fee || 500,
+    status: 'UNPAID',
+    isPaid: false
+  };
 
   const handleSelectObligation = async (ob) => {
     setFormLevel(ob.level);
@@ -1412,18 +1419,18 @@ const IdCard = () => {
               {selectedObligation?.isPaid ? (
                 <button
                   type="button"
-                  onClick={() => handleOpenReceipt(selectedObligation.payment || {
-                    receiptNo: selectedObligation.receiptNo,
-                    transactionId: selectedObligation.transactionId,
-                    amount: selectedObligation.amount,
-                    level: selectedObligation.level,
-                    session: selectedObligation.session,
-                    date: selectedObligation.date
+                  onClick={() => handleOpenReceipt(selectedObligation?.payment || {
+                    receiptNo: selectedObligation?.receiptNo,
+                    transactionId: selectedObligation?.transactionId,
+                    amount: selectedObligation?.amount,
+                    level: selectedObligation?.level,
+                    session: selectedObligation?.session,
+                    date: selectedObligation?.date
                   })}
                   className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
                 >
                   <FileText className="w-4 h-4" />
-                  <span>Print Receipt ({selectedObligation.level})</span>
+                  <span>Print Receipt ({selectedObligation?.level || 'Card'})</span>
                 </button>
               ) : (
                 <button
@@ -1625,22 +1632,22 @@ const IdCard = () => {
                   {selectedObligation?.isPaid ? (
                     <div className="space-y-2">
                       <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200">
-                        This obligation for <strong>{selectedObligation.level} ({selectedObligation.session})</strong> is already settled and verified.
+                        This obligation for <strong>{selectedObligation?.level} ({selectedObligation?.session})</strong> is already settled and verified.
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleOpenReceipt(selectedObligation.payment || {
-                          receiptNo: selectedObligation.receiptNo,
-                          transactionId: selectedObligation.transactionId,
-                          amount: selectedObligation.amount,
-                          level: selectedObligation.level,
-                          session: selectedObligation.session,
-                          date: selectedObligation.date
+                        onClick={() => handleOpenReceipt(selectedObligation?.payment || {
+                          receiptNo: selectedObligation?.receiptNo,
+                          transactionId: selectedObligation?.transactionId,
+                          amount: selectedObligation?.amount,
+                          level: selectedObligation?.level,
+                          session: selectedObligation?.session,
+                          date: selectedObligation?.date
                         })}
                         className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
                       >
                         <FileText className="w-4 h-4" />
-                        <span>Print Receipt ({selectedObligation.level})</span>
+                        <span>Print Receipt ({selectedObligation?.level || 'Card'})</span>
                       </button>
                     </div>
                   ) : (
@@ -2124,7 +2131,7 @@ const IdCard = () => {
                 className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
               >
                 <CreditCard className="w-4 h-4" />
-                <span>Pay &amp; Apply for New ID Card {settings.id_card_fee ? `(₦${Number(settings.id_card_fee).toLocaleString()})` : ''}</span>
+                <span>Pay &amp; Apply for New ID Card {settings?.id_card_fee ? `(₦${Number(settings.id_card_fee).toLocaleString()})` : ''}</span>
               </button>
               <button
                 type="button"
@@ -2232,19 +2239,19 @@ const IdCard = () => {
                 <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-200">
                   <div>
                     <strong className="block font-bold">Already Cleared &amp; Settled</strong>
-                    <span className="text-[11px]">This obligation ({selectedObligation.level} for {selectedObligation.session}) is already verified in your student records.</span>
+                    <span className="text-[11px]">This obligation ({selectedObligation?.level} for {selectedObligation?.session}) is already verified in your student records.</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => {
                       setIsNewPaymentModalOpen(false);
-                      handleOpenReceipt(selectedObligation.payment || {
-                        receiptNo: selectedObligation.receiptNo,
-                        transactionId: selectedObligation.transactionId,
-                        amount: selectedObligation.amount,
-                        level: selectedObligation.level,
-                        session: selectedObligation.session,
-                        date: selectedObligation.date
+                      handleOpenReceipt(selectedObligation?.payment || {
+                        receiptNo: selectedObligation?.receiptNo,
+                        transactionId: selectedObligation?.transactionId,
+                        amount: selectedObligation?.amount,
+                        level: selectedObligation?.level,
+                        session: selectedObligation?.session,
+                        date: selectedObligation?.date
                       });
                     }}
                     className="px-3 py-1.5 rounded-lg bg-[#0e8040] text-white font-semibold text-xs hover:bg-[#0b6a34] transition-colors cursor-pointer shrink-0 ml-3"
