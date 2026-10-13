@@ -7,6 +7,10 @@
       "destination": "/api?_apiPath=$1"
     },
     {
+      "source": "/(webhook|webhooks|bachs-webhook)(.*)",
+      "destination": "/api?_apiPath=payments/webhook"
+    },
+    {
       "source": "/portal-admin",
       "destination": "/portal-admin/index.html"
     },
