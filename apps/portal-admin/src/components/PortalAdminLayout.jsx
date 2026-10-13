@@ -232,7 +232,7 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
               <button
                 type="button"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                   isDark
                     ? 'text-gray-200 hover:text-white hover:bg-[#041801]/70 active:scale-95'
                     : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100 active:scale-95'
@@ -240,7 +240,7 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
                 title={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
                 aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
               >
-                {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                {sidebarOpen ? <X className="w-6.5 h-6.5" strokeWidth={2.4} /> : <Menu className="w-6.5 h-6.5" strokeWidth={2.4} />}
               </button>
             </div>
 
@@ -325,22 +325,6 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
         }`}
       >
-        {/* Drawer Header: Positioned below top navbar */}
-        <div className={`h-14 px-4 sm:px-5 flex items-center justify-between border-b shrink-0 ${
-          isDark ? 'border-[#138601]/25 bg-[#083002]' : 'border-gray-200 bg-white'
-        }`}>
-          <span className="text-xs font-bold tracking-wider uppercase text-gray-500 dark:text-gray-400">Admin Navigation</span>
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(false)}
-            className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-[#041801] text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
-            title="Close navigation menu"
-            aria-label="Close navigation menu"
-          >
-            <X className="w-4.5 h-4.5" />
-          </button>
-        </div>
-
         {/* Drawer Scrollable Navigation Body */}
         <div className="flex-1 overflow-y-auto sidebar-scroll p-4 space-y-4">
           <div className="px-2 pb-1 flex items-center justify-between">

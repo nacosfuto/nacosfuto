@@ -774,19 +774,6 @@ export default function App() {
         }`}
       >
         <div className="flex flex-col h-full overflow-y-auto">
-          {/* Header of Drawer: Clean Title & Close Button */}
-          <div className="p-4 border-b border-gray-200 dark:border-[#138601]/20 flex items-center justify-between">
-            <span className="text-xs font-bold tracking-wider uppercase text-gray-500 dark:text-gray-400">Commission Navigation</span>
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(false)}
-              className="p-1.5 rounded-[5px] text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
-              title="Close menu"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
           {/* Active Election Badge in Drawer */}
           <div className="px-4 py-3 mx-3 my-3 rounded-[5px] bg-gray-50 dark:bg-[#041801]/60 border border-gray-200 dark:border-[#138601]/25 space-y-1">
             <span className="text-[10px] font-bold text-gray-400 dark:text-green-200/60 uppercase tracking-wider block">
@@ -888,11 +875,11 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="w-10 h-10 rounded-[5px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
                 title={sidebarOpen ? "Close navigation drawer" : "Open navigation drawer"}
                 aria-label={sidebarOpen ? "Close navigation drawer" : "Open navigation drawer"}
               >
-                {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                {sidebarOpen ? <X className="w-6.5 h-6.5" strokeWidth={2.4} /> : <Menu className="w-6.5 h-6.5" strokeWidth={2.4} />}
               </button>
             </div>
 
