@@ -71,6 +71,11 @@ if (fs.existsSync(portalDist)) {
   if (fs.existsSync(portalIndex)) {
     fs.copyFileSync(portalIndex, path.join(targetDist, 'portal.html'));
   }
+
+  const gatewayRedirect = path.join(portalDist, 'gateway-redirect.html');
+  if (fs.existsSync(gatewayRedirect)) {
+    fs.copyFileSync(gatewayRedirect, path.join(targetDist, 'gateway-redirect.html'));
+  }
 } else {
   console.warn('[bundle-dist] Warning: apps/portal/dist was not found.');
 }

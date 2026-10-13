@@ -23,6 +23,10 @@
       "destination": "/admin/index.html"
     },
     {
+      "source": "/gateway-redirect.html",
+      "destination": "/portal/gateway-redirect.html"
+    },
+    {
       "source": "/portal",
       "destination": "/portal/index.html"
     },

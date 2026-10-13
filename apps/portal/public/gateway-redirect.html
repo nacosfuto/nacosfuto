@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Connecting to Secure Payment Gateway | NACOS FUTO</title>
-  <link rel="icon" type="image/svg+xml" href="/nacos-logo.svg" />
+  <link rel="icon" type="image/svg+xml" href="/logo.png" />
   <style>
     * {
       box-sizing: border-box;
@@ -13,8 +13,8 @@
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #041801;
-      color: #ffffff;
+      background: #f8fafc;
+      color: #0f172a;
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -22,14 +22,14 @@
       padding: 20px;
     }
     .card {
-      background: radial-gradient(circle at top, #083002 0%, #041801 100%);
-      border: 1px solid rgba(19, 134, 1, 0.35);
-      border-radius: 20px;
-      padding: 36px 28px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 24px;
+      padding: 40px 32px;
       max-width: 420px;
       width: 100%;
       text-align: center;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.07);
       animation: fadeIn 0.3s ease-out;
     }
     @keyframes fadeIn {
@@ -37,20 +37,21 @@
       to { opacity: 1; transform: translateY(0); }
     }
     .spinner-wrap {
-      position: relative;
-      width: 64px;
-      height: 64px;
-      margin: 0 auto 24px;
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .spinner {
-      width: 64px;
-      height: 64px;
-      border: 3px solid rgba(75, 208, 67, 0.15);
-      border-top-color: #4bd043;
-      border-radius: 50%;
-      animation: spin 0.85s linear infinite;
+    .spinning-logo {
+      width: 68px;
+      height: 68px;
+      object-fit: contain;
+      animation: spin 2s linear infinite;
     }
     @keyframes spin {
+      from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
     .badge {
@@ -59,20 +60,21 @@
       gap: 6px;
       padding: 4px 12px;
       border-radius: 999px;
-      background: rgba(19, 134, 1, 0.2);
-      border: 1px solid rgba(75, 208, 67, 0.4);
-      color: #86efac;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      color: #047857;
       font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.03em;
+      font-weight: 700;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
     .badge-dot {
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: #4bd043;
+      background: #10b981;
+      display: inline-block;
       animation: pulse 1.5s infinite;
     }
     @keyframes pulse {
@@ -84,13 +86,12 @@
       font-weight: 700;
       margin-bottom: 8px;
       letter-spacing: -0.01em;
-      color: #ffffff;
+      color: #0f172a;
     }
     p {
       font-size: 13px;
       line-height: 1.5;
-      color: #bbf7d0;
-      opacity: 0.85;
+      color: #64748b;
       margin-bottom: 20px;
     }
     .manual-btn {
@@ -112,7 +113,7 @@
     }
     .footer {
       font-size: 11px;
-      color: rgba(187, 247, 208, 0.5);
+      color: #94a3b8;
       margin-top: 18px;
     }
   </style>
@@ -120,14 +121,18 @@
 <body>
   <div class="card">
     <div class="spinner-wrap">
-      <div class="spinner"></div>
+      <img
+        class="spinning-logo"
+        src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png"
+        alt="Loading"
+      />
     </div>
     <div class="badge">
       <span class="badge-dot"></span>
       <span>NACOS Secure Checkout</span>
     </div>
     <h1>Connecting to Payment Gateway</h1>
-    <p id="status-text">Opening secure payment checkout. Please hold on while we redirect you to the gateway...</p>
+    <p id="status-text">Opening secure payment checkout. Please wait while we redirect you to the gateway...</p>
     
     <a id="redirect-btn" class="manual-btn" href="#" target="_self">Click here to continue to Checkout &rarr;</a>
 

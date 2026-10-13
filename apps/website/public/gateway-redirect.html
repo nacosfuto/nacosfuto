@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connecting to Secure Payment Gateway | NACOS FUTO</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.png" />
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 24px;
+      padding: 40px 32px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.07);
+      animation: fadeIn 0.3s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .spinner-wrap {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .spinning-logo {
+      width: 68px;
+      height: 68px;
+      object-fit: contain;
+      animation: spin 2s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      color: #047857;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      display: inline-block;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    h1 {
+      font-size: 19px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.01em;
+      color: #0f172a;
+    }
+    p {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #64748b;
+      margin-bottom: 20px;
+    }
+    .manual-btn {
+      display: none;
+      width: 100%;
+      padding: 12px 18px;
+      border-radius: 10px;
+      background: #0e8040;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .manual-btn:hover {
+      background: #0b6a34;
+    }
+    .footer {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner-wrap">
+      <img
+        class="spinning-logo"
+        src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png"
+        alt="Loading"
+      />
+    </div>
+    <div class="badge">
+      <span class="badge-dot"></span>
+      <span>NACOS Secure Checkout</span>
+    </div>
+    <h1>Connecting to Payment Gateway</h1>
+    <p id="status-text">Opening secure payment checkout. Please wait while we redirect you to the gateway...</p>
+    
+    <a id="redirect-btn" class="manual-btn" href="#" target="_self">Click here to continue to Checkout &rarr;</a>
+
+    <div class="footer">
+      Official NACOS FUTO Portal • 256-Bit Encrypted
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      var redirected = false;
+      var redirectBtn = document.getElementById('redirect-btn');
+      var statusText = document.getElementById('status-text');
+
+      function doRedirect(targetUrl) {
+        if (!targetUrl || redirected) return;
+        redirected = true;
+        statusText.textContent = 'Redirecting to payment gateway...';
+        try {
+          window.location.replace(targetUrl);
+        } catch (_) {
+          window.location.href = targetUrl;
+        }
+      }
+
+      // 1. Check URL parameters for direct target
+      var urlParams = new URLSearchParams(window.location.search);
+      var targetParam = urlParams.get('url') || urlParams.get('target');
+      if (targetParam) {
+        doRedirect(decodeURIComponent(targetParam));
+        return;
+      }
+
+      // 2. Check localStorage for active gateway redirect payload
+      try {
+        var cached = localStorage.getItem('nacos_active_gateway_redirect');
+        if (cached) {
+          var parsed = JSON.parse(cached);
+          if (parsed && parsed.checkoutUrl && (Date.now() - (parsed.timestamp || 0) < 60000)) {
+            doRedirect(parsed.checkoutUrl);
+            return;
+          }
+        }
+      } catch (_) {}
+
+      // 3. Listen for postMessage from parent portal window
+      window.addEventListener('message', function(event) {
+        if (event && event.data && event.data.checkoutUrl) {
+          doRedirect(event.data.checkoutUrl);
+        }
+      });
+
+      // 4. Listen for storage events from parent window
+      window.addEventListener('storage', function(e) {
+        if (e.key === 'nacos_active_gateway_redirect' && e.newValue) {
+          try {
+            var val = JSON.parse(e.newValue);
+            if (val && val.checkoutUrl) {
+              doRedirect(val.checkoutUrl);
+            }
+          } catch (_) {}
+        }
+      });
+
+      // 5. Fallback timer: If no redirect received after 4 seconds, show manual link if stored or notify
+      setTimeout(function() {
+        if (!redirected) {
+          try {
+            var stored = localStorage.getItem('nacos_active_gateway_redirect');
+            if (stored) {
+              var p = JSON.parse(stored);
+              if (p && p.checkoutUrl) {
+                redirectBtn.href = p.checkoutUrl;
+                redirectBtn.style.display = 'block';
+                statusText.textContent = 'Ready to proceed. Click the button below if you are not automatically redirected:';
+                return;
+              }
+            }
+          } catch (_) {}
+          statusText.textContent = 'Still establishing connection with payment gateway. Please wait...';
+        }
+      }, 3500);
+    })();
+  </script>
+</body>
+</html>

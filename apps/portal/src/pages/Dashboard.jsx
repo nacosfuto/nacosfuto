@@ -436,84 +436,45 @@ const Dashboard = () => {
   const graduationYear = user.graduation_year || user.expected_graduation_year || new Date().getFullYear();
   const isRevoked = String(user.payment_status).toLowerCase() === 'revoked';
 
-  // Gender-based 3D Student Illustration assets
-  const MALE_ILLUSTRATION_URL = 'https://res.cloudinary.com/a2mmcttn/image/upload/v1791894696/male.png';
-  const FEMALE_ILLUSTRATION_URL = 'https://res.cloudinary.com/a2mmcttn/image/upload/v1791894696/Female.png';
-
-  const userGender = String(user.gender || user.sex || '').trim().toLowerCase();
-  const isFemale = userGender === 'female' || userGender === 'f' || userGender === 'woman';
-  const studentIllustrationUrl = isFemale ? FEMALE_ILLUSTRATION_URL : MALE_ILLUSTRATION_URL;
-  const userProfilePhoto = user.profile_photo_url || user.avatar_url || user.photo_url || user.passport_url || null;
-
   return (
     <PortalLayout>
       <div className="space-y-6 font-sans">
 
-        {/* Top Header: Open Welcome Greeting on Left, Square Profile Card Nesting Circular Picture on Right */}
-        <div className="flex flex-row items-center justify-between gap-4 sm:gap-6 pt-1 pb-1">
-          {/* Left: Headline, Subtitle, & Academic Status (Open layout, not inside any card) */}
-          <div className="space-y-1.5 sm:space-y-2 flex-1 min-w-0 text-left">
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-[#138601] dark:text-[#4bd043] border border-emerald-200 dark:border-emerald-800/40 whitespace-nowrap">
-                Session {getActiveAcademicSession()}
-              </span>
-              <span className="text-xs text-gray-400">•</span>
-              <span className="text-[11px] sm:text-xs font-semibold text-gray-500 dark:text-green-300/80 whitespace-nowrap">
-                {isGraduated ? 'Alumni Member' : `${studentLevelNum} Level`}
-              </span>
-            </div>
-
-            <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight leading-tight">
-              Welcome Back, {firstName}!
-            </h1>
-
-            <p className="text-[11px] sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed font-normal max-w-xl line-clamp-2 sm:line-clamp-none">
-              {isGraduated
-                ? 'Department of Computer Science • Federal University of Technology, Owerri (Alumni Member). Your complete academic records are permanently archived.'
-                : 'Department of Computer Science • Federal University of Technology, Owerri. Keep track of your departmental clearance, course registrations, and semester records.'}
-            </p>
-
-            <div className="flex items-center gap-1.5 sm:gap-2 pt-0.5 sm:pt-1 flex-wrap text-[11px] sm:text-xs text-gray-500 dark:text-green-300/70">
-              <div className="inline-flex items-center gap-1 sm:gap-1.5 font-mono font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                <span className="truncate max-w-[120px] sm:max-w-none">{user.registration_number || user.matric_number || user.matric || 'NACOS Member'}</span>
-              </div>
-              <span>•</span>
-              <div className="inline-flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span className="font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  {isPaid ? 'Bursary Cleared' : 'Clearance Pending'}
-                </span>
-              </div>
-            </div>
+        {/* Top Header: Clean, open Welcome greeting */}
+        <div className="space-y-1.5 sm:space-y-2 pt-1 pb-1 text-left">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-[#138601] dark:text-[#4bd043] border border-emerald-200 dark:border-emerald-800/40 whitespace-nowrap">
+              Session {getActiveAcademicSession()}
+            </span>
+            <span className="text-xs text-gray-400">•</span>
+            <span className="text-[11px] sm:text-xs font-semibold text-gray-500 dark:text-green-300/80 whitespace-nowrap">
+              {isGraduated ? 'Alumni Member' : `${studentLevelNum} Level`}
+            </span>
           </div>
 
-          {/* Right: Square Card Nesting Profile Picture inside a Circle */}
-          <Link
-            to="/profile"
-            title="View Profile"
-            className="w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-40 lg:h-40 aspect-square shrink-0 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] shadow-xs hover:shadow-md p-2 sm:p-2.5 md:p-3 flex items-center justify-center relative group transition-all cursor-pointer"
-          >
-            <div className="w-full h-full rounded-full overflow-hidden border-2 border-emerald-500/25 dark:border-[#138601]/40 bg-gradient-to-b from-emerald-50 to-emerald-100/60 dark:from-[#041801] dark:to-[#083002] flex items-center justify-center relative shadow-inner">
-              <img
-                src={userProfilePhoto || studentIllustrationUrl}
-                alt={firstName}
-                className={`w-full h-full ${
-                  userProfilePhoto
-                    ? 'object-cover object-center'
-                    : 'object-cover object-top scale-110'
-                } transition-transform duration-300 group-hover:scale-105`}
-                onError={(e) => {
-                  e.currentTarget.src = studentIllustrationUrl;
-                }}
-              />
+          <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight leading-tight">
+            Welcome Back, {firstName}!
+          </h1>
+
+          <p className="text-[11px] sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed font-normal max-w-xl line-clamp-2 sm:line-clamp-none">
+            {isGraduated
+              ? 'Department of Computer Science • Federal University of Technology, Owerri (Alumni Member). Your complete academic records are permanently archived.'
+              : 'Department of Computer Science • Federal University of Technology, Owerri. Keep track of your departmental clearance, course registrations, and semester records.'}
+          </p>
+
+          <div className="flex items-center gap-1.5 sm:gap-2 pt-0.5 sm:pt-1 flex-wrap text-[11px] sm:text-xs text-gray-500 dark:text-green-300/70">
+            <div className="inline-flex items-center gap-1 sm:gap-1.5 font-mono font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+              <span className="truncate max-w-[120px] sm:max-w-none">{user.registration_number || user.matric_number || user.matric || 'NACOS Member'}</span>
             </div>
-            {/* Active Student Status Dot */}
-            <span
-              className="absolute bottom-2 right-2 sm:bottom-2.5 sm:right-2.5 w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#083002] shadow-xs"
-              title="Active Member"
-            />
-          </Link>
+            <span>•</span>
+            <div className="inline-flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span className="font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                {isPaid ? 'Bursary Cleared' : 'Clearance Pending'}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Revocation Warning Alert if Dues are Revoked */}

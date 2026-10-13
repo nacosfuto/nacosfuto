@@ -25,8 +25,13 @@ import { getAppUrls } from '@nacos/config/urls';
 import { initAcademicSessionSync } from '@nacos/supabase';
 
 const PortalPageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-[#041801]">
-    <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+  <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] dark:bg-[#041801]">
+    <img
+      src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png"
+      alt="Loading"
+      className="w-14 h-14 object-contain animate-spin"
+      style={{ animationDuration: '2s' }}
+    />
   </div>
 );
 

@@ -863,7 +863,28 @@ const IdCard = () => {
     // Synchronously open a new window on user click to guarantee no popup blocker interferes
     let gatewayTab = null;
     try {
-      gatewayTab = window.open('/gateway-redirect.html', '_blank');
+      gatewayTab = window.open('about:blank', '_blank');
+      if (gatewayTab && gatewayTab.document) {
+        gatewayTab.document.title = 'Connecting to Secure Payment Gateway | NACOS FUTO';
+        gatewayTab.document.body.style.backgroundColor = '#f8fafc';
+        gatewayTab.document.body.style.margin = '0';
+        gatewayTab.document.body.innerHTML = `
+          <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f8fafc;color:#0f172a;padding:20px;box-sizing:border-box;">
+            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:24px;padding:40px 32px;max-width:420px;width:100%;text-align:center;box-shadow:0 20px 40px -15px rgba(0,0,0,0.07);">
+              <div style="width:72px;height:72px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;">
+                <img src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png" alt="Loading" style="width:68px;height:68px;object-fit:contain;animation:spin 2s linear infinite;" />
+              </div>
+              <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+              <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:12px;">
+                <span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;"></span>
+                NACOS Secure Checkout
+              </div>
+              <h1 style="font-size:19px;font-weight:700;margin:0 0 8px;color:#0f172a;letter-spacing:-0.01em;">Connecting to Payment Gateway</h1>
+              <p style="font-size:13px;color:#64748b;margin:0;line-height:1.5;">Opening secure payment checkout. Please wait while you are redirected to the gateway...</p>
+            </div>
+          </div>
+        `;
+      }
       gatewayWindowRef.current = gatewayTab;
     } catch (_) {}
 
@@ -945,9 +966,6 @@ const IdCard = () => {
           } catch (_) {
             try { gatewayTab.location.href = data.checkoutUrl; } catch (_) {}
           }
-          try {
-            gatewayTab.postMessage({ checkoutUrl: data.checkoutUrl }, '*');
-          } catch (_) {}
         } else {
           try {
             gatewayTab = window.open(data.checkoutUrl, '_blank');
@@ -1451,9 +1469,8 @@ const IdCard = () => {
               <thead>
                 <tr className="border-b border-gray-200/70 dark:border-[#138601]/20 bg-gray-50/50 dark:bg-[#041801]/60 text-gray-500 dark:text-green-200/70 font-semibold text-[11px] sm:text-xs">
                   <th className="py-3.5 px-5">Level</th>
-                  <th className="py-3.5 px-4">Academic Session</th>
+                  <th className="py-3.5 px-4">Session</th>
                   <th className="py-3.5 px-4">Amount ₦</th>
-                  <th className="py-3.5 px-4">Invoice / Ref #</th>
                   <th className="py-3.5 px-4">Status</th>
                   <th className="py-3.5 px-5 text-right">Actions</th>
                 </tr>
@@ -1472,15 +1489,6 @@ const IdCard = () => {
                       </td>
                       <td className="py-4 px-4 font-semibold text-gray-900 dark:text-white">
                         {ob.amount ? Number(ob.amount).toLocaleString() : (settings?.id_card_fee ? Number(settings.id_card_fee).toLocaleString() : '—')}
-                      </td>
-                      <td className="py-4 px-4 font-mono text-xs text-gray-700 dark:text-gray-200">
-                        {ob.receiptNo ? (
-                          <span title={ob.transactionId || ob.receiptNo}>
-                            {String(ob.receiptNo).slice(-14)}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400 dark:text-green-200/40">—</span>
-                        )}
                       </td>
                       <td className="py-4 px-4">
                         {ob.isPaid ? (
@@ -1538,7 +1546,7 @@ const IdCard = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-10 px-5 text-center space-y-2">
+                    <td colSpan={5} className="py-10 px-5 text-center space-y-2">
                       <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-[#041801] text-gray-400 dark:text-green-200/50 flex items-center justify-center mx-auto">
                         <FileText className="w-5 h-5" />
                       </div>
