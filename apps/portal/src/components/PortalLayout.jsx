@@ -375,24 +375,8 @@ const PortalLayout = ({ children }) => {
         }`}
         aria-label="Collapsed navigation rail"
       >
-        {/* Top: Hamburger Menu Button & Navigation Items */}
-        <div className="flex flex-col items-center gap-4 w-full">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#138601] to-[#0d5c01] text-white flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer relative group"
-            title={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
-            aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
-          >
-            <Menu className="w-5 h-5 text-white" />
-            
-            {/* Tooltip on hover */}
-            <span className="absolute left-full ml-2.5 px-2.5 py-1 rounded bg-gray-900 text-white dark:bg-white dark:text-gray-900 text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg">
-              Menu
-            </span>
-          </button>
-          
-          {/* Navigation Icons Column */}
+        {/* Navigation Items Column (Starts directly with navigation icons) */}
+        <div className="flex flex-col items-center gap-1.5 w-full">
           <nav className="flex flex-col items-center gap-1.5 w-full px-2" aria-label="Quick Navigation">
             {navItems.map((item) => {
               const active = isItemActive(item.path);
@@ -472,25 +456,28 @@ const PortalLayout = ({ children }) => {
           ? 'bg-[#083002] border-[#138601]/25 text-white'
           : 'bg-white border-gray-200 text-gray-900'
         }`}>
-        <div className="site-container h-16 flex items-center justify-between">
+        <div className="w-full h-16 flex items-center justify-between pr-4 sm:pr-6 md:pr-8">
 
-          {/* Left: Stationary Hamburger Toggle & Logo */}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className={`p-2 rounded cursor-pointer transition-colors relative w-9 h-9 flex items-center justify-center border shrink-0 ${
-                isDark
-                  ? 'text-gray-200 hover:text-white bg-[#041801] hover:bg-[#138601]/20 border-[#138601]/30 active:scale-95'
-                  : 'text-gray-700 bg-gray-100 hover:bg-gray-200 border-gray-200 active:scale-95'
-              }`}
-              title={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
-              aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
-            >
-              {sidebarOpen ? <X className="w-4.5 h-4.5" /> : <Menu className="w-4.5 h-4.5" />}
-            </button>
+          {/* Left: Hamburger Aligned Directly Above Icon Rail (w-16) + Logo */}
+          <div className="flex items-center">
+            {/* Hamburger button container aligned with the w-16 icon rail below */}
+            <div className="w-16 h-16 flex items-center justify-center shrink-0">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                  isDark
+                    ? 'text-gray-200 hover:text-white hover:bg-[#041801]/70 active:scale-95'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100 active:scale-95'
+                }`}
+                title={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+                aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+              >
+                {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            </div>
 
-            <Link to="/dashboard" className="flex items-center shrink-0">
+            <Link to="/dashboard" className="flex items-center shrink-0 pl-1">
               <img src={isDark ? logoDark : logoLight} alt="NACOS FUTO Logo" className="h-8 md:h-9 w-auto object-contain" />
             </Link>
           </div>
@@ -802,12 +789,12 @@ const PortalLayout = ({ children }) => {
       )}
 
       <aside
-        className={`fixed top-16 right-0 bottom-0 z-40 w-72 sm:w-80 max-w-[85vw] flex flex-col justify-between overflow-y-auto sidebar-scroll transition-transform duration-300 ease-in-out print:hidden ${
+        className={`fixed top-16 left-0 bottom-0 z-40 w-72 sm:w-80 max-w-[85vw] flex flex-col justify-between overflow-y-auto sidebar-scroll transition-transform duration-300 ease-in-out print:hidden ${
           isDark
-            ? 'bg-[#083002] border-l border-[#138601]/30 text-white shadow-2xl'
-            : 'bg-white border-l border-gray-200 text-gray-900 shadow-2xl'
+            ? 'bg-[#083002] border-r border-[#138601]/30 text-white shadow-2xl'
+            : 'bg-white border-r border-gray-200 text-gray-900 shadow-2xl'
         } ${
-          sidebarOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
         }`}
       >
         {/* Drawer Brand Header: Positioned below top navbar */}

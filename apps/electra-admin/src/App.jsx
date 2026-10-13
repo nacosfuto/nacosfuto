@@ -689,19 +689,8 @@ export default function App() {
         }`}
         aria-label="Collapsed electra admin rail"
       >
-        {/* Top: Hamburger Drawer Expander Button (Replaced Electra Icon) */}
+        {/* Top: Icon Tabs Navigation */}
         <div className="flex flex-col items-center gap-4 w-full">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="w-10 h-10 rounded-[5px] bg-[#138601] hover:bg-[#0f6c01] text-white flex items-center justify-center shadow-xs transition-colors cursor-pointer"
-            title="Toggle Menu"
-          >
-            <Menu className="w-5 h-5" />
-            <span className="sr-only">Toggle Commission Navigation</span>
-          </button>
-
-          {/* Icon Tabs Navigation */}
           <nav className="flex flex-col items-center gap-1.5 w-full px-2 mt-2">
             {navTabs.map((tab) => {
               const Icon = tab.icon;
@@ -776,8 +765,8 @@ export default function App() {
       )}
 
       <div
-        className={`fixed top-16 sm:top-20 right-0 bottom-0 w-72 sm:w-80 max-w-[85vw] z-40 flex flex-col justify-between shadow-2xl transition-transform duration-300 ease-in-out select-none border-l ${
-          sidebarOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
+        className={`fixed top-16 sm:top-20 left-0 bottom-0 w-72 sm:w-80 max-w-[85vw] z-40 flex flex-col justify-between shadow-2xl transition-transform duration-300 ease-in-out select-none border-r ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
         } ${
           isDark
             ? 'bg-[#083002] border-[#138601]/25 text-white'
@@ -891,22 +880,24 @@ export default function App() {
           ? 'bg-[#083002]/95 border-[#138601]/25 text-white' 
           : 'bg-white/95 border-gray-200 text-gray-900 shadow-xs'
       }`}>
-        <div className="site-container w-full h-16 sm:h-20 flex items-center justify-between gap-4">
+        <div className="w-full h-16 sm:h-20 flex items-center justify-between gap-4 pr-4 sm:pr-6">
           
-          {/* Left Brand & Title */}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-[5px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
-              title={sidebarOpen ? "Close navigation drawer" : "Open navigation drawer"}
-              aria-label={sidebarOpen ? "Close navigation drawer" : "Open navigation drawer"}
-            >
-              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
+          {/* Left: Hamburger Aligned Directly Above Icon Rail (w-16) + Logo */}
+          <div className="flex items-center">
+            <div className="w-16 h-16 sm:h-20 flex items-center justify-center shrink-0">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="w-10 h-10 rounded-[5px] text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
+                title={sidebarOpen ? "Close navigation drawer" : "Open navigation drawer"}
+                aria-label={sidebarOpen ? "Close navigation drawer" : "Open navigation drawer"}
+              >
+                {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            </div>
 
             {/* Logo and Subtitle */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 pl-1">
               <img 
                 src={electraLogo} 
                 alt="ELECTRA Commission" 
