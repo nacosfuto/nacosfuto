@@ -448,55 +448,55 @@ const Dashboard = () => {
     <PortalLayout>
       <div className="space-y-6 font-sans">
 
-        {/* Top Hero Welcome Card (Greeting on left, scaled 3D character with reduced card height) */}
-        <div className="rounded-2xl sm:rounded-3xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 py-5 sm:py-6 px-6 sm:px-7 md:px-8 shadow-xs relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between min-h-[190px] sm:min-h-[220px] md:min-h-[235px] lg:min-h-[250px]">
+        {/* Top Hero Welcome Card (Greeting on left, 3D character seamlessly seated into the frame across all mobile and desktop viewports) */}
+        <div className="rounded-2xl sm:rounded-3xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 p-4 sm:py-6 sm:px-7 md:px-8 shadow-xs relative overflow-hidden flex flex-row items-center justify-between min-h-[175px] sm:min-h-[220px] md:min-h-[235px] lg:min-h-[250px]">
           {/* Subtle ambient light glows behind the character */}
-          <div className="absolute -top-20 -right-20 w-80 h-80 bg-emerald-500/10 dark:bg-[#138601]/25 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 sm:right-16 lg:right-auto lg:left-[75%] lg:-translate-x-1/2 w-80 h-80 bg-emerald-500/15 dark:bg-emerald-500/20 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -top-14 -right-14 sm:-top-20 sm:-right-20 w-44 sm:w-80 h-44 sm:h-80 bg-emerald-500/10 dark:bg-[#138601]/25 rounded-full blur-2xl sm:blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 right-2 sm:right-16 lg:right-auto lg:left-[75%] lg:-translate-x-1/2 w-44 sm:w-80 h-44 sm:h-80 bg-emerald-500/15 dark:bg-emerald-500/20 rounded-full blur-2xl pointer-events-none" />
 
           {/* Left: Headline, Subtitle, & Academic Status */}
-          <div className="space-y-2 max-w-xl md:max-w-2xl lg:max-w-[60%] z-10 py-0.5 flex-1 min-w-0 text-left">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-[#138601] dark:text-[#4bd043] border border-emerald-200 dark:border-emerald-800/40">
+          <div className="space-y-1.5 sm:space-y-2 max-w-[62%] sm:max-w-xl md:max-w-2xl lg:max-w-[60%] z-10 py-0.5 flex-1 min-w-0 text-left pr-2 sm:pr-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-[#138601] dark:text-[#4bd043] border border-emerald-200 dark:border-emerald-800/40 whitespace-nowrap">
                 Session {getActiveAcademicSession()}
               </span>
               <span className="text-xs text-gray-400">•</span>
-              <span className="text-xs font-semibold text-gray-500 dark:text-green-300/80">
+              <span className="text-[11px] sm:text-xs font-semibold text-gray-500 dark:text-green-300/80 whitespace-nowrap">
                 {isGraduated ? 'Alumni Member' : `${studentLevelNum} Level`}
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+            <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight leading-tight">
               Welcome Back, {firstName}!
             </h1>
 
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed font-normal max-w-2xl">
+            <p className="text-[11px] sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed font-normal max-w-2xl line-clamp-2 sm:line-clamp-none">
               {isGraduated
                 ? 'Department of Computer Science • Federal University of Technology, Owerri (Alumni Member). Your complete academic records are permanently archived.'
                 : 'Department of Computer Science • Federal University of Technology, Owerri. Keep track of your departmental clearance, course registrations, and semester records.'}
             </p>
 
-            <div className="flex items-center gap-2 pt-1 flex-wrap text-xs text-gray-500 dark:text-green-300/70">
-              <div className="inline-flex items-center gap-1.5 font-mono font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                <span>{user.registration_number || user.matric_number || user.matric || 'NACOS Member'}</span>
+            <div className="flex items-center gap-1.5 sm:gap-2 pt-0.5 sm:pt-1 flex-wrap text-[11px] sm:text-xs text-gray-500 dark:text-green-300/70">
+              <div className="inline-flex items-center gap-1 sm:gap-1.5 font-mono font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                <span className="truncate max-w-[110px] sm:max-w-none">{user.registration_number || user.matric_number || user.matric || 'NACOS Member'}</span>
               </div>
               <span>•</span>
               <div className="inline-flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span className="font-semibold text-gray-700 dark:text-gray-200">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   {isPaid ? 'Bursary Cleared' : 'Clearance Pending'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Right: Unboxed 3D Student Character UI Element (Scaled, maintaining crossed arms and safe headroom, positioned between courses and results cards) */}
-          <div className="sm:absolute sm:right-16 md:right-24 lg:right-auto lg:left-[75%] lg:-translate-x-1/2 sm:-bottom-7 md:-bottom-9 lg:-bottom-10 xl:-bottom-11 shrink-0 z-10 flex items-end justify-center pointer-events-none select-none self-center sm:self-auto mt-3 sm:mt-0">
+          {/* Right: Unboxed 3D Student Character UI Element (Scaled, maintaining crossed arms and safe headroom, perfectly anchored into bottom edge on all devices) */}
+          <div className="absolute right-0 sm:right-16 md:right-24 lg:right-auto lg:left-[75%] lg:-translate-x-1/2 -bottom-2.5 sm:-bottom-7 md:-bottom-9 lg:-bottom-10 xl:-bottom-11 shrink-0 z-10 flex items-end justify-center pointer-events-none select-none">
             <img
               src={studentIllustrationUrl}
               alt={isFemale ? 'Female Student' : 'Male Student'}
-              className="h-60 sm:h-72 md:h-[285px] lg:h-[300px] xl:h-[310px] w-auto object-contain object-bottom drop-shadow-2xl"
+              className="h-40 sm:h-72 md:h-[285px] lg:h-[300px] xl:h-[310px] w-auto max-w-[130px] sm:max-w-none object-contain object-bottom drop-shadow-xl sm:drop-shadow-2xl"
               loading="eager"
             />
           </div>
