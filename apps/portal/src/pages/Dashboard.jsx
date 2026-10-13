@@ -329,7 +329,8 @@ const Dashboard = () => {
         query = query.or(filterConditions.join(','));
       }
 
-      const { data } = await query.maybeSingle();
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB verify timeout')), 3000));
+      const { data } = await Promise.race([query.maybeSingle(), timeoutPromise]);
 
       if (data) {
         if (data.is_active === false) {
@@ -447,13 +448,14 @@ const Dashboard = () => {
     <PortalLayout>
       <div className="space-y-6 font-sans">
 
-        {/* Top Hero Welcome Card (Card layout with greeting on left, nested gender illustration on right) */}
-        <div className="rounded-2xl sm:rounded-3xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 p-5 sm:p-7 shadow-xs relative overflow-hidden flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4 sm:gap-6">
-          {/* Subtle ambient light glow */}
-          <div className="absolute -top-16 -right-16 w-48 h-48 bg-emerald-500/10 dark:bg-[#138601]/20 rounded-full blur-3xl pointer-events-none" />
+        {/* Top Hero Welcome Card (Greeting on left, scaled 3D character with reduced card height) */}
+        <div className="rounded-2xl sm:rounded-3xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 py-5 sm:py-6 px-6 sm:px-7 md:px-8 shadow-xs relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between min-h-[190px] sm:min-h-[220px] md:min-h-[235px] lg:min-h-[250px]">
+          {/* Subtle ambient light glows behind the character */}
+          <div className="absolute -top-20 -right-20 w-80 h-80 bg-emerald-500/10 dark:bg-[#138601]/25 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 sm:right-16 lg:right-auto lg:left-[75%] lg:-translate-x-1/2 w-80 h-80 bg-emerald-500/15 dark:bg-emerald-500/20 rounded-full blur-2xl pointer-events-none" />
 
           {/* Left: Headline, Subtitle, & Academic Status */}
-          <div className="space-y-2 max-w-xl z-10 sm:self-center py-1 flex-1 min-w-0">
+          <div className="space-y-2 max-w-xl md:max-w-2xl lg:max-w-[60%] z-10 py-0.5 flex-1 min-w-0 text-left">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-[#138601] dark:text-[#4bd043] border border-emerald-200 dark:border-emerald-800/40">
                 Session {getActiveAcademicSession()}
@@ -464,11 +466,11 @@ const Dashboard = () => {
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
               Welcome Back, {firstName}!
             </h1>
 
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed font-normal">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed font-normal max-w-2xl">
               {isGraduated
                 ? 'Department of Computer Science • Federal University of Technology, Owerri (Alumni Member). Your complete academic records are permanently archived.'
                 : 'Department of Computer Science • Federal University of Technology, Owerri. Keep track of your departmental clearance, course registrations, and semester records.'}
@@ -489,12 +491,12 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Right: Nested 3D Student Character Illustration */}
-          <div className="shrink-0 z-10 flex items-end justify-center self-center sm:self-end -mb-5 sm:-mb-7 sm:-mr-2 mt-1 sm:mt-0">
+          {/* Right: Unboxed 3D Student Character UI Element (Scaled, maintaining crossed arms and safe headroom, positioned between courses and results cards) */}
+          <div className="sm:absolute sm:right-16 md:right-24 lg:right-auto lg:left-[75%] lg:-translate-x-1/2 sm:-bottom-7 md:-bottom-9 lg:-bottom-10 xl:-bottom-11 shrink-0 z-10 flex items-end justify-center pointer-events-none select-none self-center sm:self-auto mt-3 sm:mt-0">
             <img
               src={studentIllustrationUrl}
               alt={isFemale ? 'Female Student' : 'Male Student'}
-              className="h-40 sm:h-48 md:h-56 lg:h-60 w-auto max-w-[170px] sm:max-w-[210px] md:max-w-[250px] object-contain drop-shadow-md select-none pointer-events-none transition-transform duration-300 hover:scale-105"
+              className="h-60 sm:h-72 md:h-[285px] lg:h-[300px] xl:h-[310px] w-auto object-contain object-bottom drop-shadow-2xl"
               loading="eager"
             />
           </div>

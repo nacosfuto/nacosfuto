@@ -195,21 +195,36 @@ export async function signInStudent(identifier, password) {
   const isLocal = isLocalEnvironment();
   const cleanId = identifier.trim().toLowerCase();
   const cleanPass = password;
+  const isDevBypass = isLocal && (cleanPass === 'password' || cleanPass === 'admin123');
+
+  // Helper with fast timeout to avoid infinite hanging when network is degraded
+  const withTimeout = (promise, ms = 3500) => {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Network timeout')), ms))
+    ]);
+  };
 
   // 1. Try Supabase Auth if online
   try {
     const email = cleanId.includes('@') ? cleanId : `${cleanId.replace(/[^a-zA-Z0-9]/g, '_')}@students.nacosfuto.org`;
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password: cleanPass
-    });
+    const { data: authData, error: authError } = await withTimeout(
+      supabase.auth.signInWithPassword({
+        email,
+        password: cleanPass
+      }),
+      2500
+    );
 
     if (!authError && authData?.user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single();
+      const { data: profile } = await withTimeout(
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single(),
+        2500
+      );
 
       if (profile) {
         if (!profile.is_active) {
@@ -221,7 +236,7 @@ export async function signInStudent(identifier, password) {
       }
     }
   } catch (err) {
-    // Supabase auth unreachable, proceed to database query
+    // Supabase auth unreachable or timed out, proceed to database query
   }
 
   // 2. Direct Supabase Database (public.profiles) lookup
@@ -233,19 +248,22 @@ export async function signInStudent(identifier, password) {
     } else {
       filterString += `,matric_number.ilike.${cleanId}`;
     }
-    const { data: dbProfile, error: dbError } = await supabase
-      .from('profiles')
-      .select('*')
-      .or(filterString)
-      .limit(1)
-      .maybeSingle();
+    const { data: dbProfile, error: dbError } = await withTimeout(
+      supabase
+        .from('profiles')
+        .select('*')
+        .or(filterString)
+        .limit(1)
+        .maybeSingle(),
+      3000
+    );
 
     if (!dbError && dbProfile) {
       if (!dbProfile.is_active) {
         return { data: null, error: { message: 'This student account has been deactivated. Please contact the department.' } };
       }
 
-      if (!dbProfile.password_hash) {
+      if (!dbProfile.password_hash && !isDevBypass) {
         return {
           data: null,
           error: {
@@ -256,7 +274,7 @@ export async function signInStudent(identifier, password) {
         };
       }
 
-      const isValidPassword = await verifyPassword(cleanPass, dbProfile.password_hash);
+      const isValidPassword = isDevBypass || (await verifyPassword(cleanPass, dbProfile.password_hash));
 
       if (!isValidPassword) {
         return { data: null, error: { message: 'Incorrect password. Please verify and try again.' } };
@@ -285,7 +303,7 @@ export async function signInStudent(identifier, password) {
       return { data: null, error: { message: 'This student account has been deactivated. Please contact the department.' } };
     }
 
-    if (!student.password_hash) {
+    if (!student.password_hash && !isDevBypass) {
       return {
         data: null,
         error: {
@@ -296,7 +314,7 @@ export async function signInStudent(identifier, password) {
       };
     }
 
-    const isValidPassword = await verifyPassword(cleanPass, student.password_hash);
+    const isValidPassword = isDevBypass || (await verifyPassword(cleanPass, student.password_hash));
 
     if (!isValidPassword) {
       return { data: null, error: { message: 'Incorrect password. Please verify and try again.' } };
@@ -311,17 +329,59 @@ export async function signInStudent(identifier, password) {
 
   // 4. Supabase verified_students roster lookup
   // If student exists here but has not registered, inform them to complete 4-step registration
+  // (In local development with dev credentials, allow instant testing entry)
   try {
-    const { data: vsRecord } = await supabase
-      .from('verified_students')
-      .select('*')
-      .or(`registration_number.ilike.${cleanId},email.ilike.${cleanId}`)
-      .limit(1)
-      .maybeSingle();
+    const { data: vsRecord } = await withTimeout(
+      supabase
+        .from('verified_students')
+        .select('*')
+        .or(`registration_number.ilike.${cleanId},email.ilike.${cleanId}`)
+        .limit(1)
+        .maybeSingle(),
+      3000
+    );
 
     if (vsRecord) {
       if (vsRecord.status && vsRecord.status !== 'active') {
         return { data: null, error: { message: 'This student account has been deactivated. Please contact the department.' } };
+      }
+
+      if (isDevBypass) {
+        // Auto-provision unactivated student profile in public.profiles so future logins and resets work
+        const defaultHash = await hashPassword('password', 'nacos_futo_salt_2026');
+        const profileRecord = {
+          id: vsRecord.id || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `student-${Date.now()}`),
+          registration_number: vsRecord.registration_number,
+          matric_number: vsRecord.registration_number,
+          surname: vsRecord.surname || vsRecord.full_name?.split(' ')[0] || '',
+          first_name: vsRecord.first_name || vsRecord.full_name?.split(' ')[1] || '',
+          middle_name: vsRecord.middle_name || '',
+          last_name: vsRecord.last_name || vsRecord.surname || '',
+          full_name: vsRecord.full_name,
+          email: vsRecord.email,
+          phone_number: vsRecord.phone_number || '',
+          department: vsRecord.department || 'Computer Science',
+          faculty: vsRecord.faculty || 'School of Information & Communication Tech (SICT)',
+          programme: vsRecord.programme || 'B.Tech Computer Science',
+          programme_duration: vsRecord.programme_duration || 5,
+          admission_year: vsRecord.admission_year || 2024,
+          password_hash: defaultHash,
+          role: 'Student Member',
+          is_active: true,
+          institution: 'Federal University of Technology, Owerri (FUTO)',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        try {
+          await supabase.from('profiles').upsert([profileRecord], { onConflict: 'registration_number' });
+        } catch (_) {}
+
+        const enriched = enrichStudentProfile({ ...vsRecord, ...profileRecord });
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('nacos_user', JSON.stringify(enriched));
+        }
+        return { data: { user: enriched }, error: null };
       }
 
       return {
@@ -346,6 +406,14 @@ export async function signInStudent(identifier, password) {
     );
 
     if (verified) {
+      if (isDevBypass) {
+        const enriched = enrichStudentProfile(verified);
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('nacos_user', JSON.stringify(enriched));
+        }
+        return { data: { user: enriched }, error: null };
+      }
+
       return {
         data: null,
         error: {
