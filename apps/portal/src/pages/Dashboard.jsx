@@ -435,17 +435,25 @@ const Dashboard = () => {
   const graduationYear = user.graduation_year || user.expected_graduation_year || new Date().getFullYear();
   const isRevoked = String(user.payment_status).toLowerCase() === 'revoked';
 
+  // Gender-based 3D Student Illustration assets
+  const MALE_ILLUSTRATION_URL = 'https://res.cloudinary.com/a2mmcttn/image/upload/v1791894696/male.png';
+  const FEMALE_ILLUSTRATION_URL = 'https://res.cloudinary.com/a2mmcttn/image/upload/v1791894696/Female.png';
+
+  const userGender = String(user.gender || user.sex || '').trim().toLowerCase();
+  const isFemale = userGender === 'female' || userGender === 'f' || userGender === 'woman';
+  const studentIllustrationUrl = isFemale ? FEMALE_ILLUSTRATION_URL : MALE_ILLUSTRATION_URL;
+
   return (
     <PortalLayout>
       <div className="space-y-6 font-sans">
 
-        {/* Top Hero Welcome Card (Card layout with greeting on left, visual badge on right) */}
-        <div className="rounded-2xl sm:rounded-3xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 p-5 sm:p-7 shadow-xs relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        {/* Top Hero Welcome Card (Card layout with greeting on left, nested gender illustration on right) */}
+        <div className="rounded-2xl sm:rounded-3xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 p-5 sm:p-7 shadow-xs relative overflow-hidden flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4 sm:gap-6">
           {/* Subtle ambient light glow */}
           <div className="absolute -top-16 -right-16 w-48 h-48 bg-emerald-500/10 dark:bg-[#138601]/20 rounded-full blur-3xl pointer-events-none" />
 
           {/* Left: Headline, Subtitle, & Academic Status */}
-          <div className="space-y-2 max-w-xl z-10">
+          <div className="space-y-2 max-w-xl z-10 sm:self-center py-1 flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-[#138601] dark:text-[#4bd043] border border-emerald-200 dark:border-emerald-800/40">
                 Session {getActiveAcademicSession()}
@@ -481,44 +489,14 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Right: Modern Identity & Quick Profile Widget */}
-          <div className="w-full md:w-auto shrink-0 z-10 flex md:block justify-end">
-            <div className="w-full sm:w-auto min-w-[210px] sm:min-w-[230px] p-4 rounded-2xl bg-gray-50/90 dark:bg-[#041801] border border-gray-200/80 dark:border-[#138601]/40 flex items-center md:flex-col text-left md:text-center gap-3.5 sm:gap-3 shadow-2xs">
-              <div className="relative">
-                {user.profile_photo_url || user.avatar_url || user.photo_url ? (
-                  <img
-                    src={user.profile_photo_url || user.avatar_url || user.photo_url}
-                    alt={firstName}
-                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-emerald-500/30 shadow-xs"
-                  />
-                ) : (
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-emerald-500/10 dark:bg-[#138601]/25 text-[#138601] dark:text-[#4bd043] flex items-center justify-center border border-emerald-500/20 shadow-xs">
-                    <GraduationCap className="w-7 h-7 sm:w-8 sm:h-8" />
-                  </div>
-                )}
-                <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] shadow-xs" title="Verified Portal Account">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                </div>
-              </div>
-
-              <div className="space-y-0.5">
-                <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate max-w-[160px]">
-                  {user.full_name || user.name || `${firstName} Student`}
-                </div>
-                <p className="text-[11px] text-gray-500 dark:text-green-300/70 font-mono">
-                  {user.registration_number || user.matric_number || 'SICT / CSC'}
-                </p>
-                <div className="pt-1">
-                  <Link
-                    to="/profile"
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#138601] dark:text-[#4bd043] hover:underline"
-                  >
-                    <span>View Profile</span>
-                    <ArrowUpRight className="w-3 h-3" />
-                  </Link>
-                </div>
-              </div>
-            </div>
+          {/* Right: Nested 3D Student Character Illustration */}
+          <div className="shrink-0 z-10 flex items-end justify-center self-center sm:self-end -mb-5 sm:-mb-7 sm:-mr-2 mt-1 sm:mt-0">
+            <img
+              src={studentIllustrationUrl}
+              alt={isFemale ? 'Female Student' : 'Male Student'}
+              className="h-40 sm:h-48 md:h-56 lg:h-60 w-auto max-w-[170px] sm:max-w-[210px] md:max-w-[250px] object-contain drop-shadow-md select-none pointer-events-none transition-transform duration-300 hover:scale-105"
+              loading="eager"
+            />
           </div>
         </div>
 
