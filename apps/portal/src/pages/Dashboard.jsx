@@ -443,21 +443,18 @@ const Dashboard = () => {
   const userGender = String(user.gender || user.sex || '').trim().toLowerCase();
   const isFemale = userGender === 'female' || userGender === 'f' || userGender === 'woman';
   const studentIllustrationUrl = isFemale ? FEMALE_ILLUSTRATION_URL : MALE_ILLUSTRATION_URL;
+  const userProfilePhoto = user.profile_photo_url || user.avatar_url || user.photo_url || user.passport_url || null;
 
   return (
     <PortalLayout>
       <div className="space-y-6 font-sans">
 
-        {/* Top Hero Welcome Card (Greeting on left, 3D character seamlessly seated into the frame across all mobile and desktop viewports) */}
-        <div className="rounded-2xl sm:rounded-3xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 p-4 sm:py-6 sm:px-7 md:px-8 shadow-xs relative overflow-hidden flex flex-row items-center justify-between min-h-[175px] sm:min-h-[220px] md:min-h-[235px] lg:min-h-[250px]">
-          {/* Subtle ambient light glows behind the character */}
-          <div className="absolute -top-14 -right-14 sm:-top-20 sm:-right-20 w-44 sm:w-80 h-44 sm:h-80 bg-emerald-500/10 dark:bg-[#138601]/25 rounded-full blur-2xl sm:blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 right-2 sm:right-16 lg:right-auto lg:left-[75%] lg:-translate-x-1/2 w-44 sm:w-80 h-44 sm:h-80 bg-emerald-500/15 dark:bg-emerald-500/20 rounded-full blur-2xl pointer-events-none" />
-
-          {/* Left: Headline, Subtitle, & Academic Status */}
-          <div className="space-y-1.5 sm:space-y-2 max-w-[62%] sm:max-w-xl md:max-w-2xl lg:max-w-[60%] z-10 py-0.5 flex-1 min-w-0 text-left pr-2 sm:pr-0">
+        {/* Top Header: Open Welcome Greeting on Left, Square Profile Card Nesting Circular Picture on Right */}
+        <div className="flex flex-row items-center justify-between gap-4 sm:gap-6 pt-1 pb-1">
+          {/* Left: Headline, Subtitle, & Academic Status (Open layout, not inside any card) */}
+          <div className="space-y-1.5 sm:space-y-2 flex-1 min-w-0 text-left">
             <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-              <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-[#138601] dark:text-[#4bd043] border border-emerald-200 dark:border-emerald-800/40 whitespace-nowrap">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-[#138601] dark:text-[#4bd043] border border-emerald-200 dark:border-emerald-800/40 whitespace-nowrap">
                 Session {getActiveAcademicSession()}
               </span>
               <span className="text-xs text-gray-400">•</span>
@@ -470,7 +467,7 @@ const Dashboard = () => {
               Welcome Back, {firstName}!
             </h1>
 
-            <p className="text-[11px] sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed font-normal max-w-2xl line-clamp-2 sm:line-clamp-none">
+            <p className="text-[11px] sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed font-normal max-w-xl line-clamp-2 sm:line-clamp-none">
               {isGraduated
                 ? 'Department of Computer Science • Federal University of Technology, Owerri (Alumni Member). Your complete academic records are permanently archived.'
                 : 'Department of Computer Science • Federal University of Technology, Owerri. Keep track of your departmental clearance, course registrations, and semester records.'}
@@ -479,7 +476,7 @@ const Dashboard = () => {
             <div className="flex items-center gap-1.5 sm:gap-2 pt-0.5 sm:pt-1 flex-wrap text-[11px] sm:text-xs text-gray-500 dark:text-green-300/70">
               <div className="inline-flex items-center gap-1 sm:gap-1.5 font-mono font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                <span className="truncate max-w-[110px] sm:max-w-none">{user.registration_number || user.matric_number || user.matric || 'NACOS Member'}</span>
+                <span className="truncate max-w-[120px] sm:max-w-none">{user.registration_number || user.matric_number || user.matric || 'NACOS Member'}</span>
               </div>
               <span>•</span>
               <div className="inline-flex items-center gap-1">
@@ -491,15 +488,32 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Right: Unboxed 3D Student Character UI Element (Scaled, maintaining crossed arms and safe headroom, perfectly anchored into bottom edge on all devices) */}
-          <div className="absolute right-0 sm:right-16 md:right-24 lg:right-auto lg:left-[75%] lg:-translate-x-1/2 -bottom-2.5 sm:-bottom-7 md:-bottom-9 lg:-bottom-10 xl:-bottom-11 shrink-0 z-10 flex items-end justify-center pointer-events-none select-none">
-            <img
-              src={studentIllustrationUrl}
-              alt={isFemale ? 'Female Student' : 'Male Student'}
-              className="h-40 sm:h-72 md:h-[285px] lg:h-[300px] xl:h-[310px] w-auto max-w-[130px] sm:max-w-none object-contain object-bottom drop-shadow-xl sm:drop-shadow-2xl"
-              loading="eager"
+          {/* Right: Square Card Nesting Profile Picture inside a Circle */}
+          <Link
+            to="/profile"
+            title="View Profile"
+            className="w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-40 lg:h-40 aspect-square shrink-0 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] shadow-xs hover:shadow-md p-2 sm:p-2.5 md:p-3 flex items-center justify-center relative group transition-all cursor-pointer"
+          >
+            <div className="w-full h-full rounded-full overflow-hidden border-2 border-emerald-500/25 dark:border-[#138601]/40 bg-gradient-to-b from-emerald-50 to-emerald-100/60 dark:from-[#041801] dark:to-[#083002] flex items-center justify-center relative shadow-inner">
+              <img
+                src={userProfilePhoto || studentIllustrationUrl}
+                alt={firstName}
+                className={`w-full h-full ${
+                  userProfilePhoto
+                    ? 'object-cover object-center'
+                    : 'object-cover object-top scale-110'
+                } transition-transform duration-300 group-hover:scale-105`}
+                onError={(e) => {
+                  e.currentTarget.src = studentIllustrationUrl;
+                }}
+              />
+            </div>
+            {/* Active Student Status Dot */}
+            <span
+              className="absolute bottom-2 right-2 sm:bottom-2.5 sm:right-2.5 w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#083002] shadow-xs"
+              title="Active Member"
             />
-          </div>
+          </Link>
         </div>
 
         {/* Revocation Warning Alert if Dues are Revoked */}

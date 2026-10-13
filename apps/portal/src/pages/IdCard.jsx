@@ -676,6 +676,11 @@ const IdCard = () => {
         showNotification('Payment confirmed! Updating ID card...');
         loadStudentAndApplication(paidLvl ? normalizeLevel(paidLvl) : formLevelRef.current);
         setTimeout(handleViewIdCard, 300);
+      } else if (e.key === 'nacos_id_card_settings_db') {
+        try {
+          const cfg = JSON.parse(e.newValue || '{}');
+          if (cfg?.id_card_fee) setSettings(cfg);
+        } catch (_) {}
       }
     };
     window.addEventListener('storage', handleStorageEvent);
@@ -1256,7 +1261,7 @@ const IdCard = () => {
 
     return {
       ...ob,
-      amount: matchingPayment?.amount ? Number(matchingPayment.amount) : (settings?.id_card_fee != null ? Number(settings.id_card_fee) : 0),
+      amount: matchingPayment?.amount ? Number(matchingPayment.amount) : (settings?.id_card_fee != null ? Number(settings.id_card_fee) : null),
       status,
       isPaid: isObligationPaid,
       payment: matchingPayment || null,
@@ -1276,7 +1281,7 @@ const IdCard = () => {
   }) || levelObligations.find(o => String(o.session).trim() === String(formSession).trim()) || currentLevelObligation || levelObligations[0] || {
     level: formLevel || studentLevel || '100 Level',
     session: formSession || currentAcademicSession || '2026/2027',
-    amount: (settings?.id_card_fee != null ? Number(settings.id_card_fee) : 0),
+    amount: (settings?.id_card_fee != null ? Number(settings.id_card_fee) : null),
     status: 'UNPAID',
     isPaid: false
   };
@@ -1608,7 +1613,7 @@ const IdCard = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-500 dark:text-green-200/60">Amount:</span>
                     <span className="font-bold text-gray-900 dark:text-white">
-                      ₦{Number(paymentTransaction?.amount || settings?.id_card_fee || 0).toLocaleString()}.00
+                      {paymentTransaction?.amount || settings?.id_card_fee ? `₦${Number(paymentTransaction?.amount || settings?.id_card_fee).toLocaleString()}.00` : '—'}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -1670,7 +1675,7 @@ const IdCard = () => {
                     Payment Successful
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed">
-                    Your payment of <strong className="text-[#0e8040] dark:text-[#4bd043]">₦{Number(paymentTransaction?.amount || settings?.id_card_fee || 0).toLocaleString()}.00</strong> for <strong className="text-gray-900 dark:text-white">{paymentTransaction?.level || formLevel} Level ({paymentTransaction?.session || formSession})</strong> has been confirmed. Your official student ID card is ready!
+                    Your payment of <strong className="text-[#0e8040] dark:text-[#4bd043]">{paymentTransaction?.amount || settings?.id_card_fee ? `₦${Number(paymentTransaction?.amount || settings?.id_card_fee).toLocaleString()}.00` : '—'}</strong> for <strong className="text-gray-900 dark:text-white">{paymentTransaction?.level || formLevel} Level ({paymentTransaction?.session || formSession})</strong> has been confirmed. Your official student ID card is ready!
                   </p>
                 </div>
 
@@ -1684,7 +1689,7 @@ const IdCard = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-500 dark:text-green-200/60">Amount Paid:</span>
                     <span className="font-bold text-[#0e8040] dark:text-[#4bd043]">
-                      ₦{Number(paymentTransaction?.amount || settings?.id_card_fee || 0).toLocaleString()}.00
+                      {paymentTransaction?.amount || settings?.id_card_fee ? `₦${Number(paymentTransaction?.amount || settings?.id_card_fee).toLocaleString()}.00` : '—'}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -1823,7 +1828,9 @@ const IdCard = () => {
                         </span>
                       </div>
                       <div className="text-[10px] text-gray-500 dark:text-green-200/60 font-mono mt-0.5">{ob.session}</div>
-                      <div className="text-[11px] font-semibold text-[#0e8040] dark:text-[#4bd043] mt-0.5">₦{Number(ob.amount || settings?.id_card_fee || 0).toLocaleString()}</div>
+                      <div className="text-[11px] font-semibold text-[#0e8040] dark:text-[#4bd043] mt-0.5">
+                        {ob.amount || settings?.id_card_fee ? `₦${Number(ob.amount || settings?.id_card_fee).toLocaleString()}` : '—'}
+                      </div>
                     </button>
                   );
                 })}
@@ -1850,7 +1857,9 @@ const IdCard = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Obligation Fee:</span>
-                <span className="font-bold text-[#138601] dark:text-[#4bd043]">₦{Number(selectedObligation?.amount || settings?.id_card_fee || 0).toLocaleString()}.00</span>
+                <span className="font-bold text-[#138601] dark:text-[#4bd043]">
+                  {selectedObligation?.amount || settings?.id_card_fee ? `₦${Number(selectedObligation?.amount || settings?.id_card_fee).toLocaleString()}.00` : '—'}
+                </span>
               </div>
             </div>
 
@@ -1989,7 +1998,9 @@ const IdCard = () => {
                             </span>
                           </div>
                           <div className="text-[10px] text-gray-500 dark:text-green-200/60 font-mono mt-0.5">{ob.session}</div>
-                          <div className="text-[11px] font-semibold text-[#0e8040] dark:text-[#4bd043] mt-0.5">₦{Number(ob.amount || settings?.id_card_fee || 0).toLocaleString()}</div>
+                          <div className="text-[11px] font-semibold text-[#0e8040] dark:text-[#4bd043] mt-0.5">
+                            {ob.amount || settings?.id_card_fee ? `₦${Number(ob.amount || settings?.id_card_fee).toLocaleString()}` : '—'}
+                          </div>
                         </button>
                       );
                     })}
@@ -2019,7 +2030,9 @@ const IdCard = () => {
                   </div>
                   <div className="flex justify-between pt-2 border-t border-gray-200/60 dark:border-[#138601]/20 text-sm">
                     <span className="font-bold text-gray-700 dark:text-gray-300">Amount Payable:</span>
-                    <span className="font-bold text-[#138601] dark:text-[#4bd043]">₦{Number(selectedObligation?.amount || settings?.id_card_fee || 0).toLocaleString()}.00</span>
+                    <span className="font-bold text-[#138601] dark:text-[#4bd043]">
+                      {selectedObligation?.amount || settings?.id_card_fee ? `₦${Number(selectedObligation?.amount || settings?.id_card_fee).toLocaleString()}.00` : '—'}
+                    </span>
                   </div>
                 </div>
 
@@ -2583,7 +2596,7 @@ const IdCard = () => {
                   >
                     {levelObligations.map((ob) => (
                       <option key={`${ob.level}|${ob.session}`} value={`${ob.level}|${ob.session}`}>
-                        {ob.level} ({ob.session}) — [{ob.status}] — ₦{Number(ob.amount || settings?.id_card_fee || 0).toLocaleString()}
+                        {ob.level} ({ob.session}) — [{ob.status}] — {ob.amount || settings?.id_card_fee ? `₦${Number(ob.amount || settings?.id_card_fee).toLocaleString()}` : '—'}
                       </option>
                     ))}
                   </select>
@@ -2622,7 +2635,7 @@ const IdCard = () => {
                 <div className="flex justify-between pt-2 border-t border-gray-200/60 dark:border-[#138601]/20 text-sm">
                   <span className="font-bold text-gray-800 dark:text-gray-200">Amount Payable:</span>
                   <span className="font-bold text-[#0e8040] dark:text-[#4bd043]">
-                    ₦{Number(selectedObligation?.amount || settings?.id_card_fee || 0).toLocaleString()}.00
+                    {selectedObligation?.amount || settings?.id_card_fee ? `₦${Number(selectedObligation?.amount || settings?.id_card_fee).toLocaleString()}.00` : '—'}
                   </span>
                 </div>
               </div>
@@ -2674,7 +2687,7 @@ const IdCard = () => {
                     ? 'Already Settled'
                     : isVerifyingPayment && paymentStatusOutcome === 'PENDING'
                     ? 'Payment Pending Confirmation'
-                    : `Make Payment (₦${Number(selectedObligation?.amount || settings?.id_card_fee || 0).toLocaleString()})`}
+                    : `Make Payment (${selectedObligation?.amount || settings?.id_card_fee ? `₦${Number(selectedObligation?.amount || settings?.id_card_fee).toLocaleString()}` : 'Fee Pending'})`}
                 </span>
                 {!selectedObligation?.isPaid && !(isVerifyingPayment && paymentStatusOutcome === 'PENDING') && <ExternalLink className="w-4 h-4" />}
               </button>

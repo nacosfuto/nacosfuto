@@ -460,6 +460,13 @@ const Dues = () => {
             checkStatus(enriched);
           } catch (err) {}
         }
+      } else if (e.key === 'nacos_dues_settings_db') {
+        try {
+          const ds = JSON.parse(e.newValue || '{}');
+          if (ds?.dues_amount && !isNaN(Number(ds.dues_amount))) {
+            setDuesFee(Number(ds.dues_amount));
+          }
+        } catch (_) {}
       }
     };
 
@@ -477,6 +484,20 @@ const Dues = () => {
 
     window.addEventListener('storage', handleStorageEvent);
     window.addEventListener('nacos_user_updated', handleUserUpdated);
+
+    const handleDuesSettingsUpdated = (e) => {
+      if (e.detail?.dues_amount && !isNaN(Number(e.detail.dues_amount))) {
+        setDuesFee(Number(e.detail.dues_amount));
+      } else {
+        getDuesSettings().then(ds => {
+          if (ds?.dues_amount && !isNaN(Number(ds.dues_amount))) {
+            setDuesFee(Number(ds.dues_amount));
+          }
+        }).catch(() => {});
+      }
+    };
+    window.addEventListener('nacos_dues_settings_updated', handleDuesSettingsUpdated);
+
     const unsubSession = onAcademicSessionChange(({ sessionName }) => {
       if (sessionName) setFormSession(sessionName);
       handleUserUpdated();
@@ -487,6 +508,7 @@ const Dues = () => {
       if (channel) channel.close();
       window.removeEventListener('storage', handleStorageEvent);
       window.removeEventListener('nacos_user_updated', handleUserUpdated);
+      window.removeEventListener('nacos_dues_settings_updated', handleDuesSettingsUpdated);
       if (unsubSession) unsubSession();
     };
   }, [user, duesFee, formSession]);
@@ -673,7 +695,7 @@ const Dues = () => {
 
     return {
       ...ob,
-      amount: paidRow?.rawAmount || duesFee || 3000,
+      amount: paidRow?.rawAmount || duesFee || null,
       receiptNo: paidRow?.receiptNo || null,
       transactionId: paidRow?.transactionId || null,
       date: paidRow?.date || null,
@@ -731,7 +753,7 @@ const Dues = () => {
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors cursor-pointer shadow-xs"
               >
                 <CreditCard className="w-4 h-4" />
-                <span>Pay Dues Now to Restore Clearance (₦{Number(duesFee).toLocaleString()})</span>
+                <span>Pay Dues Now to Restore Clearance {duesFee ? `(₦${Number(duesFee).toLocaleString()})` : ''}</span>
               </button>
             </div>
           </div>
@@ -780,7 +802,7 @@ const Dues = () => {
                   </div>
 
                   <p className="text-[11px] text-gray-500 dark:text-green-200/70 mb-3 font-mono">
-                    {isLvlPaid ? (paidRow.receiptNo || 'Verified') : `₦${Number(duesFee).toLocaleString()} Dues`}
+                    {isLvlPaid ? (paidRow.receiptNo || 'Verified') : (duesFee ? `₦${Number(duesFee).toLocaleString()} Dues` : 'Dues Clearance')}
                   </p>
 
                   {isLvlPaid ? (
@@ -851,7 +873,7 @@ const Dues = () => {
                         {ob.session}
                       </td>
                       <td className="py-4 px-4 font-semibold text-gray-900 dark:text-white">
-                        {ob.amount ? Number(ob.amount).toLocaleString() : (duesFee ? Number(duesFee).toLocaleString() : '3,000')}
+                        {ob.amount ? Number(ob.amount).toLocaleString() : (duesFee ? Number(duesFee).toLocaleString() : '—')}
                       </td>
                       <td className="py-4 px-4 font-mono text-xs text-gray-700 dark:text-gray-200">
                         {ob.receiptNo ? (
@@ -882,8 +904,8 @@ const Dues = () => {
                             onClick={() => handleOpenPosReceipt(ob.payment || {
                               receiptNo: ob.receiptNo,
                               transactionId: ob.transactionId,
-                              amount: `₦${Number(ob.amount || 3000).toLocaleString()}`,
-                              rawAmount: ob.amount,
+                              amount: ob.amount ? `₦${Number(ob.amount).toLocaleString()}` : (duesFee ? `₦${Number(duesFee).toLocaleString()}` : '—'),
+                              rawAmount: ob.amount || duesFee || 0,
                               level: ob.level,
                               session: ob.session,
                               date: ob.date
@@ -967,7 +989,7 @@ const Dues = () => {
                         </div>
                       </td>
                       <td className="py-4 px-4 font-semibold text-gray-900 dark:text-white">
-                        {row.rawAmount ? Number(row.rawAmount).toLocaleString() : (duesFee ? Number(duesFee).toLocaleString() : '0')}
+                        {row.rawAmount ? Number(row.rawAmount).toLocaleString() : (duesFee ? Number(duesFee).toLocaleString() : '—')}
                       </td>
                       <td className="py-4 px-4 font-bold text-gray-700 dark:text-green-200">
                         {row.level}
@@ -1093,7 +1115,7 @@ const Dues = () => {
                       className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0e8040] cursor-pointer"
                     >
                       <option value="Departmental Dues - Full Payment">
-                        Departmental Dues (Full Payment - ₦{Number(duesFee).toLocaleString()})
+                        Departmental Dues (Full Payment{duesFee ? ` - ₦${Number(duesFee).toLocaleString()}` : ''})
                       </option>
                     </select>
                     <ChevronDown className="w-4 h-4 text-gray-400 dark:text-green-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1165,7 +1187,7 @@ const Dues = () => {
                       className="px-6 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-xs inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
-                      <span>{isAlreadyPaid ? 'Already Paid' : `Make Payment (₦${Number(duesFee || 0).toLocaleString()})`}</span>
+                      <span>{isAlreadyPaid ? 'Already Paid' : (duesFee ? `Make Payment (₦${Number(duesFee).toLocaleString()})` : 'Make Payment')}</span>
                       {!isAlreadyPaid && !isProcessing && <ExternalLink className="w-4 h-4" />}
                     </button>
                   );
