@@ -105,7 +105,7 @@ const NacosExecutives = () => {
                 {pageSettings.heroYear && <span className="text-green-400">{pageSettings.heroYear}</span>}
               </h1>
               <p className="text-base md:text-lg opacity-90 max-w-2xl drop-shadow-sm leading-relaxed">
-                {pageSettings.heroSubtitle || 'Meet the team elected to serve and represent the students of the Department of Computer Science.'}
+                {pageSettings.heroSubtitle || 'Meet the executive leadership team serving and representing the students of the Department of Computer Science.'}
               </p>
             </div>
           </div>

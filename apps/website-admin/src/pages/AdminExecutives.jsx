@@ -678,7 +678,7 @@ const AdminExecutives = () => {
                     {headerForm.heroYear && <span className="text-green-400">{headerForm.heroYear}</span>}
                   </h2>
                   <p className="text-xs text-gray-200 max-w-xl mt-1 drop-shadow-sm line-clamp-2">
-                    {headerForm.heroSubtitle || 'Meet the team elected to serve and represent the students of the Department of Computer Science.'}
+                    {headerForm.heroSubtitle || 'Meet the executive leadership team serving and representing the students of the Department of Computer Science.'}
                   </p>
                 </div>
               </div>
@@ -723,7 +723,7 @@ const AdminExecutives = () => {
                     rows={3}
                     value={headerForm.heroSubtitle}
                     onChange={(e) => setHeaderForm({ ...headerForm, heroSubtitle: e.target.value })}
-                    placeholder="Meet the team elected to serve..."
+                    placeholder="Meet the executive leadership team serving..."
                     className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 rounded-lg text-gray-900 dark:text-white"
                   />
                 </div>

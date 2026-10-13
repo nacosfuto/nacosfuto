@@ -6,7 +6,6 @@ import {
   LayoutDashboard, 
   ArrowRight, 
   ChevronRight, 
-  Vote,
   Lock,
   KeyRound,
   FileCheck,
@@ -56,23 +55,6 @@ const AdminHub = () => {
         { label: 'Media Library', href: `${urls.websiteAdmin}/media` },
         { label: 'Events Calendar', href: `${urls.websiteAdmin}/events` }
       ]
-    },
-    {
-      id: 'electra-admin',
-      title: 'ELECTRA Commission Admin',
-      category: 'Electoral Operations & Governance',
-      description: 'Official electoral administration dashboard for accrediting student voters, configuring ballot categories and candidate slates, and overseeing live election tallies.',
-      icon: Vote,
-      badge: 'Electoral Commission',
-      badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
-      iconBg: 'bg-blue-50 text-blue-600 border-blue-200',
-      primaryUrl: `${urls.electraAdmin}/login`,
-      primaryLabel: 'Open ELECTRA Admin',
-      links: [
-        { label: 'Commission Login', href: `${urls.electraAdmin}/login` },
-        { label: 'Voter Accreditation', href: `${urls.electraAdmin}/voters` },
-        { label: 'Live Ballots', href: `${urls.electraAdmin}/ballots` }
-      ]
     }
   ];
 
@@ -80,7 +62,7 @@ const AdminHub = () => {
     {
       icon: KeyRound,
       title: 'Role-Based Access Control',
-      text: 'Administrative privileges are strictly partitioned by department and role. Credentials for Portal operations, Website CMS, and Electoral governance operate independently.'
+      text: 'Administrative privileges are strictly partitioned by department and role. Credentials for Portal operations and Website CMS operate independently.'
     },
     {
       icon: Lock,
@@ -139,7 +121,7 @@ const AdminHub = () => {
             NACOS FUTO Admin Dashboards
           </h1>
           <p className="text-sm text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            Authorized access gateway for departmental officers, student clearance examiners, editorial managers, and electoral commissioners.
+            Authorized access gateway for departmental officers, student clearance examiners, and editorial managers.
           </p>
         </div>
       </section>
@@ -159,7 +141,7 @@ const AdminHub = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {adminDashboards.map((card) => {
               const Icon = card.icon;
               return (

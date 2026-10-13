@@ -176,7 +176,7 @@ const IdVerification = () => {
 
               <div className="px-6 pb-6 space-y-4 text-center">
                 <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs text-red-800 dark:text-red-300">
-                  <strong>Notice:</strong> This identity card has been officially cancelled or revoked by the NACOS Directorate. It must not be accepted for examination clearance, elections, or laboratory access.
+                  <strong>Notice:</strong> This identity card has been officially cancelled or revoked by the NACOS Directorate. It must not be accepted for examination clearance or laboratory access.
                 </div>
 
                 <div className="text-xs text-left p-4 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/20 space-y-2">

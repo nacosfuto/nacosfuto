@@ -122,10 +122,6 @@ const AdminUsers = () => {
         'feature:id_management',
         'feature:resource_management'
       ];
-    } else if (role === 'electoral_admin') {
-      scope = 'electoral_admin';
-      level = 'all';
-      defaultPerms = ['electoral_admin.all'];
     } else if (role === 'super_admin') {
       scope = 'super_admin';
       level = 'all';
@@ -247,7 +243,7 @@ const AdminUsers = () => {
   return (
     <WebsiteAdminLayout
       title="Administrator Management"
-      subtitle="Super Admin Oversight • Add, assign platform scopes, suspend, and manage departmental administrators across Website, Portal, and Electra."
+      subtitle="Super Admin Oversight • Add, assign platform scopes, suspend, and manage departmental administrators across Website and Portal."
     >
       <div className="space-y-6">
         
@@ -502,7 +498,6 @@ const AdminUsers = () => {
                       <option value="website_admin">Website Administrator</option>
                       <option value="portal_admin">Portal Administrator</option>
                       <option value="course_adviser">Course Adviser (Results &amp; Registry)</option>
-                      <option value="electoral_admin">Electoral Commission (Electra / ISEC)</option>
                       <option value="super_admin">Super Administrator (Universal)</option>
                     </select>
                   </div>
@@ -516,7 +511,6 @@ const AdminUsers = () => {
                     >
                       <option value="main_website">Main Website</option>
                       <option value="student_portal">Student Portal</option>
-                      <option value="electoral_admin">Electra Election Portal</option>
                       <option value="super_admin">Universal All Platforms</option>
                     </select>
                   </div>
@@ -614,7 +608,7 @@ const AdminUsers = () => {
                   Role: <strong className="capitalize">{deleteModal.admin.role}</strong> &bull; Scope: <code className="font-mono">{deleteModal.admin.scope}</code>
                 </div>
                 <p className="text-[11px] text-red-700 dark:text-red-300 mt-2">
-                  All active sessions will be terminated. Departmental election ballots, voting records, and student grades will remain intact.
+                  All active sessions will be terminated. Departmental student records and grades will remain intact.
                 </p>
               </div>
 

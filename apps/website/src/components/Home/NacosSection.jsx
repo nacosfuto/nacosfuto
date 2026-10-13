@@ -263,7 +263,7 @@ const NacosSection = () => {
             <span className="text-[#138601] dark:text-[#4bd043]">NACOS</span> Executives
           </h2>
           <p className="text-gray-700 dark:text-gray-300 text-xs sm:text-sm leading-snug">
-            Elected student leadership driving computing innovation, mentorship, and tech excellence across FUTO.
+            Executive student leadership driving computing innovation, mentorship, and tech excellence across FUTO.
           </p>
         </div>
 

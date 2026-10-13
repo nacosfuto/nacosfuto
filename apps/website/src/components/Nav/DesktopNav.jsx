@@ -6,7 +6,6 @@ import ScrollToTopLink from "../ScrollToTopLink";
 import { useTheme } from "../../context/ThemeContext";
 import SearchBar from "../SearchBar";
 import { getAppUrls } from "@nacos/config/urls";
-import { getElectionCardVisibility, fetchElectionCardVisibility } from "@nacos/supabase/electraService";
 
 // Custom Dropdown Component
 const NavDropdown = ({ label, items, theme, headerLink }) => {
@@ -149,45 +148,6 @@ const DesktopNav = () => {
   const urls = getAppUrls();
   const { upskillHub } = urls;
 
-  const [electionNavVisible, setElectionNavVisible] = useState(() => getElectionCardVisibility());
-
-  useEffect(() => {
-    let isMounted = true;
-    fetchElectionCardVisibility().then(vis => {
-      if (isMounted) setElectionNavVisible(vis);
-    });
-
-    const handleVisibilityChange = (e) => {
-      if (typeof e.detail === 'boolean') {
-        setElectionNavVisible(e.detail);
-      } else {
-        setElectionNavVisible(getElectionCardVisibility());
-      }
-    };
-
-    window.addEventListener('nacos_election_card_visibility_changed', handleVisibilityChange);
-    window.addEventListener('storage', handleVisibilityChange);
-
-    let bc = null;
-    if (typeof BroadcastChannel !== 'undefined') {
-      try {
-        bc = new BroadcastChannel('nacos_election_channel');
-        bc.onmessage = (event) => {
-          if (event.data?.type === 'visibility_change' && typeof event.data.visible === 'boolean') {
-            setElectionNavVisible(event.data.visible);
-          }
-        };
-      } catch (_) {}
-    }
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener('nacos_election_card_visibility_changed', handleVisibilityChange);
-      window.removeEventListener('storage', handleVisibilityChange);
-      if (bc) bc.close();
-    };
-  }, []);
-
   const aboutItems = [
     { name: "About Us", link: "/about" },
     { name: "Administration", link: "/about/administration" },
@@ -244,20 +204,6 @@ const DesktopNav = () => {
         >
           UPSKILL
         </a>
-
-        {/* Conditionally render ELECTIONS link: omitted completely from DOM when visibility is OFF */}
-        {electionNavVisible && (
-          <a
-            href={urls.electra}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`tracking-wide font-semibold transition-colors cursor-pointer ${
-              theme === "light" ? "text-black hover:text-[#138601]" : "text-gray-200 hover:text-[#4bd043]"
-            }`}
-          >
-            ELECTIONS
-          </a>
-        )}
 
         <NavDropdown label="ABOUT" items={aboutItems} theme={theme} />
         <NavDropdown label="ACADEMICS" items={academicsItems} theme={theme} />
