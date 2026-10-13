@@ -98,6 +98,15 @@ const IdCard = () => {
   const [verifyingReference, setVerifyingReference] = useState('');
   const [isStepUpOpen, setIsStepUpOpen] = useState(false);
 
+  // Dedicated Payment Verification & Transaction Monitoring State
+  const [paymentTransaction, setPaymentTransaction] = useState(null);
+  const [paymentStatusOutcome, setPaymentStatusOutcome] = useState('PENDING'); // 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED'
+  const [paymentStatusMessage, setPaymentStatusMessage] = useState('');
+  const [isPaymentDelayed, setIsPaymentDelayed] = useState(false);
+  const [gatewayTabClosed, setGatewayTabClosed] = useState(false);
+  const gatewayWindowRef = useRef(null);
+  const tabWatchIntervalRef = useRef(null);
+
   // ID Card Payment History & Receipt States
   const [idCardPayments, setIdCardPayments] = useState([]);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
@@ -110,6 +119,26 @@ const IdCard = () => {
 
   useEffect(() => {
     loadStudentAndApplication();
+
+    // Check for pending ID card payment transaction in localStorage to restore waiting state on refresh
+    try {
+      const savedTxStr = localStorage.getItem('nacos_pending_id_card_tx');
+      if (savedTxStr) {
+        const savedTx = JSON.parse(savedTxStr);
+        const ageMs = Date.now() - new Date(savedTx.initiatedAt || 0).getTime();
+        if (ageMs < 30 * 60 * 1000) {
+          setPaymentTransaction(savedTx);
+          setIsVerifyingPayment(true);
+          setPaymentStatusOutcome('PENDING');
+          setVerifyingReference(savedTx.checkoutId || savedTx.reference || '');
+          if (savedTx.level) setFormLevel(savedTx.level);
+          if (savedTx.session) setFormSession(savedTx.session);
+          startPaymentVerificationPolling(savedTx.reference, savedTx.checkoutId, savedTx.level);
+        } else {
+          localStorage.removeItem('nacos_pending_id_card_tx');
+        }
+      }
+    } catch (_) {}
 
     // Safety fallback: guaranteed loading termination within 3 seconds
     const safetyTimeout = setTimeout(() => {
@@ -133,6 +162,7 @@ const IdCard = () => {
       clearTimeout(safetyTimeout);
       window.removeEventListener('nacos_id_card_settings_updated', handleSettingsUpdated);
       if (unsubSession) unsubSession();
+      if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
     };
   }, []);
 
@@ -387,35 +417,38 @@ const IdCard = () => {
     setTimeout(() => setNotification({ message: '', type: '' }), 4500);
   };
 
-  // Helper to recheck payment status with backend directly
-  const checkPaymentDirect = async (targetRef = null) => {
-    const activeRef = targetRef || verifyingReference || searchParams.get('reference') || searchParams.get('checkout_id') || searchParams.get('checkoutId');
-    const isChk = activeRef && activeRef.startsWith('chk_');
-    const queryParams = new URLSearchParams();
-    if (isChk) {
-      queryParams.set('checkoutId', activeRef);
-    } else if (activeRef) {
-      queryParams.set('reference', activeRef);
-    }
+  // Authoritative status verification against backend & gateway
+  const checkPaymentStatusAuthoritative = async (reference, checkoutId, targetLevel = null, isTabCloseEvent = false) => {
     const currentStudent = studentRef.current;
-    const regNo = currentStudent?.matric || currentStudent?.registration_number;
-    if (regNo) {
-      queryParams.set('registrationNumber', regNo);
+    const queryParams = new URLSearchParams();
+    if (reference) queryParams.set('reference', reference);
+    if (checkoutId) queryParams.set('checkoutId', checkoutId);
+    if (currentStudent?.matric || currentStudent?.registration_number) {
+      queryParams.set('registrationNumber', currentStudent.matric || currentStudent.registration_number);
     }
     if (currentStudent?.id) {
       queryParams.set('studentId', currentStudent.id);
     }
-    if (formLevel) {
-      queryParams.set('level', formLevel);
+    const lvlToPass = targetLevel || formLevel;
+    if (lvlToPass) {
+      queryParams.set('level', lvlToPass);
     }
 
     try {
       const res = await fetch(`/api/payments/id-card/status?${queryParams.toString()}`);
       if (res.ok) {
         const data = await res.json();
+
+        // 1. Definitively Successful Outcome
         if (data.isPaid || data.status === 'successful') {
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-          setIsVerifyingPayment(false);
+          if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
+          try {
+            localStorage.removeItem('nacos_pending_id_card_tx');
+          } catch (_) {}
+
+          setPaymentStatusOutcome('SUCCESS');
+          setPaymentStatusMessage('Payment confirmed! Processing your official NACOS ID Card on the spot.');
           showNotification('Payment verified! Processing your official NACOS ID Card on the spot.');
 
           searchParams.delete('payment');
@@ -424,23 +457,65 @@ const IdCard = () => {
           searchParams.delete('checkoutId');
           setSearchParams(searchParams, { replace: true });
 
-          const paidLvl = data.level || data.payment?.level || formLevel;
+          const paidLvl = data.level || data.payment?.level || lvlToPass;
           if (paidLvl) {
             setFormLevel(String(paidLvl).replace(/[^0-9]/g, ''));
           }
 
           await loadStudentAndApplication(paidLvl);
-          setTimeout(handleViewIdCard, 200);
-          return true;
+          setTimeout(handleViewIdCard, 300);
+          return 'SUCCESS';
         }
+
+        // 2. Definitively Failed Outcome
+        if (data.status === 'failed' || data.status === 'declined' || data.status === 'error') {
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
+          try {
+            localStorage.removeItem('nacos_pending_id_card_tx');
+          } catch (_) {}
+
+          setPaymentStatusOutcome('FAILED');
+          setPaymentStatusMessage(data.error || 'Payment was declined or failed at the gateway.');
+          return 'FAILED';
+        }
+
+        // 3. Definitively Cancelled Outcome
+        if (data.status === 'cancelled' || data.status === 'abandoned') {
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
+          try {
+            localStorage.removeItem('nacos_pending_id_card_tx');
+          } catch (_) {}
+
+          setPaymentStatusOutcome('CANCELLED');
+          setPaymentStatusMessage('Transaction was cancelled. You can retry checkout when you are ready.');
+          return 'CANCELLED';
+        }
+
+        // 4. Pending Outcome
+        if (isTabCloseEvent) {
+          // Tab closure alone does NOT mean failed; maintain verification state!
+          setGatewayTabClosed(true);
+        }
+        return 'PENDING';
       }
     } catch (err) {
-      console.warn('Direct payment status check notice:', err);
+      console.warn('Authoritative payment status check notice:', err);
     }
-    return false;
+    return 'PENDING';
   };
 
-  // Bachs Verification Polling & URL Parameter Listener + Cross-Tab & Focus Sync
+  // Helper to recheck payment status with backend directly
+  const checkPaymentDirect = async (targetRef = null) => {
+    const activeRef = targetRef || verifyingReference || paymentTransaction?.reference || searchParams.get('reference') || searchParams.get('checkout_id') || searchParams.get('checkoutId');
+    const chkId = paymentTransaction?.checkoutId || (activeRef && activeRef.startsWith('chk_') ? activeRef : null);
+    const ref = chkId ? null : activeRef;
+    const outcome = await checkPaymentStatusAuthoritative(ref, chkId, formLevel);
+    return outcome === 'SUCCESS';
+  };
+
+  // Cross-Tab BroadcastChannel & Storage Event Listeners
   useEffect(() => {
     let channel = null;
     try {
@@ -448,7 +523,13 @@ const IdCard = () => {
       channel.onmessage = async (event) => {
         if (event.data?.status === 'successful' && (event.data.paymentType === 'id_card' || !event.data.paymentType)) {
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-          setIsVerifyingPayment(false);
+          if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
+          try {
+            localStorage.removeItem('nacos_pending_id_card_tx');
+          } catch (_) {}
+
+          setPaymentStatusOutcome('SUCCESS');
+          setPaymentStatusMessage('Payment confirmed in payment window! ID Card generated on the spot.');
           showNotification('Payment confirmed in payment window! ID Card generated on the spot.');
 
           searchParams.delete('payment');
@@ -463,7 +544,7 @@ const IdCard = () => {
           }
 
           await loadStudentAndApplication(paidLvl);
-          setTimeout(handleViewIdCard, 200);
+          setTimeout(handleViewIdCard, 300);
         }
       };
     } catch (e) {}
@@ -478,10 +559,15 @@ const IdCard = () => {
           } catch (_) {}
         }
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        setIsVerifyingPayment(false);
+        if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
+        try {
+          localStorage.removeItem('nacos_pending_id_card_tx');
+        } catch (_) {}
+
+        setPaymentStatusOutcome('SUCCESS');
         showNotification('Payment confirmed! Updating ID card...');
         loadStudentAndApplication(paidLvl);
-        setTimeout(handleViewIdCard, 200);
+        setTimeout(handleViewIdCard, 300);
       }
     };
     window.addEventListener('storage', handleStorageEvent);
@@ -489,9 +575,10 @@ const IdCard = () => {
     // Automatic recheck when student switches back to this tab (visibilitychange & focus)
     const handleVisibilityOrFocus = async () => {
       if (document.visibilityState === 'visible') {
-        const targetRef = verifyingReference || searchParams.get('reference') || searchParams.get('checkout_id') || searchParams.get('checkoutId');
-        if (targetRef || isVerifyingPayment) {
-          await checkPaymentDirect(targetRef);
+        const targetRef = paymentTransaction?.reference || verifyingReference || searchParams.get('reference');
+        const targetChk = paymentTransaction?.checkoutId || searchParams.get('checkout_id') || searchParams.get('checkoutId');
+        if (targetRef || targetChk || isVerifyingPayment) {
+          await checkPaymentStatusAuthoritative(targetRef, targetChk, formLevel);
         } else {
           await loadStudentAndApplication();
         }
@@ -506,10 +593,13 @@ const IdCard = () => {
 
     if (paymentAction === 'verifying' && (ref || chkId)) {
       setIsVerifyingPayment(true);
+      setPaymentStatusOutcome('PENDING');
       setVerifyingReference(chkId || ref);
       startPaymentVerificationPolling(ref, chkId, formLevel);
     } else if (paymentAction === 'cancelled') {
-      showNotification('Payment was cancelled. You can retry checkout when you are ready.', 'error');
+      setIsVerifyingPayment(true);
+      setPaymentStatusOutcome('CANCELLED');
+      setPaymentStatusMessage('Payment was cancelled. You can retry checkout when you are ready.');
       searchParams.delete('payment');
       searchParams.delete('reference');
       searchParams.delete('checkout_id');
@@ -523,69 +613,39 @@ const IdCard = () => {
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
       window.removeEventListener('focus', handleVisibilityOrFocus);
     };
-  }, [searchParams, formLevel, verifyingReference, isVerifyingPayment]);
+  }, [searchParams, formLevel, verifyingReference, isVerifyingPayment, paymentTransaction]);
 
   useEffect(() => {
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
     };
   }, []);
 
   const startPaymentVerificationPolling = (reference, checkoutId, targetLevel = null) => {
     let attempts = 0;
-    const maxAttempts = 30; // 30 * 2s = 60s max polling
+    const maxAttempts = 60; // 60 attempts (~3-4 minutes)
 
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
 
     const checkStatus = async () => {
       attempts++;
-      try {
-        const queryParams = new URLSearchParams();
-        if (reference) queryParams.set('reference', reference);
-        if (checkoutId) queryParams.set('checkoutId', checkoutId);
-        const currentStudent = studentRef.current;
-        if (currentStudent?.matric || currentStudent?.registration_number) {
-          queryParams.set('registrationNumber', currentStudent.matric || currentStudent.registration_number);
-        }
-        if (currentStudent?.id) {
-          queryParams.set('studentId', currentStudent.id);
-        }
-        const lvlToPass = targetLevel || formLevel;
-        if (lvlToPass) {
-          queryParams.set('level', lvlToPass);
-        }
+      const outcome = await checkPaymentStatusAuthoritative(reference, checkoutId, targetLevel);
+      if (outcome === 'SUCCESS' || outcome === 'FAILED' || outcome === 'CANCELLED') {
+        return;
+      }
 
-        const res = await fetch(`/api/payments/id-card/status?${queryParams.toString()}`);
-        const data = await res.json();
-
-        if (data.isPaid || data.status === 'successful') {
-          clearInterval(pollIntervalRef.current);
-          setIsVerifyingPayment(false);
-          showNotification('Payment confirmed! Processing your official NACOS ID Card on the spot.');
-
-          searchParams.delete('payment');
-          searchParams.delete('reference');
-          searchParams.delete('checkout_id');
-          searchParams.delete('checkoutId');
-          setSearchParams(searchParams, { replace: true });
-
-          const paidLvl = data.level || data.payment?.level || lvlToPass;
-          if (paidLvl) {
-            setFormLevel(String(paidLvl).replace(/[^0-9]/g, ''));
-          }
-
-          await loadStudentAndApplication(paidLvl);
-          setTimeout(handleViewIdCard, 200);
-          return;
-        }
-      } catch (err) {
-        console.warn('Polling payment status error:', err);
+      // If unresolved after 25 attempts (~50s), transition to delayed state & slow polling
+      if (attempts === 25) {
+        setIsPaymentDelayed(true);
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = setInterval(checkStatus, 5000);
       }
 
       if (attempts >= maxAttempts) {
         clearInterval(pollIntervalRef.current);
-        setIsVerifyingPayment(false);
-        showNotification('Payment verification timed out. If you were debited, click "Check Payment Status" below.', 'error');
+        setIsPaymentDelayed(true);
+        showNotification('Payment confirmation is taking longer than expected. Use "Check Status Now" to refresh.', 'info');
       }
     };
 
@@ -594,53 +654,64 @@ const IdCard = () => {
   };
 
   const handleManualCheckStatus = async () => {
-    const targetRef = verifyingReference || searchParams.get('reference') || searchParams.get('checkout_id') || searchParams.get('checkoutId');
     setIsPaying(true);
+    const ref = paymentTransaction?.reference || verifyingReference || searchParams.get('reference');
+    const chkId = paymentTransaction?.checkoutId || searchParams.get('checkout_id') || searchParams.get('checkoutId');
+    const lvl = paymentTransaction?.level || formLevel;
+
+    const outcome = await checkPaymentStatusAuthoritative(ref, chkId, lvl);
+    setIsPaying(false);
+
+    if (outcome === 'PENDING') {
+      showNotification('Payment is still being processed by the gateway. We are waiting for confirmation.');
+    } else if (outcome === 'SUCCESS') {
+      showNotification('Payment confirmed! Processing your official NACOS ID Card.');
+    } else if (outcome === 'FAILED') {
+      showNotification('Payment was declined or failed.', 'error');
+    } else if (outcome === 'CANCELLED') {
+      showNotification('Payment was cancelled.', 'error');
+    }
+  };
+
+  const handleRetryPayment = () => {
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
     try {
-      const isChk = targetRef && targetRef.startsWith('chk_');
-      const queryParams = new URLSearchParams();
-      if (isChk) {
-        queryParams.set('checkoutId', targetRef);
-      } else if (targetRef) {
-        queryParams.set('reference', targetRef);
-      }
-      const regNo = student?.matric_number || student?.registration_number;
-      if (regNo) {
-        queryParams.set('registrationNumber', regNo);
-      }
-      if (student?.id) {
-        queryParams.set('studentId', student.id);
-      }
-      if (formLevel) {
-        queryParams.set('level', formLevel);
-      }
+      localStorage.removeItem('nacos_pending_id_card_tx');
+    } catch (_) {}
+    setIsVerifyingPayment(false);
+    setPaymentTransaction(null);
+    setPaymentStatusOutcome('PENDING');
+    setIsPaymentDelayed(false);
+    setGatewayTabClosed(false);
+    setIsNewPaymentModalOpen(true);
+  };
 
-      const res = await fetch(`/api/payments/id-card/status?${queryParams.toString()}`);
-      const data = await res.json();
-      setIsPaying(false);
+  const handleCancelVerification = async () => {
+    const ref = paymentTransaction?.reference || verifyingReference;
+    const chkId = paymentTransaction?.checkoutId;
+    const outcome = await checkPaymentStatusAuthoritative(ref, chkId, formLevel);
+    if (outcome === 'SUCCESS') return;
 
-      if (data.isPaid || data.status === 'successful') {
-        setIsVerifyingPayment(false);
-        showNotification('Payment confirmed! Processing your official NACOS ID Card on the spot.');
-        searchParams.delete('payment');
-        searchParams.delete('reference');
-        searchParams.delete('checkout_id');
-        searchParams.delete('checkoutId');
-        setSearchParams(searchParams, { replace: true });
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
+    try {
+      localStorage.removeItem('nacos_pending_id_card_tx');
+    } catch (_) {}
+    setIsVerifyingPayment(false);
+    setPaymentTransaction(null);
+    setPaymentStatusOutcome('PENDING');
+    setIsPaymentDelayed(false);
+    setGatewayTabClosed(false);
+    showNotification('Payment verification cancelled. You can retry checkout when you are ready.', 'info');
+  };
 
-        const paidLvl = data.level || data.payment?.level || formLevel;
-        if (paidLvl) {
-          setFormLevel(String(paidLvl).replace(/[^0-9]/g, ''));
-        }
-
-        await loadStudentAndApplication(paidLvl);
-        setTimeout(handleViewIdCard, 200);
-      } else {
-        showNotification(`Payment status: ${data.status || 'pending'}. Waiting for gateway confirmation.`, 'error');
-      }
-    } catch (e) {
-      setIsPaying(false);
-      showNotification('Could not check status. Please check your network connection.', 'error');
+  const handleReopenGatewayTab = () => {
+    if (paymentTransaction?.checkoutUrl) {
+      const win = window.open(paymentTransaction.checkoutUrl, '_blank');
+      gatewayWindowRef.current = win;
+      setGatewayTabClosed(false);
+      showNotification('Reopened payment gateway in a new tab.');
     }
   };
 
@@ -668,6 +739,11 @@ const IdCard = () => {
   };
 
   const handleSubmitNewPayment = async () => {
+    if (isVerifyingPayment && paymentStatusOutcome === 'PENDING') {
+      showNotification('A payment transaction is already pending verification. Please complete it or wait for confirmation.', 'error');
+      setIsNewPaymentModalOpen(false);
+      return;
+    }
     if (!application) {
       setIsApplying(true);
       const res = await createIdCardApplication(student);
@@ -686,6 +762,10 @@ const IdCard = () => {
 
   // State 2 -> State 3: Bachs Payment Checkout Session
   const handlePayment = () => {
+    if (isVerifyingPayment && paymentStatusOutcome === 'PENDING') {
+      showNotification('A payment transaction is already pending verification.', 'error');
+      return;
+    }
     setIsNewPaymentModalOpen(true);
   };
 
@@ -724,11 +804,46 @@ const IdCard = () => {
       }
 
       if (data.checkoutUrl) {
-        // Authoritative Bachs checkout opened in a NEW TAB
-        window.open(data.checkoutUrl, '_blank');
-        setIsPaying(false);
+        // 1. Authoritative Bachs checkout opened in a NEW TAB
+        const gatewayTab = window.open(data.checkoutUrl, '_blank');
+        gatewayWindowRef.current = gatewayTab;
+
+        // 2. Persist active transaction in state & localStorage
+        const txObj = {
+          reference: data.reference,
+          checkoutId: data.providerCheckoutId || '',
+          checkoutUrl: data.checkoutUrl,
+          amount: data.amount || settingsRef.current?.id_card_fee || 500,
+          level: formLevel,
+          session: formSession,
+          initiatedAt: new Date().toISOString()
+        };
+
+        try {
+          localStorage.setItem('nacos_pending_id_card_tx', JSON.stringify(txObj));
+        } catch (_) {}
+
+        setPaymentTransaction(txObj);
         setIsVerifyingPayment(true);
+        setPaymentStatusOutcome('PENDING');
+        setIsPaymentDelayed(false);
+        setGatewayTabClosed(false);
         setVerifyingReference(data.providerCheckoutId || data.reference || '');
+        setIsPaying(false);
+        setIsNewPaymentModalOpen(false);
+
+        // 3. Monitor payment gateway tab closure
+        if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
+        tabWatchIntervalRef.current = setInterval(() => {
+          if (gatewayWindowRef.current && gatewayWindowRef.current.closed) {
+            clearInterval(tabWatchIntervalRef.current);
+            tabWatchIntervalRef.current = null;
+            setGatewayTabClosed(true);
+            checkPaymentStatusAuthoritative(txObj.reference, txObj.checkoutId, txObj.level, true);
+          }
+        }, 1200);
+
+        // 4. Start backend polling
         startPaymentVerificationPolling(data.reference, data.providerCheckoutId, formLevel);
         showNotification('Payment checkout opened in a new tab. Complete payment there to proceed.');
         return;
@@ -1064,9 +1179,9 @@ const IdCard = () => {
 
   const appStatus = application?.status;
 
-  const isState1 = !application && !isSelectedLevelPaid;
-  const isStateExpired = Boolean(application) && !isSelectedLevelPaid && hasAnyPaidLevel && appStatus !== 'rejected' && appStatus !== 'revoked';
-  const isState2 = !isStateExpired && !isSelectedLevelPaid && (appStatus === 'pending_payment' || appStatus === 'draft' || (!isPaid && appStatus !== 'rejected' && appStatus !== 'revoked'));
+  const isState1 = !isVerifyingPayment && !application && !isSelectedLevelPaid;
+  const isStateExpired = !isVerifyingPayment && Boolean(application) && !isSelectedLevelPaid && hasAnyPaidLevel && appStatus !== 'rejected' && appStatus !== 'revoked';
+  const isState2 = !isVerifyingPayment && !isStateExpired && !isSelectedLevelPaid && (appStatus === 'pending_payment' || appStatus === 'draft' || (!isPaid && appStatus !== 'rejected' && appStatus !== 'revoked'));
   const isState3 = isSelectedLevelPaid && (appStatus === 'photo_required' || (!application?.passport_url && !student?.profile_photo_url));
   const isState4 = isSelectedLevelPaid && (application?.passport_url || student?.profile_photo_url) && appStatus === 'ready_to_submit';
   const isState5 = isSelectedLevelPaid && (appStatus === 'submitted' || appStatus === 'processing');
@@ -1143,7 +1258,7 @@ const IdCard = () => {
             <button
               type="button"
               onClick={handleNewPayment}
-              disabled={isPaying || isApplying}
+              disabled={isPaying || isApplying || (isVerifyingPayment && paymentStatusOutcome === 'PENDING')}
               className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
             >
               <Plus className="w-4 h-4" />
@@ -1332,6 +1447,225 @@ const IdCard = () => {
           </div>
         </div>
 
+        {/* ==================================================================== */}
+        {/* PAYMENT VERIFICATION & GATEWAY WAITING STATE INTERFACE                */}
+        {/* ==================================================================== */}
+        {isVerifyingPayment && (
+          <div className="p-6 sm:p-10 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 text-center space-y-6 shadow-xs animate-in fade-in duration-200">
+            {paymentStatusOutcome === 'PENDING' && (
+              <>
+                {/* Animated Loading Spinner */}
+                <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800 animate-pulse">
+                  <RefreshCw className="w-8 h-8 animate-spin" />
+                </div>
+
+                <div className="max-w-xl mx-auto space-y-2.5">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                    <Clock className="w-3.5 h-3.5" /> Processing / Pending Gateway Confirmation
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+                    Waiting for Payment Confirmation
+                  </h2>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed">
+                    Your payment process has started. We are waiting for confirmation from the payment gateway. Please complete your payment in the other tab. This page will automatically update once your transaction status is verified.
+                  </p>
+                  <p className="text-[11px] sm:text-xs text-amber-700 dark:text-amber-300/90 font-medium">
+                    Please do not close or refresh this page while your payment is being verified.
+                  </p>
+
+                  {isPaymentDelayed && (
+                    <div className="p-3.5 rounded-xl bg-amber-50/90 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 text-left">
+                      <strong>Notice:</strong> Payment confirmation is taking longer than expected. We are still checking your transaction with the payment gateway. If you completed payment, click "I've completed payment (Check Now)" below.
+                    </div>
+                  )}
+
+                  {gatewayTabClosed && !isPaymentDelayed && (
+                    <div className="p-3.5 rounded-xl bg-blue-50/90 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-300 text-left flex items-start gap-2">
+                      <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>Payment gateway tab was closed. Still checking and verifying transaction with the server in the background...</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Transaction Details Card */}
+                <div className="p-5 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-green-200/60">Transaction Reference:</span>
+                    <span className="font-mono font-bold text-gray-900 dark:text-white break-all">
+                      {paymentTransaction?.reference || verifyingReference || 'PENDING'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-green-200/60">Obligation:</span>
+                    <span className="font-bold text-[#0e8040] dark:text-[#4bd043]">
+                      {paymentTransaction?.level || formLevel} Level ({paymentTransaction?.session || formSession})
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-green-200/60">Amount:</span>
+                    <span className="font-bold text-gray-900 dark:text-white">
+                      ₦{Number(paymentTransaction?.amount || settings?.id_card_fee || 0).toLocaleString()}.00
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-green-200/60">Status:</span>
+                    <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3 animate-spin" /> Awaiting Gateway Confirmation
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleManualCheckStatus}
+                    disabled={isPaying}
+                    className="w-full sm:w-auto px-6 py-3 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-2 active:scale-95 disabled:opacity-60"
+                  >
+                    {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                    <span>{isPaying ? 'Checking...' : "I've completed payment (Check Now)"}</span>
+                  </button>
+
+                  {paymentTransaction?.checkoutUrl && (
+                    <button
+                      type="button"
+                      onClick={handleReopenGatewayTab}
+                      className="w-full sm:w-auto px-5 py-3 min-h-[44px] text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200 dark:border-[#138601]/30 rounded-xl transition-all cursor-pointer inline-flex items-center justify-center gap-2"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Reopen Payment Tab</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleCancelVerification}
+                    disabled={isPaying}
+                    className="w-full sm:w-auto px-4 py-3 min-h-[44px] text-xs font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer"
+                  >
+                    Cancel / Return to payment options
+                  </button>
+                </div>
+              </>
+            )}
+
+            {paymentStatusOutcome === 'SUCCESS' && (
+              <>
+                {/* Success State */}
+                <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800">
+                  <CheckCircle className="w-8 h-8" />
+                </div>
+
+                <div className="max-w-md mx-auto space-y-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-[#0e8040] dark:bg-emerald-950/60 dark:text-[#4bd043]">
+                    <CheckCircle className="w-3.5 h-3.5" /> Verified &amp; Cleared
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                    Payment Successful
+                  </h2>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed">
+                    Your payment of <strong className="text-[#0e8040] dark:text-[#4bd043]">₦{Number(paymentTransaction?.amount || settings?.id_card_fee || 0).toLocaleString()}.00</strong> for <strong className="text-gray-900 dark:text-white">{paymentTransaction?.level || formLevel} Level ({paymentTransaction?.session || formSession})</strong> has been confirmed. Your official student ID card is ready!
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-green-200/60">Reference:</span>
+                    <span className="font-mono font-bold text-gray-900 dark:text-white break-all">
+                      {paymentTransaction?.reference || verifyingReference}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-green-200/60">Amount Paid:</span>
+                    <span className="font-bold text-[#0e8040] dark:text-[#4bd043]">
+                      ₦{Number(paymentTransaction?.amount || settings?.id_card_fee || 0).toLocaleString()}.00
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-green-200/60">Status:</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">CLEARED &amp; APPROVED</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleViewIdCard}
+                    className="w-full sm:w-auto px-6 py-3 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-2"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>View &amp; Download ID Card</span>
+                  </button>
+                </div>
+              </>
+            )}
+
+            {(paymentStatusOutcome === 'FAILED' || paymentStatusOutcome === 'CANCELLED') && (
+              <>
+                {/* Failure or Cancelled State */}
+                <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto border border-red-200 dark:border-red-800">
+                  <AlertCircle className="w-8 h-8" />
+                </div>
+
+                <div className="max-w-md mx-auto space-y-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300">
+                    <AlertCircle className="w-3.5 h-3.5" /> {paymentStatusOutcome === 'CANCELLED' ? 'Transaction Cancelled' : 'Payment Failed'}
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                    Payment Not Completed
+                  </h2>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed">
+                    Your payment was not completed. No successful payment has been confirmed for this transaction. You can try again when you are ready.
+                  </p>
+                  {paymentStatusMessage && (
+                    <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                      {paymentStatusMessage}
+                    </p>
+                  )}
+                </div>
+
+                <div className="p-4 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-green-200/60">Reference:</span>
+                    <span className="font-mono font-bold text-gray-900 dark:text-white break-all">
+                      {paymentTransaction?.reference || verifyingReference || 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-green-200/60">Obligation:</span>
+                    <span className="font-medium text-gray-700 dark:text-gray-200">
+                      {paymentTransaction?.level || formLevel} Level ({paymentTransaction?.session || formSession})
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleRetryPayment}
+                    className="w-full sm:w-auto px-6 py-3 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Retry Payment</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsVerifyingPayment(false);
+                      setPaymentStatusOutcome('PENDING');
+                      try { localStorage.removeItem('nacos_pending_id_card_tx'); } catch (_) {}
+                    }}
+                    className="w-full sm:w-auto px-4 py-3 min-h-[44px] text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#041801] rounded-xl transition-colors cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {/* ====================================================================
             STATE EXPIRED: LEVEL VALIDITY LAPSED (Requires Academic Level Renewal)
             ==================================================================== */}
@@ -1508,58 +1842,18 @@ const IdCard = () => {
             ==================================================================== */}
         {isState2 && (
           <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 text-center space-y-6 shadow-xs">
-            {isVerifyingPayment ? (
-              /* Polling / Verifying State */
-              <div className="space-y-6 max-w-md mx-auto">
-                <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800 animate-pulse">
-                  <RefreshCw className="w-8 h-8 animate-spin" />
-                </div>
+            <div className="w-16 h-16 rounded-2xl bg-green-50 dark:bg-[#041801] text-[#138601] dark:text-[#4bd043] flex items-center justify-center mx-auto border border-[#138601]/30">
+              <CreditCard className="w-8 h-8" />
+            </div>
 
-                <div className="space-y-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                    <Clock className="w-3.5 h-3.5" /> Awaiting Webhook Confirmation
-                  </span>
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                    Verifying Payment Status
-                  </h2>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
-                    We've detected your return from the secure payment gateway. We are waiting for authoritative server confirmation.
-                  </p>
-                </div>
-
-                {verifyingReference && (
-                  <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/20 text-xs font-mono text-gray-700 dark:text-green-200">
-                    Ref: <span className="font-bold text-[#138601] dark:text-[#4bd043]">{verifyingReference}</span>
-                  </div>
-                )}
-
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleManualCheckStatus}
-                    disabled={isPaying}
-                    className="w-full sm:w-auto px-6 py-3 min-h-[44px] text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
-                  >
-                    {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                    <span>Check Payment Status</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* Standard Payment Required Prompt */
-              <>
-                <div className="w-16 h-16 rounded-2xl bg-green-50 dark:bg-[#041801] text-[#138601] dark:text-[#4bd043] flex items-center justify-center mx-auto border border-[#138601]/30">
-                  <CreditCard className="w-8 h-8" />
-                </div>
-
-                <div className="max-w-md mx-auto space-y-2">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                    Payment Required to Continue
-                  </h2>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
-                    Your ID card application (<span className="font-mono font-bold text-gray-800 dark:text-white">{application?.application_number || 'PENDING'}</span>) has been initiated. Select your obligation level and complete payment securely.
-                  </p>
-                </div>
+            <div className="max-w-md mx-auto space-y-2">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                Payment Required to Continue
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
+                Your ID card application (<span className="font-mono font-bold text-gray-800 dark:text-white">{application?.application_number || 'PENDING'}</span>) has been initiated. Select your obligation level and complete payment securely.
+              </p>
+            </div>
 
                 {/* Obligation Level Switcher */}
                 <div className="max-w-md mx-auto space-y-2 text-left">
@@ -1667,8 +1961,6 @@ const IdCard = () => {
                     <span>256-bit encrypted • Authoritative server verification</span>
                   </div>
                 </div>
-              </>
-            )}
           </div>
         )}
 
@@ -2273,15 +2565,17 @@ const IdCard = () => {
               <button
                 type="button"
                 onClick={handleSubmitNewPayment}
-                disabled={isPaying || isApplying || selectedObligation?.isPaid}
+                disabled={isPaying || isApplying || selectedObligation?.isPaid || (isVerifyingPayment && paymentStatusOutcome === 'PENDING')}
                 className="px-6 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] transition-all cursor-pointer shadow-xs inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span>
                   {selectedObligation?.isPaid
                     ? 'Already Settled'
-                    : `Proceed to Payment (₦${Number(selectedObligation?.amount || settings?.id_card_fee || 0).toLocaleString()})`}
+                    : isVerifyingPayment && paymentStatusOutcome === 'PENDING'
+                    ? 'Payment Pending Confirmation'
+                    : `Submit Payment (₦${Number(selectedObligation?.amount || settings?.id_card_fee || 0).toLocaleString()})`}
                 </span>
-                {!selectedObligation?.isPaid && <ArrowRight className="w-4 h-4" />}
+                {!selectedObligation?.isPaid && !(isVerifyingPayment && paymentStatusOutcome === 'PENDING') && <ArrowRight className="w-4 h-4" />}
               </button>
             </div>
 
