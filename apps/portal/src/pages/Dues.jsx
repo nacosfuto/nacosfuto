@@ -26,6 +26,7 @@ import {
   SUPPORTED_ACADEMIC_SESSIONS,
   calculateAcademicProgression,
   extractEntryYearFromRegNumber,
+  getStudentApplicableLevelSessions,
   onAcademicSessionChange
 } from '@nacos/config/academic';
 import StepUpAuthModal from '../components/StepUpAuthModal';
@@ -170,9 +171,6 @@ const Dues = () => {
       // STRICT USER RULE: ID Card payments NEVER show on Dues page
       if (isIdCard) return;
 
-      // STRICT USER RULE: Only successful payments are allowed to show on the dashboard table
-      if (!isPaid) return;
-
       const paymentTypeLabel = 'Departmental Dues (Full Payment)';
       const session = item.academic_session || item.metadata?.academic_session || item.session || currentUser?.academic_session || getActiveAcademicSession();
 
@@ -185,9 +183,9 @@ const Dues = () => {
         paymentDate: `${dateStr} (${timeStr} GMT+1)`,
         amount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
         rawAmount: amt,
-        paymentMethod: item.provider ? `${String(item.provider).replace(/bachs/gi, 'Online Gateway')} (Confirmed)` : 'Online Gateway (Confirmed)',
-        status: 'Verified & Cleared',
-        isPaid: true,
+        paymentMethod: item.provider ? `${String(item.provider).replace(/bachs/gi, 'Online Gateway')} (${isPaid ? 'Confirmed' : 'Unconfirmed'})` : `Online Gateway (${isPaid ? 'Confirmed' : 'Unconfirmed'})`,
+        status: isPaid ? 'PAID' : 'UNPAID',
+        isPaid,
         session: session,
         level: `${lvl} LEVEL`,
         levelNum: lvl,
@@ -200,7 +198,7 @@ const Dues = () => {
 
       allRecords.push(formatted);
 
-      if (['100', '200', '300', '400', '500'].includes(lvl) && !newMap[lvl]) {
+      if (isPaid && ['100', '200', '300', '400', '500'].includes(lvl) && !newMap[lvl]) {
         newMap[lvl] = formatted;
       }
     };
@@ -308,7 +306,15 @@ const Dues = () => {
     uniqueRecords.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     setPaymentHistoryList(uniqueRecords);
-    setLevelDuesMap(newMap);
+    setLevelDuesMap(prev => {
+      const merged = { ...newMap };
+      ['100', '200', '300', '400', '500'].forEach(k => {
+        if (!merged[k] && prev[k]?.isPaid) {
+          merged[k] = prev[k];
+        }
+      });
+      return merged;
+    });
     setTotalLifetimeDues(totalPaidSum);
 
     // Revocation status check
@@ -642,6 +648,41 @@ const Dues = () => {
     });
   };
 
+  const handlePayLevel = (lvl, session = null) => {
+    const lvlNum = String(lvl || '').replace(/\D/g, '') || formLevel;
+    setFormLevel(lvlNum);
+    if (session) {
+      setFormSession(session);
+    }
+    setIsNewInvoiceOpen(true);
+  };
+
+  // Dynamic Progression & Obligation Generation matching ID Card obligations
+  const applicableObligations = getStudentApplicableLevelSessions(user) || [];
+  const duesLevelObligations = (applicableObligations.length > 0
+    ? applicableObligations
+    : progressiveLevels.map(lvl => ({
+        level: `${lvl} Level`,
+        session: user?.academic_session || getActiveAcademicSession(),
+        isCurrent: String(lvl) === String(progressiveLevels[progressiveLevels.length - 1])
+      }))
+  ).map(ob => {
+    const obLvlNum = String(ob.level).replace(/[^0-9]/g, '');
+    const paidRow = levelDuesMap[obLvlNum] || paymentHistoryList.find(p => p.isPaid && String(p.levelNum || p.level || '').replace(/\D/g, '') === obLvlNum);
+    const isPaid = Boolean(paidRow && paidRow.isPaid);
+
+    return {
+      ...ob,
+      amount: paidRow?.rawAmount || duesFee || 3000,
+      receiptNo: paidRow?.receiptNo || null,
+      transactionId: paidRow?.transactionId || null,
+      date: paidRow?.date || null,
+      isPaid,
+      status: isPaid ? 'PAID' : 'UNPAID',
+      payment: paidRow || null
+    };
+  });
+
   return (
     <PortalLayout>
       <div className="space-y-6">
@@ -748,15 +789,12 @@ const Dues = () => {
                       onClick={() => handleOpenPosReceipt(paidRow, false)}
                       className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-[#0e8040] hover:text-[#0b6a34] bg-white dark:bg-[#083002] border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer text-center"
                     >
-                      View Receipt
+                      Print Receipt
                     </button>
                   ) : (
                     <button
                       type="button"
-                      onClick={() => {
-                        setFormLevel(lvl);
-                        setIsNewInvoiceOpen(true);
-                      }}
+                      onClick={() => handlePayLevel(lvl)}
                       className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] shadow-xs transition-colors cursor-pointer text-center"
                     >
                       Pay Now
@@ -765,6 +803,122 @@ const Dues = () => {
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* ==================================================================== */}
+        {/* LEVEL-BY-LEVEL SCHOOL DUES OBLIGATIONS & CLEARANCE TABLE             */}
+        {/* ==================================================================== */}
+        <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200/80 dark:border-[#138601]/30 shadow-xs overflow-hidden">
+          <div className="p-5 border-b border-gray-100 dark:border-[#138601]/25 flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                School Dues Clearance Status by Academic Level
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-green-200/70 mt-0.5">
+                Obligations per academic level from 100 Level upward. Clear each level to unlock official clearance receipts.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-semibold">
+              <span className="px-2.5 py-1 rounded-full bg-gray-100 dark:bg-[#041801] text-gray-600 dark:text-gray-300">
+                Cleared: <strong className="text-gray-900 dark:text-white">{duesLevelObligations.filter(o => o.isPaid).length} / {duesLevelObligations.length}</strong>
+              </span>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead>
+                <tr className="border-b border-gray-200/70 dark:border-[#138601]/20 bg-gray-50/50 dark:bg-[#041801]/60 text-gray-500 dark:text-green-200/70 font-semibold text-[11px] sm:text-xs">
+                  <th className="py-3.5 px-5">Level</th>
+                  <th className="py-3.5 px-4">Academic Session</th>
+                  <th className="py-3.5 px-4">Amount ₦</th>
+                  <th className="py-3.5 px-4">Invoice / Ref #</th>
+                  <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-[#138601]/15 text-gray-800 dark:text-gray-100">
+                {duesLevelObligations.length > 0 ? (
+                  duesLevelObligations.map((ob, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50/60 dark:hover:bg-[#041801]/40 transition-colors">
+                      <td className="py-4 px-5 font-bold text-gray-900 dark:text-white text-xs">
+                        <div className="flex items-center gap-2">
+                          <span>{ob.level}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 font-mono text-gray-600 dark:text-gray-300">
+                        {ob.session}
+                      </td>
+                      <td className="py-4 px-4 font-semibold text-gray-900 dark:text-white">
+                        {ob.amount ? Number(ob.amount).toLocaleString() : (duesFee ? Number(duesFee).toLocaleString() : '3,000')}
+                      </td>
+                      <td className="py-4 px-4 font-mono text-xs text-gray-700 dark:text-gray-200">
+                        {ob.receiptNo ? (
+                          <span title={ob.transactionId || ob.receiptNo}>
+                            {String(ob.receiptNo).slice(-14)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 dark:text-green-200/40">—</span>
+                        )}
+                      </td>
+                      <td className="py-4 px-4">
+                        {ob.isPaid ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-[#0e8040] dark:bg-emerald-950/60 dark:text-[#4bd043]">
+                            <CheckCircle className="w-3 h-3" />
+                            PAID
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700 dark:bg-[#041801] dark:text-gray-300">
+                            <Clock className="w-3 h-3" />
+                            UNPAID
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-4 px-5 text-right space-y-1.5 sm:space-y-0 sm:space-x-2">
+                        {ob.isPaid ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPosReceipt(ob.payment || {
+                              receiptNo: ob.receiptNo,
+                              transactionId: ob.transactionId,
+                              amount: `₦${Number(ob.amount || 3000).toLocaleString()}`,
+                              rawAmount: ob.amount,
+                              level: ob.level,
+                              session: ob.session,
+                              date: ob.date
+                            }, false)}
+                            className="inline-block px-3 py-1.5 rounded-md text-xs font-semibold text-[#0e8040] hover:text-[#0b6a34] bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/40 transition-colors cursor-pointer"
+                          >
+                            Print Receipt
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handlePayLevel(ob.level, ob.session)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] shadow-xs transition-colors cursor-pointer active:scale-95"
+                          >
+                            <CreditCard className="w-3.5 h-3.5" />
+                            <span>Pay Now</span>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="py-10 px-5 text-center space-y-2">
+                      <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-[#041801] text-gray-400 dark:text-green-200/50 flex items-center justify-center mx-auto">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <p className="font-semibold text-gray-800 dark:text-gray-200 text-xs sm:text-sm">
+                        No School Dues Obligations Found
+                      </p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -806,8 +960,8 @@ const Dues = () => {
                               PAID
                             </span>
                           ) : (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-                              PENDING
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-gray-100 text-gray-700 dark:bg-[#041801] dark:text-gray-300">
+                              UNPAID
                             </span>
                           )}
                         </div>
@@ -825,20 +979,24 @@ const Dues = () => {
                         {row.session}
                       </td>
                       <td className="py-4 px-5 text-right space-y-1.5 sm:space-y-0 sm:space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenPosReceipt(row, true)}
-                          className="inline-block px-3 py-1.5 rounded-md text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200/80 dark:border-[#138601]/30 transition-colors cursor-pointer"
-                        >
-                          Print Invoice
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenPosReceipt(row, false)}
-                          className="inline-block px-3 py-1.5 rounded-md text-xs font-semibold text-[#0e8040] hover:text-[#0b6a34] bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/40 transition-colors cursor-pointer"
-                        >
-                          Print Receipt
-                        </button>
+                        {row.isPaid ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPosReceipt(row, false)}
+                            className="inline-block px-3 py-1.5 rounded-md text-xs font-semibold text-[#0e8040] hover:text-[#0b6a34] bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/40 transition-colors cursor-pointer"
+                          >
+                            Print Receipt
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handlePayLevel(row.level, row.session)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] shadow-xs transition-colors cursor-pointer active:scale-95"
+                          >
+                            <CreditCard className="w-3.5 h-3.5" />
+                            <span>Pay Now</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))

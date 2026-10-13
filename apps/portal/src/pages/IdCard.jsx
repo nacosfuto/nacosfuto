@@ -48,7 +48,7 @@ import {
   downloadIdCardAsPdf,
   saveGeneratedIdCardAsset
 } from '@nacos/supabase/idCard';
-import { supabase } from '@nacos/supabase';
+import { supabase, getLocalPaymentsDatabase } from '@nacos/supabase';
 import { enrichStudentProfile } from '@nacos/supabase/auth';
 import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
 import { MediaUpload, CLOUDINARY_FOLDERS, getOptimizedImageUrl, idTemplateMaster, idTemplateBack, idTemplateFrame } from '@nacos/media';
@@ -58,7 +58,15 @@ import PosThermalReceipt from '../components/PosThermalReceipt';
 const masterTemplateAsset = idTemplateMaster;
 const frameAsset = idTemplateFrame;
 
-const withTimeout = (promise, ms = 3500) =>
+export const normalizeLevel = (lvl) => {
+  if (!lvl) return '100 Level';
+  const s = String(lvl).trim();
+  if (s.toLowerCase().includes('level')) return s;
+  const match = s.match(/\d{3}/);
+  return match ? `${match[0]} Level` : `${s} Level`;
+};
+
+const withTimeout = (promise, ms = 6000) =>
   Promise.race([
     promise,
     new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timed out')), ms))
@@ -168,20 +176,22 @@ const IdCard = () => {
   useEffect(() => {
     loadStudentAndApplication();
 
-    // Check for pending ID card payment transaction in localStorage to restore waiting state on refresh
+    // Check for pending ID card payment transaction in localStorage to restore waiting state if URL indicates verifying
     try {
+      const isVerifyingUrl = searchParams.get('payment') === 'verifying';
       const savedTxStr = localStorage.getItem('nacos_pending_id_card_tx');
-      if (savedTxStr) {
+      if (savedTxStr && isVerifyingUrl) {
         const savedTx = JSON.parse(savedTxStr);
         const ageMs = Date.now() - new Date(savedTx.initiatedAt || 0).getTime();
-        if (ageMs < 30 * 60 * 1000) {
+        if (ageMs < 15 * 60 * 1000) {
           setPaymentTransaction(savedTx);
           setIsVerifyingPayment(true);
           setPaymentStatusOutcome('PENDING');
           setVerifyingReference(savedTx.checkoutId || savedTx.reference || '');
           if (savedTx.level) {
-            formLevelRef.current = savedTx.level;
-            setFormLevel(savedTx.level);
+            const norm = normalizeLevel(savedTx.level);
+            formLevelRef.current = norm;
+            setFormLevel(norm);
           }
           if (savedTx.session) {
             formSessionRef.current = savedTx.session;
@@ -245,25 +255,25 @@ const IdCard = () => {
       const matric = parsed.matric || parsed.registration_number;
       const cleanMatric = String(matric || '').trim().toUpperCase();
 
-      const lookupLevel = preferredLevel || formLevelRef.current || defaultStudentLevel;
+      const lookupLevel = preferredLevel ? normalizeLevel(preferredLevel) : (formLevelRef.current || defaultStudentLevel);
 
       // Parallelize settings, profile check, payments ledger, and application queries to eliminate waterfall
       const [cfg, profRow, dbPays, rawApp] = await Promise.all([
-        withTimeout(getIdCardSettings(), 2500).catch(() => null),
+        withTimeout(getIdCardSettings(), 6000).catch(() => null),
         supabase && cleanMatric
           ? withTimeout(
               supabase.from('profiles').select('*').or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`).limit(1).maybeSingle(),
-              2500
+              6000
             ).then(res => res.data).catch(() => null)
           : Promise.resolve(null),
         supabase && cleanMatric
           ? withTimeout(
               supabase.from('payments').select('*').or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`).order('created_at', { ascending: false }),
-              2500
+              6000
             ).then(res => res.data || []).catch(() => [])
           : Promise.resolve([]),
         cleanMatric
-          ? withTimeout(getStudentIdApplication(cleanMatric, lookupLevel), 2500).catch(() => null)
+          ? withTimeout(getStudentIdApplication(cleanMatric, lookupLevel), 6000).catch(() => null)
           : Promise.resolve(null)
       ]);
 
@@ -287,64 +297,73 @@ const IdCard = () => {
 
       // Process collected ID Card payments
       const collectedIdCardPays = [];
-      if (Array.isArray(dbPays) && dbPays.length > 0) {
-        dbPays.forEach(p => {
-          const isIdType = p.payment_type === 'ID_CARD' ||
-            String(p.purpose || '').toLowerCase().includes('id card') ||
-            String(p.title || '').toLowerCase().includes('id card') ||
-            String(p.payment_title || '').toLowerCase().includes('id card');
+      const processIdPayItem = (p) => {
+        const isIdType = p.payment_type === 'ID_CARD' ||
+          String(p.purpose || '').toLowerCase().includes('id card') ||
+          String(p.title || '').toLowerCase().includes('id card') ||
+          String(p.payment_title || '').toLowerCase().includes('id card');
 
-          if (!isIdType) return;
+        if (!isIdType) return;
 
-          const rawStatus = String(p.status || '').toLowerCase();
-          const isPaid = ['successful', 'paid', 'cleared', 'verified', 'completed'].includes(rawStatus) || Boolean(p.paid_at);
-          const isPending = ['pending', 'initiated', 'processing'].includes(rawStatus) && !isPaid;
-          const isFailed = ['failed', 'cancelled', 'declined', 'error'].includes(rawStatus);
-          const mappedStatus = isPaid ? 'PAID' : isPending ? 'PENDING' : isFailed ? 'FAILED' : 'UNPAID';
+        const rawStatus = String(p.status || '').toLowerCase();
+        const isPaid = ['successful', 'paid', 'cleared', 'verified', 'completed'].includes(rawStatus) || Boolean(p.paid_at);
+        const mappedStatus = isPaid ? 'PAID' : 'UNPAID';
 
-          let payLevel = p.level || p.metadata?.level || p.metadata?.academic_level || '';
-          let paySession = p.academic_session || p.metadata?.academic_session || p.metadata?.academicSession || p.session || '';
+        let payLevel = p.level || p.metadata?.level || p.metadata?.academic_level || '';
+        let paySession = p.academic_session || p.metadata?.academic_session || p.metadata?.academicSession || p.session || '';
 
-          if (!payLevel && paySession) {
-            const match = pObs.find(o => String(o.session).trim() === String(paySession).trim());
-            if (match) payLevel = match.level;
-          } else if (!paySession && payLevel) {
-            const match = pObs.find(o => String(o.level).replace(/\D/g, '') === String(payLevel).replace(/\D/g, ''));
-            if (match) paySession = match.session;
-          }
+        if (!payLevel && paySession) {
+          const match = pObs.find(o => String(o.session).trim() === String(paySession).trim());
+          if (match) payLevel = match.level;
+        } else if (!paySession && payLevel) {
+          const match = pObs.find(o => String(o.level).replace(/\D/g, '') === String(payLevel).replace(/\D/g, ''));
+          if (match) paySession = match.session;
+        }
 
-          // If payment record has neither level nor session in DB, anchor to student's current obligation
-          if (!payLevel) {
-            payLevel = curOb?.level || defaultStudentLevel;
-          }
-          if (!paySession) {
-            paySession = curOb?.session || cfg?.academic_session || getActiveAcademicSession();
-          }
+        // If payment record has neither level nor session in DB, anchor to student's current obligation
+        if (!payLevel) {
+          payLevel = curOb?.level || defaultStudentLevel;
+        }
+        if (!paySession) {
+          paySession = curOb?.session || cfg?.academic_session || getActiveAcademicSession();
+        }
 
-          const payDate = p.paid_at || p.created_at || new Date().toISOString();
-          const dObj = new Date(payDate);
-          const amt = Number(p.amount || cfg?.id_card_fee || 0);
+        const payDate = p.paid_at || p.created_at || new Date().toISOString();
+        const dObj = new Date(payDate);
+        const amt = Number(p.amount || cfg?.id_card_fee || 0);
 
-          collectedIdCardPays.push({
-            id: p.id || p.reference,
-            receiptNo: p.reference || `NACOS/IDCARD/${cleanMatric}`,
-            transactionId: p.provider_payment_id || p.id || p.reference || 'TX-CONFIRMED',
-            amount: amt,
-            formattedAmount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
-            session: paySession,
-            level: payLevel ? (String(payLevel).includes('Level') ? payLevel : `${payLevel} Level`) : (curOb?.level || defaultStudentLevel),
-            paymentType: 'Student ID Card Issuance',
-            paymentMethod: p.provider ? `${String(p.provider).replace(/bachs/gi, 'Online Gateway')} (${mappedStatus})` : `Online Gateway (${mappedStatus})`,
-            date: !isNaN(dObj.getTime()) ? dObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Current Session',
-            time: !isNaN(dObj.getTime()) ? dObj.toLocaleTimeString('en-GB') : '12:00:00',
-            status: mappedStatus,
-            isPaid,
-            isPending,
-            isFailed,
-            rawPayment: p
-          });
+        collectedIdCardPays.push({
+          id: p.id || p.reference,
+          receiptNo: p.reference || `NACOS/IDCARD/${cleanMatric}`,
+          transactionId: p.provider_payment_id || p.id || p.reference || 'TX-CONFIRMED',
+          amount: amt,
+          formattedAmount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+          session: paySession,
+          level: normalizeLevel(payLevel),
+          paymentType: 'Student ID Card Issuance',
+          paymentMethod: p.provider ? `${String(p.provider).replace(/bachs/gi, 'Online Gateway')} (${mappedStatus})` : `Online Gateway (${mappedStatus})`,
+          date: !isNaN(dObj.getTime()) ? dObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Current Session',
+          time: !isNaN(dObj.getTime()) ? dObj.toLocaleTimeString('en-GB') : '12:00:00',
+          status: mappedStatus,
+          isPaid,
+          rawPayment: p
         });
+      };
+
+      if (Array.isArray(dbPays) && dbPays.length > 0) {
+        dbPays.forEach(processIdPayItem);
       }
+
+      // Check local storage payments fallback to prevent transient network misses
+      try {
+        const localDb = getLocalPaymentsDatabase();
+        if (Array.isArray(localDb)) {
+          localDb.filter(p =>
+            (p.student_matric && p.student_matric.toUpperCase() === cleanMatric) ||
+            (p.registration_number && p.registration_number.toUpperCase() === cleanMatric)
+          ).forEach(processIdPayItem);
+        }
+      } catch (_) {}
 
       // If rawApp is verified/paid, ensure a corresponding paid entry exists in collectedIdCardPays
       if (rawApp && (rawApp.payment_status === 'paid' || rawApp.payment_status === 'verified' || rawApp.status === 'generated')) {
@@ -360,12 +379,12 @@ const IdCard = () => {
             amount: amt,
             formattedAmount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
             session: rawApp.academic_session || curOb?.session || cfg?.academic_session || getActiveAcademicSession(),
-            level: appLvl.includes('Level') ? appLvl : `${appLvl} Level`,
+            level: normalizeLevel(appLvl),
             paymentType: 'Student ID Card Issuance',
             paymentMethod: 'Online Gateway (Confirmed)',
             date: rawApp.paid_at ? new Date(rawApp.paid_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
             time: rawApp.paid_at ? new Date(rawApp.paid_at).toLocaleTimeString('en-GB') : new Date().toLocaleTimeString('en-GB'),
-            status: 'APPROVED',
+            status: 'PAID',
             isPaid: true
           });
         }
@@ -373,7 +392,7 @@ const IdCard = () => {
 
       // Determine authoritative active level:
       // Priority: explicitly requested level -> current level (if paid) -> any level (if paid) -> student's current level
-      let activeTargetLvl = preferredLevel || formLevelRef.current;
+      let activeTargetLvl = preferredLevel ? normalizeLevel(preferredLevel) : formLevelRef.current;
       if (!preferredLevel) {
         const curNum = String(curOb?.level || '').replace(/\D/g, '');
         const curPaid = collectedIdCardPays.find(p => p.isPaid && String(p.level || '').replace(/\D/g, '') === curNum);
@@ -396,9 +415,10 @@ const IdCard = () => {
       }) || curOb || pObs[0];
 
       if (activeOb) {
-        if (formLevelRef.current !== activeOb.level) {
-          formLevelRef.current = activeOb.level;
-          setFormLevel(activeOb.level);
+        const canonicalLvl = normalizeLevel(activeOb.level);
+        if (formLevelRef.current !== canonicalLvl) {
+          formLevelRef.current = canonicalLvl;
+          setFormLevel(canonicalLvl);
         }
         if (formSessionRef.current !== activeOb.session) {
           formSessionRef.current = activeOb.session;
@@ -418,7 +438,7 @@ const IdCard = () => {
 
       if (isTargetPaid) {
         if (!app) {
-          const createRes = await withTimeout(createIdCardApplication(parsed), 2500).catch(() => ({ application: null }));
+          const createRes = await withTimeout(createIdCardApplication(parsed), 6000).catch(() => ({ application: null }));
           app = createRes.application;
         }
 
@@ -427,7 +447,7 @@ const IdCard = () => {
           const cleanDigits = String(cleanMatric).replace(/\D/g, '') || cleanMatric;
 
           app.payment_status = 'verified';
-          app.level = activeOb?.level || app.level;
+          app.level = activeOb?.level ? normalizeLevel(activeOb.level) : app.level;
           app.academic_session = activeOb?.session || app.academic_session;
           if (targetPaidRecord?.receiptNo) {
             app.payment_reference = targetPaidRecord.receiptNo;
@@ -458,8 +478,29 @@ const IdCard = () => {
         }
       }
 
-      setIdCardPayments(collectedIdCardPays);
-      setApplication(app);
+      // Merge and preserve previously confirmed payments against transient network dropouts
+      setIdCardPayments(prev => {
+        const map = new Map();
+        (prev || []).forEach(p => {
+          if (p.isPaid) {
+            const key = p.receiptNo || p.transactionId || normalizeLevel(p.level);
+            map.set(key, p);
+          }
+        });
+        (collectedIdCardPays || []).forEach(p => {
+          const key = p.receiptNo || p.transactionId || normalizeLevel(p.level);
+          map.set(key, p);
+        });
+        return Array.from(map.values());
+      });
+
+      // Preserve application object if previously paid/generated and background fetch is temporarily null
+      setApplication(prev => {
+        if (!app && prev && (prev.payment_status === 'paid' || prev.status === 'generated')) {
+          return prev;
+        }
+        return app || prev;
+      });
     } catch (err) {
       console.error('ID Card page data load notice:', err);
     } finally {
@@ -515,22 +556,21 @@ const IdCard = () => {
             localStorage.removeItem('nacos_pending_id_card_tx');
           } catch (_) {}
 
+          setIsVerifyingPayment(false);
           setPaymentStatusOutcome('SUCCESS');
           setPaymentStatusMessage('Payment confirmed! Processing your official NACOS ID Card on the spot.');
           showNotification('Payment verified! Processing your official NACOS ID Card on the spot.');
 
-          searchParams.delete('payment');
-          searchParams.delete('reference');
-          searchParams.delete('checkout_id');
-          searchParams.delete('checkoutId');
-          setSearchParams(searchParams, { replace: true });
+          try {
+            window.history.replaceState({}, '', window.location.pathname);
+          } catch (_) {}
 
           const paidLvl = data.level || data.payment?.level || lvlToPass;
-          if (paidLvl) {
-            setFormLevel(String(paidLvl).replace(/[^0-9]/g, ''));
-          }
+          const canonicalLvl = normalizeLevel(paidLvl);
+          formLevelRef.current = canonicalLvl;
+          setFormLevel(canonicalLvl);
 
-          await loadStudentAndApplication(paidLvl);
+          await loadStudentAndApplication(canonicalLvl);
           setTimeout(handleViewIdCard, 300);
           return 'SUCCESS';
         }
@@ -583,7 +623,7 @@ const IdCard = () => {
     return outcome === 'SUCCESS';
   };
 
-  // Cross-Tab BroadcastChannel & Storage Event Listeners
+  // Cross-Tab BroadcastChannel & Storage Event Listeners (Registered once on mount)
   useEffect(() => {
     let channel = null;
     try {
@@ -596,31 +636,30 @@ const IdCard = () => {
             localStorage.removeItem('nacos_pending_id_card_tx');
           } catch (_) {}
 
+          setIsVerifyingPayment(false);
           setPaymentStatusOutcome('SUCCESS');
           setPaymentStatusMessage('Payment confirmed in payment window! ID Card generated on the spot.');
           showNotification('Payment confirmed in payment window! ID Card generated on the spot.');
 
-          searchParams.delete('payment');
-          searchParams.delete('reference');
-          searchParams.delete('checkout_id');
-          searchParams.delete('checkoutId');
-          setSearchParams(searchParams, { replace: true });
+          try {
+            window.history.replaceState({}, '', window.location.pathname);
+          } catch (_) {}
 
-          const paidLvl = event.data.level || formLevel;
-          if (paidLvl) {
-            setFormLevel(String(paidLvl).replace(/[^0-9]/g, ''));
-          }
+          const paidLvl = event.data.level || formLevelRef.current;
+          const canonicalLvl = normalizeLevel(paidLvl);
+          formLevelRef.current = canonicalLvl;
+          setFormLevel(canonicalLvl);
 
-          await loadStudentAndApplication(paidLvl);
+          await loadStudentAndApplication(canonicalLvl);
           setTimeout(handleViewIdCard, 300);
         }
       };
     } catch (e) {}
 
     const handleStorageEvent = (e) => {
-      if (e.key === 'nacos_last_payment_success' || e.key === 'nacos_user') {
+      if (e.key === 'nacos_last_payment_success') {
         let paidLvl = null;
-        if (e.key === 'nacos_last_payment_success' && e.newValue) {
+        if (e.newValue) {
           try {
             const parsed = JSON.parse(e.newValue);
             if (parsed.level) paidLvl = parsed.level;
@@ -632,9 +671,10 @@ const IdCard = () => {
           localStorage.removeItem('nacos_pending_id_card_tx');
         } catch (_) {}
 
+        setIsVerifyingPayment(false);
         setPaymentStatusOutcome('SUCCESS');
         showNotification('Payment confirmed! Updating ID card...');
-        loadStudentAndApplication(paidLvl || formLevelRef.current);
+        loadStudentAndApplication(paidLvl ? normalizeLevel(paidLvl) : formLevelRef.current);
         setTimeout(handleViewIdCard, 300);
       }
     };
@@ -643,8 +683,8 @@ const IdCard = () => {
     // Automatic authoritative recheck when student switches back to this tab (visibilitychange only, throttled)
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
-        const targetRef = paymentTransactionRef.current?.reference || verifyingReferenceRef.current || searchParams.get('reference');
-        const targetChk = paymentTransactionRef.current?.checkoutId || searchParams.get('checkout_id') || searchParams.get('checkoutId');
+        const targetRef = paymentTransactionRef.current?.reference || verifyingReferenceRef.current;
+        const targetChk = paymentTransactionRef.current?.checkoutId;
         if (targetRef || targetChk || isVerifyingPaymentRef.current) {
           await checkPaymentStatusAuthoritative(targetRef, targetChk, formLevelRef.current);
         } else if (Date.now() - lastFetchTimeRef.current > 30000) {
@@ -655,6 +695,15 @@ const IdCard = () => {
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    return () => {
+      if (channel) channel.close();
+      window.removeEventListener('storage', handleStorageEvent);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // Handle URL Query Parameters on initial load
+  useEffect(() => {
     const paymentAction = searchParams.get('payment');
     const ref = searchParams.get('reference');
     const chkId = searchParams.get('checkout_id') || searchParams.get('checkoutId');
@@ -668,19 +717,11 @@ const IdCard = () => {
       setIsVerifyingPayment(true);
       setPaymentStatusOutcome('CANCELLED');
       setPaymentStatusMessage('Payment was cancelled. You can retry checkout when you are ready.');
-      searchParams.delete('payment');
-      searchParams.delete('reference');
-      searchParams.delete('checkout_id');
-      searchParams.delete('checkoutId');
-      setSearchParams(searchParams, { replace: true });
+      try {
+        window.history.replaceState({}, '', window.location.pathname);
+      } catch (_) {}
     }
-
-    return () => {
-      if (channel) channel.close();
-      window.removeEventListener('storage', handleStorageEvent);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [searchParams]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -1208,20 +1249,16 @@ const IdCard = () => {
       return (levelMatches && sessionMatches) || (levelMatches && !pSess) || (sessionMatches && !pLvlNum) || (levelMatches || sessionMatches);
     });
 
-    const matchingPayment = matches.find(m => m.isPaid) || matches.find(m => m.isPending) || matches.find(m => m.isFailed) || matches[0] || null;
+    const matchingPayment = matches.find(m => m.isPaid) || matches[0] || null;
 
     const isObligationPaid = Boolean(matchingPayment?.isPaid);
-    const isObligationPending = Boolean(matchingPayment?.isPending);
-    const isObligationFailed = Boolean(matchingPayment?.isFailed);
-    const status = isObligationPaid ? 'PAID' : isObligationPending ? 'PENDING' : isObligationFailed ? 'FAILED' : 'UNPAID';
+    const status = isObligationPaid ? 'PAID' : 'UNPAID';
 
     return {
       ...ob,
       amount: matchingPayment?.amount ? Number(matchingPayment.amount) : (settings?.id_card_fee != null ? Number(settings.id_card_fee) : 0),
       status,
       isPaid: isObligationPaid,
-      isPending: isObligationPending,
-      isFailed: isObligationFailed,
       payment: matchingPayment || null,
       receiptNo: matchingPayment?.receiptNo || null,
       transactionId: matchingPayment?.transactionId || null,
@@ -1446,16 +1483,6 @@ const IdCard = () => {
                             <CheckCircle className="w-3 h-3" />
                             PAID
                           </span>
-                        ) : ob.isPending ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-                            <Clock className="w-3 h-3" />
-                            PENDING
-                          </span>
-                        ) : ob.isFailed ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300">
-                            <AlertCircle className="w-3 h-3" />
-                            FAILED
-                          </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700 dark:bg-[#041801] dark:text-gray-300">
                             <Clock className="w-3 h-3" />
@@ -1491,29 +1518,6 @@ const IdCard = () => {
                               Print Receipt
                             </button>
                           </>
-                        ) : ob.isPending ? (
-                          <div className="inline-flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setFormLevel(ob.level);
-                                setFormSession(ob.session);
-                                handleManualCheckStatus();
-                              }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 border border-amber-200 dark:border-amber-800/40 cursor-pointer"
-                            >
-                              <RefreshCw className="w-3 h-3" />
-                              <span>Verify</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handlePayObligation(ob)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] shadow-xs cursor-pointer"
-                            >
-                              <CreditCard className="w-3 h-3" />
-                              <span>Retry</span>
-                            </button>
-                          </div>
                         ) : (
                           <button
                             type="button"
@@ -1979,11 +1983,9 @@ const IdCard = () => {
                             <span className="font-bold text-xs text-gray-900 dark:text-white">{ob.level}</span>
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
                               ob.isPaid ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-[#4bd043]' :
-                              ob.isPending ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300' :
-                              ob.isFailed ? 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300' :
                               'bg-gray-100 text-gray-700 dark:bg-[#041801] dark:text-gray-300'
                             }`}>
-                              {ob.status}
+                              {ob.isPaid ? 'PAID' : 'UNPAID'}
                             </span>
                           </div>
                           <div className="text-[10px] text-gray-500 dark:text-green-200/60 font-mono mt-0.5">{ob.session}</div>
@@ -2012,10 +2014,8 @@ const IdCard = () => {
                     <span className="text-gray-500 dark:text-green-200/60">Obligation Status:</span>
                     <span className={`font-bold ${
                       selectedObligation?.isPaid ? 'text-emerald-600 dark:text-emerald-400' :
-                      selectedObligation?.isPending ? 'text-amber-600 dark:text-amber-400' :
-                      selectedObligation?.isFailed ? 'text-red-600 dark:text-red-400' :
                       'text-gray-600 dark:text-gray-300'
-                    }`}>{selectedObligation?.status}</span>
+                    }`}>{selectedObligation?.isPaid ? 'PAID' : 'UNPAID'}</span>
                   </div>
                   <div className="flex justify-between pt-2 border-t border-gray-200/60 dark:border-[#138601]/20 text-sm">
                     <span className="font-bold text-gray-700 dark:text-gray-300">Amount Payable:</span>
@@ -2236,7 +2236,7 @@ const IdCard = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Payment Status:</span>
-                <span className="font-semibold text-green-600 dark:text-green-400">Verified & Cleared</span>
+                <span className="font-semibold text-green-600 dark:text-green-400">Paid</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Submitted On:</span>
