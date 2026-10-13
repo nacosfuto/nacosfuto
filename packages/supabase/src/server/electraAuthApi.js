@@ -821,46 +821,48 @@ export async function handleSendElectoralCode({ accreditationToken, email, ipAdd
     <html>
     <head>
       <meta charset="utf-8">
-      <title>Official Electoral Verification Code</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Electoral Verification Code</title>
       <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a; margin: 0; padding: 24px; }
-        .card { max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 36px 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
-        .header { text-align: center; border-bottom: 2px solid #138601; padding-bottom: 20px; margin-bottom: 24px; }
-        .logo-title { font-size: 20px; font-weight: 800; color: #138601; letter-spacing: 0.5px; text-transform: uppercase; }
-        .subtitle { font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 600; }
-        .content { font-size: 14px; line-height: 1.6; color: #334155; }
-        .otp-container { background: #f0fdf4; border: 1.5px dashed #138601; border-radius: 6px; padding: 18px; text-align: center; margin: 24px 0; }
-        .otp-code { font-family: 'Courier New', Courier, monospace; font-size: 34px; font-weight: 900; letter-spacing: 8px; color: #138601; margin: 0; }
-        .notice { font-size: 12px; color: #64748b; text-align: center; margin-top: 8px; }
-        .warning-box { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 14px; font-size: 12px; color: #92400e; margin: 20px 0; border-radius: 0 4px 4px 0; }
-        .footer { text-align: center; font-size: 11px; color: #94a3b8; margin-top: 28px; border-top: 1px solid #f1f5f9; padding-top: 16px; }
+        * { border-radius: 0 !important; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a; margin: 0; padding: 24px 12px; }
+        .card { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 0; border: 1px solid #e2e8f0; }
+        .header { padding: 24px 24px 16px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+        .content { padding: 24px; font-size: 14px; line-height: 1.5; color: #334155; }
+        .otp-container { background: #f0fdf4; border: 1px solid #86efac; border-left: 4px solid #138601; border-radius: 0; padding: 18px 20px; text-align: left; margin: 20px 0; }
+        .otp-code { font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #0f172a; margin: 0; }
+        .notice { font-size: 13px; color: #64748b; line-height: 1.5; margin-top: 16px; }
+        .footer { text-align: left; font-size: 11px; color: #94a3b8; padding: 16px 24px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; line-height: 1.5; }
+        @media only screen and (max-width: 600px) {
+          .card { width: 100% !important; }
+          .otp-code { font-size: 28px !important; letter-spacing: 6px !important; }
+        }
       </style>
     </head>
     <body>
       <div class="card">
         <div class="header">
-          <div class="logo-title">ELECTRA • NACOS FUTO</div>
-          <div class="subtitle">Independent Student Electoral Commission</div>
+          <img src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791331612/nacos/general/full-logo-light.png" alt="NACOS FUTO" width="160" style="display: block; width: 160px; max-width: 180px; height: auto; border: 0;" />
         </div>
         <div class="content">
-          <p>Dear <strong>${studentName}</strong>,</p>
-          <p>Your student accreditation has been validated for the <strong>NACOS FUTO General Elections</strong>. Use the single-use verification code below to unlock your official ballot box:</p>
+          <h2 style="color: #0f172a; margin: 0 0 12px; font-size: 18px; font-weight: 700;">Voter Verification Code</h2>
+          <p style="margin: 0 0 16px;">Dear <strong>${studentName}</strong>,</p>
+          <p style="margin: 0 0 20px;">
+            Here is your single-use verification code to access your ballot for the <strong>NACOS FUTO General Elections</strong>:
+          </p>
           
           <div class="otp-container">
+            <span style="color: #15803d; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 6px;">Voter Code</span>
             <div class="otp-code">${rawCode}</div>
-            <div class="notice">Valid for <strong>${OTP_EXPIRY_MINUTES} minutes</strong> • Single use only</div>
           </div>
 
-          <div class="warning-box">
-            <strong>Security Warning:</strong> This verification code is personal and non-transferable. Do NOT disclose this code to candidates, agents, or third parties. Election officials will never ask for your code.
-          </div>
-
-          <p style="font-size: 12px; color: #64748b;">
-            This email was requested during voter accreditation for Registration Number <code>${registrationNumber}</code>. If you did not initiate this request, no action is required—the code will expire automatically.
+          <p class="notice">
+            Valid for <strong>${OTP_EXPIRY_MINUTES} minutes</strong>. Single use only. Do not share this code with anyone.
           </p>
         </div>
         <div class="footer">
-          &copy; ${new Date().getFullYear()} NACOS FUTO Independent Electoral Commission. All rights reserved.
+          ELECTRA &bull; NACOS FUTO Independent Student Electoral Commission<br />
+          Federal University of Technology, Owerri
         </div>
       </div>
     </body>
@@ -869,7 +871,7 @@ export async function handleSendElectoralCode({ accreditationToken, email, ipAdd
 
   const emailResult = await dispatchEmail({
     to: targetEmail,
-    subject: `Your Voter Verification Code [${rawCode}] - ELECTRA NACOS FUTO`,
+    subject: 'Your Voter Verification Code - ELECTRA NACOS FUTO',
     html: emailHtml,
     text: `Your NACOS FUTO electoral verification code is: ${rawCode}. This code is valid for ${OTP_EXPIRY_MINUTES} minutes. Do not share this code with anyone.`
   });
