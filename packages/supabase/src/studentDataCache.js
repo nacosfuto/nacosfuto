@@ -306,6 +306,11 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
         pendingObligationsCount: pendingCount,
         levelClearanceMatrix: matrix,
         isPaid: Boolean(matrix[currentLvl]?.dues),
+        payments: paymentsResult,
+        idApps: idAppsResult,
+        legacyDues: legacyDuesResult,
+        duesSettings: duesCfg,
+        idCardSettings: idCfg,
         coursesCount,
         resultsPublishedCount,
         isLoaded: true,
@@ -395,6 +400,228 @@ export function clearStudentDataCache() {
       });
     } catch (_) {}
   }
+}
+
+/**
+ * Synchronously extracts cached dues payments and clearance map for immediate render
+ */
+export function extractCachedDuesData(student, cachedSummary = null) {
+  const summary = cachedSummary || getCachedStudentClearance(student);
+  if (!summary) return null;
+
+  const cleanMatric = getStudentIdentifier(student);
+  const currentLvl = deriveStudentLevelNum(student);
+  const levelDuesMap = {
+    '100': null,
+    '200': null,
+    '300': null,
+    '400': null,
+    '500': null
+  };
+  const paymentHistoryList = [];
+  let totalPaidSum = 0;
+
+  const processItem = (item) => {
+    if (!item) return;
+    const isIdCard = item.payment_type === 'ID_CARD' || 
+      String(item.purpose || '').toLowerCase().includes('id card') ||
+      String(item.title || '').toLowerCase().includes('id card') ||
+      String(item.payment_title || '').toLowerCase().includes('id card');
+    if (isIdCard) return;
+
+    const amt = Number(item.amount || summary.duesSettings?.dues_amount || 0);
+    const isPaid = ['successful', 'paid', 'cleared', 'verified', 'completed'].includes(String(item.status || '').toLowerCase()) || Boolean(item.paid_at);
+    if (isPaid) totalPaidSum += amt;
+
+    const payDate = item.paid_at || item.created_at || new Date().toISOString();
+    const dateObj = new Date(payDate);
+    const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    }) : 'Current Session';
+    const timeStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleTimeString('en-GB') : '12:00:00';
+
+    const itemLevelRaw = item.metadata?.level || item.level || '';
+    const match = String(itemLevelRaw).match(/\d{3}/);
+    const lvl = match ? match[0] : currentLvl;
+    const session = item.academic_session || item.metadata?.academic_session || item.session || student?.academic_session || getActiveAcademicSession();
+
+    const formatted = {
+      id: item.id || item.reference || `pay-${Math.random()}`,
+      receiptNo: item.reference || item.payment_reference || `NACOS/DUES/${cleanMatric}-${lvl}L`,
+      transactionId: item.provider_payment_id || item.id || item.reference || 'TX-CONFIRMED',
+      date: dateStr,
+      time: timeStr,
+      paymentDate: `${dateStr} (${timeStr} GMT+1)`,
+      amount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+      rawAmount: amt,
+      paymentMethod: item.provider ? `${String(item.provider).replace(/bachs/gi, 'Online Gateway')} (${isPaid ? 'Confirmed' : 'Unconfirmed'})` : `Online Gateway (${isPaid ? 'Confirmed' : 'Unconfirmed'})`,
+      status: isPaid ? 'PAID' : 'UNPAID',
+      isPaid,
+      session,
+      level: `${lvl} LEVEL`,
+      levelNum: lvl,
+      paymentType: 'Departmental Dues (Full Payment)',
+      studentName: (student?.full_name || student?.name || item.customer_name || 'Student Member').trim(),
+      matricNo: cleanMatric || '',
+      department: student?.department || 'Computer Science',
+      created_at: item.created_at || item.paid_at || new Date().toISOString()
+    };
+
+    paymentHistoryList.push(formatted);
+    if (isPaid && ['100', '200', '300', '400', '500'].includes(lvl) && !levelDuesMap[lvl]) {
+      levelDuesMap[lvl] = formatted;
+    }
+  };
+
+  // Populate from cached payments
+  if (Array.isArray(summary.payments)) {
+    summary.payments.forEach(processItem);
+  }
+  if (Array.isArray(summary.legacyDues)) {
+    summary.legacyDues.forEach(processItem);
+  }
+
+  // Populate from clearance matrix directly if matrix marked it paid
+  if (summary.levelClearanceMatrix) {
+    ['100', '200', '300', '400', '500'].forEach(lvl => {
+      if (summary.levelClearanceMatrix[lvl]?.dues && !levelDuesMap[lvl]) {
+        const amt = summary.levelClearanceMatrix[lvl]?.duesAmount || summary.duesSettings?.dues_amount || 0;
+        levelDuesMap[lvl] = {
+          id: `cache-${cleanMatric}-${lvl}`,
+          receiptNo: `NACOS/DUES/${cleanMatric}-${lvl}L`,
+          transactionId: 'TX-CONFIRMED',
+          date: 'Confirmed',
+          time: '',
+          paymentDate: 'Confirmed (Database Verified)',
+          amount: `₦${Number(amt).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+          rawAmount: amt,
+          status: 'PAID',
+          isPaid: true,
+          session: getActiveAcademicSession(),
+          level: `${lvl} LEVEL`,
+          levelNum: lvl,
+          paymentType: 'Departmental Dues (Full Payment)',
+          studentName: (student?.full_name || student?.name || 'Student Member').trim(),
+          matricNo: cleanMatric || '',
+          department: student?.department || 'Computer Science',
+          created_at: new Date().toISOString()
+        };
+      }
+    });
+  }
+
+  return {
+    levelDuesMap,
+    paymentHistoryList,
+    totalPaidSum: summary.totalPaid ?? totalPaidSum,
+    duesFee: summary.duesSettings?.dues_amount || null
+  };
+}
+
+/**
+ * Synchronously extracts cached ID card payments for immediate render
+ */
+export function extractCachedIdCardData(student, cachedSummary = null) {
+  const summary = cachedSummary || getCachedStudentClearance(student);
+  if (!summary) return null;
+
+  const cleanMatric = getStudentIdentifier(student);
+  const currentLvl = deriveStudentLevelNum(student);
+  const collectedIdCardPays = [];
+
+  const processIdPayItem = (p) => {
+    if (!p) return;
+    const isIdType = p.payment_type === 'ID_CARD' ||
+      String(p.purpose || '').toLowerCase().includes('id card') ||
+      String(p.title || '').toLowerCase().includes('id card') ||
+      String(p.payment_title || '').toLowerCase().includes('id card');
+    if (!isIdType) return;
+
+    const rawStatus = String(p.status || '').toLowerCase();
+    const isPaid = ['successful', 'paid', 'cleared', 'verified', 'completed'].includes(rawStatus) || Boolean(p.paid_at);
+    const amt = Number(p.amount || summary.idCardSettings?.id_card_fee || 0);
+
+    const lvlRaw = p.metadata?.level || p.level || '';
+    const match = String(lvlRaw).match(/\d{3}/);
+    const lvl = match ? `${match[0]} Level` : `${currentLvl} Level`;
+    const session = p.academic_session || p.metadata?.academic_session || p.session || getActiveAcademicSession();
+
+    const payDate = p.paid_at || p.created_at || new Date().toISOString();
+    const dObj = new Date(payDate);
+
+    collectedIdCardPays.push({
+      id: p.id || p.reference,
+      receiptNo: p.reference || `NACOS/IDCARD/${cleanMatric}`,
+      transactionId: p.provider_payment_id || p.id || p.reference || 'TX-CONFIRMED',
+      amount: amt,
+      formattedAmount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+      session,
+      level: lvl,
+      paymentType: 'Student ID Card Issuance',
+      status: isPaid ? 'PAID' : 'UNPAID',
+      isPaid,
+      date: !isNaN(dObj.getTime()) ? dObj.toLocaleDateString('en-GB') : 'Verified',
+      created_at: payDate
+    });
+  };
+
+  if (Array.isArray(summary.payments)) {
+    summary.payments.forEach(processIdPayItem);
+  }
+  if (Array.isArray(summary.idApps)) {
+    summary.idApps.forEach(app => {
+      const isPaid = ['paid', 'verified'].includes(String(app.payment_status).toLowerCase());
+      const lvlRaw = app.level || '';
+      const match = String(lvlRaw).match(/\d{3}/);
+      const lvl = match ? `${match[0]} Level` : `${currentLvl} Level`;
+      collectedIdCardPays.push({
+        id: app.id,
+        receiptNo: `NACOS/IDCARD/${cleanMatric}`,
+        transactionId: app.payment_id || 'TX-CONFIRMED',
+        amount: Number(summary.idCardSettings?.id_card_fee || 0),
+        formattedAmount: `₦${Number(summary.idCardSettings?.id_card_fee || 0).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+        session: app.session || getActiveAcademicSession(),
+        level: lvl,
+        paymentType: 'Student ID Card Issuance',
+        status: isPaid ? 'PAID' : 'UNPAID',
+        isPaid,
+        date: app.created_at ? new Date(app.created_at).toLocaleDateString('en-GB') : 'Verified',
+        created_at: app.created_at || new Date().toISOString()
+      });
+    });
+  }
+
+  // Populate from clearance matrix if marked paid
+  if (summary.levelClearanceMatrix) {
+    ['100', '200', '300', '400', '500'].forEach(lvlNum => {
+      if (summary.levelClearanceMatrix[lvlNum]?.idCard) {
+        const alreadyInList = collectedIdCardPays.some(p => p.isPaid && String(p.level).includes(lvlNum));
+        if (!alreadyInList) {
+          collectedIdCardPays.push({
+            id: `cache-id-${cleanMatric}-${lvlNum}`,
+            receiptNo: `NACOS/IDCARD/${cleanMatric}`,
+            transactionId: 'TX-CONFIRMED',
+            amount: Number(summary.idCardSettings?.id_card_fee || 0),
+            formattedAmount: `₦${Number(summary.idCardSettings?.id_card_fee || 0).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+            session: getActiveAcademicSession(),
+            level: `${lvlNum} Level`,
+            paymentType: 'Student ID Card Issuance',
+            status: 'PAID',
+            isPaid: true,
+            date: 'Verified',
+            created_at: new Date().toISOString()
+          });
+        }
+      }
+    });
+  }
+
+  return {
+    collectedIdCardPays,
+    idCardSettings: summary.idCardSettings || null
+  };
 }
 
 // Global lifecycle listeners

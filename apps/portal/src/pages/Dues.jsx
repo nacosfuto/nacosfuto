@@ -19,7 +19,15 @@ import {
 } from 'lucide-react';
 import PortalLayout from '../components/PortalLayout';
 import { useTheme } from '../context/ThemeContext';
-import { supabase, recordStudentPayment, getDuesSettings, getLocalPaymentsDatabase } from '@nacos/supabase';
+import { 
+  supabase, 
+  recordStudentPayment, 
+  getDuesSettings, 
+  getLocalPaymentsDatabase,
+  getCachedStudentClearance,
+  extractCachedDuesData,
+  invalidateStudentDataCache
+} from '@nacos/supabase';
 import { enrichStudentProfile } from '@nacos/supabase/auth';
 import {
   getActiveAcademicSession,
@@ -67,7 +75,6 @@ const Dues = () => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  const [duesFee, setDuesFee] = useState(null);
   const [isStepUpOpen, setIsStepUpOpen] = useState(false);
 
   const [user, setUser] = useState(() => {
@@ -82,21 +89,28 @@ const Dues = () => {
     return {};
   });
 
+  // Instant synchronous cache pre-load to eliminate "UNPAID" flashes
+  const initialCache = getCachedStudentClearance(user);
+  const initialDuesData = extractCachedDuesData(user, initialCache);
+
+  const [duesFee, setDuesFee] = useState(() => initialDuesData?.duesFee ?? null);
   const [isRevoked, setIsRevoked] = useState(false);
   const [revocationReason, setRevocationReason] = useState('');
-  const [totalLifetimeDues, setTotalLifetimeDues] = useState(0);
+  const [totalLifetimeDues, setTotalLifetimeDues] = useState(() => initialDuesData?.totalPaidSum ?? initialCache?.totalPaid ?? 0);
 
   // Complete list of ALL payments student has made (synced from DB)
-  const [paymentHistoryList, setPaymentHistoryList] = useState([]);
+  const [paymentHistoryList, setPaymentHistoryList] = useState(() => initialDuesData?.paymentHistoryList || []);
 
   // Level map storing dues clearance for each academic level
-  const [levelDuesMap, setLevelDuesMap] = useState({
+  const [levelDuesMap, setLevelDuesMap] = useState(() => initialDuesData?.levelDuesMap || {
     '100': null,
     '200': null,
     '300': null,
     '400': null,
     '500': null
   });
+
+  const [isStatusChecking, setIsStatusChecking] = useState(() => !initialDuesData);
 
   // Allowed levels based on progressive student level
   const progressiveLevels = getProgressiveLevels(user);
@@ -122,24 +136,26 @@ const Dues = () => {
 
   // Check payment status from Bachs payments table and Supabase across all levels
   const checkStatus = async (currentUser) => {
-    const matric = currentUser?.registration_number || currentUser?.matric || currentUser?.matricNumber || '';
-    const cleanMatric = String(matric).trim().toUpperCase();
-    const userId = currentUser?.id;
-    const progression = calculateAcademicProgression(currentUser);
-    const studentHomeLevel = progression.valid && progression.numericLevel 
-      ? String(progression.numericLevel * 100) 
-      : (String(currentUser?.level || currentUser?.current_level || '100').match(/\d{3}/)?.[0] || '100');
+    setIsStatusChecking(true);
+    try {
+      const matric = currentUser?.registration_number || currentUser?.matric || currentUser?.matricNumber || '';
+      const cleanMatric = String(matric).trim().toUpperCase();
+      const userId = currentUser?.id;
+      const progression = calculateAcademicProgression(currentUser);
+      const studentHomeLevel = progression.valid && progression.numericLevel 
+        ? String(progression.numericLevel * 100) 
+        : (String(currentUser?.level || currentUser?.current_level || '100').match(/\d{3}/)?.[0] || '100');
 
-    const newMap = {
-      '100': null,
-      '200': null,
-      '300': null,
-      '400': null,
-      '500': null
-    };
+      const newMap = {
+        '100': null,
+        '200': null,
+        '300': null,
+        '400': null,
+        '500': null
+      };
 
-    let totalPaidSum = 0;
-    const allRecords = [];
+      let totalPaidSum = 0;
+      const allRecords = [];
 
     // Helper to format and add a payment record to the master history list
     const processItem = (item) => {
@@ -325,6 +341,9 @@ const Dues = () => {
     } else {
       setIsRevoked(false);
       setRevocationReason('');
+    }
+    } finally {
+      setIsStatusChecking(false);
     }
   };
 
@@ -857,7 +876,8 @@ const Dues = () => {
 
     const paidRow = levelDuesMap[lvl] || paymentHistoryList.find(p => p.isPaid && String(p.levelNum || p.level || '').replace(/\D/g, '') === lvl);
     const anyRow = paidRow || paymentHistoryList.find(p => String(p.levelNum || p.level || '').replace(/\D/g, '') === lvl);
-    const isPaid = Boolean(paidRow && paidRow.isPaid);
+    const isMatrixPaid = Boolean(initialCache?.levelClearanceMatrix?.[lvl]?.dues);
+    const isPaid = Boolean((paidRow && paidRow.isPaid) || isMatrixPaid);
 
     const session = paidRow?.session || anyRow?.session || defaultSession;
     // For paid rows, show what was actually paid from receipt.
@@ -961,6 +981,11 @@ const Dues = () => {
                           <CheckCircle className="w-3 h-3" />
                           PAID
                         </span>
+                      ) : isStatusChecking ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-gray-100 text-gray-500 dark:bg-green-950/40 dark:text-green-300/80">
+                          <RefreshCw className="w-3 h-3 animate-spin text-gray-400" />
+                          <span>Verifying...</span>
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-gray-100 text-gray-700 dark:bg-[#041801] dark:text-gray-300">
                           <Clock className="w-3 h-3" />
@@ -985,6 +1010,8 @@ const Dues = () => {
                         >
                           Print Receipt
                         </button>
+                      ) : isStatusChecking ? (
+                        <div className="h-7 w-20 bg-gray-100 dark:bg-green-950/40 rounded-md animate-pulse ml-auto" />
                       ) : (
                         <button
                           type="button"

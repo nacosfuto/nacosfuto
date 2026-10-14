@@ -51,7 +51,13 @@ import {
   saveGeneratedIdCardAsset,
   verifyStudentIdCardAccess
 } from '@nacos/supabase/idCard';
-import { supabase, getLocalPaymentsDatabase } from '@nacos/supabase';
+import { 
+  supabase, 
+  getLocalPaymentsDatabase,
+  getCachedStudentClearance,
+  extractCachedIdCardData,
+  invalidateStudentDataCache
+} from '@nacos/supabase';
 import { enrichStudentProfile } from '@nacos/supabase/auth';
 import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
 import { MediaUpload, CLOUDINARY_FOLDERS, getOptimizedImageUrl, idTemplateMaster, idTemplateBack, idTemplateFrame } from '@nacos/media';
@@ -103,8 +109,13 @@ const IdCard = ({ viewMode = false }) => {
     }
     return null;
   });
+  const initialCache = getCachedStudentClearance(student);
+  const initialIdData = extractCachedIdCardData(student, initialCache);
+
   const [loading, setLoading] = useState(false);
-  const [settings, setSettings] = useState({ id_card_fee: null, academic_session: '2026/2027' });
+  const [settings, setSettings] = useState(() => initialIdData?.idCardSettings || { id_card_fee: null, academic_session: '2026/2027' });
+  const [idCardPayments, setIdCardPayments] = useState(() => initialIdData?.collectedIdCardPays || []);
+  const [isInitialLoading, setIsInitialLoading] = useState(() => !initialIdData);
   const [application, setApplication] = useState(null);
   const [currentSide, setCurrentSide] = useState('front'); // 'front' | 'back'
 
@@ -155,7 +166,6 @@ const IdCard = ({ viewMode = false }) => {
   const tabWatchIntervalRef = useRef(null);
 
   // ID Card Payment History & Receipt States
-  const [idCardPayments, setIdCardPayments] = useState([]);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
 
@@ -529,6 +539,7 @@ const IdCard = ({ viewMode = false }) => {
       console.error('ID Card page data load notice:', err);
     } finally {
       setLoading(false);
+      setIsInitialLoading(false);
       lastFetchTimeRef.current = Date.now();
     }
   };
@@ -1445,7 +1456,8 @@ const IdCard = ({ viewMode = false }) => {
 
     const matchingPayment = matches.find(m => m.isPaid) || matches[0] || null;
 
-    const isObligationPaid = Boolean(matchingPayment?.isPaid);
+    const isMatrixIdPaid = Boolean(initialCache?.levelClearanceMatrix?.[obLvlNum]?.idCard);
+    const isObligationPaid = Boolean(matchingPayment?.isPaid || isMatrixIdPaid);
     const status = isObligationPaid ? 'PAID' : 'UNPAID';
     const liveFee = settings?.id_card_fee != null && !isNaN(Number(settings.id_card_fee)) && Number(settings.id_card_fee) > 0 ? Number(settings.id_card_fee) : null;
     const resolvedAmount = isObligationPaid ? (matchingPayment?.amount ? Number(matchingPayment.amount) : liveFee) : liveFee;
@@ -2244,6 +2256,11 @@ const IdCard = ({ viewMode = false }) => {
                             <CheckCircle className="w-3 h-3" />
                             PAID
                           </span>
+                        ) : isInitialLoading ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-500 dark:bg-green-950/40 dark:text-green-300/80">
+                            <RefreshCw className="w-3 h-3 animate-spin text-gray-400" />
+                            <span>Verifying...</span>
+                          </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700 dark:bg-[#041801] dark:text-gray-300">
                             <Clock className="w-3 h-3" />
@@ -2278,6 +2295,8 @@ const IdCard = ({ viewMode = false }) => {
                               Print Receipt
                             </button>
                           </>
+                        ) : isInitialLoading ? (
+                          <div className="h-7 w-20 bg-gray-100 dark:bg-green-950/40 rounded-md animate-pulse ml-auto" />
                         ) : (
                           <button
                             type="button"
