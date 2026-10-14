@@ -26,24 +26,39 @@ import {
   parseSessionYears 
 } from '@nacos/config/academic';
 
+// In-memory 30s cache for authoritative admin settings to eliminate repetitive database latency
+let cachedIdCardSettings = null;
+let cachedIdCardSettingsExpiry = 0;
+
+export async function getCachedAuthoritativeSettings() {
+  if (cachedIdCardSettings && Date.now() < cachedIdCardSettingsExpiry) {
+    return cachedIdCardSettings;
+  }
+  try {
+    if (supabase) {
+      const { data } = await supabase.from('id_card_settings').select('*');
+      if (Array.isArray(data) && data.length > 0) {
+        cachedIdCardSettings = data;
+        cachedIdCardSettingsExpiry = Date.now() + 30000;
+        return data;
+      }
+    }
+  } catch (_) {}
+  return cachedIdCardSettings || [];
+}
+
 /**
  * Authoritatively retrieves the global active academic session from database or central config
  */
 export async function getAuthoritativeActiveSession() {
   try {
+    const settings = await getCachedAuthoritativeSettings();
+    const idRow = settings.find(r => r.id === 'default');
+    if (idRow?.academic_session && typeof idRow.academic_session === 'string' && idRow.academic_session.includes('/')) {
+      return idRow.academic_session.trim();
+    }
+
     if (supabase) {
-      // 1. Authoritative Primary Source of Truth: public.id_card_settings
-      const { data: idRow } = await supabase
-        .from('id_card_settings')
-        .select('academic_session')
-        .eq('id', 'default')
-        .maybeSingle();
-
-      if (idRow?.academic_session && typeof idRow.academic_session === 'string' && idRow.academic_session.includes('/')) {
-        return idRow.academic_session.trim();
-      }
-
-      // 2. Fallback check: academic_settings
       const { data: settingRow } = await supabase
         .from('academic_settings')
         .select('current_session')
@@ -123,77 +138,40 @@ export async function resolveDynamicFee({ paymentType = 'ID_CARD', academicSessi
   const targetSession = String(academicSession || metadata?.academicSession || metadata?.academic_session || await getAuthoritativeActiveSession()).trim();
 
   try {
-    if (supabase) {
-      // 1. Primary Source of Truth: Supabase id_card_settings table configured by Admin Dashboard
-      if (pType === 'ID_CARD') {
-        const { data: idCardRow, error: idCardErr } = await supabase
-          .from('id_card_settings')
-          .select('id_card_fee, academic_session')
-          .eq('id', 'default')
-          .maybeSingle();
-
-        if (!idCardErr && idCardRow && idCardRow.id_card_fee != null) {
-          const fee = Number(idCardRow.id_card_fee);
-          if (!isNaN(fee) && fee > 0) {
-            // Keep payment_fees table in sync with this active admin configuration
-            try {
-              await supabase
-                .from('payment_fees')
-                .upsert({
-                  fee_key: 'id_card',
-                  title: 'Digital Student ID Card Issuance',
-                  academic_session: targetSession,
-                  amount: fee,
-                  currency: 'NGN',
-                  is_active: true
-                }, { onConflict: 'fee_key,academic_session' });
-            } catch (_) {}
-
-            return fee;
-          }
-        }
-      } else if (pType === 'DEPARTMENTAL_DUES' || pType === 'DUES') {
-        const { data: duesRow, error: duesErr } = await supabase
-          .from('id_card_settings')
-          .select('id_card_fee, academic_session')
-          .eq('id', 'dues')
-          .maybeSingle();
-
-        if (!duesErr && duesRow && duesRow.id_card_fee != null) {
-          const fee = Number(duesRow.id_card_fee);
-          if (!isNaN(fee) && fee > 0) {
-            // Keep payment_fees table in sync with this active admin configuration
-            try {
-              await supabase
-                .from('payment_fees')
-                .upsert({
-                  fee_key: 'departmental_dues',
-                  title: 'NACOS Departmental Dues',
-                  academic_session: targetSession,
-                  amount: fee,
-                  currency: 'NGN',
-                  is_active: true
-                }, { onConflict: 'fee_key,academic_session' });
-            } catch (_) {}
-
-            return fee;
-          }
-        }
-      } else if (pType === 'EVENT' || pType === 'EVENT_TICKET') {
-        if (metadata?.eventId) {
-          const { data: eventRow } = await supabase
-            .from('website_events')
-            .select('ticket_price, fee')
-            .eq('id', metadata.eventId)
-            .maybeSingle();
-
-          const eventPrice = eventRow?.ticket_price || eventRow?.fee;
-          if (eventPrice != null && !isNaN(Number(eventPrice)) && Number(eventPrice) > 0) {
-            return Number(eventPrice);
-          }
+    const settings = await getCachedAuthoritativeSettings();
+    // 1. Primary Source of Truth: Supabase id_card_settings table configured by Admin Dashboard
+    if (pType === 'ID_CARD') {
+      const idCardRow = settings.find(r => r.id === 'default');
+      if (idCardRow && idCardRow.id_card_fee != null) {
+        const fee = Number(idCardRow.id_card_fee);
+        if (!isNaN(fee) && fee > 0) {
+          return fee;
         }
       }
+    } else if (pType === 'DEPARTMENTAL_DUES' || pType === 'DUES') {
+      const duesRow = settings.find(r => r.id === 'dues');
+      if (duesRow && duesRow.id_card_fee != null) {
+        const fee = Number(duesRow.id_card_fee);
+        if (!isNaN(fee) && fee > 0) {
+          return fee;
+        }
+      }
+    } else if (pType === 'EVENT' || pType === 'EVENT_TICKET') {
+      if (metadata?.eventId && supabase) {
+        const { data: eventRow } = await supabase
+          .from('website_events')
+          .select('ticket_price, fee')
+          .eq('id', metadata.eventId)
+          .maybeSingle();
 
+        const eventPrice = eventRow?.ticket_price || eventRow?.fee;
+        if (eventPrice != null && !isNaN(Number(eventPrice)) && Number(eventPrice) > 0) {
+          return Number(eventPrice);
+        }
+      }
+    }
+
+    if (supabase) {
       // 2. Secondary check: public.payment_fees table (Session-aware institutional fee registry)
       const { data: feeRow } = await supabase
         .from('payment_fees')
@@ -210,6 +188,7 @@ export async function resolveDynamicFee({ paymentType = 'ID_CARD', academicSessi
   } catch (err) {
     console.warn(`[Bachs] Dynamic fee resolution warning for ${pType}:`, err.message);
   }
+
 
   // 3. Fallback to process.env explicitly set for that specific fee key (if set)
   const env = typeof process !== 'undefined' ? process.env : {};
@@ -597,9 +576,12 @@ export async function createPaymentCheckout({
           const matchingIdPaid = allIdPayments.find(p => {
             const pLvl = String(p.level || p.metadata?.level || '').replace(/[^0-9]/g, '');
             const pSess = String(p.academic_session || p.metadata?.academic_session || p.metadata?.academicSession || '').trim();
+            if (pLvl && checkLevel && pLvl !== checkLevel) {
+              return false;
+            }
             const levelMatch = Boolean(pLvl && checkLevel && pLvl === checkLevel);
             const sessionMatch = Boolean(pSess && targetSession && pSess === targetSession);
-            return levelMatch || sessionMatch;
+            return levelMatch || (sessionMatch && !pLvl);
           });
           if (matchingIdPaid) {
             return {
@@ -689,63 +671,63 @@ export async function createPaymentCheckout({
   const returnUrl = defRedirect.startsWith('http') ? defRedirect : `${baseUrl}${defRedirect.startsWith('/') ? '' : '/'}${defRedirect}`;
   const cancelUrl = defCancel.startsWith('http') ? defCancel : `${baseUrl}${defCancel.startsWith('/') ? '' : '/'}${defCancel}`;
 
-  // 6. Create Pending Payment Record in Supabase
+  // 6 & 7. Concurrently create payment record in Supabase AND call Bachs API
   let paymentRecordId = crypto.randomUUID();
   const productId = metadata?.productId || `${config.productId}_${normalizedType.toLowerCase()}`;
-  try {
-    if (supabase) {
-      const { data: inserted, error: insertErr } = await supabase
-        .from('payments')
-        .insert({
-          id: paymentRecordId,
-          student_id: studentId,
-          registration_number: regNo || null,
-          payment_type: normalizedType,
-          provider: 'BACHS',
-          amount: chargeAmount,
-          currency: config.currency,
-          status: 'pending',
-          reference: reference,
-          metadata: {
-            customer_name: customerName,
-            customer_email: customerEmail,
-            customer_phone: customerPhone,
-            payment_title: title || normalizedType,
-            product_id: productId,
-            environment: config.environment,
-            academic_session: targetSession,
-            academicSession: targetSession,
-            level: studentLevelDisplay,
-            numeric_level: studentNumericLevel,
-            session_start_year: sessionYears.startYear,
+  const insertPromise = (async () => {
+    try {
+      if (supabase) {
+        const { data: inserted, error: insertErr } = await supabase
+          .from('payments')
+          .insert({
+            id: paymentRecordId,
+            student_id: studentId,
+            registration_number: regNo || null,
+            payment_type: normalizedType,
+            provider: 'BACHS',
+            amount: chargeAmount,
+            currency: config.currency,
+            status: 'pending',
+            reference: reference,
+            metadata: {
+              customer_name: customerName,
+              customer_email: customerEmail,
+              customer_phone: customerPhone,
+              payment_title: title || normalizedType,
+              product_id: productId,
+              environment: config.environment,
+              academic_session: targetSession,
+              academicSession: targetSession,
+              level: studentLevelDisplay,
+              numeric_level: studentNumericLevel,
+              session_start_year: sessionYears.startYear,
+              created_at: now,
+              ...metadata
+            },
             created_at: now,
-            ...metadata
-          },
-          created_at: now,
-          updated_at: now
-        })
-        .select('id')
-        .single();
+            updated_at: now
+          })
+          .select('id')
+          .single();
 
-      if (!insertErr && inserted?.id) {
-        paymentRecordId = inserted.id;
+        if (!insertErr && inserted?.id) {
+          paymentRecordId = inserted.id;
+        }
       }
+    } catch (dbErr) {
+      console.warn('[Bachs] Pending payment record creation error:', dbErr);
     }
-  } catch (dbErr) {
-    console.warn('[Bachs] Pending payment record creation error:', dbErr);
-  }
+  })();
 
-  // 7. Call Bachs Hosted Checkout API
   let checkoutUrl = '';
   let providerCheckoutId = `chk_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
-  try {
+  const bachsPromise = (async () => {
     const isLiveKey = config.apiKey && !config.apiKey.includes('sample') && !config.apiKey.includes('your_key');
     if (!isLiveKey) {
       throw new Error('Valid server-side BACHS_API_KEY is not configured');
     }
 
-    // Bachs strictly validates that success_url and cancel_url must be publicly accessible URLs (no localhost or private IP).
     const publicOrigin = (
       process.env.PUBLIC_PORTAL_URL || 
       process.env.NEXT_PUBLIC_PORTAL_URL || 
@@ -816,13 +798,21 @@ export async function createPaymentCheckout({
       throw new Error(result?.detail || result?.message || result?.error || `Bachs API error (status ${response.status})`);
     }
 
-    checkoutUrl = result.checkout_url || result.url;
-    providerCheckoutId = result.checkout_id || result.id || providerCheckoutId;
+    const cUrl = result.checkout_url || result.url;
+    const pId = result.checkout_id || result.id || providerCheckoutId;
 
-    if (!checkoutUrl) {
+    if (!cUrl) {
       console.error('[Bachs Live] Missing checkout_url in Bachs response:', result);
       throw new Error('Bachs API responded without a valid hosted checkout_url.');
     }
+
+    return { checkoutUrl: cUrl, providerCheckoutId: pId };
+  })();
+
+  try {
+    const [_, bachsResult] = await Promise.all([insertPromise, bachsPromise]);
+    checkoutUrl = bachsResult.checkoutUrl;
+    providerCheckoutId = bachsResult.providerCheckoutId;
   } catch (apiErr) {
     console.error('[Bachs Checkout Error]:', apiErr.message);
     return {
@@ -831,30 +821,28 @@ export async function createPaymentCheckout({
     };
   }
 
-  // 8. Update payment record with provider checkout details
-  try {
-    if (supabase) {
-      await supabase
-        .from('payments')
-        .update({
-          provider_checkout_id: providerCheckoutId,
-          metadata: {
-            customer_name: customerName,
-            customer_email: customerEmail,
-            customer_phone: customerPhone,
-            payment_title: title || normalizedType,
-            product_id: productId,
-            environment: config.environment,
-            checkout_url: checkoutUrl,
-            updated_at: new Date().toISOString(),
-            ...metadata
-          },
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', paymentRecordId);
-    }
-  } catch (updateErr) {
-    console.warn('[Bachs] Error updating provider_checkout_id:', updateErr);
+  // 8. Update payment record with provider checkout details asynchronously (non-blocking)
+  if (supabase) {
+    supabase
+      .from('payments')
+      .update({
+        provider_checkout_id: providerCheckoutId,
+        metadata: {
+          customer_name: customerName,
+          customer_email: customerEmail,
+          customer_phone: customerPhone,
+          payment_title: title || normalizedType,
+          product_id: productId,
+          environment: config.environment,
+          checkout_url: checkoutUrl,
+          updated_at: new Date().toISOString(),
+          ...metadata
+        },
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', paymentRecordId)
+      .then(() => {})
+      .catch(updateErr => console.warn('[Bachs] Error updating provider_checkout_id:', updateErr));
   }
 
   return {
@@ -900,7 +888,7 @@ export async function createIdCardCheckout({ student, returnBaseUrl, academicSes
 
   return createPaymentCheckout({
     paymentType: 'ID_CARD',
-    title: `NACOS Student ID Card (${targetSession})`,
+    title: `NACOS Student ID Card — ${targetLevel} (${targetSession})`,
     student,
     metadata: {
       academicSession: targetSession,

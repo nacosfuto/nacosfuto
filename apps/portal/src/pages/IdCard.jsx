@@ -440,9 +440,9 @@ const IdCard = ({ viewMode = false }) => {
       }
 
       // Authoritative Active Academic Level:
-      // Strictly determined by the current academic session and student progression.
-      // A previous-level payment must NEVER override or become the active level.
-      const activeTargetLvl = curOb?.level ? normalizeLevel(curOb.level) : defaultStudentLevel;
+      const activeTargetLvl = preferredLevel 
+        ? normalizeLevel(preferredLevel) 
+        : (curOb?.level ? normalizeLevel(curOb.level) : defaultStudentLevel);
 
       const activeTargetLvlNum = activeTargetLvl ? String(activeTargetLvl).replace(/\D/g, '') : null;
       const activeOb = pObs.find(o => {
@@ -450,13 +450,11 @@ const IdCard = ({ viewMode = false }) => {
         return lNum && activeTargetLvlNum && lNum === activeTargetLvlNum;
       }) || curOb || pObs[0];
 
-      if (activeOb) {
+      if (activeOb && (preferredLevel || !formLevelRef.current)) {
         const canonicalLvl = normalizeLevel(activeOb.level);
-        if (formLevelRef.current !== canonicalLvl) {
-          formLevelRef.current = canonicalLvl;
-          setFormLevel(canonicalLvl);
-        }
-        if (formSessionRef.current !== activeOb.session) {
+        formLevelRef.current = canonicalLvl;
+        setFormLevel(canonicalLvl);
+        if (activeOb.session) {
           formSessionRef.current = activeOb.session;
           setFormSession(activeOb.session);
         }
@@ -869,24 +867,52 @@ const IdCard = ({ viewMode = false }) => {
                   height: 100%;
                   min-height: 100dvh;
                   display: flex;
+                  flex-direction: column;
                   align-items: center;
                   justify-content: center;
-                  padding: 16px;
+                  padding: 24px;
+                  text-align: center;
                 }
                 .spinning-logo {
-                  width: clamp(140px, 42vw, 220px);
-                  height: clamp(140px, 42vw, 220px);
-                  max-width: 80vw;
-                  max-height: 80vh;
+                  width: clamp(90px, 25vw, 130px);
+                  height: clamp(90px, 25vw, 130px);
                   object-fit: contain;
-                  animation: spin 3s linear infinite;
+                  animation: spin 2.5s linear infinite;
+                }
+                .loading-title {
+                  margin-top: 24px;
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                  font-size: clamp(16px, 4vw, 19px);
+                  font-weight: 700;
+                  color: #0e8040;
+                  letter-spacing: -0.3px;
+                }
+                .loading-desc {
+                  margin-top: 8px;
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                  font-size: clamp(12px, 3.2vw, 14px);
+                  color: #64748b;
+                  max-width: 380px;
+                  line-height: 1.5;
+                }
+                .pulse-bar {
+                  margin: 22px auto 0;
+                  width: 48px;
+                  height: 3.5px;
+                  background: #0e8040;
+                  border-radius: 999px;
+                  animation: pulseBar 1.2s infinite ease-in-out;
                 }
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @keyframes pulseBar { 0%, 100% { opacity: 0.25; transform: scaleX(0.6); } 50% { opacity: 1; transform: scaleX(1.3); } }
               </style>
             </head>
             <body>
               <div class="spinner-wrap">
                 <img class="spinning-logo" src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png" alt="Loading" />
+                <h2 class="loading-title">Connecting to Secure Payment Gateway</h2>
+                <p class="loading-desc">Setting up your clearance checkout session. You will be redirected to Bachs in a moment...</p>
+                <div class="pulse-bar"></div>
               </div>
             </body>
           </html>
@@ -896,15 +922,26 @@ const IdCard = ({ viewMode = false }) => {
       gatewayWindowRef.current = gatewayTab;
     } catch (_) {}
 
+    // Determine target level and session directly from user's current selection
+    const targetObligation = selectedObligation || levelObligations.find(ob => 
+      String(ob.level).replace(/\D/g, '') === String(formLevel).replace(/\D/g, '')
+    );
+
+    const targetLevel = targetObligation?.level ? normalizeLevel(targetObligation.level) : normalizeLevel(formLevel || studentLevel);
+    const targetSession = targetObligation?.session || formSession || currentAcademicSession;
+
+    formLevelRef.current = targetLevel;
+    formSessionRef.current = targetSession;
+
     // Immediately activate the waiting state on our own portal side so the portal shows "Waiting for payment confirmation" right away!
     setIsVerifyingPayment(true);
     setPaymentStatusOutcome('PENDING');
     setPaymentStatusMessage('Connecting to payment gateway...');
     setGatewayTabClosed(false);
     setIsPaymentDelayed(false);
-    setVerifyingReference(formLevelRef.current || 'Processing...');
+    setVerifyingReference(targetLevel || 'Processing...');
 
-    await executeIdCardCheckout(null, gatewayTab, formLevelRef.current, formSessionRef.current);
+    await executeIdCardCheckout(null, gatewayTab, targetLevel, targetSession);
   };
 
   const handlePayment = () => {
@@ -948,14 +985,6 @@ const IdCard = ({ viewMode = false }) => {
     }
 
     try {
-      if (!application) {
-        setIsApplying(true);
-        const res = await createIdCardApplication(student);
-        setIsApplying(false);
-        if (res?.application) {
-          setApplication(res.application);
-        }
-      }
 
       const resp = await fetch('/api/payments/id-card/create-checkout', {
         method: 'POST',
@@ -1472,6 +1501,12 @@ const IdCard = ({ viewMode = false }) => {
   const selectedObligation = levelObligations.find(o => {
     const l1 = String(o.level || '').replace(/\D/g, '');
     const l2 = String(formLevel || '').replace(/\D/g, '');
+    const s1 = String(o.session || '').trim();
+    const s2 = String(formSession || '').trim();
+    return l1 && l2 && l1 === l2 && (!s2 || s1 === s2);
+  }) || levelObligations.find(o => {
+    const l1 = String(o.level || '').replace(/\D/g, '');
+    const l2 = String(formLevel || '').replace(/\D/g, '');
     return l1 && l2 && l1 === l2;
   }) || levelObligations.find(o => String(o.session).trim() === String(formSession).trim()) || currentLevelObligation || levelObligations[0] || {
     level: formLevel || studentLevel || '100 Level',
@@ -1496,9 +1531,10 @@ const IdCard = ({ viewMode = false }) => {
       return;
     }
 
-    formLevelRef.current = ob.level;
+    const normLvl = normalizeLevel(ob.level);
+    formLevelRef.current = normLvl;
     formSessionRef.current = ob.session;
-    setFormLevel(ob.level);
+    setFormLevel(normLvl);
     setFormSession(ob.session);
     setIsNewPaymentModalOpen(true);
   };
@@ -2436,11 +2472,24 @@ const IdCard = ({ viewMode = false }) => {
                 </label>
                 <div className="relative">
                   <select
-                    value={`${formLevel}|${formSession}`}
+                    value={selectedObligation ? `${selectedObligation.level}|${selectedObligation.session}` : `${formLevel}|${formSession}`}
                     onChange={(e) => {
-                      const [lvl, sess] = e.target.value.split('|');
-                      setFormLevel(lvl);
-                      setFormSession(sess);
+                      const selectedVal = e.target.value;
+                      const matched = levelObligations.find(ob => `${ob.level}|${ob.session}` === selectedVal);
+                      if (matched) {
+                        const normLvl = normalizeLevel(matched.level);
+                        setFormLevel(normLvl);
+                        setFormSession(matched.session);
+                        formLevelRef.current = normLvl;
+                        formSessionRef.current = matched.session;
+                      } else {
+                        const [lvl, sess] = selectedVal.split('|');
+                        const normLvl = normalizeLevel(lvl);
+                        setFormLevel(normLvl);
+                        setFormSession(sess);
+                        formLevelRef.current = normLvl;
+                        formSessionRef.current = sess;
+                      }
                     }}
                     className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-[#0e8040] dark:border-[#138601] bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0e8040] cursor-pointer font-medium"
                   >
