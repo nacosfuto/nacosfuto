@@ -175,10 +175,7 @@ export const PortalAdminDashboard = () => {
 
       // Exact database count (surpassing 1000 limit)
       const exactWhitelistCount = Math.max(vsCountRes || 0, whitelist.length);
-      const activeEnrolledCount = accounts.filter(a => a.is_active !== false).length;
-      const exactAccountsCount = profsCountRes > 0 
-        ? Math.max(profsCountRes, activeEnrolledCount) 
-        : (activeEnrolledCount || accounts.length);
+      const exactAccountsCount = Math.max(accounts.length, profsCountRes || 0);
 
       setStats({
         whitelistTotal: exactWhitelistCount,
@@ -284,18 +281,18 @@ export const PortalAdminDashboard = () => {
 
   const statCards = [
     {
-      title: 'Verified Whitelist',
+      title: 'Verified Department Roster',
       value: stats.whitelistTotal,
       subtitle: 'Eligible CS ground-truth records',
       icon: Users,
       link: '/students'
     },
     {
-      title: 'Active Enrolled Users',
+      title: 'Active Enrolled Accounts',
       value: stats.activeAccounts,
-      subtitle: 'Registered live student accounts',
+      subtitle: 'Registered & activated live accounts',
       icon: GraduationCap,
-      link: '/students'
+      link: '/students?tab=accounts'
     },
     {
       title: 'Departmental Dues',

@@ -560,15 +560,9 @@ export async function signOutStudent() {
  * Get total exact count of active registered student profiles directly from Supabase
  */
 export async function adminGetStudentsCount() {
-  if (!supabase) return 0;
   try {
-    const { count, error } = await supabase
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .neq('is_active', false);
-    if (!error && typeof count === 'number') {
-      return count;
-    }
+    const students = await adminGetAllStudents();
+    return Array.isArray(students) ? students.length : 0;
   } catch (e) {
     console.warn('adminGetStudentsCount query notice:', e);
   }
@@ -723,6 +717,32 @@ export async function adminGetAllStudents() {
       page++;
     }
 
+    // 2. Cross-reference with verified_students where has_registered = true to guarantee 100% two-way sync
+    const profileRegs = new Set(
+      allProfiles.map(p => (p.registration_number || p.matric_number || '').trim().toUpperCase()).filter(Boolean)
+    );
+
+    try {
+      const { data: vsRegistered } = await supabase
+        .from('verified_students')
+        .select('*')
+        .or('has_registered.eq.true,is_registered.eq.true');
+
+      if (Array.isArray(vsRegistered)) {
+        vsRegistered.forEach(vs => {
+          const reg = (vs.registration_number || vs.matric_number || '').trim().toUpperCase();
+          if (reg && !profileRegs.has(reg)) {
+            allProfiles.push({
+              ...vs,
+              is_active: vs.status === 'active' || vs.is_active !== false,
+              created_at: vs.registered_at || vs.created_at || new Date().toISOString()
+            });
+            profileRegs.add(reg);
+          }
+        });
+      }
+    } catch (_) {}
+
     if (allProfiles.length > 0) {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(allProfiles));
@@ -733,7 +753,7 @@ export async function adminGetAllStudents() {
     console.warn('adminGetAllStudents Supabase query notice:', e);
   }
 
-  // 2. Fallback to cache without mock injection
+  // 3. Fallback to cache without mock injection
   const cached = getLocalStudentsDatabase();
   return Array.isArray(cached) ? cached.map(s => enrichStudentProfile(s)) : [];
 }

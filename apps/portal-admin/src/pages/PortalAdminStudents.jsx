@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import PortalAdminLayout from '../components/PortalAdminLayout';
 import { 
   Users, 
@@ -12,21 +13,21 @@ import {
   KeyRound, 
   Edit, 
   Eye, 
-  Filter,
-  GraduationCap,
-  RefreshCw,
-  CreditCard,
-  ShieldCheck,
-  FileSpreadsheet,
-  AlertTriangle,
-  Trash2,
-  Lock,
-  UserCheck,
-  Building2,
-  ShieldAlert,
-  Award,
-  Settings2,
-  HelpCircle
+  Filter, 
+  GraduationCap, 
+  RefreshCw, 
+  CreditCard, 
+  ShieldCheck, 
+  FileSpreadsheet, 
+  AlertTriangle, 
+  Trash2, 
+  Lock, 
+  UserCheck, 
+  Building2, 
+  ShieldAlert, 
+  Award, 
+  Settings2, 
+  HelpCircle 
 } from 'lucide-react';
 import {
   processStudentCsv,
@@ -71,8 +72,18 @@ import {
 import { getPortalAdminSession, canAccessLevel, getAccessibleLevels } from '@nacos/auth';
 
 const AdminStudents = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'accounts' ? 'accounts' : 'roster';
+
   // Navigation tabs: 'roster' (Verified Whitelist) or 'accounts' (Active Registered Users)
-  const [activeTab, setActiveTab] = useState('roster');
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'accounts' || tabParam === 'roster' || tabParam === 'recovery') {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   // Admin session & level scoping
   const [adminSession, setAdminSession] = useState(null);
@@ -792,7 +803,10 @@ const AdminStudents = () => {
         {/* Tabs: Verified Department Roster vs Active Portal Accounts */}
         <div className="flex items-center gap-3 border-b border-gray-200 dark:border-[#138601]/30">
           <button
-            onClick={() => setActiveTab('roster')}
+            onClick={() => {
+              setActiveTab('roster');
+              setSearchParams({ tab: 'roster' });
+            }}
             className={`pb-3 px-2 text-xs font-bold transition-all relative inline-flex items-center gap-2 cursor-pointer ${
               activeTab === 'roster'
                 ? 'text-[#138601] dark:text-[#4bd043]'
@@ -810,7 +824,10 @@ const AdminStudents = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('accounts')}
+            onClick={() => {
+              setActiveTab('accounts');
+              setSearchParams({ tab: 'accounts' });
+            }}
             className={`pb-3 px-2 text-xs font-bold transition-all relative inline-flex items-center gap-2 cursor-pointer ${
               activeTab === 'accounts'
                 ? 'text-[#138601] dark:text-[#4bd043]'
@@ -828,7 +845,10 @@ const AdminStudents = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('recovery')}
+            onClick={() => {
+              setActiveTab('recovery');
+              setSearchParams({ tab: 'recovery' });
+            }}
             className={`pb-3 px-2 text-xs font-bold transition-all relative inline-flex items-center gap-2 cursor-pointer ${
               activeTab === 'recovery'
                 ? 'text-[#138601] dark:text-[#4bd043]'
