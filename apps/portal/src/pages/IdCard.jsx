@@ -2369,24 +2369,14 @@ const IdCard = ({ viewMode = false }) => {
                         ) : isInitialLoading ? (
                           <div className="h-7 w-20 bg-gray-100 dark:bg-green-950/40 rounded-md animate-pulse ml-auto" />
                         ) : (
-                          <div className="inline-flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleViewIdCard(ob)}
-                              disabled={isVerifyingCardAccess}
-                              className="inline-block px-3 py-1.5 rounded-md text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200/80 dark:border-[#138601]/30 transition-colors cursor-pointer disabled:opacity-50"
-                            >
-                              View ID Card
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handlePayObligation(ob)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] shadow-xs transition-colors cursor-pointer active:scale-95"
-                            >
-                              <CreditCard className="w-3.5 h-3.5" />
-                              <span>Pay Now</span>
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handlePayObligation(ob)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] shadow-xs transition-colors cursor-pointer active:scale-95"
+                          >
+                            <CreditCard className="w-3.5 h-3.5" />
+                            <span>Pay Now</span>
+                          </button>
                         )}
                       </td>
                     </tr>
