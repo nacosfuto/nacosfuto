@@ -352,21 +352,31 @@ const PortalLayout = ({ children }) => {
 
   const rawName = (user.fullName || user.full_name || user.name || `${user.firstName || ''} ${user.lastName || ''}`).trim();
   const displayName = rawName.toLowerCase().includes('president') ? 'Emmanuel Irechukwu' : (rawName || 'Student Profile');
+  const displayMatric = user.registration_number || user.matric_number || user.matric || user.studentId || user.regNo || 'Not Set';
+  
   const rawAvatarUrl = user.profile_photo_url || user.avatar_url || user.passport_url || user.photo_url || user.avatar;
-  const avatarUrl = rawAvatarUrl
-    ? (rawAvatarUrl.startsWith('data:') || rawAvatarUrl.startsWith('blob:')
-        ? rawAvatarUrl
-        : `${rawAvatarUrl}${rawAvatarUrl.includes('?') ? '&' : '?'}v=${user.photo_updated_at || user.updated_at || '1'}`)
+  let cleanAvatarUrl = '';
+  if (typeof rawAvatarUrl === 'string') {
+    cleanAvatarUrl = rawAvatarUrl.trim();
+  } else if (rawAvatarUrl && typeof rawAvatarUrl === 'object') {
+    cleanAvatarUrl = rawAvatarUrl.secure_url || rawAvatarUrl.url || rawAvatarUrl.src || '';
+  }
+
+  const avatarUrl = cleanAvatarUrl
+    ? (cleanAvatarUrl.startsWith('data:') || cleanAvatarUrl.startsWith('blob:')
+        ? cleanAvatarUrl
+        : `${cleanAvatarUrl}${cleanAvatarUrl.includes('?') ? '&' : '?'}v=${encodeURIComponent(String(user.photo_updated_at || user.updated_at || '1'))}`)
     : null;
   const displayInitials = displayName
     .split(/\s+/)
-    .map(w => w[0])
+    .map(w => w ? w[0] : '')
+    .filter(Boolean)
     .join('')
     .slice(0, 2)
     .toUpperCase() || 'ST';
-  const displayFirstName = (user.firstName && !user.firstName.toLowerCase().includes('president'))
+  const displayFirstName = (user.firstName && typeof user.firstName === 'string' && !user.firstName.toLowerCase().includes('president'))
     ? user.firstName
-    : (user.first_name && !user.first_name.toLowerCase().includes('president'))
+    : (user.first_name && typeof user.first_name === 'string' && !user.first_name.toLowerCase().includes('president'))
       ? user.first_name
       : displayName.split(' ')[0];
 

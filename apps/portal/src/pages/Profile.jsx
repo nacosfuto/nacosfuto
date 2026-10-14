@@ -30,46 +30,65 @@ import {
 // Helper to format student record directly from the database schema
 const formatDatabaseStudent = (dbRecord, fallback = {}) => {
   if (!dbRecord && !fallback) return null;
-  const rec = dbRecord || fallback;
-  const progression = calculateAcademicProgression(rec);
+  const safeFallback = (fallback && typeof fallback === 'object') ? fallback : {};
+  const rec = (dbRecord && typeof dbRecord === 'object') ? dbRecord : safeFallback;
 
-  const fullName = (
+  let progression = {};
+  try {
+    progression = calculateAcademicProgression(rec) || {};
+  } catch (_) {
+    progression = {};
+  }
+
+  const fullName = String(
     rec.full_name || 
     rec.fullName || 
     rec.name || 
-    fallback.full_name || 
-    fallback.fullName || 
-    fallback.name || 
+    safeFallback.full_name || 
+    safeFallback.fullName || 
+    safeFallback.name || 
     `${rec.surname || ''} ${rec.first_name || ''}`
   ).trim();
 
   const parts = fullName ? fullName.split(/\s+/) : [];
-  const surname = rec.surname || rec.last_name || fallback.surname || (parts.length > 1 ? parts[0] : '');
-  const firstName = rec.first_name || rec.firstName || fallback.firstName || (parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || '');
-  const matric = (
+  const surname = rec.surname || rec.last_name || safeFallback.surname || (parts.length > 1 ? parts[0] : '');
+  const firstName = rec.first_name || rec.firstName || safeFallback.firstName || (parts.length > 1 ? parts.slice(1).join(' ') : parts[0] || '');
+  
+  const rawMatric = (
     rec.registration_number || 
     rec.matric_number || 
     rec.regNo || 
     rec.matric || 
     rec.studentId || 
     rec.student_id || 
-    fallback.matric || 
-    fallback.registration_number || 
+    safeFallback.matric || 
+    safeFallback.registration_number || 
     ''
-  ).toUpperCase();
+  );
+  const matric = String(rawMatric).trim().toUpperCase();
 
-  const dept = rec.department || rec.dept || fallback.department || fallback.dept || 'Computer Science';
-  const deptCode = rec.dept_code || (dept.toLowerCase().includes('software') ? 'SE' : 'CSC');
-  const avatar = rec.profile_photo_url || rec.avatar_url || rec.photo_url || fallback.profile_photo_url || fallback.avatar_url || '';
+  const rawDept = rec.department || rec.dept || safeFallback.department || safeFallback.dept || 'Computer Science';
+  const dept = typeof rawDept === 'string' ? rawDept : (rawDept?.name || 'Computer Science');
+  const deptCode = rec.dept_code || (String(dept).toLowerCase().includes('software') ? 'SE' : 'CSC');
+  
+  const rawAvatar = rec.profile_photo_url || rec.avatar_url || rec.photo_url || safeFallback.profile_photo_url || safeFallback.avatar_url || '';
+  const avatar = typeof rawAvatar === 'string'
+    ? rawAvatar.trim()
+    : (rawAvatar?.secure_url || rawAvatar?.url || rawAvatar?.src || '');
 
-  const isGraduated = progression.isGraduated;
-  const currentLevel = progression.levelString;
-  const graduationYear = progression.expectedGraduationYear;
+  const isGraduated = Boolean(progression.isGraduated);
+  const currentLevel = progression.levelString || rec.level || safeFallback.level || '100 Level';
+  const graduationYear = progression.expectedGraduationYear || rec.graduation_year || safeFallback.graduation_year || 2029;
+
+  const rawSession = progression.academicSession || rec.academic_session || safeFallback.academic_session;
+  const cleanSession = typeof rawSession === 'string'
+    ? rawSession
+    : (rawSession?.sessionName || rawSession?.session || getActiveAcademicSession());
 
   return {
-    id: rec.id || fallback.id || matric,
-    surname,
-    firstName,
+    id: rec.id || safeFallback.id || matric,
+    surname: String(surname || ''),
+    firstName: String(firstName || ''),
     name: fullName || `${surname} ${firstName}`.trim(),
     full_name: fullName,
     matric,
@@ -78,34 +97,34 @@ const formatDatabaseStudent = (dbRecord, fallback = {}) => {
     dept_code: deptCode,
     dept,
     department: dept,
-    programme: rec.programme || fallback.programme || 'B.Tech Computer Science',
-    faculty: rec.faculty || fallback.faculty || 'School of Information & Communication Tech (SICT)',
-    email: rec.email || fallback.email || '',
-    phone: rec.phone_number || rec.phone || fallback.phone || fallback.phone_number || '',
-    dob: rec.date_of_birth || rec.dob || fallback.dob || '',
-    dobFormatted: rec.date_of_birth || rec.dobFormatted || rec.dob || fallback.dobFormatted || '',
-    address: rec.residential_address || rec.address || fallback.address || '',
-    bio: rec.bio || fallback.bio || '',
-    institution: rec.institution || rec.university || fallback.institution || 'FEDERAL UNIVERSITY OF TECHNOLOGY, OWERRI, IMO STATE',
+    programme: String(rec.programme || safeFallback.programme || 'B.Tech Computer Science'),
+    faculty: String(rec.faculty || safeFallback.faculty || 'School of Information & Communication Tech (SICT)'),
+    email: String(rec.email || safeFallback.email || ''),
+    phone: String(rec.phone_number || rec.phone || safeFallback.phone || safeFallback.phone_number || ''),
+    dob: String(rec.date_of_birth || rec.dob || safeFallback.dob || ''),
+    dobFormatted: String(rec.date_of_birth || rec.dobFormatted || rec.dob || safeFallback.dobFormatted || ''),
+    address: String(rec.residential_address || rec.address || safeFallback.address || ''),
+    bio: String(rec.bio || safeFallback.bio || ''),
+    institution: String(rec.institution || rec.university || safeFallback.institution || 'FEDERAL UNIVERSITY OF TECHNOLOGY, OWERRI, IMO STATE'),
     level: currentLevel,
     current_level: currentLevel,
-    numeric_level: progression.numericLevel,
+    numeric_level: progression.numericLevel || 1,
     admission_year: progression.admissionYear || rec.admission_year || 2024,
     programme_duration: progression.programmeDuration || 5,
     is_graduated: isGraduated,
     status: isGraduated ? 'Graduated' : (rec.status || 'Active'),
     graduation_year: graduationYear,
     expected_graduation_year: graduationYear,
-    class_of: progression.classOf,
-    classOf: progression.classOf,
-    class_of_display: progression.classOfDisplay,
-    classOfDisplay: progression.classOfDisplay,
-    academic_session: progression.academicSession || getActiveAcademicSession(),
-    zone: rec.zone || rec.state_of_origin || fallback.zone || 'South East',
-    gender: rec.gender || fallback.gender || 'M',
+    class_of: progression.classOf || graduationYear,
+    classOf: progression.classOf || graduationYear,
+    class_of_display: progression.classOfDisplay || `Class of ${graduationYear}`,
+    classOfDisplay: progression.classOfDisplay || `Class of ${graduationYear}`,
+    academic_session: cleanSession,
+    zone: String(rec.zone || rec.state_of_origin || safeFallback.zone || 'South East'),
+    gender: String(rec.gender || safeFallback.gender || 'M'),
     avatar_url: avatar,
     profile_photo_url: avatar,
-    role: isGraduated ? 'Alumni Member' : (rec.role || fallback.role || 'Student Member'),
+    role: isGraduated ? 'Alumni Member' : (rec.role || safeFallback.role || 'Student Member'),
     is_active: rec.is_active !== undefined ? rec.is_active : true,
     is_registered: true
   };
@@ -304,19 +323,28 @@ const Profile = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const displayName = (user.full_name || user.name || `${user.surname} ${user.firstName}`).trim() || 'Student Profile';
-  const displayMatric = user.matric || user.studentId || 'Not Set';
+  const displayName = (user?.full_name || user?.name || `${user?.surname || ''} ${user?.firstName || ''}`).trim() || 'Student Profile';
+  const displayMatric = user?.matric || user?.studentId || user?.registration_number || 'Not Set';
   const displayInitials = displayName
     .split(/\s+/)
-    .map(w => w[0])
+    .map(w => w ? w[0] : '')
+    .filter(Boolean)
     .join('')
     .slice(0, 2)
     .toUpperCase() || 'ST';
-  const rawAvatarUrl = user.profile_photo_url || user.avatar_url || user.passport_url || user.photo_url || user.avatar;
-  const avatarUrl = rawAvatarUrl
-    ? (rawAvatarUrl.startsWith('data:') || rawAvatarUrl.startsWith('blob:')
-        ? rawAvatarUrl
-        : `${rawAvatarUrl}${rawAvatarUrl.includes('?') ? '&' : '?'}v=${user.photo_updated_at || user.updated_at || '1'}`)
+
+  const rawAvatarUrl = user?.profile_photo_url || user?.avatar_url || user?.passport_url || user?.photo_url || user?.avatar;
+  let cleanAvatarUrl = '';
+  if (typeof rawAvatarUrl === 'string') {
+    cleanAvatarUrl = rawAvatarUrl.trim();
+  } else if (rawAvatarUrl && typeof rawAvatarUrl === 'object') {
+    cleanAvatarUrl = rawAvatarUrl.secure_url || rawAvatarUrl.url || rawAvatarUrl.src || '';
+  }
+
+  const avatarUrl = cleanAvatarUrl
+    ? (cleanAvatarUrl.startsWith('data:') || cleanAvatarUrl.startsWith('blob:')
+        ? cleanAvatarUrl
+        : `${cleanAvatarUrl}${cleanAvatarUrl.includes('?') ? '&' : '?'}v=${encodeURIComponent(String(user?.photo_updated_at || user?.updated_at || '1'))}`)
     : null;
 
   return (
@@ -347,7 +375,7 @@ const Profile = () => {
 
                 <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-red-200/80 dark:border-red-900/50">
                   <a
-                    href={`mailto:support@nacosfuto.com.ng?subject=Bio-Data%20Update%20Request%20-%20${encodeURIComponent(displayMatric)}&body=Dear%20NACOS%20Administrator,%0A%0AI%20am%20requesting%20an%20official%20update%20to%20my%20student%20bio-data%20records:%0A-%20Student%20Name:%20${encodeURIComponent(displayName)}%0A-%20Reg%20Number:%20${encodeURIComponent(displayMatric)}%0A-%20Department:%20${encodeURIComponent(user.dept)}%0A%0AChanges%20Requested:%0A[Please%20specify%20changes%20here]%0A%0AThank%20you.`}
+                    href={`mailto:support@nacosfuto.com.ng?subject=Bio-Data%20Update%20Request%20-%20${encodeURIComponent(displayMatric)}&body=Dear%20NACOS%20Administrator,%0A%0AI%20am%20requesting%20an%20official%20update%20to%20my%20student%20bio-data%20records:%0A-%20Student%20Name:%20${encodeURIComponent(displayName)}%0A-%20Reg%20Number:%20${encodeURIComponent(displayMatric)}%0A-%20Department:%20${encodeURIComponent(user?.dept || user?.department || 'Computer Science')}%0A%0AChanges%20Requested:%0A[Please%20specify%20changes%20here]%0A%0AThank%20you.`}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors shadow-xs"
                   >
                     <Mail className="w-3.5 h-3.5" />
@@ -442,7 +470,7 @@ const Profile = () => {
                       <span>Level: {user.level || user.current_level || '100 Level'}</span>
                     </span>
                     <span className="px-2.5 py-1 rounded-md text-xs font-medium border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-white/5">
-                      Session: {user.academic_session}
+                      Session: {typeof user?.academic_session === 'string' ? user.academic_session : (user?.academic_session?.sessionName || user?.academic_session?.session || '2026/2027')}
                     </span>
                   </>
                 )}
@@ -450,7 +478,7 @@ const Profile = () => {
                 {/* Institution Badge */}
                 <span className="text-xs font-semibold uppercase tracking-wide text-[#138601] dark:text-[#4bd043] flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate max-w-[280px] sm:max-w-none">{user.institution}</span>
+                  <span className="truncate max-w-[280px] sm:max-w-none">{String(user?.institution || 'FEDERAL UNIVERSITY OF TECHNOLOGY, OWERRI')}</span>
                 </span>
 
                 {/* Gender Badge */}

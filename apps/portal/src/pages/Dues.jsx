@@ -93,7 +93,24 @@ const Dues = () => {
   const initialCache = getCachedStudentClearance(user);
   const initialDuesData = extractCachedDuesData(user, initialCache);
 
-  const [duesFee, setDuesFee] = useState(() => initialDuesData?.duesFee ?? null);
+  const [duesFee, setDuesFee] = useState(() => {
+    if (initialDuesData?.duesFee != null && !isNaN(Number(initialDuesData.duesFee))) {
+      return Number(initialDuesData.duesFee);
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('nacos_dues_settings_db');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.dues_amount && !isNaN(Number(parsed.dues_amount))) {
+            return Number(parsed.dues_amount);
+          }
+        }
+      } catch (_) {}
+    }
+    return 2000;
+  });
+
   const [isRevoked, setIsRevoked] = useState(false);
   const [revocationReason, setRevocationReason] = useState('');
   const [totalLifetimeDues, setTotalLifetimeDues] = useState(() => initialDuesData?.totalPaidSum ?? initialCache?.totalPaid ?? 0);
@@ -101,16 +118,46 @@ const Dues = () => {
   // Complete list of ALL payments student has made (synced from DB)
   const [paymentHistoryList, setPaymentHistoryList] = useState(() => initialDuesData?.paymentHistoryList || []);
 
+  const userCleared = Boolean(user?.dues_cleared || user?.has_paid_dues || ['cleared', 'successful', 'verified', 'paid'].includes(String(user?.payment_status).toLowerCase()));
+  const studentLvl = String(user?.level || user?.current_level || '100').match(/\d{3}/)?.[0] || '100';
+
   // Level map storing dues clearance for each academic level
-  const [levelDuesMap, setLevelDuesMap] = useState(() => initialDuesData?.levelDuesMap || {
-    '100': null,
-    '200': null,
-    '300': null,
-    '400': null,
-    '500': null
+  const [levelDuesMap, setLevelDuesMap] = useState(() => {
+    const base = initialDuesData?.levelDuesMap || {
+      '100': null,
+      '200': null,
+      '300': null,
+      '400': null,
+      '500': null
+    };
+    if (userCleared && !base[studentLvl]) {
+      const cleanMatric = String(user?.registration_number || user?.matric || '').trim().toUpperCase();
+      base[studentLvl] = {
+        id: `sess-${cleanMatric}-${studentLvl}`,
+        receiptNo: user?.receipt_no || `NACOS/DUES/${cleanMatric || 'FUTO'}-${studentLvl}L`,
+        transactionId: user?.receipt_no || 'TX-CONFIRMED',
+        date: 'Confirmed',
+        time: '',
+        paymentDate: 'Confirmed (Database Verified)',
+        amount: user?.dues_amount ? `₦${Number(user.dues_amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,000.00',
+        rawAmount: Number(user?.dues_amount || 2000),
+        status: 'PAID',
+        isPaid: true,
+        session: user?.academic_session || getActiveAcademicSession(),
+        level: `${studentLvl} LEVEL`,
+        levelNum: studentLvl,
+        paymentType: 'Departmental Dues (Full Payment)',
+        studentName: (user?.full_name || user?.name || 'Student Member').trim(),
+        matricNo: cleanMatric,
+        department: user?.department || 'Computer Science',
+        created_at: user?.dues_paid_at || new Date().toISOString()
+      };
+    }
+    return base;
   });
 
-  const [isStatusChecking, setIsStatusChecking] = useState(() => !initialDuesData);
+  const [isStatusChecking, setIsStatusChecking] = useState(false);
+  const inFlightCheckRef = useRef(false);
 
   // Allowed levels based on progressive student level
   const progressiveLevels = getProgressiveLevels(user);
@@ -146,6 +193,9 @@ const Dues = () => {
       if (data?.dues) confirmedPaidLevelsRef.current.add(lvl);
     });
   }
+  if (userCleared) {
+    confirmedPaidLevelsRef.current.add(studentLvl);
+  }
 
   // Stable references for event listeners to avoid infinite effect teardowns/re-triggers
   const userRef = useRef(user);
@@ -157,6 +207,8 @@ const Dues = () => {
 
   // Check payment status from Bachs payments table, departmental_dues, dues_payments, and Supabase across all levels
   const checkStatus = async (currentUser) => {
+    if (inFlightCheckRef.current) return;
+    inFlightCheckRef.current = true;
     setIsStatusChecking(true);
     try {
       const matric = currentUser?.registration_number || currentUser?.matric || currentUser?.matricNumber || '';
@@ -439,6 +491,7 @@ const Dues = () => {
       // Sort latest first
       uniqueRecords.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
+      const finalPaidSum = uniqueRecords.filter(r => r.isPaid).reduce((acc, r) => acc + (r.rawAmount || 0), 0);
       setPaymentHistoryList(uniqueRecords);
       setLevelDuesMap(prev => {
         const merged = { ...newMap };
@@ -452,7 +505,7 @@ const Dues = () => {
         });
         return merged;
       });
-      setTotalLifetimeDues(totalPaidSum);
+      setTotalLifetimeDues(finalPaidSum);
 
       // Revocation status check
       const userIsRevoked = String(currentUser?.payment_status).toLowerCase() === 'revoked' || currentUser?.dues_revoked === true;
@@ -464,6 +517,7 @@ const Dues = () => {
         setRevocationReason('');
       }
     } finally {
+      inFlightCheckRef.current = false;
       setIsStatusChecking(false);
     }
   };
@@ -1035,19 +1089,21 @@ const Dues = () => {
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 print:hidden">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-              Departmental Dues &amp; Levies
-            </h1>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+                Departmental Dues &amp; Levies
+              </h1>
+              {isStatusChecking && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/30 text-[10px] font-medium text-emerald-700 dark:text-emerald-300 shrink-0">
+                  <RefreshCw className="w-2.5 h-2.5 animate-spin text-[#138601]" />
+                  <span>Syncing...</span>
+                </span>
+              )}
+            </div>
             <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
               Official clearance history and electronic POS receipts for Department of Computer Science.
             </p>
           </div>
-          {isStatusChecking && (
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/30 text-[11px] font-medium text-emerald-700 dark:text-emerald-300 shrink-0 self-start sm:self-auto">
-              <RefreshCw className="w-3 h-3 animate-spin text-[#138601]" />
-              <span>Syncing live records...</span>
-            </div>
-          )}
         </div>
 
         {/* Revocation Alert Banner */}
@@ -1138,8 +1194,6 @@ const Dues = () => {
                         >
                           Print Receipt
                         </button>
-                      ) : isStatusChecking ? (
-                        <div className="h-7 w-20 bg-gray-100 dark:bg-green-950/40 rounded-md animate-pulse ml-auto" />
                       ) : (
                         <button
                           type="button"
