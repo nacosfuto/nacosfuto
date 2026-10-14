@@ -223,12 +223,14 @@ export const PortalAdminSettings = () => {
     setIsAddingAdmin(true);
     setAddAdminError('');
     try {
+      const cleanPassword = newAdminData.password.trim();
       const res = await createPortalAdmin({
         fullName: newAdminData.fullName,
         email: newAdminData.email,
         role: newAdminData.role,
         assignedLevel: newAdminData.assignedLevel,
-        initialPassword: newAdminData.password.trim()
+        initialPassword: cleanPassword,
+        password: cleanPassword
       });
 
       if (res?.error) {
@@ -806,6 +808,7 @@ export const PortalAdminSettings = () => {
                     >
                       <option value="course_adviser">Course Adviser</option>
                       <option value="portal_admin">Portal Administrator</option>
+                      <option value="electoral_admin">Electra Electoral Administrator</option>
                       <option value="super_admin">Super Administrator</option>
                     </select>
                   </div>

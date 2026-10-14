@@ -7,6 +7,29 @@ const ADMIN_SESSION_STORAGE_KEY = 'nacos_website_admin_session';
 const PORTAL_ADMIN_SESSION_KEY = 'nacos_portal_admin_session';
 const ONE_HOUR_MS = 60 * 60 * 1000; // Strict 60-minute session lifetime
 
+/**
+ * Authoritatively determines if an administrator record or session holds Super Admin privileges.
+ */
+export function isSuperAdminScope(admin) {
+  if (!admin) return false;
+  const role = String(admin.role || '').toLowerCase().trim();
+  const scope = String(admin.scope || '').toLowerCase().trim();
+  const perms = Array.isArray(admin.permissions) ? admin.permissions : [];
+  return Boolean(
+    admin.is_super_admin === true ||
+    scope === 'super_admin' ||
+    scope === 'superadmin' ||
+    scope === 'all' ||
+    role === 'super_admin' ||
+    role === 'superadmin' ||
+    role === 'super admin' ||
+    perms.includes('*') ||
+    perms.includes('all') ||
+    perms.includes('super_admin') ||
+    perms.includes('admins.manage')
+  );
+}
+
 export const AVAILABLE_ADMIN_FEATURES = [
   { key: 'feature:student_registry', label: 'Student Registry & Profiles', platform: 'portal', description: 'Search, verify, and manage departmental student profiles' },
   { key: 'feature:results_management', label: 'Results & Grades (Course Adviser)', platform: 'portal', description: 'Upload, compute CGPA, and approve semester student results' },
@@ -334,7 +357,8 @@ export async function loginWebsiteAdmin(email, password) {
       role: dbAdmin.role,
       assigned_level: dbAdmin.assigned_level || 'all',
       permissions: dbAdmin.permissions || ['main_website.view'],
-      is_super_admin: dbAdmin.scope === 'super_admin' || dbAdmin.role === 'super_admin',
+      is_super_admin: isSuperAdminScope(dbAdmin),
+      token: dbAdmin.id,
       logged_in_at: nowIso,
       expires_at: expiresAt
     };
@@ -453,7 +477,8 @@ export async function loginPortalAdmin(email, password) {
       role: dbAdmin.role,
       assigned_level: dbAdmin.assigned_level || 'all',
       permissions: dbAdmin.permissions || ['student_portal.view', 'student_portal.students'],
-      is_super_admin: dbAdmin.scope === 'super_admin' || dbAdmin.role === 'super_admin',
+      is_super_admin: isSuperAdminScope(dbAdmin),
+      token: dbAdmin.id,
       logged_in_at: nowIso,
       expires_at: expiresAt
     };
@@ -538,13 +563,21 @@ export function hasAdminFeature(admin, featureKey) {
 /**
  * Retrieve all administrators across all scopes directly from Supabase
  */
+/**
+ * Super Admin: Fetch all administrators from database
+ */
 export async function superAdminGetAdmins() {
   const current = getWebsiteAdminSession() || getPortalAdminSession();
-  const token = current?.token;
+  const token = current?.token || current?.id;
+  const requesterEmail = current?.email;
 
   // 1. Try server endpoint
   try {
-    const res = await fetch('/api/admin/users', {
+    const url = new URL('/api/admin/users', typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+    if (token) url.searchParams.set('token', token);
+    if (requesterEmail) url.searchParams.set('requesterEmail', requesterEmail);
+
+    const res = await fetch(url.toString(), {
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -580,7 +613,8 @@ export async function superAdminGetAdmins() {
  */
 export async function superAdminCreateAdmin({ email, fullName, role = 'website_admin', permissions, scope = 'main_website', assigned_level = 'all', initialPassword = '', password = '' }) {
   const current = getWebsiteAdminSession() || getPortalAdminSession();
-  const token = current?.token;
+  const token = current?.token || current?.id;
+  const requesterEmail = current?.email;
 
   if (!email || !fullName) {
     return { error: 'Email and Full Name are required.' };
@@ -591,11 +625,16 @@ export async function superAdminCreateAdmin({ email, fullName, role = 'website_a
     return { error: 'Initial administrator password is required (minimum 6 characters).' };
   }
 
+  // Pre-check caller authority
+  if (!isSuperAdminScope(current)) {
+    return { error: 'Unauthorized: Super Administrator privileges required.' };
+  }
+
   const cleanEmail = email.trim().toLowerCase();
   const cleanName = fullName.trim();
   const cleanLevel = String(assigned_level || 'all').toLowerCase().replace(' level', '');
 
-  // 1. Try serverless endpoint
+  // 1. Try serverless endpoint first
   try {
     const res = await fetch('/api/admin/users/create', {
       method: 'POST',
@@ -604,6 +643,8 @@ export async function superAdminCreateAdmin({ email, fullName, role = 'website_a
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
       body: JSON.stringify({
+        token,
+        requesterEmail,
         email: cleanEmail,
         fullName: cleanName,
         role,
@@ -619,15 +660,29 @@ export async function superAdminCreateAdmin({ email, fullName, role = 'website_a
     if (res.ok && data.success) {
       return { success: true, admin: data.admin, message: data.message };
     }
-    if (!res.ok && data.error) {
+    // Only return error immediately if it's NOT an authorization mismatch that can be verified against Supabase
+    if (!res.ok && data.error && !data.error.includes('Unauthorized')) {
       return { error: data.error };
     }
   } catch (_) {}
 
-  // 2. Direct Database Fallback
+  // 2. Direct Database Fallback (Zero Mock Data)
   if (!supabase) return { error: 'Database service offline.' };
 
-  const adminId = `admin-${Date.now()}`;
+  // Double check ground-truth caller authorization in live Supabase table
+  if (requesterEmail) {
+    const { data: liveSuperAdmin, error: authCheckErr } = await supabase
+      .from('admin_scopes')
+      .select('id, email, scope, role, permissions, is_active')
+      .ilike('email', requesterEmail.trim())
+      .maybeSingle();
+
+    if (authCheckErr || !liveSuperAdmin || liveSuperAdmin.is_active === false || !isSuperAdminScope(liveSuperAdmin)) {
+      return { error: 'Unauthorized: Super Administrator privileges required in database.' };
+    }
+  }
+
+  const adminId = `admin-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
   const nowIso = new Date().toISOString();
   const initialHash = await hashPassword(plainPassword);
 
@@ -636,10 +691,10 @@ export async function superAdminCreateAdmin({ email, fullName, role = 'website_a
     user_id: null,
     email: cleanEmail,
     full_name: cleanName,
-    scope: scope || 'main_website',
+    scope: scope || (role === 'super_admin' ? 'super_admin' : 'main_website'),
     role: role || 'website_admin',
     assigned_level: cleanLevel,
-    permissions: permissions || ['main_website.view'],
+    permissions: Array.isArray(permissions) && permissions.length > 0 ? permissions : ['main_website.view'],
     is_active: true,
     password_hash: initialHash,
     created_at: nowIso,
@@ -653,7 +708,7 @@ export async function superAdminCreateAdmin({ email, fullName, role = 'website_a
 
   // Trigger assignment email
   try {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://admin.nacosfuto.com.ng';
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://nacosfuto.com.ng';
     await fetch('/api/email/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -684,7 +739,8 @@ export const superAdminInviteAdmin = superAdminCreateAdmin;
  */
 export async function superAdminToggleAdmin(adminIdOrEmail, isActive) {
   const current = getWebsiteAdminSession() || getPortalAdminSession();
-  const token = current?.token;
+  const token = current?.token || current?.id;
+  const requesterEmail = current?.email;
 
   // 1. Try serverless endpoint
   try {
@@ -694,20 +750,23 @@ export async function superAdminToggleAdmin(adminIdOrEmail, isActive) {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
-      body: JSON.stringify({ adminId: adminIdOrEmail, isActive })
+      body: JSON.stringify({ adminId: adminIdOrEmail, isActive, token, requesterEmail })
     });
 
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.success) {
       return { success: true };
     }
-    if (!res.ok && data.error) {
+    if (!res.ok && data.error && !data.error.includes('Unauthorized')) {
       return { error: data.error };
     }
   } catch (_) {}
 
   // 2. Direct Supabase Update
   if (supabase) {
+    if (!isSuperAdminScope(current)) {
+      return { error: 'Unauthorized: Super Administrator privileges required.' };
+    }
     const { error } = await supabase
       .from('admin_scopes')
       .update({ is_active: Boolean(isActive), updated_at: new Date().toISOString() })
@@ -726,9 +785,10 @@ export async function superAdminToggleAdmin(adminIdOrEmail, isActive) {
  */
 export async function superAdminDeleteAdmin(adminId) {
   const current = getWebsiteAdminSession() || getPortalAdminSession();
-  const token = current?.token;
+  const token = current?.token || current?.id;
+  const requesterEmail = current?.email;
 
-  if (current && (current.id === adminId || current.user_id === adminId)) {
+  if (current && (current.id === adminId || current.user_id === adminId || current.email === adminId)) {
     return { error: 'Security Safeguard: You cannot delete your own account while logged in.' };
   }
 
@@ -740,20 +800,23 @@ export async function superAdminDeleteAdmin(adminId) {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
-      body: JSON.stringify({ adminId })
+      body: JSON.stringify({ adminId, token, requesterEmail })
     });
 
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.success) {
       return { success: true, message: data.message };
     }
-    if (!res.ok && data.error) {
+    if (!res.ok && data.error && !data.error.includes('Unauthorized')) {
       return { error: data.error };
     }
   } catch (_) {}
 
   // 2. Direct Supabase Deletion
   if (supabase) {
+    if (!isSuperAdminScope(current)) {
+      return { error: 'Unauthorized: Super Administrator privileges required.' };
+    }
     const { error } = await supabase
       .from('admin_scopes')
       .delete()

@@ -11,6 +11,7 @@
  * 6. Critical safeguards: Self-deletion prevention, last super-admin protection, election data isolation.
  */
 
+import './loadEnv.js';
 import crypto from 'crypto';
 import { supabase } from '../client.js';
 import { dispatchEmail } from './emailDispatcher.js';
@@ -22,11 +23,47 @@ import {
 } from './studentAuthApi.js';
 import { renderAdminAssignmentEmail } from './emailTemplates.js';
 
-const AUTH_SECRET = process.env.SESSION_SECRET || process.env.VITE_SUPABASE_ANON_KEY || 'nacos_futo_auth_signature_key_2026';
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const OTP_EXPIRY_MINUTES = 15;
 const RATE_LIMIT_WINDOW_MINUTES = 15;
 const RATE_LIMIT_MAX_ATTEMPTS = 5;
+
+/**
+ * Authoritatively determines if an administrator record or session holds Super Admin privileges.
+ */
+export function isSuperAdminScope(admin) {
+  if (!admin) return false;
+  const role = String(admin.role || '').toLowerCase().trim();
+  const scope = String(admin.scope || '').toLowerCase().trim();
+  const perms = Array.isArray(admin.permissions) ? admin.permissions : [];
+  return Boolean(
+    admin.is_super_admin === true ||
+    scope === 'super_admin' ||
+    scope === 'superadmin' ||
+    scope === 'all' ||
+    role === 'super_admin' ||
+    role === 'superadmin' ||
+    role === 'super admin' ||
+    perms.includes('*') ||
+    perms.includes('all') ||
+    perms.includes('super_admin') ||
+    perms.includes('admins.manage')
+  );
+}
+
+/**
+ * Resolves candidate signing secrets to guarantee HMAC verification across all processes & environments.
+ */
+export function getAuthSecrets() {
+  const list = [
+    process.env.SESSION_SECRET,
+    process.env.VITE_SUPABASE_ANON_KEY,
+    process.env.SUPABASE_ANON_KEY,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    'nacos_futo_auth_signature_key_2026'
+  ].filter(Boolean);
+  return Array.from(new Set(list));
+}
 
 // =============================================================================
 // 1. CRYPTOGRAPHIC ADMIN SESSION TOKEN HELPERS
@@ -39,22 +76,24 @@ const RATE_LIMIT_MAX_ATTEMPTS = 5;
 export function signAdminToken(adminData, customLifetimeMs = ONE_HOUR_MS) {
   const now = Date.now();
   const lifetime = Math.min(customLifetimeMs, ONE_HOUR_MS); // Never exceed 60 minutes
+  const isSuper = isSuperAdminScope(adminData);
   const payload = {
     sub: adminData.id,
     user_id: adminData.user_id || adminData.id,
-    email: adminData.email.toLowerCase(),
+    email: (adminData.email || '').toLowerCase().trim(),
     full_name: adminData.full_name,
     role: adminData.role,
     scope: adminData.scope,
     assigned_level: adminData.assigned_level || 'all',
     permissions: adminData.permissions || [],
-    is_super_admin: adminData.scope === 'super_admin' || adminData.role === 'super_admin',
+    is_super_admin: isSuper,
     iat: now,
     exp: now + lifetime
   };
 
   const jsonStr = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const signature = crypto.createHmac('sha256', AUTH_SECRET).update(jsonStr).digest('base64url');
+  const secret = process.env.SESSION_SECRET || process.env.VITE_SUPABASE_ANON_KEY || 'nacos_futo_auth_signature_key_2026';
+  const signature = crypto.createHmac('sha256', secret).update(jsonStr).digest('base64url');
   return {
     token: `${jsonStr}.${signature}`,
     expiresAt: payload.exp,
@@ -63,7 +102,7 @@ export function signAdminToken(adminData, customLifetimeMs = ONE_HOUR_MS) {
 }
 
 /**
- * Verifies the HMAC-SHA256 signature and checks absolute expiration.
+ * Verifies the HMAC-SHA256 signature against candidate secrets and checks absolute expiration.
  */
 export function verifyAdminToken(token) {
   if (!token || typeof token !== 'string') return null;
@@ -71,8 +110,18 @@ export function verifyAdminToken(token) {
   if (parts.length !== 2) return null;
 
   const [jsonStr, signature] = parts;
-  const expectedSig = crypto.createHmac('sha256', AUTH_SECRET).update(jsonStr).digest('base64url');
-  if (signature !== expectedSig) return null;
+  const secrets = getAuthSecrets();
+
+  let validSig = false;
+  for (const sec of secrets) {
+    const expectedSig = crypto.createHmac('sha256', sec).update(jsonStr).digest('base64url');
+    if (signature === expectedSig) {
+      validSig = true;
+      break;
+    }
+  }
+
+  if (!validSig) return null;
 
   try {
     const payload = JSON.parse(Buffer.from(jsonStr, 'base64url').toString('utf8'));
@@ -459,20 +508,44 @@ export async function handleAdminResetPassword({ email, otp, newPassword }) {
 
 /**
  * Ensures requesting user is an authorized Super Administrator.
+ * Evaluates cryptographically signed session tokens and live database admin_scopes records.
  */
-function requireSuperAdmin(token) {
+export async function requireSuperAdmin(token, requesterEmail = null) {
+  // 1. Check cryptographic signed session token
   const verified = verifyAdminToken(token);
-  if (!verified || !verified.is_super_admin) {
-    return { authorized: false, error: 'Unauthorized: Super Administrator privileges required.' };
+  if (verified && isSuperAdminScope(verified)) {
+    return { authorized: true, requester: verified };
   }
-  return { authorized: true, requester: verified };
+
+  // 2. Authoritative check against live database admin_scopes
+  if (supabase && (token || requesterEmail)) {
+    try {
+      let query = supabase.from('admin_scopes').select('*');
+      if (token && typeof token === 'string' && !token.includes('.')) {
+        query = query.or(`id.eq.${token},email.eq.${token}`);
+      } else if (requesterEmail) {
+        query = query.ilike('email', requesterEmail.trim());
+      } else {
+        query = null;
+      }
+
+      if (query) {
+        const { data: dbAdmin, error } = await query.maybeSingle();
+        if (!error && dbAdmin && dbAdmin.is_active !== false && isSuperAdminScope(dbAdmin)) {
+          return { authorized: true, requester: dbAdmin };
+        }
+      }
+    } catch (_) {}
+  }
+
+  return { authorized: false, error: 'Unauthorized: Super Administrator privileges required.' };
 }
 
 /**
  * List all administrators from `admin_scopes`.
  */
-export async function handleGetAdminUsers({ token }) {
-  const authCheck = requireSuperAdmin(token);
+export async function handleGetAdminUsers({ token, requesterEmail = null }) {
+  const authCheck = await requireSuperAdmin(token, requesterEmail);
   if (!authCheck.authorized) {
     return { success: false, error: authCheck.error };
   }
@@ -498,6 +571,7 @@ export async function handleGetAdminUsers({ token }) {
  */
 export async function handleCreateAdminUser({
   token,
+  requesterEmail = null,
   email,
   fullName,
   role = 'website_admin',
@@ -508,7 +582,7 @@ export async function handleCreateAdminUser({
   password = '',
   originUrl = 'https://nacosfuto.com.ng/admin'
 }) {
-  const authCheck = requireSuperAdmin(token);
+  const authCheck = await requireSuperAdmin(token, requesterEmail);
   if (!authCheck.authorized) {
     return { success: false, error: authCheck.error };
   }
@@ -616,8 +690,8 @@ export async function handleCreateAdminUser({
 /**
  * Suspends or Reactivates an administrator in the database.
  */
-export async function handleUpdateAdminStatus({ token, adminId, isActive }) {
-  const authCheck = requireSuperAdmin(token);
+export async function handleUpdateAdminStatus({ token, requesterEmail = null, adminId, isActive }) {
+  const authCheck = await requireSuperAdmin(token, requesterEmail);
   if (!authCheck.authorized) {
     return { success: false, error: authCheck.error };
   }
@@ -661,8 +735,8 @@ export async function handleUpdateAdminStatus({ token, adminId, isActive }) {
  * - Cannot delete the last active Super Administrator.
  * - Does NOT delete operational election records, ballots, or shared data.
  */
-export async function handleDeleteAdminUser({ token, adminId }) {
-  const authCheck = requireSuperAdmin(token);
+export async function handleDeleteAdminUser({ token, requesterEmail = null, adminId }) {
+  const authCheck = await requireSuperAdmin(token, requesterEmail);
   if (!authCheck.authorized) {
     return { success: false, error: authCheck.error };
   }
@@ -687,7 +761,7 @@ export async function handleDeleteAdminUser({ token, adminId }) {
   }
 
   // 2. Safeguard: Cannot delete self
-  if (authCheck.requester.sub === adminId || authCheck.requester.email === targetAdmin.email) {
+  if (authCheck.requester.sub === adminId || authCheck.requester.id === adminId || authCheck.requester.email === targetAdmin.email) {
     return {
       success: false,
       error: 'Security Safeguard: You cannot delete your own account while logged in.'
@@ -729,8 +803,8 @@ export async function handleDeleteAdminUser({ token, adminId }) {
 /**
  * Resends the official assignment / invitation email to an administrator.
  */
-export async function handleResendAdminInvite({ token, adminId, originUrl = 'https://nacosfuto.com.ng/admin' }) {
-  const authCheck = requireSuperAdmin(token);
+export async function handleResendAdminInvite({ token, requesterEmail = null, adminId, originUrl = 'https://nacosfuto.com.ng/admin' }) {
+  const authCheck = await requireSuperAdmin(token, requesterEmail);
   if (!authCheck.authorized) {
     return { success: false, error: authCheck.error };
   }

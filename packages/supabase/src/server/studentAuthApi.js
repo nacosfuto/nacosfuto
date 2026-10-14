@@ -12,6 +12,7 @@
  * 6. Sensitive Action Step-Up Authentication (purpose-bound tokens for payments, ID cards, profile updates).
  */
 
+import './loadEnv.js';
 import crypto from 'crypto';
 import { supabase } from '../client.js';
 import { dispatchEmail } from './emailDispatcher.js';

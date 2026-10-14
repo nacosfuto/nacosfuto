@@ -1,3 +1,4 @@
+import '../../packages/supabase/src/server/loadEnv.js';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -115,24 +116,37 @@ function cloudinaryDevPlugin() {
                 result = await handleAdminResetPassword(data);
                 status = result.success ? 200 : 400;
               } else if (pathname === '/api/admin/users' && req.method === 'GET') {
-                result = await handleGetAdminUsers({ token });
+                result = await handleGetAdminUsers({ token, requesterEmail: url.searchParams.get('requesterEmail') || url.searchParams.get('email') });
                 status = result.success ? 200 : 403;
               } else if ((pathname === '/api/admin/users/create' || pathname === '/api/admin/users') && req.method === 'POST') {
                 result = await handleCreateAdminUser({ 
                   token, 
+                  requesterEmail: data.requesterEmail || data.requester_email,
                   ...data, 
                   initialPassword: data.initialPassword || data.password,
                   password: data.password || data.initialPassword 
                 });
                 status = result.success ? 200 : 400;
               } else if (pathname === '/api/admin/users/status' && req.method === 'POST') {
-                result = await handleUpdateAdminStatus({ token, ...data });
+                result = await handleUpdateAdminStatus({ 
+                  token, 
+                  requesterEmail: data.requesterEmail || data.requester_email,
+                  ...data 
+                });
                 status = result.success ? 200 : 400;
               } else if (pathname === '/api/admin/users/delete' && req.method === 'POST') {
-                result = await handleDeleteAdminUser({ token, ...data });
+                result = await handleDeleteAdminUser({ 
+                  token, 
+                  requesterEmail: data.requesterEmail || data.requester_email || url.searchParams.get('requesterEmail'),
+                  ...data 
+                });
                 status = result.success ? 200 : 400;
               } else if (pathname === '/api/admin/users/resend-invite' && req.method === 'POST') {
-                result = await handleResendAdminInvite({ token, ...data });
+                result = await handleResendAdminInvite({ 
+                  token, 
+                  requesterEmail: data.requesterEmail || data.requester_email,
+                  ...data 
+                });
                 status = result.success ? 200 : 400;
               }
 

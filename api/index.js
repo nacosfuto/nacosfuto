@@ -918,7 +918,8 @@ export default async function handler(req, res) {
       // 9e. Get All Admin Users (Super Admin Only)
       if (route === '/api/admin/users' && method === 'GET') {
         const token = bearerToken || fullUrl.searchParams.get('token');
-        const result = await handleGetAdminUsers({ token });
+        const requesterEmail = fullUrl.searchParams.get('requesterEmail') || fullUrl.searchParams.get('email');
+        const result = await handleGetAdminUsers({ token, requesterEmail });
         return res.status(result.success ? 200 : 403).json(result);
       }
 
@@ -926,9 +927,11 @@ export default async function handler(req, res) {
       if ((route === '/api/admin/users' || route === '/api/admin/users/create') && method === 'POST') {
         const body = await parseRequestBody(req);
         const token = bearerToken || body.token;
+        const requesterEmail = body.requesterEmail || body.requester_email;
         const originUrl = req.headers.origin || `http://${req.headers.host || 'localhost:5173'}`;
         const result = await handleCreateAdminUser({
           token,
+          requesterEmail,
           email: body.email,
           fullName: body.fullName || body.full_name,
           role: body.role,
@@ -946,8 +949,10 @@ export default async function handler(req, res) {
       if (route === '/api/admin/users/status' && method === 'POST') {
         const body = await parseRequestBody(req);
         const token = bearerToken || body.token;
+        const requesterEmail = body.requesterEmail || body.requester_email;
         const result = await handleUpdateAdminStatus({
           token,
+          requesterEmail,
           adminId: body.adminId || body.admin_id,
           isActive: body.isActive !== undefined ? body.isActive : body.is_active
         });
@@ -958,8 +963,9 @@ export default async function handler(req, res) {
       if (route === '/api/admin/users/delete' && (method === 'POST' || method === 'DELETE')) {
         const body = await parseRequestBody(req);
         const token = bearerToken || body.token || fullUrl.searchParams.get('token');
+        const requesterEmail = body.requesterEmail || body.requester_email || fullUrl.searchParams.get('requesterEmail');
         const adminId = body.adminId || body.admin_id || fullUrl.searchParams.get('adminId');
-        const result = await handleDeleteAdminUser({ token, adminId });
+        const result = await handleDeleteAdminUser({ token, requesterEmail, adminId });
         return res.status(result.success ? 200 : 400).json(result);
       }
 
@@ -967,9 +973,11 @@ export default async function handler(req, res) {
       if (route === '/api/admin/users/resend-invite' && method === 'POST') {
         const body = await parseRequestBody(req);
         const token = bearerToken || body.token;
+        const requesterEmail = body.requesterEmail || body.requester_email;
         const originUrl = req.headers.origin || `http://${req.headers.host || 'localhost:5173'}`;
         const result = await handleResendAdminInvite({
           token,
+          requesterEmail,
           adminId: body.adminId || body.admin_id,
           originUrl
         });

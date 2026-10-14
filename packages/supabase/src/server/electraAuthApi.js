@@ -13,6 +13,7 @@
  * 7. Privacy: Temporary email is never stored as permanent student profile email.
  */
 
+import './loadEnv.js';
 import crypto from 'crypto';
 import { supabase } from '../client.js';
 import { dispatchEmail, isValidEmail } from './emailDispatcher.js';
