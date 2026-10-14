@@ -68,12 +68,24 @@ export const getProgressiveLevels = (u) => {
   return maxIdx !== -1 ? allLevels.slice(0, maxIdx + 1) : ['100'];
 };
 
+const withTimeout = (promise, ms = 6000) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timed out')), ms))
+  ]);
+
 const Dues = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isProcessing, setIsProcessing] = useState(false);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+
+  const [notification, setNotification] = useState({ message: '', type: '' });
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification({ message: '', type: '' }), 5000);
+  };
 
   const [isStepUpOpen, setIsStepUpOpen] = useState(false);
 
@@ -296,92 +308,111 @@ const Dues = () => {
         }
       };
 
-      // 1. Authoritative Bachs Live Payments Table (Supabase)
-      try {
-        if (supabase && (cleanMatric || userId)) {
-          const filters = [];
-          if (cleanMatric) {
-            filters.push(`registration_number.eq.${cleanMatric}`);
-            filters.push(`matric_number.eq.${cleanMatric}`);
-          }
-          if (strippedDigits && strippedDigits !== cleanMatric) {
-            filters.push(`registration_number.eq.${strippedDigits}`);
-            filters.push(`matric_number.eq.${strippedDigits}`);
-          }
-          if (userId && !String(userId).startsWith('student-')) {
-            filters.push(`student_id.eq.${userId}`);
-          }
-          if (currentUser?.email) {
-            filters.push(`customer_email.eq.${currentUser.email}`);
-          }
-
-          if (filters.length > 0) {
-            const { data: allDbPayments } = await supabase
-              .from('payments')
-              .select('*')
-              .or(filters.join(','))
-              .order('created_at', { ascending: false });
-            if (allDbPayments && allDbPayments.length > 0) {
-              allDbPayments.forEach(p => processItem(p));
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Bachs payments check error:', err);
+      // Prepare filter criteria
+      const filters = [];
+      if (cleanMatric) {
+        filters.push(`registration_number.eq.${cleanMatric}`);
+        filters.push(`matric_number.eq.${cleanMatric}`);
+      }
+      if (strippedDigits && strippedDigits !== cleanMatric) {
+        filters.push(`registration_number.eq.${strippedDigits}`);
+        filters.push(`matric_number.eq.${strippedDigits}`);
+      }
+      if (userId && !String(userId).startsWith('student-')) {
+        filters.push(`student_id.eq.${userId}`);
+      }
+      if (currentUser?.email) {
+        filters.push(`customer_email.eq.${currentUser.email}`);
       }
 
-      // 2. Legacy dues_payments table
-      try {
-        if (supabase && (cleanMatric || userId)) {
-          const duesFilters = [];
-          if (cleanMatric) duesFilters.push(`registration_number.eq.${cleanMatric}`);
-          if (strippedDigits && strippedDigits !== cleanMatric) duesFilters.push(`registration_number.eq.${strippedDigits}`);
-          if (userId && !String(userId).startsWith('student-')) duesFilters.push(`student_id.eq.${userId}`);
+      const duesFilters = [];
+      if (cleanMatric) duesFilters.push(`registration_number.eq.${cleanMatric}`);
+      if (strippedDigits && strippedDigits !== cleanMatric) duesFilters.push(`registration_number.eq.${strippedDigits}`);
+      if (userId && !String(userId).startsWith('student-')) duesFilters.push(`student_id.eq.${userId}`);
 
-          if (duesFilters.length > 0) {
-            const { data: legacyDues } = await supabase
-              .from('dues_payments')
-              .select('*')
-              .or(duesFilters.join(','));
-
-            if (legacyDues && legacyDues.length > 0) {
-              legacyDues.forEach(item => processItem(item));
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Legacy dues check error:', err);
+      const deptFilters = [];
+      if (cleanMatric) {
+        deptFilters.push(`registration_number.eq.${cleanMatric}`);
+        deptFilters.push(`matric_number.eq.${cleanMatric}`);
+      }
+      if (strippedDigits && strippedDigits !== cleanMatric) {
+        deptFilters.push(`registration_number.eq.${strippedDigits}`);
+        deptFilters.push(`matric_number.eq.${strippedDigits}`);
       }
 
-      // 3. Departmental dues table
-      try {
-        if (supabase && (cleanMatric || strippedDigits)) {
-          const deptFilters = [];
-          if (cleanMatric) {
-            deptFilters.push(`registration_number.eq.${cleanMatric}`);
-            deptFilters.push(`matric_number.eq.${cleanMatric}`);
-          }
-          if (strippedDigits && strippedDigits !== cleanMatric) {
-            deptFilters.push(`registration_number.eq.${strippedDigits}`);
-            deptFilters.push(`matric_number.eq.${strippedDigits}`);
-          }
-
-          if (deptFilters.length > 0) {
-            const { data: deptDues } = await supabase
-              .from('departmental_dues')
-              .select('*')
-              .or(deptFilters.join(','));
-
-            if (deptDues && deptDues.length > 0) {
-              deptDues.forEach(item => processItem(item));
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Departmental dues table check error:', err);
+      const profFilters = [];
+      if (cleanMatric) {
+        profFilters.push(`registration_number.eq.${cleanMatric}`);
+        profFilters.push(`matric_number.eq.${cleanMatric}`);
+      }
+      if (strippedDigits && strippedDigits !== cleanMatric) {
+        profFilters.push(`registration_number.eq.${strippedDigits}`);
+        profFilters.push(`matric_number.eq.${strippedDigits}`);
+      }
+      if (userId && !String(userId).startsWith('student-')) {
+        profFilters.push(`id.eq.${userId}`);
       }
 
-      // 4. Local storage verified payments database
+      // Parallelize all 5 database queries concurrently with withTimeout(..., 6000)
+      const [
+        paymentsResult,
+        legacyDuesResult,
+        deptDuesResult,
+        profResult,
+        vsResult
+      ] = await Promise.all([
+        supabase && filters.length > 0
+          ? withTimeout(
+              supabase.from('payments').select('*').or(filters.join(',')).order('created_at', { ascending: false }),
+              6000
+            ).catch(err => { console.warn('Bachs payments check notice:', err); return { data: [] }; })
+          : Promise.resolve({ data: [] }),
+
+        supabase && duesFilters.length > 0
+          ? withTimeout(
+              supabase.from('dues_payments').select('*').or(duesFilters.join(',')),
+              6000
+            ).catch(err => { console.warn('Legacy dues check notice:', err); return { data: [] }; })
+          : Promise.resolve({ data: [] }),
+
+        supabase && deptFilters.length > 0
+          ? withTimeout(
+              supabase.from('departmental_dues').select('*').or(deptFilters.join(',')),
+              6000
+            ).catch(err => { console.warn('Dept dues check notice:', err); return { data: [] }; })
+          : Promise.resolve({ data: [] }),
+
+        supabase && profFilters.length > 0
+          ? withTimeout(
+              supabase.from('profiles').select('dues_cleared, has_paid_dues, dues_paid_at, dues_amount, receipt_no, payment_status, level, current_level').or(profFilters.join(',')).maybeSingle(),
+              6000
+            ).catch(err => { console.warn('Profiles check notice:', err); return { data: null }; })
+          : Promise.resolve({ data: null }),
+
+        supabase && profFilters.length > 0
+          ? withTimeout(
+              supabase.from('verified_students').select('dues_cleared, has_paid_dues, dues_paid_at, dues_amount, receipt_no, payment_status, level, current_level').or(profFilters.join(',')).maybeSingle(),
+              6000
+            ).catch(err => { console.warn('Verified students check notice:', err); return { data: null }; })
+          : Promise.resolve({ data: null })
+      ]);
+
+      // 1. Process Bachs live payments
+      if (paymentsResult?.data && paymentsResult.data.length > 0) {
+        paymentsResult.data.forEach(p => processItem(p));
+      }
+
+      // 2. Process legacy dues_payments
+      if (legacyDuesResult?.data && legacyDuesResult.data.length > 0) {
+        legacyDuesResult.data.forEach(item => processItem(item));
+      }
+
+      // 3. Process departmental_dues
+      if (deptDuesResult?.data && deptDuesResult.data.length > 0) {
+        deptDuesResult.data.forEach(item => processItem(item));
+      }
+
+      // 4. Process local storage verified payments database
       try {
         const localPays = getLocalPaymentsDatabase();
         if (Array.isArray(localPays)) {
@@ -396,65 +427,44 @@ const Dues = () => {
       }
 
       // 5. Authoritative Live Supabase Profile & Verified Students Lookup (Guarantees cross-device clearance)
-      try {
-        if (supabase && (cleanMatric || userId)) {
-          const profFilters = [];
-          if (cleanMatric) {
-            profFilters.push(`registration_number.eq.${cleanMatric}`);
-            profFilters.push(`matric_number.eq.${cleanMatric}`);
-          }
-          if (strippedDigits && strippedDigits !== cleanMatric) {
-            profFilters.push(`registration_number.eq.${strippedDigits}`);
-            profFilters.push(`matric_number.eq.${strippedDigits}`);
-          }
-          if (userId && !String(userId).startsWith('student-')) {
-            profFilters.push(`id.eq.${userId}`);
-          }
+      const liveProf = profResult?.data;
+      const liveVs = vsResult?.data;
+      const clearedRecord = (liveProf && (liveProf.dues_cleared || liveProf.has_paid_dues || ['cleared', 'successful', 'verified', 'paid'].includes(String(liveProf.payment_status).toLowerCase())))
+        ? liveProf
+        : (liveVs && (liveVs.dues_cleared || liveVs.has_paid_dues || ['cleared', 'successful', 'verified', 'paid'].includes(String(liveVs.payment_status).toLowerCase())))
+          ? liveVs
+          : null;
 
-          if (profFilters.length > 0) {
-            const [{ data: liveProf }, { data: liveVs }] = await Promise.all([
-              supabase.from('profiles').select('dues_cleared, has_paid_dues, dues_paid_at, dues_amount, receipt_no, payment_status, level, current_level').or(profFilters.join(',')).maybeSingle(),
-              supabase.from('verified_students').select('dues_cleared, has_paid_dues, dues_paid_at, dues_amount, receipt_no, payment_status, level, current_level').or(profFilters.join(',')).maybeSingle()
-            ]);
-
-            const clearedRecord = (liveProf && (liveProf.dues_cleared || liveProf.has_paid_dues || ['cleared', 'successful', 'verified', 'paid'].includes(String(liveProf.payment_status).toLowerCase())))
-              ? liveProf
-              : (liveVs && (liveVs.dues_cleared || liveVs.has_paid_dues || ['cleared', 'successful', 'verified', 'paid'].includes(String(liveVs.payment_status).toLowerCase())))
-                ? liveVs
-                : null;
-
-            if (clearedRecord) {
-              const profLevel = String(clearedRecord.level || clearedRecord.current_level || studentHomeLevel).match(/\d{3}/)?.[0] || studentHomeLevel;
-              const existingPaidForLevel = allRecords.find(r => r.levelNum === profLevel && r.isPaid);
-              if (!existingPaidForLevel) {
-                processItem({
-                  id: `prof-${cleanMatric}-${profLevel}`,
-                  reference: clearedRecord.receipt_no || `NACOS/DUES/${cleanMatric || 'FUTO'}-${profLevel}L`,
-                  amount: clearedRecord.dues_amount || duesFeeRef.current || duesFee || 0,
-                  status: 'successful',
-                  level: profLevel,
-                  session: progression.academicSession || currentUser?.academic_session || getActiveAcademicSession(),
-                  paid_at: clearedRecord.dues_paid_at || new Date().toISOString()
-                });
-              }
-
-              // Update local user object to maintain cross-device sync
-              if (!currentUser?.dues_cleared) {
-                const updated = {
-                  ...currentUser,
-                  dues_cleared: true,
-                  has_paid_dues: true,
-                  payment_status: 'cleared',
-                  dues_paid_at: clearedRecord.dues_paid_at || new Date().toISOString()
-                };
-                localStorage.setItem('nacos_user', JSON.stringify(updated));
-                setUser(updated);
-              }
-            }
-          }
+      if (clearedRecord) {
+        const profLevel = String(clearedRecord.level || clearedRecord.current_level || studentHomeLevel).match(/\d{3}/)?.[0] || studentHomeLevel;
+        const existingPaidForLevel = allRecords.find(r => r.levelNum === profLevel && r.isPaid);
+        if (!existingPaidForLevel) {
+          processItem({
+            id: `prof-${cleanMatric}-${profLevel}`,
+            reference: clearedRecord.receipt_no || `NACOS/DUES/${cleanMatric || 'FUTO'}-${profLevel}L`,
+            amount: clearedRecord.dues_amount || duesFeeRef.current || duesFee || 0,
+            status: 'successful',
+            level: profLevel,
+            session: progression.academicSession || currentUser?.academic_session || getActiveAcademicSession(),
+            paid_at: clearedRecord.dues_paid_at || new Date().toISOString()
+          });
         }
-      } catch (profErr) {
-        console.warn('Live profile clearance check notice:', profErr);
+
+        // Update local user object to maintain cross-device sync
+        if (!currentUser?.dues_cleared) {
+          const updated = {
+            ...currentUser,
+            dues_cleared: true,
+            has_paid_dues: true,
+            payment_status: 'cleared',
+            dues_paid_at: clearedRecord.dues_paid_at || new Date().toISOString()
+          };
+          try {
+            localStorage.setItem('nacos_user', JSON.stringify(updated));
+            window.dispatchEvent(new Event('nacos_user_updated'));
+          } catch (_) {}
+          setUser(updated);
+        }
       }
 
       // 6. Fallback to profile flags for student's active level if marked cleared
@@ -601,12 +611,34 @@ const Dues = () => {
   };
 
   useEffect(() => {
+    // Check for explicit callback from payment gateway (URL: ?payment=verifying&reference=...)
+    try {
+      const paymentAction = searchParams.get('payment');
+      const ref = searchParams.get('reference');
+      const chkId = searchParams.get('checkout_id') || searchParams.get('checkoutId');
+
+      // Strip query parameters from URL immediately so subsequent page refreshes do NOT re-trigger this
+      if (paymentAction || ref || chkId) {
+        try {
+          window.history.replaceState({}, '', window.location.pathname);
+        } catch (_) {}
+      }
+
+      if (paymentAction === 'verifying' && (ref || chkId)) {
+        setIsAwaitingGateway(true);
+        setGatewayRef(chkId || ref);
+        startAwaitingPaymentSync(ref, chkId, formLevel);
+      } else if (paymentAction === 'cancelled') {
+        showNotification('Payment process was cancelled. You can retry checkout when you are ready.', 'info');
+      }
+    } catch (_) {}
+
     // Cross-tab broadcast listener (when payment succeeds in another tab)
     let channel = null;
     try {
       channel = new BroadcastChannel('nacos_payment_sync');
       channel.onmessage = async (event) => {
-        if (event.data?.status === 'successful') {
+        if (event.data?.status === 'successful' && (event.data.paymentType === 'dues' || event.data.paymentType === 'departmental_dues' || !event.data.paymentType)) {
           if (pollTimerRef.current) clearInterval(pollTimerRef.current);
           setIsAwaitingGateway(false);
           const stored = localStorage.getItem('nacos_user');
@@ -617,7 +649,7 @@ const Dues = () => {
               await checkStatus(parsed);
 
               const matric = parsed.registration_number || parsed.matric_number || parsed.matric || '';
-              const targetLevel = parsed.level || '300';
+              const targetLevel = event.data.level || parsed.level || '300';
               const resolvedFee = duesFeeRef.current || 0;
               const receiptPayload = {
                 receiptNo: event.data.reference || parsed.receipt_no || `NACOS/DUES/${matric}-${targetLevel}L`,
@@ -698,60 +730,98 @@ const Dues = () => {
       handleUserUpdated();
     });
 
-    return () => {
-      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-      if (channel) channel.close();
-      window.removeEventListener('storage', handleStorageEvent);
-      window.removeEventListener('nacos_user_updated', handleUserUpdated);
-      window.removeEventListener('nacos_dues_settings_updated', handleDuesSettingsUpdated);
-      if (unsubSession) unsubSession();
-    };
-  }, []);
-
-  // Handle URL return parameters if user navigated back in the same tab
-  useEffect(() => {
-    const paymentAction = searchParams.get('payment');
-    const ref = searchParams.get('reference');
-    const chkId = searchParams.get('checkout_id') || searchParams.get('checkoutId');
-
-    if (paymentAction === 'verifying' && (ref || chkId)) {
-      setIsAwaitingGateway(true);
-      setGatewayRef(chkId || ref);
-      startAwaitingPaymentSync(ref, chkId, formLevel);
-      searchParams.delete('payment');
-      searchParams.delete('reference');
-      searchParams.delete('checkout_id');
-      searchParams.delete('checkoutId');
-      setSearchParams(searchParams, { replace: true });
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    const init = async () => {
-      // 1. Fetch live dues fee immediately from database / server
+    // Real-time table subscription on Supabase payments & dues_payments
+    let liveChannel = null;
+    const cleanMatric = String(user?.registration_number || user?.matric || '').trim().toUpperCase();
+    if (supabase && cleanMatric) {
       try {
-        const ds = await getDuesSettings();
-        if (ds?.dues_amount && !isNaN(Number(ds.dues_amount))) {
-          setDuesFee(Number(ds.dues_amount));
-        }
-        if (ds?.academic_session) {
-          setFormSession(ds.academic_session);
-        }
-      } catch (e) {}
+        liveChannel = supabase
+          .channel(`dues-live-${cleanMatric}-${Date.now()}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'payments',
+              filter: `registration_number=eq.${cleanMatric}`
+            },
+            () => {
+              checkStatus(userRef.current);
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'dues_payments',
+              filter: `registration_number=eq.${cleanMatric}`
+            },
+            () => {
+              checkStatus(userRef.current);
+            }
+          )
+          .subscribe();
+      } catch (err) {
+        console.warn('Real-time subscription notice:', err);
+      }
+    }
 
-      // 2. Load user and payment history
+    // Automatic authoritative recheck when student switches back to this tab / window focuses
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        const stored = localStorage.getItem('nacos_user');
+        let current = userRef.current;
+        if (stored) {
+          try { current = JSON.parse(stored); } catch (_) {}
+        }
+        checkStatus(current);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    // Initial Parallel Load
+    const init = async () => {
       const stored = localStorage.getItem('nacos_user');
       let currentUser = user;
       if (stored) {
         try {
-          currentUser = JSON.parse(stored);
+          currentUser = enrichStudentProfile(JSON.parse(stored)) || JSON.parse(stored);
           setUser(currentUser);
         } catch (e) {}
       }
-      await checkStatus(currentUser);
+
+      await Promise.all([
+        withTimeout(getDuesSettings(), 6000)
+          .then(ds => {
+            if (ds?.dues_amount && !isNaN(Number(ds.dues_amount))) {
+              setDuesFee(Number(ds.dues_amount));
+            }
+            if (ds?.academic_session) {
+              setFormSession(ds.academic_session);
+            }
+          })
+          .catch(() => {}),
+        checkStatus(currentUser)
+      ]);
     };
 
     init();
+
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      if (channel) channel.close();
+      if (liveChannel) {
+        try { supabase.removeChannel(liveChannel); } catch (_) {}
+      }
+      window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('nacos_user_updated', handleUserUpdated);
+      window.removeEventListener('nacos_dues_settings_updated', handleDuesSettingsUpdated);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      if (unsubSession) unsubSession();
+    };
   }, []);
 
   // Initiate Dues Payment
@@ -1105,6 +1175,31 @@ const Dues = () => {
             </p>
           </div>
         </div>
+
+        {/* Notification Banner */}
+        {notification?.message && (
+          <div className={`p-4 rounded-xl flex items-center gap-3 border shadow-xs animate-in fade-in slide-in-from-top-2 duration-200 ${
+            notification.type === 'error'
+              ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/60 text-red-800 dark:text-red-200'
+              : notification.type === 'info'
+                ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900/60 text-blue-800 dark:text-blue-200'
+                : 'bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-900/60 text-green-800 dark:text-green-200'
+          }`}>
+            {notification.type === 'error' ? (
+              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0" />
+            ) : (
+              <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
+            )}
+            <p className="text-xs sm:text-sm font-medium flex-1">{notification.message}</p>
+            <button
+              type="button"
+              onClick={() => setNotification({ message: '', type: '' })}
+              className="text-xs opacity-70 hover:opacity-100 cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Revocation Alert Banner */}
         {isRevoked && (

@@ -208,69 +208,61 @@ export async function signInStudent(identifier, password) {
   }
 
   const isLocal = isLocalEnvironment();
-  const cleanId = identifier.trim().toLowerCase();
+  const rawId = identifier.trim();
+  const cleanId = rawId.toLowerCase();
   const cleanPass = password;
   const isDevBypass = isLocal && (cleanPass === 'password' || cleanPass === 'admin123');
 
-  // Helper with fast timeout to avoid infinite hanging when network is degraded
-  const withTimeout = (promise, ms = 3500) => {
+  // Helper with generous timeout to accommodate Nigerian mobile networks & cold queries
+  const withTimeout = (promise, ms = 10000) => {
     return Promise.race([
       promise,
       new Promise((_, reject) => setTimeout(() => reject(new Error('Network timeout')), ms))
     ]);
   };
 
-  // 1. Try Supabase Auth if online
-  try {
-    const email = cleanId.includes('@') ? cleanId : `${cleanId.replace(/[^a-zA-Z0-9]/g, '_')}@students.nacosfuto.org`;
-    const { data: authData, error: authError } = await withTimeout(
-      supabase.auth.signInWithPassword({
-        email,
-        password: cleanPass
-      }),
-      2500
-    );
+  // Strip non-alphanumeric characters for clean matric matching (e.g. "2024/1450682" -> "20241450682")
+  const strippedId = cleanId.replace(/[^a-zA-Z0-9]/g, '');
 
-    if (!authError && authData?.user) {
-      const { data: profile } = await withTimeout(
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single(),
-        2500
-      );
-
-      if (profile) {
-        if (!profile.is_active) {
-          return { data: null, error: { message: 'This student account has been deactivated. Please contact the department.' } };
-        }
-        const enriched = enrichStudentProfile(profile);
-        localStorage.setItem('nacos_user', JSON.stringify(enriched));
-        return { data: { user: enriched }, error: null };
-      }
-    }
-  } catch (err) {
-    // Supabase auth unreachable or timed out, proceed to database query
+  // Format with slash if 11 alphanumeric digits (standard FUTO format: YYYY/XXXXXXX)
+  let slashedId = null;
+  if (strippedId.length === 11 && /^\d{11}$/.test(strippedId)) {
+    slashedId = `${strippedId.slice(0, 4)}/${strippedId.slice(4)}`;
   }
 
-  // 2. Direct Supabase Database (public.profiles) lookup
+  // Slashed without slash if input had slash
+  const unslashedId = cleanId.includes('/') ? cleanId.replace(/\//g, '') : null;
+
+  const lookupCandidates = [...new Set([
+    cleanId,
+    rawId,
+    strippedId,
+    slashedId,
+    unslashedId
+  ].filter(Boolean))];
+
+  // 1. Direct Supabase Database (public.profiles) lookup - Primary registered student storage
   try {
-    const strippedId = cleanId.replace(/[^a-zA-Z0-9]/g, '');
-    let filterString = `registration_number.ilike.${cleanId},email.ilike.${cleanId}`;
-    if (strippedId && strippedId !== cleanId) {
-      filterString += `,registration_number.ilike.${strippedId},matric_number.ilike.${cleanId},matric_number.ilike.${strippedId}`;
-    } else {
-      filterString += `,matric_number.ilike.${cleanId}`;
+    const orFilters = [];
+    for (const c of lookupCandidates) {
+      orFilters.push(`registration_number.ilike.${c}`);
+      orFilters.push(`matric_number.ilike.${c}`);
     }
+    if (cleanId.includes('@')) {
+      orFilters.push(`email.ilike.${cleanId}`);
+    } else {
+      orFilters.push(`email.ilike.${cleanId}`);
+      orFilters.push(`email.ilike.${cleanId}@%`);
+    }
+
     const { data: dbProfile, error: dbError } = await withTimeout(
       supabase
         .from('profiles')
         .select('*')
-        .or(filterString)
+        .or(orFilters.join(','))
         .limit(1)
         .maybeSingle(),
-      3000
+      10000
     );
 
     if (!dbError && dbProfile) {
@@ -302,16 +294,19 @@ export async function signInStudent(identifier, password) {
       return { data: { user: enriched }, error: null };
     }
   } catch (err) {
-    console.warn('Supabase profiles query fallback:', err);
+    console.warn('Supabase profiles query notice:', err);
   }
 
-  // 3. Local Database Store Fallback
+  // 2. Local Database Store Fallback
   const students = getLocalStudentsDatabase();
-  const student = students.find(s => 
-    (s.registration_number && s.registration_number.toLowerCase() === cleanId) || 
-    (s.email && s.email.toLowerCase() === cleanId) ||
-    (s.registration_number && s.registration_number.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() === cleanId.replace(/[^a-zA-Z0-9]/g, ''))
-  );
+  const student = students.find(s => {
+    const sReg = (s.registration_number || s.matric_number || '').toLowerCase();
+    const sEmail = (s.email || '').toLowerCase();
+    const sStripped = sReg.replace(/[^a-zA-Z0-9]/g, '');
+    return lookupCandidates.some(c => 
+      c === sReg || c === sEmail || c === sStripped
+    );
+  });
 
   if (student) {
     if (!student.is_active) {
@@ -342,18 +337,25 @@ export async function signInStudent(identifier, password) {
     return { data: { user: enriched }, error: null };
   }
 
-  // 4. Supabase verified_students roster lookup
-  // If student exists here but has not registered, inform them to complete 4-step registration
-  // (In local development with dev credentials, allow instant testing entry)
+  // 3. Supabase verified_students roster lookup
+  // Check if student exists on the departmental roster
   try {
+    const vsOrFilters = [];
+    for (const c of lookupCandidates) {
+      vsOrFilters.push(`registration_number.ilike.${c}`);
+    }
+    if (cleanId.includes('@')) {
+      vsOrFilters.push(`email.ilike.${cleanId}`);
+    }
+
     const { data: vsRecord } = await withTimeout(
       supabase
         .from('verified_students')
         .select('*')
-        .or(`registration_number.ilike.${cleanId},email.ilike.${cleanId}`)
+        .or(vsOrFilters.join(','))
         .limit(1)
         .maybeSingle(),
-      3000
+      8000
     );
 
     if (vsRecord) {
@@ -361,8 +363,52 @@ export async function signInStudent(identifier, password) {
         return { data: null, error: { message: 'This student account has been deactivated. Please contact the department.' } };
       }
 
+      // Check if student has ALREADY registered!
+      const isAlreadyRegistered = Boolean(
+        vsRecord.has_registered || 
+        vsRecord.is_registered || 
+        vsRecord.registered_at
+      );
+
+      if (isAlreadyRegistered) {
+        // The student has already registered! Their account is active.
+        // Fetch their profile using their canonical registration number to verify password
+        try {
+          const canonicalReg = vsRecord.registration_number;
+          const { data: linkedProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .or(`registration_number.eq.${canonicalReg},matric_number.eq.${canonicalReg},id.eq.${vsRecord.id || ''}`)
+            .limit(1)
+            .maybeSingle();
+
+          if (linkedProfile && linkedProfile.password_hash) {
+            const isValidPassword = isDevBypass || (await verifyPassword(cleanPass, linkedProfile.password_hash));
+            if (!isValidPassword) {
+              return { data: null, error: { message: 'Incorrect password. Please verify and try again.' } };
+            }
+            const enriched = enrichStudentProfile({ ...vsRecord, ...linkedProfile });
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('nacos_user', JSON.stringify(enriched));
+            }
+            return { data: { user: enriched }, error: null };
+          }
+        } catch (profileErr) {
+          console.warn('Targeted profile fetch for registered student notice:', profileErr);
+        }
+
+        // If registered but network error prevented reading password hash:
+        return {
+          data: null,
+          error: {
+            message: 'Unable to verify your account credentials due to a network connection issue. Please check your internet connection and try again.'
+          }
+        };
+      }
+
+      // ONLY IF NOT ALREADY REGISTERED:
       if (isDevBypass) {
-        // Auto-provision unactivated student profile in public.profiles so future logins and resets work
+        // Auto-provision unactivated student profile in public.profiles so future logins work
         const defaultHash = await hashPassword('password', 'nacos_futo_salt_2026');
         const profileRecord = {
           id: vsRecord.id || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `student-${Date.now()}`),
@@ -410,17 +456,36 @@ export async function signInStudent(identifier, password) {
     }
   } catch (vsErr) {}
 
-  // 5. Canonical Verified Students Roster Local Fallback
+  // 4. Canonical Verified Students Roster Local Fallback
   try {
     const { getLocalVerifiedStudents } = await import('./verifiedStudents.js');
     const verifiedRoster = getLocalVerifiedStudents();
-    const verified = verifiedRoster.find(v => 
-      (v.registration_number && v.registration_number.toLowerCase() === cleanId) || 
-      (v.email && v.email.toLowerCase() === cleanId) ||
-      (v.registration_number && v.registration_number.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() === cleanId.replace(/[^a-zA-Z0-9]/g, ''))
-    );
+    const verified = verifiedRoster.find(v => {
+      const vReg = (v.registration_number || '').toLowerCase();
+      const vEmail = (v.email || '').toLowerCase();
+      const vStripped = vReg.replace(/[^a-zA-Z0-9]/g, '');
+      return lookupCandidates.some(c => 
+        c === vReg || c === vEmail || c === vStripped
+      );
+    });
 
     if (verified) {
+      const isAlreadyRegistered = Boolean(verified.has_registered || verified.is_registered);
+
+      if (isAlreadyRegistered) {
+        if (verified.password_hash) {
+          const isValidPassword = isDevBypass || (await verifyPassword(cleanPass, verified.password_hash));
+          if (!isValidPassword) {
+            return { data: null, error: { message: 'Incorrect password. Please verify and try again.' } };
+          }
+          const enriched = enrichStudentProfile(verified);
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('nacos_user', JSON.stringify(enriched));
+          }
+          return { data: { user: enriched }, error: null };
+        }
+      }
+
       if (isDevBypass) {
         const enriched = enrichStudentProfile(verified);
         if (typeof localStorage !== 'undefined') {
@@ -429,20 +494,53 @@ export async function signInStudent(identifier, password) {
         return { data: { user: enriched }, error: null };
       }
 
-      return {
-        data: null,
-        error: {
-          message: 'This student account has not been activated yet. Please complete account registration to verify your identity and set your password.',
-          needsActivation: true,
-          registrationNumber: verified.registration_number
-        }
-      };
+      if (!isAlreadyRegistered) {
+        return {
+          data: null,
+          error: {
+            message: 'This student account has not been activated yet. Please complete account registration to verify your identity and set your password.',
+            needsActivation: true,
+            registrationNumber: verified.registration_number
+          }
+        };
+      }
     }
   } catch (rosterErr) {
     // Roster fallback
   }
 
-  // If not found in database (or on production)
+  // 5. Supabase Auth fallback (if an auth user was created)
+  try {
+    const email = cleanId.includes('@') ? cleanId : `${cleanId.replace(/[^a-zA-Z0-9]/g, '_')}@students.nacosfuto.org`;
+    const { data: authData, error: authError } = await withTimeout(
+      supabase.auth.signInWithPassword({
+        email,
+        password: cleanPass
+      }),
+      3000
+    );
+
+    if (!authError && authData?.user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (profile) {
+        if (!profile.is_active) {
+          return { data: null, error: { message: 'This student account has been deactivated. Please contact the department.' } };
+        }
+        const enriched = enrichStudentProfile(profile);
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('nacos_user', JSON.stringify(enriched));
+        }
+        return { data: { user: enriched }, error: null };
+      }
+    }
+  } catch (_) {}
+
+  // If not found in database
   return { 
     data: null, 
     error: { message: 'No student account found with this registration number or email. If you have not registered yet, please create an account.' } 
@@ -560,11 +658,24 @@ export async function signOutStudent() {
  * Get total exact count of active registered student profiles directly from Supabase
  */
 export async function adminGetStudentsCount() {
+  if (supabase) {
+    try {
+      const { count, error } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+      if (!error && typeof count === 'number') {
+        return count;
+      }
+    } catch (e) {
+      console.warn('adminGetStudentsCount query notice:', e);
+    }
+  }
+
   try {
     const students = await adminGetAllStudents();
     return Array.isArray(students) ? students.length : 0;
   } catch (e) {
-    console.warn('adminGetStudentsCount query notice:', e);
+    console.warn('adminGetStudentsCount fallback query notice:', e);
   }
 
   // Fallback to local cache count of active students

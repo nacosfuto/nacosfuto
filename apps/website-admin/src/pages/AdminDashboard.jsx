@@ -15,14 +15,18 @@ import {
   Globe,
   Plus,
   Award,
-  Building2
+  Building2,
+  GraduationCap,
+  Users
 } from 'lucide-react';
 import { getWebsiteAdminSession, getAdminAuditLogs } from '@nacos/supabase/adminAuth';
 import { 
   fetchNewsArticles, 
   fetchEventsFromSupabase, 
   fetchGalleryFromSupabase, 
-  fetchMediaAssets 
+  fetchMediaAssets,
+  adminGetStudentsCount,
+  adminGetVerifiedStudentsCount
 } from '@nacos/supabase';
 
 const AdminDashboard = () => {
@@ -30,6 +34,8 @@ const AdminDashboard = () => {
   const [recentLogs, setRecentLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [counts, setCounts] = useState({
+    enrolledStudents: 0,
+    rosterStudents: 0,
     articles: 0,
     events: 0,
     gallery: 0,
@@ -44,12 +50,14 @@ const AdminDashboard = () => {
 
   const loadDashboardData = async () => {
     try {
-      const [logs, newsData, eventsData, galleryData, mediaData] = await Promise.allSettled([
+      const [logs, newsData, eventsData, galleryData, mediaData, enrolledRes, rosterRes] = await Promise.allSettled([
         getAdminAuditLogs('main_website', 6),
         fetchNewsArticles({ publishedOnly: false }),
         fetchEventsFromSupabase('all'),
         fetchGalleryFromSupabase(),
-        fetchMediaAssets()
+        fetchMediaAssets(),
+        adminGetStudentsCount(),
+        adminGetVerifiedStudentsCount()
       ]);
 
       if (logs.status === 'fulfilled') {
@@ -60,8 +68,12 @@ const AdminDashboard = () => {
       const eventsCount = eventsData.status === 'fulfilled' && Array.isArray(eventsData.value) ? eventsData.value.length : 0;
       const galleryCount = galleryData.status === 'fulfilled' && Array.isArray(galleryData.value) ? galleryData.value.length : 0;
       const mediaCount = mediaData.status === 'fulfilled' && mediaData.value?.data ? mediaData.value.data.length : 0;
+      const enrolledCount = enrolledRes.status === 'fulfilled' && typeof enrolledRes.value === 'number' ? enrolledRes.value : 0;
+      const rosterCount = rosterRes.status === 'fulfilled' && typeof rosterRes.value === 'number' ? rosterRes.value : 0;
 
       setCounts({
+        enrolledStudents: enrolledCount,
+        rosterStudents: rosterCount,
         articles: articlesCount,
         events: eventsCount,
         gallery: galleryCount,
@@ -75,6 +87,8 @@ const AdminDashboard = () => {
   };
 
   const quickStats = [
+    { label: 'Active Enrolled Users', value: String(counts.enrolledStudents), change: 'Live from public.profiles', icon: GraduationCap, path: '/admin/homepage' },
+    { label: 'Verified Department Roster', value: String(counts.rosterStudents), change: 'From verified_students', icon: Users, path: '/admin/homepage' },
     { label: 'Published Articles', value: String(counts.articles), change: 'Live from Supabase', icon: Newspaper, path: '/admin/news' },
     { label: 'Upcoming Events', value: String(counts.events), change: 'Live from Supabase', icon: Calendar, path: '/admin/events' },
     { label: 'Gallery Photos', value: String(counts.gallery), change: 'Cloudinary CDN', icon: Camera, path: '/admin/gallery' },
@@ -89,7 +103,7 @@ const AdminDashboard = () => {
       <div className="space-y-6">
         
         {/* Quick Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {quickStats.map((stat, i) => {
             const Icon = stat.icon;
             return (

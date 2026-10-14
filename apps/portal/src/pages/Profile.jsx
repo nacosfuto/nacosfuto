@@ -194,8 +194,36 @@ const Profile = () => {
     };
   });
 
+  // Isolated formData to prevent glitching during typing
+  const [formData, setFormData] = useState({
+    email: '',
+    phone: '',
+    gender: 'M',
+    dobFormatted: '',
+    dob: '',
+    address: '',
+    bio: '',
+    zone: 'South East'
+  });
+
   // Authoritative reference of pristine database record
   const dbUserRef = useRef(user);
+
+  // Synchronize formData with user whenever user changes and not actively editing
+  useEffect(() => {
+    if (!isEditing && user) {
+      setFormData({
+        email: user.email || '',
+        phone: user.phone || '',
+        gender: user.gender || 'M',
+        dobFormatted: user.dobFormatted || user.dob || '',
+        dob: user.dob || user.dobFormatted || '',
+        address: user.address || '',
+        bio: user.bio || '',
+        zone: user.zone || 'South East'
+      });
+    }
+  }, [user, isEditing]);
 
   // 1. Match ALL info on the profile to be directly from the database
   useEffect(() => {
@@ -276,7 +304,9 @@ const Profile = () => {
           setUser(resolved);
           dbUserRef.current = resolved;
           // Synchronize localStorage with the fresh authoritative database record
-          localStorage.setItem('nacos_user', JSON.stringify(resolved));
+          try {
+            localStorage.setItem('nacos_user', JSON.stringify(resolved));
+          } catch (_) {}
         }
         setIsLoadingDb(false);
       }
@@ -303,68 +333,86 @@ const Profile = () => {
     return unsubscribe;
   }, []);
 
-  // Handle Save: Persist specific student profile fields (Gender, Phone, Address, DOB, Bio, Zone)
-  // Maintains strict lock on institutional academic bio-data (Official Name, Matric, Dept, Level)
+  const handleStartEdit = () => {
+    setLockedError(null);
+    setSaveSuccess(null);
+    setFormData({
+      email: user?.email || '',
+      phone: user?.phone || '',
+      gender: user?.gender || 'M',
+      dobFormatted: user?.dobFormatted || user?.dob || '',
+      dob: user?.dob || user?.dobFormatted || '',
+      address: user?.address || '',
+      bio: user?.bio || '',
+      zone: user?.zone || 'South East'
+    });
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setLockedError(null);
+    if (user) {
+      setFormData({
+        email: user.email || '',
+        phone: user.phone || '',
+        gender: user.gender || 'M',
+        dobFormatted: user.dobFormatted || user.dob || '',
+        dob: user.dob || user.dobFormatted || '',
+        address: user.address || '',
+        bio: user.bio || '',
+        zone: user.zone || 'South East'
+      });
+    }
+  };
+
+  // Handle Save: Persist specific student profile fields (Gender, Phone, Address, DOB, Bio, Zone, Email)
+  // Institutional fields (Names, Matric, Institution, Department) remain unmodified
   const handleSave = async (e) => {
     if (e) e.preventDefault();
     setIsSaving(true);
     setLockedError(null);
     setSaveSuccess(null);
 
-    const pristine = dbUserRef.current || {};
-
-    // Revert official academic records to authoritative values
-    const sanitizedUser = {
-      ...user,
-      surname: pristine.surname || user.surname,
-      firstName: pristine.firstName || user.firstName,
-      name: pristine.name || user.name,
-      full_name: pristine.full_name || user.full_name,
-      matric: pristine.matric || user.matric,
-      studentId: pristine.studentId || user.studentId,
-      registration_number: pristine.registration_number || user.registration_number,
-      department: pristine.department || user.department,
-      dept: pristine.dept || user.dept,
-      institution: pristine.institution || user.institution,
-      level: pristine.level || user.level,
-      current_level: pristine.current_level || user.current_level,
-      admission_year: pristine.admission_year || user.admission_year,
-      programme: pristine.programme || user.programme,
-      faculty: pristine.faculty || user.faculty
-    };
-
-    const targetId = sanitizedUser.matric || sanitizedUser.registration_number || sanitizedUser.id;
-    const cleanGender = (String(sanitizedUser.gender).toUpperCase().startsWith('F') || String(sanitizedUser.gender).toLowerCase() === 'female') ? 'F' : 'M';
-    sanitizedUser.gender = cleanGender;
+    const pristine = dbUserRef.current || user || {};
+    const cleanGender = (String(formData.gender).toUpperCase().startsWith('F') || String(formData.gender).toLowerCase() === 'female') ? 'F' : 'M';
 
     const updates = {
       gender: cleanGender,
-      phone: sanitizedUser.phone || '',
-      phone_number: sanitizedUser.phone || '',
-      dob: sanitizedUser.dobFormatted || sanitizedUser.dob || '',
-      date_of_birth: sanitizedUser.dobFormatted || sanitizedUser.dob || '',
-      address: sanitizedUser.address || '',
-      residential_address: sanitizedUser.address || '',
-      bio: sanitizedUser.bio || '',
-      zone: sanitizedUser.zone || 'South East',
-      email: sanitizedUser.email || ''
+      phone: formData.phone || '',
+      phone_number: formData.phone || '',
+      dob: formData.dobFormatted || formData.dob || '',
+      date_of_birth: formData.dobFormatted || formData.dob || '',
+      address: formData.address || '',
+      residential_address: formData.address || '',
+      bio: formData.bio || '',
+      zone: formData.zone || 'South East',
+      email: formData.email || ''
     };
+
+    const targetId = pristine.matric || pristine.registration_number || pristine.id;
 
     try {
       const res = await updateStudentProfile(targetId, updates);
-      const savedUser = res?.data ? { ...sanitizedUser, ...res.data } : sanitizedUser;
       
-      setUser(savedUser);
-      dbUserRef.current = savedUser;
+      const updatedUser = {
+        ...pristine,
+        ...updates,
+        ...(res?.data || {})
+      };
+
+      const resolved = formatDatabaseStudent(updatedUser, updatedUser);
+      setUser(resolved);
+      dbUserRef.current = resolved;
       setIsEditing(false);
 
       // Keep localStorage in sync so other tabs and layouts immediately reflect
       try {
-        localStorage.setItem('nacos_user', JSON.stringify(savedUser));
+        localStorage.setItem('nacos_user', JSON.stringify(resolved));
         window.dispatchEvent(new Event('nacos_user_updated'));
       } catch (_) {}
 
-      setSaveSuccess('Profile updated successfully! Your personal details and geopolitical zone have been saved.');
+      setSaveSuccess('Profile updated successfully! Your personal details have been saved.');
       setTimeout(() => setSaveSuccess(null), 6000);
     } catch (err) {
       console.error('Failed to save profile updates:', err);
@@ -525,11 +573,11 @@ const Profile = () => {
           {/* Avatar & Core Profile Summary: Stacks vertically on mobile, side-by-side on tablet/desktop */}
           <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-4 sm:gap-5 w-full md:w-auto">
             
-            {/* Avatar Container with Camera Overlay */}
+            {/* Avatar Container */}
             <div 
               onClick={handlePhotoClick}
               className="relative shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-[#138601]/30 bg-gray-100 dark:bg-[#041801] shadow-xs group cursor-pointer"
-              title="Official passport photo is locked after registration — click to contact admin"
+              title="Click to view photo settings"
             >
               {avatarUrl ? (
                 <img 
@@ -551,9 +599,9 @@ const Profile = () => {
               </div>
               
               {/* Camera Icon Overlay */}
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="p-2 rounded-full bg-white/90 text-gray-900 shadow">
-                  <Lock className="w-3.5 h-3.5 text-red-600" />
+              <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="p-2 rounded-full bg-white/90 text-gray-900 shadow-sm">
+                  <Camera className="w-3.5 h-3.5 text-gray-700" />
                 </div>
               </div>
             </div>
@@ -614,8 +662,7 @@ const Profile = () => {
                 if (isEditing) {
                   handleSave();
                 } else {
-                  setLockedError(null);
-                  setIsEditing(true);
+                  handleStartEdit();
                 }
               }}
               className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all shadow-xs inline-flex items-center justify-center gap-2 cursor-pointer ${
@@ -640,10 +687,7 @@ const Profile = () => {
               <button
                 type="button"
                 disabled={isSaving}
-                onClick={() => {
-                  if (dbUserRef.current) setUser({ ...dbUserRef.current });
-                  setIsEditing(false);
-                }}
+                onClick={handleCancelEdit}
                 className="flex-1 sm:flex-initial px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 transition-all cursor-pointer text-center"
               >
                 Cancel
@@ -670,16 +714,10 @@ const Profile = () => {
 
             <div className="space-y-3.5 pt-2">
               
-              {/* Surname & First Name - Permanently Locked Official Records */}
+              {/* Surname & First Name */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-gray-700 dark:text-green-200">Surname</label>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-800/40">
-                      <Lock className="w-2.5 h-2.5" />
-                      <span>Official Record (Locked)</span>
-                    </span>
-                  </div>
+                  <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Surname</label>
                   <input
                     type="text"
                     value={user.surname}
@@ -688,13 +726,7 @@ const Profile = () => {
                   />
                 </div>
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-gray-700 dark:text-green-200">First Name</label>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-800/40">
-                      <Lock className="w-2.5 h-2.5" />
-                      <span>Official Record (Locked)</span>
-                    </span>
-                  </div>
+                  <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">First Name</label>
                   <input
                     type="text"
                     value={user.firstName}
@@ -709,10 +741,10 @@ const Profile = () => {
                 <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Email Address</label>
                 <input
                   type="email"
-                  value={user.email}
+                  value={isEditing ? formData.email : (user.email || '')}
                   disabled={!isEditing}
                   placeholder="student@futo.edu.ng"
-                  onChange={(e) => setUser({ ...user, email: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 transition-colors font-mono"
                 />
               </div>
@@ -723,10 +755,10 @@ const Profile = () => {
                   <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Phone Number</label>
                   <input
                     type="tel"
-                    value={user.phone}
+                    value={isEditing ? formData.phone : (user.phone || '')}
                     disabled={!isEditing}
                     placeholder="080XXXXXXXX"
-                    onChange={(e) => setUser({ ...user, phone: e.target.value })}
+                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                     className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 transition-colors"
                   />
                 </div>
@@ -734,9 +766,9 @@ const Profile = () => {
                   <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Gender</label>
                   <div className="relative">
                     <select
-                      value={user.gender || 'M'}
+                      value={isEditing ? (formData.gender || 'M') : (user.gender || 'M')}
                       disabled={!isEditing}
-                      onChange={(e) => setUser({ ...user, gender: e.target.value })}
+                      onChange={(e) => setFormData(prev => ({ ...prev, gender: e.target.value }))}
                       className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 cursor-pointer font-medium"
                     >
                       <option value="M">Male (M)</option>
@@ -752,10 +784,10 @@ const Profile = () => {
                 <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Date of Birth</label>
                 <input
                   type="text"
-                  value={user.dobFormatted || user.dob}
+                  value={isEditing ? (formData.dobFormatted || formData.dob) : (user.dobFormatted || user.dob || '')}
                   disabled={!isEditing}
                   placeholder="MM/DD/YYYY"
-                  onChange={(e) => setUser({ ...user, dobFormatted: e.target.value, dob: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, dobFormatted: e.target.value, dob: e.target.value }))}
                   className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 transition-colors"
                 />
               </div>
@@ -765,10 +797,10 @@ const Profile = () => {
                 <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Residential Address</label>
                 <input
                   type="text"
-                  value={user.address}
+                  value={isEditing ? formData.address : (user.address || '')}
                   disabled={!isEditing}
                   placeholder="Enter residential address"
-                  onChange={(e) => setUser({ ...user, address: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
                   className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 transition-colors"
                 />
               </div>
@@ -778,10 +810,10 @@ const Profile = () => {
                 <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Student Bio</label>
                 <textarea
                   rows={3}
-                  value={user.bio}
+                  value={isEditing ? formData.bio : (user.bio || '')}
                   disabled={!isEditing}
                   placeholder="Tell us about yourself, technical specializations, or campus roles..."
-                  onChange={(e) => setUser({ ...user, bio: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, bio: e.target.value }))}
                   className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 resize-y transition-colors"
                 />
               </div>
@@ -798,15 +830,9 @@ const Profile = () => {
 
             <div className="space-y-3.5 pt-2">
               
-              {/* Institution - Permanently Locked */}
+              {/* Institution */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-gray-700 dark:text-green-200">Institution</label>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-800/40">
-                    <Lock className="w-2.5 h-2.5" />
-                    <span>Official Record (Locked)</span>
-                  </span>
-                </div>
+                <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Institution</label>
                 <input
                   type="text"
                   value={user.institution}
@@ -815,15 +841,9 @@ const Profile = () => {
                 />
               </div>
 
-              {/* Student ID / Matric Number - Permanently Locked */}
+              {/* Student ID / Matric Number */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-gray-700 dark:text-green-200">Registration Number / Student ID</label>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-800/40">
-                    <Lock className="w-2.5 h-2.5" />
-                    <span>Official Record (Locked)</span>
-                  </span>
-                </div>
+                <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Registration Number / Student ID</label>
                 <input
                   type="text"
                   value={user.studentId || user.matric}
@@ -867,15 +887,9 @@ const Profile = () => {
                 </div>
               )}
 
-              {/* Department - Permanently Locked */}
+              {/* Department */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-gray-700 dark:text-green-200">Department</label>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-800/40">
-                    <Lock className="w-2.5 h-2.5" />
-                    <span>Official Record (Locked)</span>
-                  </span>
-                </div>
+                <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Department</label>
                 <input
                   type="text"
                   value={user.dept || user.department || 'Department of Computer Science'}
@@ -902,9 +916,9 @@ const Profile = () => {
                 </div>
                 <div className="relative">
                   <select
-                    value={user.zone || 'South East'}
+                    value={isEditing ? formData.zone : (user.zone || 'South East')}
                     disabled={!isEditing}
-                    onChange={(e) => setUser({ ...user, zone: e.target.value })}
+                    onChange={(e) => setFormData(prev => ({ ...prev, zone: e.target.value }))}
                     className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 cursor-pointer font-medium"
                   >
                     <option value="South East">South East</option>
