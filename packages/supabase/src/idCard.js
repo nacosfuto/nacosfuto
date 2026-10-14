@@ -66,13 +66,17 @@ export async function getIdCardSettings() {
             setActiveAcademicSession(p.startYear);
           }
         }
-        return {
+        const resolvedSettings = {
           id: 'default',
           id_card_fee: Number(data.id_card_fee),
           academic_session: data.academic_session || getDynamicAcademicSession(),
           is_application_open: data.is_application_open ?? true,
           updated_at: data.updated_at
         };
+        try {
+          localStorage.setItem(ID_SETTINGS_STORAGE_KEY, JSON.stringify(resolvedSettings));
+        } catch (_) {}
+        return resolvedSettings;
       }
 
       // 2. Secondary check: public.payment_fees table
@@ -170,24 +174,13 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
       try {
         await supabase
           .from('payment_fees')
-          .upsert([
-            {
-              fee_key: 'id_card',
-              title: 'Digital Student ID Card Issuance',
-              academic_session: session,
-              amount: feeNum,
-              currency: 'NGN',
-              is_active: isOpen
-            },
-            {
-              fee_key: 'departmental_dues',
-              title: 'NACOS Departmental Dues',
-              academic_session: session,
-              amount: duesNum,
-              currency: 'NGN',
-              is_active: true
-            }
-          ], { onConflict: 'fee_key,academic_session' });
+          .update({ amount: feeNum, is_active: isOpen, updated_at: now })
+          .eq('fee_key', 'id_card');
+
+        await supabase
+          .from('payment_fees')
+          .update({ amount: duesNum, updated_at: now })
+          .eq('fee_key', 'departmental_dues');
       } catch (pfErr) {
         console.warn('[payment_fees sync notice]:', pfErr.message);
       }
@@ -255,6 +248,13 @@ export async function updateIdCardFee(newFee, session = null, allowRegistration 
         console.error('[ID Settings Database Error]:', dbError);
         return { error: `Database error: ${dbError.message}` };
       }
+
+      try {
+        await supabase
+          .from('payment_fees')
+          .update({ amount: feeNumber, is_active: settings.is_application_open ?? true, updated_at: new Date().toISOString() })
+          .eq('fee_key', 'id_card');
+      } catch (_) {}
     }
   } catch (e) {
     console.error('[ID Settings Sync Error]:', e);

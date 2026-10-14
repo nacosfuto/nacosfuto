@@ -107,20 +107,22 @@ const Dues = () => {
 
   const [duesFee, setDuesFee] = useState(() => {
     if (initialDuesData?.duesFee != null && !isNaN(Number(initialDuesData.duesFee))) {
-      return Number(initialDuesData.duesFee);
+      if (initialDuesData?.duesFee != null && !isNaN(Number(initialDuesData.duesFee)) && Number(initialDuesData.duesFee) > 0) {
+        return Number(initialDuesData.duesFee);
+      }
     }
     if (typeof window !== 'undefined') {
       try {
         const raw = localStorage.getItem('nacos_dues_settings_db');
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed?.dues_amount && !isNaN(Number(parsed.dues_amount))) {
+          if (parsed?.dues_amount != null && !isNaN(Number(parsed.dues_amount)) && Number(parsed.dues_amount) > 0) {
             return Number(parsed.dues_amount);
           }
         }
       } catch (_) {}
     }
-    return 2000;
+    return null;
   });
 
   const [isRevoked, setIsRevoked] = useState(false);
@@ -151,8 +153,8 @@ const Dues = () => {
         date: 'Confirmed',
         time: '',
         paymentDate: 'Confirmed (Database Verified)',
-        amount: user?.dues_amount ? `₦${Number(user.dues_amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '₦2,000.00',
-        rawAmount: Number(user?.dues_amount || 2000),
+        amount: user?.dues_amount ? `₦${Number(user.dues_amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : (duesFee ? `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '—'),
+        rawAmount: Number(user?.dues_amount || duesFee || 0),
         status: 'PAID',
         isPaid: true,
         session: user?.academic_session || getActiveAcademicSession(),
@@ -765,7 +767,7 @@ const Dues = () => {
         await Promise.all([
           withTimeout(getDuesSettings(), 6000)
             .then(ds => {
-              if (ds?.dues_amount && !isNaN(Number(ds.dues_amount))) {
+              if (ds?.dues_amount != null && !isNaN(Number(ds.dues_amount)) && Number(ds.dues_amount) > 0) {
                 setDuesFee(Number(ds.dues_amount));
               }
               if (ds?.academic_session) {

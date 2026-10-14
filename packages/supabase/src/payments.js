@@ -176,13 +176,17 @@ export async function getDuesSettings() {
         }
         const rawSession = duesRow.academic_session || getActiveAcademicSession();
         const cleanSession = typeof rawSession === 'string' ? rawSession : (rawSession?.sessionName || getActiveAcademicSession());
-        return {
+        const resolved = {
           id: 'dues',
           dues_amount: Number(duesRow.id_card_fee),
           academic_session: cleanSession,
           is_open: duesRow.is_application_open ?? true,
           updated_at: duesRow.updated_at
         };
+        try {
+          localStorage.setItem(DUES_SETTINGS_KEY, JSON.stringify(resolved));
+        } catch (_) {}
+        return resolved;
       }
 
       // 2. Secondary check: public.payment_fees table
@@ -282,14 +286,8 @@ export async function updateDuesFee(amount, academicSession = null) {
       try {
         await supabase
           .from('payment_fees')
-          .upsert({
-            fee_key: 'departmental_dues',
-            title: 'NACOS Departmental Dues',
-            academic_session: targetSession,
-            amount: num,
-            currency: 'NGN',
-            is_active: true
-          }, { onConflict: 'fee_key,academic_session' });
+          .update({ amount: num, updated_at: now })
+          .eq('fee_key', 'departmental_dues');
       } catch (_) {}
     }
   } catch (err) {
