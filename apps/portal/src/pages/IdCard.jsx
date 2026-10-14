@@ -988,7 +988,15 @@ const IdCard = () => {
       gatewayWindowRef.current = gatewayTab;
     } catch (_) {}
 
-    await executeIdCardCheckout(null, gatewayTab);
+    // Immediately activate the waiting state on our own portal side so the portal shows "Waiting for payment confirmation" right away!
+    setIsVerifyingPayment(true);
+    setPaymentStatusOutcome('PENDING');
+    setPaymentStatusMessage('Connecting to payment gateway...');
+    setGatewayTabClosed(false);
+    setIsPaymentDelayed(false);
+    setVerifyingReference(formLevelRef.current || 'Processing...');
+
+    await executeIdCardCheckout(null, gatewayTab, formLevelRef.current, formSessionRef.current);
   };
 
   const handlePayment = () => {
@@ -1026,6 +1034,7 @@ const IdCard = () => {
         existingGatewayTab.close();
       }
       setIsPaying(false);
+      setIsVerifyingPayment(false);
       showNotification(`Payment not allowed: You cannot pay for future academic level (${reqLvlNum} Level). Your active level is ${prog?.levelString || '100 Level'}.`, 'error');
       return;
     }
@@ -1071,6 +1080,7 @@ const IdCard = () => {
           } catch (_) { existingGatewayTab.close(); }
         }
         setIsPaying(false);
+        setIsVerifyingPayment(false);
         showNotification('Payment already completed and confirmed!');
         await loadStudentAndApplication(formLevelRef.current);
         return;
@@ -1090,6 +1100,7 @@ const IdCard = () => {
           } catch (_) { existingGatewayTab.close(); }
         }
         setIsPaying(false);
+        setIsVerifyingPayment(false);
         showNotification(data.error, 'error');
         return;
       }
@@ -1171,6 +1182,7 @@ const IdCard = () => {
           } catch (_) { existingGatewayTab.close(); }
         }
         setIsPaying(false);
+        setIsVerifyingPayment(false);
         showNotification('Could not obtain checkout session. Please try again.', 'error');
       }
     } catch (e) {
@@ -1187,6 +1199,7 @@ const IdCard = () => {
         } catch (_) { existingGatewayTab.close(); }
       }
       setIsPaying(false);
+      setIsVerifyingPayment(false);
       showNotification('Payment service unreachable. Please try again.', 'error');
     }
   };
@@ -1538,64 +1551,7 @@ const IdCard = () => {
     formSessionRef.current = ob.session;
     setFormLevel(ob.level);
     setFormSession(ob.session);
-
-    let gatewayTab = null;
-    try {
-      gatewayTab = window.open('about:blank', '_blank');
-      if (gatewayTab && gatewayTab.document) {
-        gatewayTab.document.open();
-        gatewayTab.document.write(`
-          <!DOCTYPE html>
-          <html lang="en">
-            <head>
-              <meta charset="utf-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-              <title>Connecting to Payment Gateway | NACOS FUTO</title>
-              <style>
-                * { box-sizing: border-box; margin: 0; padding: 0; }
-                html, body {
-                  width: 100%;
-                  height: 100%;
-                  min-height: 100dvh;
-                  background-color: #f8fafc;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  overflow: hidden;
-                }
-                .spinner-wrap {
-                  width: 100%;
-                  height: 100%;
-                  min-height: 100dvh;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  padding: 16px;
-                }
-                .spinning-logo {
-                  width: clamp(140px, 42vw, 220px);
-                  height: clamp(140px, 42vw, 220px);
-                  max-width: 80vw;
-                  max-height: 80vh;
-                  object-fit: contain;
-                  animation: spin 3s linear infinite;
-                }
-                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-              </style>
-            </head>
-            <body>
-              <div class="spinner-wrap">
-                <img class="spinning-logo" src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png" alt="Loading" />
-              </div>
-            </body>
-          </html>
-        `);
-        gatewayTab.document.close();
-      }
-      gatewayWindowRef.current = gatewayTab;
-    } catch (_) {}
-
-    executeIdCardCheckout(null, gatewayTab, ob.level, ob.session);
+    setIsNewPaymentModalOpen(true);
   };
 
   const isSelectedLevelPaid = Boolean(selectedObligation?.isPaid);
@@ -1608,8 +1564,7 @@ const IdCard = () => {
   const appStatus = application?.status;
 
   const isState1 = !isVerifyingPayment && !application && !isSelectedLevelPaid;
-  const isStateExpired = !isVerifyingPayment && Boolean(application) && !isSelectedLevelPaid && hasAnyPaidLevel && appStatus !== 'rejected' && appStatus !== 'revoked';
-  const isState2 = !isVerifyingPayment && !isStateExpired && !isSelectedLevelPaid && Boolean(application) && (appStatus === 'pending_payment' || appStatus === 'draft' || (!isPaid && appStatus !== 'rejected' && appStatus !== 'revoked'));
+  const isState2 = !isVerifyingPayment && !isSelectedLevelPaid && Boolean(application) && (appStatus === 'pending_payment' || appStatus === 'draft' || (!isPaid && appStatus !== 'rejected' && appStatus !== 'revoked'));
   const isState3 = isSelectedLevelPaid && (appStatus === 'photo_required' || (!application?.passport_url && !student?.profile_photo_url));
   const isState4 = isSelectedLevelPaid && !isState3 && (application?.passport_url || student?.profile_photo_url) && appStatus === 'ready_to_submit';
   const isState5 = isSelectedLevelPaid && !isState3 && (appStatus === 'submitted' || appStatus === 'processing');
@@ -2035,124 +1990,7 @@ const IdCard = () => {
           </div>
         )}
 
-        {/* ====================================================================
-            STATE EXPIRED: LEVEL VALIDITY LAPSED (Requires Academic Level Renewal)
-            ==================================================================== */}
-        {isStateExpired && (
-          <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-amber-300 dark:border-amber-700/60 text-center space-y-6 shadow-xs">
-            <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800">
-              <Clock className="w-8 h-8" />
-            </div>
 
-            <div className="max-w-md mx-auto space-y-2">
-              <span className="inline-block px-3 py-1 rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 text-xs font-bold uppercase tracking-wider">
-                Level Renewal Required
-              </span>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                Academic Level Renewal ({studentLevel})
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
-                NACOS Student Identity Cards are validated level by level. Select an applicable past or current level below to review payment status or settle renewal.
-              </p>
-            </div>
-
-            {/* Obligation Level Switcher */}
-            <div className="max-w-md mx-auto space-y-2 text-left">
-              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                Select Level Obligation to Review &amp; Settle:
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {levelObligations.map(ob => {
-                  const isSelected = selectedObligation?.level === ob.level;
-                  return (
-                    <button
-                      key={ob.level}
-                      type="button"
-                      onClick={() => handleSelectObligation(ob)}
-                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-[#0e8040] bg-emerald-50/70 dark:bg-[#0e8040]/25 ring-1 ring-[#0e8040]'
-                          : 'border-gray-200 dark:border-[#138601]/25 hover:border-gray-300 dark:hover:border-[#138601]/50 bg-white dark:bg-[#041801]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-gray-900 dark:text-white">{ob.level}</span>
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                          ob.isPaid ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-[#4bd043]' :
-                          ob.isPending ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300' :
-                          ob.isFailed ? 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300' :
-                          'bg-gray-100 text-gray-700 dark:bg-[#041801] dark:text-gray-300'
-                        }`}>
-                          {ob.status}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-gray-500 dark:text-green-200/60 font-mono mt-0.5">{ob.session}</div>
-                      <div className="text-[11px] font-semibold text-[#0e8040] dark:text-[#4bd043] mt-0.5">
-                        {ob.amount || settings?.id_card_fee ? `₦${Number(ob.amount || settings?.id_card_fee).toLocaleString()}` : '—'}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="p-5 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Student Reg No:</span>
-                <span className="font-mono font-bold text-gray-900 dark:text-white">{student?.matric || student?.registration_number || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Selected Level:</span>
-                <span className="font-bold text-[#138601] dark:text-[#4bd043]">{selectedObligation?.level} ({selectedObligation?.session})</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Status:</span>
-                <span className={`font-bold ${
-                  selectedObligation?.isPaid ? 'text-emerald-600 dark:text-emerald-400' :
-                  selectedObligation?.isPending ? 'text-amber-600 dark:text-amber-400' :
-                  selectedObligation?.isFailed ? 'text-red-600 dark:text-red-400' :
-                  'text-gray-600 dark:text-gray-300'
-                }`}>{selectedObligation?.status}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Obligation Fee:</span>
-                <span className="font-bold text-[#138601] dark:text-[#4bd043]">
-                  {selectedObligation?.amount || settings?.id_card_fee ? `₦${Number(selectedObligation?.amount || settings?.id_card_fee).toLocaleString()}.00` : '—'}
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-              {selectedObligation?.isPaid ? (
-                <button
-                  type="button"
-                  onClick={() => handleOpenReceipt(selectedObligation?.payment || {
-                    receiptNo: selectedObligation?.receiptNo,
-                    transactionId: selectedObligation?.transactionId,
-                    amount: selectedObligation?.amount,
-                    level: selectedObligation?.level,
-                    session: selectedObligation?.session,
-                    date: selectedObligation?.date
-                  })}
-                  className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>Print Receipt ({selectedObligation?.level || 'Card'})</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handlePayObligation(selectedObligation)}
-                  disabled={isPaying}
-                  className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
-                >
-                  {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                  <span>Pay ID Card for {selectedObligation?.level} ({selectedObligation?.session})</span>
-                </button>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* ====================================================================
             STATE 1: NOT APPLIED (Initial On-Demand State)
@@ -2707,10 +2545,10 @@ const IdCard = () => {
             <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-[#138601]/25">
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
-                  Select Session &amp; Level
+                  Confirm ID Card Payment
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-green-200/70 mt-0.5">
-                  Generate an official student ID card clearance invoice.
+                  Review obligation details and proceed to secure payment gateway.
                 </p>
               </div>
               <button
