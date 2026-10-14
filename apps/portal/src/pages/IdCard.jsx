@@ -1184,22 +1184,46 @@ const IdCard = ({ viewMode = false }) => {
   // State 3 -> State 7: Photo Upload & Instant ID Generation
   const handlePhotoUploaded = async (media) => {
     setUploadError('');
-    const photoUrl = media?.secureUrl || media?.url;
-    if (!photoUrl) return;
+    const rawPhotoUrl = media?.secureUrl || media?.url;
+    if (!rawPhotoUrl) return;
     const matric = student?.matric || student?.registration_number;
     const cleanDigits = String(matric || '').replace(/\D/g, '') || matric;
+    const now = new Date().toISOString();
+    const timestamp = Date.now();
+
+    // Cache-busted URL so browser disk/memory cache immediately requests & updates new photo
+    const photoUrl = (rawPhotoUrl.startsWith('data:') || rawPhotoUrl.startsWith('blob:'))
+      ? rawPhotoUrl
+      : `${rawPhotoUrl}${rawPhotoUrl.includes('?') ? '&' : '?'}t=${timestamp}`;
 
     setIsUploadingPhoto(true);
 
-    // 1. Sync photo to student profile in Supabase
+    // 1. Sync photo to student profile & verified_students in Supabase
     try {
       if (supabase && matric) {
-        await supabase.from('profiles').update({
-          profile_photo_url: photoUrl,
-          avatar_url: photoUrl,
-          cloudinary_public_id: media?.publicId || null,
-          updated_at: new Date().toISOString()
-        }).or(`registration_number.eq.${matric},matric_number.eq.${matric}`);
+        const cleanMatricUpper = String(matric).trim().toUpperCase();
+        const matricConds = [`registration_number.eq.${cleanMatricUpper}`, `matric_number.eq.${cleanMatricUpper}`];
+        if (cleanDigits && cleanDigits !== cleanMatricUpper) {
+          matricConds.push(`registration_number.eq.${cleanDigits}`);
+          matricConds.push(`matric_number.eq.${cleanDigits}`);
+        }
+        const orFilter = matricConds.join(',');
+
+        await Promise.allSettled([
+          supabase.from('profiles').update({
+            profile_photo_url: rawPhotoUrl,
+            avatar_url: rawPhotoUrl,
+            photo_url: rawPhotoUrl,
+            cloudinary_public_id: media?.publicId || null,
+            updated_at: now
+          }).or(orFilter),
+          supabase.from('verified_students').update({
+            passport_url: rawPhotoUrl,
+            profile_photo_url: rawPhotoUrl,
+            photo_url: rawPhotoUrl,
+            updated_at: now
+          }).or(orFilter)
+        ]);
       }
     } catch (e) {
       console.warn('Profile photo update warning:', e);
@@ -1210,12 +1234,14 @@ const IdCard = ({ viewMode = false }) => {
       await linkPassportUrlToApplication(application.id, matric, photoUrl, media?.publicId || '');
     }
 
-    const now = new Date().toISOString();
-
     setStudent(prev => ({
       ...prev,
       profile_photo_url: photoUrl,
       avatar_url: photoUrl,
+      passport_url: photoUrl,
+      photo_url: photoUrl,
+      avatar: photoUrl,
+      photo_updated_at: timestamp,
       cloudinary_public_id: media?.publicId || ''
     }));
 
@@ -1225,6 +1251,10 @@ const IdCard = ({ viewMode = false }) => {
         const u = JSON.parse(stored);
         u.profile_photo_url = photoUrl;
         u.avatar_url = photoUrl;
+        u.passport_url = photoUrl;
+        u.photo_url = photoUrl;
+        u.avatar = photoUrl;
+        u.photo_updated_at = timestamp;
         u.cloudinary_public_id = media?.publicId || '';
         localStorage.setItem('nacos_user', JSON.stringify(u));
       } catch (e) {}

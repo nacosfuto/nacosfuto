@@ -554,18 +554,69 @@ export async function recordStudentPayment(matricNumber, amount = null) {
   const renewalDate = new Date();
   renewalDate.setDate(renewalDate.getDate() + 365);
 
-  // Sync with Supabase - departmental_dues
+  // Sync with Supabase - departmental_dues & live payments table & student profiles
   try {
+    const cleanDigits = cleanMatric.replace(/\D/g, '');
+    const nowIso = new Date().toISOString();
+
+    // 1. Departmental dues table
     await supabase.from('departmental_dues').insert([{
       matric_number: cleanMatric,
+      registration_number: cleanMatric,
       session: newPayment.session,
       amount: newPayment.amount,
       payment_reference: newPayment.payment_reference,
       status: 'verified',
-      paid_at: new Date().toISOString()
+      paid_at: nowIso
     }]);
+
+    // 2. Authoritative payments table
+    await supabase.from('payments').insert([{
+      id: crypto.randomUUID ? crypto.randomUUID() : `pay-${Date.now()}`,
+      registration_number: cleanMatric,
+      matric_number: cleanMatric,
+      amount: resolvedAmount,
+      currency: 'NGN',
+      status: 'successful',
+      payment_type: 'DEPARTMENTAL_DUES',
+      reference: newPayment.payment_reference,
+      paid_at: nowIso,
+      academic_session: newPayment.session,
+      metadata: {
+        payment_title: 'Departmental Dues (Full Payment)',
+        cleared_by: 'recordStudentPayment'
+      },
+      created_at: nowIso,
+      updated_at: nowIso
+    }]);
+
+    // 3. Mark profiles cleared
+    const profVariants = [`registration_number.eq.${cleanMatric}`, `matric_number.eq.${cleanMatric}`];
+    if (cleanDigits && cleanDigits !== cleanMatric) {
+      profVariants.push(`registration_number.eq.${cleanDigits}`);
+      profVariants.push(`matric_number.eq.${cleanDigits}`);
+    }
+    await supabase.from('profiles').update({
+      dues_cleared: true,
+      has_paid_dues: true,
+      dues_paid_at: nowIso,
+      updated_at: nowIso
+    }).or(profVariants.join(','));
+
+    // 4. Mark verified_students cleared
+    const vsVariants = [`registration_number.eq.${cleanMatric}`];
+    if (cleanDigits && cleanDigits !== cleanMatric) {
+      vsVariants.push(`registration_number.eq.${cleanDigits}`);
+    }
+    await supabase.from('verified_students').update({
+      dues_cleared: true,
+      has_paid_dues: true,
+      dues_paid_at: nowIso,
+      updated_at: nowIso
+    }).or(vsVariants.join(','));
   } catch (e) {
-    // offline
+    // offline or schema notice
+    console.warn('[recordStudentPayment] Supabase sync notice:', e);
   }
 
   // Sync with Supabase - id_card_applications: update existing application's payment_status and renewal_date
@@ -1019,6 +1070,9 @@ export async function linkPassportUrlToApplication(applicationId, matric, photoU
       userObj.profile_photo_url = photoUrl;
       userObj.avatar_url = photoUrl;
       userObj.photo_url = photoUrl;
+      userObj.passport_url = photoUrl;
+      userObj.avatar = photoUrl;
+      userObj.photo_updated_at = Date.now();
       if (publicId) userObj.cloudinary_public_id = publicId;
       localStorage.setItem('nacos_user', JSON.stringify(userObj));
     } catch (e) { }
@@ -1038,12 +1092,29 @@ export async function linkPassportUrlToApplication(applicationId, matric, photoU
       }).eq('id', applicationId);
     }
     if (cleanMatric) {
-      await supabase.from('profiles').update({
-        profile_photo_url: photoUrl,
-        avatar_url: photoUrl,
-        cloudinary_public_id: publicId || null,
-        updated_at: new Date().toISOString()
-      }).or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`);
+      const matricConds = [`registration_number.eq.${cleanMatric}`, `matric_number.eq.${cleanMatric}`];
+      if (digitsOnly && digitsOnly !== cleanMatric) {
+        matricConds.push(`registration_number.eq.${digitsOnly}`);
+        matricConds.push(`matric_number.eq.${digitsOnly}`);
+      }
+      const orFilter = matricConds.join(',');
+      const nowIso = new Date().toISOString();
+
+      await Promise.allSettled([
+        supabase.from('profiles').update({
+          profile_photo_url: photoUrl,
+          avatar_url: photoUrl,
+          photo_url: photoUrl,
+          cloudinary_public_id: publicId || null,
+          updated_at: nowIso
+        }).or(orFilter),
+        supabase.from('verified_students').update({
+          passport_url: photoUrl,
+          photo_url: photoUrl,
+          profile_photo_url: photoUrl,
+          updated_at: nowIso
+        }).or(orFilter)
+      ]);
     }
   } catch (e) {
     // Offline

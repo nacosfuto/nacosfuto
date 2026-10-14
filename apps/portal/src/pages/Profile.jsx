@@ -312,6 +312,12 @@ const Profile = () => {
     .join('')
     .slice(0, 2)
     .toUpperCase() || 'ST';
+  const rawAvatarUrl = user.profile_photo_url || user.avatar_url || user.passport_url || user.photo_url || user.avatar;
+  const avatarUrl = rawAvatarUrl
+    ? (rawAvatarUrl.startsWith('data:') || rawAvatarUrl.startsWith('blob:')
+        ? rawAvatarUrl
+        : `${rawAvatarUrl}${rawAvatarUrl.includes('?') ? '&' : '?'}v=${user.photo_updated_at || user.updated_at || '1'}`)
+    : null;
 
   return (
     <PortalLayout>
@@ -382,9 +388,10 @@ const Profile = () => {
               className="relative shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-[#138601]/30 bg-gray-100 dark:bg-[#041801] shadow-xs group cursor-pointer"
               title="Profile photo is locked after registration — contact admin to update"
             >
-              {user.profile_photo_url || user.avatar_url ? (
+              {avatarUrl ? (
                 <img 
-                  src={user.profile_photo_url || user.avatar_url} 
+                  key={avatarUrl}
+                  src={avatarUrl} 
                   alt={displayName} 
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -395,7 +402,7 @@ const Profile = () => {
                 />
               ) : null}
               <div 
-                className={`w-full h-full flex items-center justify-center bg-[#138601] text-white font-bold text-2xl ${user.profile_photo_url || user.avatar_url ? 'hidden' : ''}`}
+                className={`w-full h-full flex items-center justify-center bg-[#138601] text-white font-bold text-2xl ${avatarUrl ? 'hidden' : ''}`}
               >
                 {displayInitials}
               </div>

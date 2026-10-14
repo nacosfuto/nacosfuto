@@ -107,6 +107,7 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
   const fetchPromise = (async () => {
     try {
       const cleanMatric = identifier;
+      const strippedDigits = String(identifier).replace(/\D/g, '');
       const userId = student?.id;
       const currentLvl = deriveStudentLevelNum(student);
 
@@ -121,20 +122,25 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
       let totalSum = 0;
 
       // Parallelize queries across database tables
-      const [paymentsResult, idAppsResult, legacyDuesResult, duesCfg, idCfg] = await Promise.all([
+      const [paymentsResult, idAppsResult, legacyDuesResult, deptDuesResult, liveProfileResult, duesCfg, idCfg] = await Promise.all([
         // 1. Live Payments table
         (async () => {
           if (!supabase || (!cleanMatric && !userId)) return [];
           try {
-            let query = supabase.from('payments').select('*');
-            if (cleanMatric && userId && !String(userId).startsWith('student-')) {
-              query = query.or(`registration_number.eq.${cleanMatric},student_id.eq.${userId}`);
-            } else if (cleanMatric) {
-              query = query.eq('registration_number', cleanMatric);
-            } else if (userId) {
-              query = query.eq('student_id', userId);
+            const conds = [];
+            if (cleanMatric) {
+              conds.push(`registration_number.eq.${cleanMatric}`);
+              conds.push(`matric_number.eq.${cleanMatric}`);
             }
-            const { data } = await query;
+            if (strippedDigits && strippedDigits !== cleanMatric) {
+              conds.push(`registration_number.eq.${strippedDigits}`);
+              conds.push(`matric_number.eq.${strippedDigits}`);
+            }
+            if (userId && !String(userId).startsWith('student-')) {
+              conds.push(`student_id.eq.${userId}`);
+            }
+            if (conds.length === 0) return [];
+            const { data } = await supabase.from('payments').select('*').or(conds.join(','));
             return data || [];
           } catch (e) {
             console.warn('[Cache Service] Payments fetch notice:', e);
@@ -146,17 +152,25 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
         (async () => {
           if (!supabase || (!cleanMatric && !userId)) return [];
           try {
-            let appQuery = supabase
+            const appConds = [];
+            if (cleanMatric) {
+              appConds.push(`matric_number.eq.${cleanMatric}`);
+              appConds.push(`registration_number.eq.${cleanMatric}`);
+            }
+            if (strippedDigits && strippedDigits !== cleanMatric) {
+              appConds.push(`matric_number.eq.${strippedDigits}`);
+              appConds.push(`registration_number.eq.${strippedDigits}`);
+            }
+            if (userId && !String(userId).startsWith('student-')) {
+              appConds.push(`user_id.eq.${userId}`);
+              appConds.push(`student_id.eq.${userId}`);
+            }
+            if (appConds.length === 0) return [];
+            const { data } = await supabase
               .from('id_card_applications')
               .select('*')
-              .in('payment_status', ['paid', 'verified']);
-
-            if (cleanMatric && userId && !String(userId).startsWith('student-')) {
-              appQuery = appQuery.or(`matric_number.eq.${cleanMatric},user_id.eq.${userId}`);
-            } else if (cleanMatric) {
-              appQuery = appQuery.eq('matric_number', cleanMatric);
-            }
-            const { data } = await appQuery;
+              .in('payment_status', ['paid', 'verified'])
+              .or(appConds.join(','));
             return data || [];
           } catch (e) {
             console.warn('[Cache Service] ID Apps fetch notice:', e);
@@ -166,12 +180,18 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
 
         // 3. Legacy Dues Payments table
         (async () => {
-          if (!supabase || !userId || String(userId).startsWith('student-')) return [];
+          if (!supabase || (!cleanMatric && !userId)) return [];
           try {
+            const duesConds = [];
+            if (cleanMatric) duesConds.push(`registration_number.eq.${cleanMatric}`);
+            if (strippedDigits && strippedDigits !== cleanMatric) duesConds.push(`registration_number.eq.${strippedDigits}`);
+            if (userId && !String(userId).startsWith('student-')) duesConds.push(`student_id.eq.${userId}`);
+            if (duesConds.length === 0) return [];
+
             const { data } = await supabase
               .from('dues_payments')
               .select('*')
-              .eq('student_id', userId)
+              .or(duesConds.join(','))
               .in('status', ['successful', 'verified', 'cleared', 'paid']);
             return data || [];
           } catch (e) {
@@ -179,10 +199,64 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
           }
         })(),
 
-        // 4. Live Dues fee configuration
+        // 4. Departmental Dues table
+        (async () => {
+          if (!supabase || !cleanMatric) return [];
+          try {
+            const deptConds = [];
+            deptConds.push(`registration_number.eq.${cleanMatric}`);
+            deptConds.push(`matric_number.eq.${cleanMatric}`);
+            if (strippedDigits && strippedDigits !== cleanMatric) {
+              deptConds.push(`registration_number.eq.${strippedDigits}`);
+              deptConds.push(`matric_number.eq.${strippedDigits}`);
+            }
+            const { data } = await supabase
+              .from('departmental_dues')
+              .select('*')
+              .or(deptConds.join(','))
+              .in('status', ['paid', 'verified', 'cleared', 'successful']);
+            return data || [];
+          } catch (e) {
+            return [];
+          }
+        })(),
+
+        // 5. Authoritative live profile & verified_students status in Supabase
+        (async () => {
+          if (!supabase || (!cleanMatric && !userId)) return null;
+          try {
+            const pConds = [];
+            if (cleanMatric) {
+              pConds.push(`registration_number.eq.${cleanMatric}`);
+              pConds.push(`matric_number.eq.${cleanMatric}`);
+            }
+            if (strippedDigits && strippedDigits !== cleanMatric) {
+              pConds.push(`registration_number.eq.${strippedDigits}`);
+              pConds.push(`matric_number.eq.${strippedDigits}`);
+            }
+            if (userId && !String(userId).startsWith('student-')) {
+              pConds.push(`id.eq.${userId}`);
+            }
+            if (pConds.length === 0) return null;
+
+            const [{ data: pData }, { data: vData }] = await Promise.all([
+              supabase.from('profiles').select('dues_cleared, has_paid_dues, level, current_level, payment_status').or(pConds.join(',')).maybeSingle(),
+              supabase.from('verified_students').select('dues_cleared, has_paid_dues, level, current_level, payment_status').or(pConds.join(',')).maybeSingle()
+            ]);
+
+            return {
+              dues_cleared: Boolean(pData?.dues_cleared || pData?.has_paid_dues || vData?.dues_cleared || vData?.has_paid_dues),
+              level: pData?.level || pData?.current_level || vData?.level || vData?.current_level || null
+            };
+          } catch (e) {
+            return null;
+          }
+        })(),
+
+        // 6. Live Dues fee configuration
         getDepartmentalDuesFee().catch(() => null),
 
-        // 5. Live ID Card fee configuration
+        // 7. Live ID Card fee configuration
         getIdCardSettings().catch(() => null)
       ]);
 
@@ -231,7 +305,31 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
         }
       });
 
-      // Profile fallback for current level dues clearance
+      // Process Departmental Dues
+      deptDuesResult.forEach((item) => {
+        const amt = Number(item.amount || 0);
+        const lvlRaw = item.level || '';
+        const match = String(lvlRaw).match(/\d{3}/);
+        const lvl = match ? match[0] : currentLvl;
+        if (matrix[lvl] && !matrix[lvl].dues) {
+          matrix[lvl].dues = true;
+          matrix[lvl].duesAmount = amt;
+          totalSum += amt;
+        }
+      });
+
+      // Live Profile / Verified Students DB clearance
+      if (liveProfileResult && liveProfileResult.dues_cleared) {
+        const liveLevel = String(liveProfileResult.level || currentLvl).match(/\d{3}/)?.[0] || currentLvl;
+        if (matrix[liveLevel] && !matrix[liveLevel].dues) {
+          const dynFee = Number(duesCfg?.dues_amount) || 0;
+          matrix[liveLevel].dues = true;
+          matrix[liveLevel].duesAmount = dynFee;
+          totalSum += dynFee;
+        }
+      }
+
+      // Profile fallback for current level dues clearance (from memory or localStorage)
       if (
         !matrix[currentLvl].dues &&
         (student?.dues_cleared === true ||

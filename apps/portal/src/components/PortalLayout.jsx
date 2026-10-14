@@ -352,8 +352,12 @@ const PortalLayout = ({ children }) => {
 
   const rawName = (user.fullName || user.full_name || user.name || `${user.firstName || ''} ${user.lastName || ''}`).trim();
   const displayName = rawName.toLowerCase().includes('president') ? 'Emmanuel Irechukwu' : (rawName || 'Student Profile');
-  const displayMatric = user.regNo || user.matric || user.registration_number || user.studentId || '20241429481';
-  const avatarUrl = user.avatar || user.profile_photo_url || user.avatar_url;
+  const rawAvatarUrl = user.profile_photo_url || user.avatar_url || user.passport_url || user.photo_url || user.avatar;
+  const avatarUrl = rawAvatarUrl
+    ? (rawAvatarUrl.startsWith('data:') || rawAvatarUrl.startsWith('blob:')
+        ? rawAvatarUrl
+        : `${rawAvatarUrl}${rawAvatarUrl.includes('?') ? '&' : '?'}v=${user.photo_updated_at || user.updated_at || '1'}`)
+    : null;
   const displayInitials = displayName
     .split(/\s+/)
     .map(w => w[0])
@@ -542,6 +546,7 @@ const PortalLayout = ({ children }) => {
                 <div className="w-8 h-8 rounded-full overflow-hidden bg-[#138601] flex items-center justify-center text-white font-bold text-xs ring-2 ring-[#138601]/30 shrink-0">
                   {avatarUrl ? (
                     <img
+                      key={avatarUrl}
                       src={avatarUrl}
                       alt={displayName}
                       className="w-full h-full object-cover"

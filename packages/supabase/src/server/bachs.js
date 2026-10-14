@@ -392,15 +392,54 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
         console.warn('[Dues Fulfillment] departmental_dues sync notice:', dErr.message);
       }
 
-      await supabase
-        .from('profiles')
-        .update({
-          dues_cleared: true,
-          has_paid_dues: true,
-          dues_paid_at: now,
-          updated_at: now
-        })
-        .or(`registration_number.eq.${regNo},matric_number.eq.${regNo},id.eq.${studentId}`);
+      const cleanDigits = String(regNo || '').replace(/\D/g, '');
+      const filterVariants = [];
+      if (regNo) {
+        filterVariants.push(`registration_number.eq.${regNo}`);
+        filterVariants.push(`matric_number.eq.${regNo}`);
+      }
+      if (cleanDigits && cleanDigits !== regNo) {
+        filterVariants.push(`registration_number.eq.${cleanDigits}`);
+        filterVariants.push(`matric_number.eq.${cleanDigits}`);
+      }
+      if (studentId && String(studentId).length === 36) {
+        filterVariants.push(`id.eq.${studentId}`);
+      }
+      const orFilterStr = filterVariants.join(',');
+
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            dues_cleared: true,
+            has_paid_dues: true,
+            dues_paid_at: now,
+            updated_at: now
+          })
+          .or(orFilterStr);
+      } catch (pErr) {
+        console.warn('[Dues Fulfillment] profiles update notice:', pErr.message);
+      }
+
+      try {
+        const vsFilterVariants = [];
+        if (regNo) vsFilterVariants.push(`registration_number.eq.${regNo}`);
+        if (cleanDigits && cleanDigits !== regNo) vsFilterVariants.push(`registration_number.eq.${cleanDigits}`);
+        if (studentId && String(studentId).length === 36) vsFilterVariants.push(`id.eq.${studentId}`);
+        if (vsFilterVariants.length > 0) {
+          await supabase
+            .from('verified_students')
+            .update({
+              dues_cleared: true,
+              has_paid_dues: true,
+              dues_paid_at: now,
+              updated_at: now
+            })
+            .or(vsFilterVariants.join(','));
+        }
+      } catch (vsErr) {
+        console.warn('[Dues Fulfillment] verified_students sync notice:', vsErr.message);
+      }
     } else if (pType === 'EVENT' || pType === 'EVENT_TICKET') {
       if (paymentRecord.metadata?.event_id) {
         await supabase
