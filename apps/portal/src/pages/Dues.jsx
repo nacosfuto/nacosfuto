@@ -169,6 +169,7 @@ const Dues = () => {
   });
 
   const [isStatusChecking, setIsStatusChecking] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const inFlightCheckRef = useRef(false);
 
   // Allowed levels based on progressive student level
@@ -322,7 +323,10 @@ const Dues = () => {
         filters.push(`student_id.eq.${userId}`);
       }
       if (currentUser?.email) {
-        filters.push(`customer_email.eq.${currentUser.email}`);
+        const cleanEmail = String(currentUser.email).trim().toLowerCase();
+        if (cleanEmail) {
+          filters.push(`email.eq.${cleanEmail}`);
+        }
       }
 
       const duesFilters = [];
@@ -340,26 +344,11 @@ const Dues = () => {
         deptFilters.push(`matric_number.eq.${strippedDigits}`);
       }
 
-      const profFilters = [];
-      if (cleanMatric) {
-        profFilters.push(`registration_number.eq.${cleanMatric}`);
-        profFilters.push(`matric_number.eq.${cleanMatric}`);
-      }
-      if (strippedDigits && strippedDigits !== cleanMatric) {
-        profFilters.push(`registration_number.eq.${strippedDigits}`);
-        profFilters.push(`matric_number.eq.${strippedDigits}`);
-      }
-      if (userId && !String(userId).startsWith('student-')) {
-        profFilters.push(`id.eq.${userId}`);
-      }
-
-      // Parallelize all 5 database queries concurrently with withTimeout(..., 6000)
+      // Parallelize queries concurrently with withTimeout(..., 6000)
       const [
         paymentsResult,
         legacyDuesResult,
-        deptDuesResult,
-        profResult,
-        vsResult
+        deptDuesResult
       ] = await Promise.all([
         supabase && filters.length > 0
           ? withTimeout(
@@ -380,21 +369,7 @@ const Dues = () => {
               supabase.from('departmental_dues').select('*').or(deptFilters.join(',')),
               6000
             ).catch(err => { console.warn('Dept dues check notice:', err); return { data: [] }; })
-          : Promise.resolve({ data: [] }),
-
-        supabase && profFilters.length > 0
-          ? withTimeout(
-              supabase.from('profiles').select('dues_cleared, has_paid_dues, dues_paid_at, dues_amount, receipt_no, payment_status, level, current_level').or(profFilters.join(',')).maybeSingle(),
-              6000
-            ).catch(err => { console.warn('Profiles check notice:', err); return { data: null }; })
-          : Promise.resolve({ data: null }),
-
-        supabase && profFilters.length > 0
-          ? withTimeout(
-              supabase.from('verified_students').select('dues_cleared, has_paid_dues, dues_paid_at, dues_amount, receipt_no, payment_status, level, current_level').or(profFilters.join(',')).maybeSingle(),
-              6000
-            ).catch(err => { console.warn('Verified students check notice:', err); return { data: null }; })
-          : Promise.resolve({ data: null })
+          : Promise.resolve({ data: [] })
       ]);
 
       // 1. Process Bachs live payments
@@ -426,14 +401,7 @@ const Dues = () => {
         console.warn('Local payments check error:', err);
       }
 
-      // 5. Authoritative Live Supabase Profile & Verified Students Lookup (Guarantees cross-device clearance)
-      const liveProf = profResult?.data;
-      const liveVs = vsResult?.data;
-      const clearedRecord = (liveProf && (liveProf.dues_cleared || liveProf.has_paid_dues || ['cleared', 'successful', 'verified', 'paid'].includes(String(liveProf.payment_status).toLowerCase())))
-        ? liveProf
-        : (liveVs && (liveVs.dues_cleared || liveVs.has_paid_dues || ['cleared', 'successful', 'verified', 'paid'].includes(String(liveVs.payment_status).toLowerCase())))
-          ? liveVs
-          : null;
+      const clearedRecord = null;
 
       if (clearedRecord) {
         const profLevel = String(clearedRecord.level || clearedRecord.current_level || studentHomeLevel).match(/\d{3}/)?.[0] || studentHomeLevel;
@@ -529,6 +497,7 @@ const Dues = () => {
     } finally {
       inFlightCheckRef.current = false;
       setIsStatusChecking(false);
+      setIsInitialLoading(false);
     }
   };
 
@@ -792,19 +761,23 @@ const Dues = () => {
         } catch (e) {}
       }
 
-      await Promise.all([
-        withTimeout(getDuesSettings(), 6000)
-          .then(ds => {
-            if (ds?.dues_amount && !isNaN(Number(ds.dues_amount))) {
-              setDuesFee(Number(ds.dues_amount));
-            }
-            if (ds?.academic_session) {
-              setFormSession(ds.academic_session);
-            }
-          })
-          .catch(() => {}),
-        checkStatus(currentUser)
-      ]);
+      try {
+        await Promise.all([
+          withTimeout(getDuesSettings(), 6000)
+            .then(ds => {
+              if (ds?.dues_amount && !isNaN(Number(ds.dues_amount))) {
+                setDuesFee(Number(ds.dues_amount));
+              }
+              if (ds?.academic_session) {
+                setFormSession(ds.academic_session);
+              }
+            })
+            .catch(() => {}),
+          checkStatus(currentUser)
+        ]);
+      } finally {
+        setIsInitialLoading(false);
+      }
     };
 
     init();
@@ -1113,7 +1086,16 @@ const Dues = () => {
     const p = levelDuesMap[lvl];
     return p && p.isPaid && !reachableLevels.includes(lvl);
   });
-  const ACADEMIC_LEVELS = Array.from(new Set([...reachableLevels, ...paidHistoricalLevels])).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+  const paidFromHistoryLevels = paymentHistoryList
+    .filter(p => p.isPaid)
+    .map(p => String(p.levelNum || p.level || '').match(/\d{3}/)?.[0])
+    .filter(Boolean);
+  const ACADEMIC_LEVELS = Array.from(new Set([
+    ...reachableLevels,
+    ...paidHistoricalLevels,
+    ...paidFromHistoryLevels,
+    ...Array.from(confirmedPaidLevelsRef.current)
+  ])).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
 
   const duesRowsByLevel = ACADEMIC_LEVELS.map(lvl => {
     const lvlNum = parseInt(lvl, 10);
@@ -1157,23 +1139,13 @@ const Dues = () => {
       <div className="space-y-6">
 
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 print:hidden">
-          <div>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-                Departmental Dues &amp; Levies
-              </h1>
-              {isStatusChecking && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/30 text-[10px] font-medium text-emerald-700 dark:text-emerald-300 shrink-0">
-                  <RefreshCw className="w-2.5 h-2.5 animate-spin text-[#138601]" />
-                  <span>Syncing...</span>
-                </span>
-              )}
-            </div>
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
-              Official clearance history and electronic POS receipts for Department of Computer Science.
-            </p>
-          </div>
+        <div className="print:hidden">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+            Departmental Dues &amp; Levies
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
+            Official clearance history and electronic POS receipts for Department of Computer Science.
+          </p>
         </div>
 
         {/* Notification Banner */}
@@ -1265,6 +1237,11 @@ const Dues = () => {
                           <CheckCircle className="w-3 h-3" />
                           PAID
                         </span>
+                      ) : isInitialLoading ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-gray-100 text-gray-500 dark:bg-green-950/40 dark:text-green-300/80">
+                          <RefreshCw className="w-3 h-3 animate-spin text-gray-400" />
+                          <span>Verifying...</span>
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-gray-100 text-gray-700 dark:bg-[#041801] dark:text-gray-300">
                           <Clock className="w-3 h-3" />
@@ -1289,6 +1266,8 @@ const Dues = () => {
                         >
                           Print Receipt
                         </button>
+                      ) : isInitialLoading ? (
+                        <div className="h-7 w-20 bg-gray-100 dark:bg-green-950/40 rounded-md animate-pulse ml-auto" />
                       ) : (
                         <button
                           type="button"

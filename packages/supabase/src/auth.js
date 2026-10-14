@@ -221,24 +221,13 @@ export async function signInStudent(identifier, password) {
     ]);
   };
 
-  // Strip non-alphanumeric characters for clean matric matching (e.g. "2024/1450682" -> "20241450682")
+  // Clean alphanumeric matching
   const strippedId = cleanId.replace(/[^a-zA-Z0-9]/g, '');
-
-  // Format with slash if 11 alphanumeric digits (standard FUTO format: YYYY/XXXXXXX)
-  let slashedId = null;
-  if (strippedId.length === 11 && /^\d{11}$/.test(strippedId)) {
-    slashedId = `${strippedId.slice(0, 4)}/${strippedId.slice(4)}`;
-  }
-
-  // Slashed without slash if input had slash
-  const unslashedId = cleanId.includes('/') ? cleanId.replace(/\//g, '') : null;
 
   const lookupCandidates = [...new Set([
     cleanId,
     rawId,
-    strippedId,
-    slashedId,
-    unslashedId
+    strippedId
   ].filter(Boolean))];
 
   // 1. Direct Supabase Database (public.profiles) lookup - Primary registered student storage
