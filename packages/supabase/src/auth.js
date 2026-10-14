@@ -115,6 +115,16 @@ export function enrichStudentProfile(student) {
   const lastName = student.last_name || student.surname || (fullName ? fullName.split(' ').slice(-1)[0] : '');
   const matric = student.registration_number || student.matric_number || student.matric || '';
 
+  let extraMeta = {};
+  if (student.photo_alt && typeof student.photo_alt === 'string' && student.photo_alt.trim().startsWith('{')) {
+    try {
+      extraMeta = JSON.parse(student.photo_alt);
+    } catch (_) {}
+  }
+
+  const rawGender = student.gender || extraMeta.gender || student.sex || 'M';
+  const cleanGender = (String(rawGender).toUpperCase().startsWith('F') || String(rawGender).toLowerCase() === 'female') ? 'F' : 'M';
+
   return {
     ...student,
     full_name: fullName,
@@ -141,7 +151,12 @@ export function enrichStudentProfile(student) {
     expected_graduation_year: progression.expectedGraduationYear,
     academic_session: progression.academicSession || getActiveAcademicSession(),
     role: progression.isGraduated ? (student.role || 'Alumni Member') : (student.role || 'Student Member'),
-    is_active: student.is_active !== undefined ? student.is_active : true
+    is_active: student.is_active !== false && student.status !== 'suspended' && student.status !== 'deactivated',
+    gender: cleanGender,
+    date_of_birth: student.date_of_birth || extraMeta.dob || student.dob || '',
+    residential_address: student.residential_address || extraMeta.address || student.address || '',
+    bio: student.bio || extraMeta.bio || '',
+    zone: student.zone || extraMeta.zone || 'South East'
   };
 }
 
@@ -542,21 +557,147 @@ export async function signOutStudent() {
 // ==========================================
 
 /**
- * Get total exact count of registered student profiles directly from Supabase
+ * Get total exact count of active registered student profiles directly from Supabase
  */
 export async function adminGetStudentsCount() {
   if (!supabase) return 0;
   try {
     const { count, error } = await supabase
       .from('profiles')
-      .select('*', { count: 'exact', head: true });
+      .select('*', { count: 'exact', head: true })
+      .neq('is_active', false);
     if (!error && typeof count === 'number') {
       return count;
     }
   } catch (e) {
     console.warn('adminGetStudentsCount query notice:', e);
   }
+
+  // Fallback to local cache count of active students
+  try {
+    const cached = getLocalStudentsDatabase();
+    if (Array.isArray(cached)) {
+      return cached.filter(s => s.is_active !== false).length;
+    }
+  } catch (_) {}
   return 0;
+}
+
+/**
+ * Allow a student to update their personal profile info (gender, phone, address, dob, bio, zone).
+ * Persists directly to Supabase profiles (and verified_students) as well as the client session.
+ */
+export async function updateStudentProfile(identifier, updates = {}) {
+  if (!identifier) return { data: null, error: { message: 'Missing identifier' } };
+  const cleanId = String(identifier).trim().toUpperCase();
+
+  let currentRecord = null;
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`registration_number.eq.${cleanId},matric_number.eq.${cleanId},id.eq.${identifier}`)
+        .maybeSingle();
+      if (data) currentRecord = data;
+    } catch (_) {}
+  }
+
+  let extraMeta = {};
+  if (currentRecord?.photo_alt && typeof currentRecord.photo_alt === 'string' && currentRecord.photo_alt.trim().startsWith('{')) {
+    try {
+      extraMeta = JSON.parse(currentRecord.photo_alt);
+    } catch (_) {}
+  }
+
+  const rawGender = updates.gender || extraMeta.gender || currentRecord?.gender || 'M';
+  const cleanGender = (String(rawGender).toUpperCase().startsWith('F') || String(rawGender).toLowerCase() === 'female') ? 'F' : 'M';
+
+  const mergedMeta = {
+    ...extraMeta,
+    gender: cleanGender,
+    ...(updates.dob || updates.date_of_birth ? { dob: updates.dob || updates.date_of_birth } : {}),
+    ...(updates.address || updates.residential_address ? { address: updates.address || updates.residential_address } : {}),
+    ...(updates.bio !== undefined ? { bio: updates.bio } : {}),
+    ...(updates.zone ? { zone: updates.zone } : {})
+  };
+
+  const payload = {
+    updated_at: new Date().toISOString(),
+    photo_alt: JSON.stringify(mergedMeta)
+  };
+
+  if (updates.phone || updates.phone_number) {
+    payload.phone_number = updates.phone || updates.phone_number;
+  }
+  if (updates.email) {
+    payload.email = updates.email.trim().toLowerCase();
+  }
+
+  if (supabase) {
+    try {
+      // First try updating with direct gender column
+      const fullPayload = {
+        ...payload,
+        gender: cleanGender
+      };
+      const { error: directErr } = await supabase
+        .from('profiles')
+        .update(fullPayload)
+        .or(`registration_number.eq.${cleanId},matric_number.eq.${cleanId},id.eq.${identifier}`);
+
+      if (directErr && directErr.message?.includes('gender')) {
+        // Fallback without direct gender column, safely persisted in photo_alt metadata
+        await supabase
+          .from('profiles')
+          .update(payload)
+          .or(`registration_number.eq.${cleanId},matric_number.eq.${cleanId},id.eq.${identifier}`);
+      }
+
+      // Also sync to verified_students if possible
+      try {
+        const vsPayload = {
+          updated_at: new Date().toISOString()
+        };
+        if (payload.phone_number) vsPayload.phone_number = payload.phone_number;
+        if (payload.email) vsPayload.email = payload.email;
+        await supabase
+          .from('verified_students')
+          .update(vsPayload)
+          .eq('registration_number', cleanId);
+      } catch (_) {}
+    } catch (err) {
+      console.warn('Profile update notice:', err);
+    }
+  }
+
+  // Update local session
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('nacos_user');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const updatedUser = {
+          ...parsed,
+          ...updates,
+          gender: cleanGender,
+          phone: updates.phone || updates.phone_number || parsed.phone,
+          phone_number: updates.phone || updates.phone_number || parsed.phone_number,
+          dob: updates.dob || updates.date_of_birth || parsed.dob,
+          dobFormatted: updates.dob || updates.date_of_birth || parsed.dobFormatted,
+          address: updates.address || updates.residential_address || parsed.address,
+          residential_address: updates.address || updates.residential_address || parsed.residential_address,
+          bio: updates.bio !== undefined ? updates.bio : parsed.bio,
+          zone: updates.zone || parsed.zone
+        };
+        localStorage.setItem('nacos_user', JSON.stringify(updatedUser));
+        window.dispatchEvent(new Event('nacos_user_updated'));
+        return { data: enrichStudentProfile(updatedUser), error: null };
+      }
+    } catch (_) {}
+  }
+
+  return { data: payload, error: null };
 }
 
 export async function adminGetAllStudents() {

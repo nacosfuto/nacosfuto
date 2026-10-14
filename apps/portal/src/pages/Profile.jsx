@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import PortalLayout from '../components/PortalLayout';
 import { supabase } from '@nacos/supabase';
-import { getLocalStudentsDatabase } from '@nacos/supabase/auth';
+import { getLocalStudentsDatabase, updateStudentProfile } from '@nacos/supabase/auth';
 import { 
   calculateAcademicProgression, 
   getActiveAcademicSession, 
@@ -85,6 +85,17 @@ const formatDatabaseStudent = (dbRecord, fallback = {}) => {
     ? rawSession
     : (rawSession?.sessionName || rawSession?.session || getActiveAcademicSession());
 
+  let extraMeta = {};
+  const rawPhotoAlt = rec.photo_alt || safeFallback.photo_alt;
+  if (rawPhotoAlt && typeof rawPhotoAlt === 'string' && rawPhotoAlt.trim().startsWith('{')) {
+    try {
+      extraMeta = JSON.parse(rawPhotoAlt);
+    } catch (_) {}
+  }
+
+  const rawGender = rec.gender || extraMeta.gender || safeFallback.gender || 'M';
+  const cleanGender = (String(rawGender).toUpperCase().startsWith('F') || String(rawGender).toLowerCase() === 'female') ? 'F' : 'M';
+
   return {
     id: rec.id || safeFallback.id || matric,
     surname: String(surname || ''),
@@ -101,10 +112,10 @@ const formatDatabaseStudent = (dbRecord, fallback = {}) => {
     faculty: String(rec.faculty || safeFallback.faculty || 'School of Information & Communication Tech (SICT)'),
     email: String(rec.email || safeFallback.email || ''),
     phone: String(rec.phone_number || rec.phone || safeFallback.phone || safeFallback.phone_number || ''),
-    dob: String(rec.date_of_birth || rec.dob || safeFallback.dob || ''),
-    dobFormatted: String(rec.date_of_birth || rec.dobFormatted || rec.dob || safeFallback.dobFormatted || ''),
-    address: String(rec.residential_address || rec.address || safeFallback.address || ''),
-    bio: String(rec.bio || safeFallback.bio || ''),
+    dob: String(rec.date_of_birth || extraMeta.dob || rec.dob || safeFallback.dob || ''),
+    dobFormatted: String(rec.date_of_birth || extraMeta.dob || rec.dobFormatted || rec.dob || safeFallback.dobFormatted || ''),
+    address: String(rec.residential_address || extraMeta.address || rec.address || safeFallback.address || ''),
+    bio: String(rec.bio || extraMeta.bio || safeFallback.bio || ''),
     institution: String(rec.institution || rec.university || safeFallback.institution || 'FEDERAL UNIVERSITY OF TECHNOLOGY, OWERRI, IMO STATE'),
     level: currentLevel,
     current_level: currentLevel,
@@ -120,8 +131,8 @@ const formatDatabaseStudent = (dbRecord, fallback = {}) => {
     class_of_display: progression.classOfDisplay || `Class of ${graduationYear}`,
     classOfDisplay: progression.classOfDisplay || `Class of ${graduationYear}`,
     academic_session: cleanSession,
-    zone: String(rec.zone || rec.state_of_origin || safeFallback.zone || 'South East'),
-    gender: String(rec.gender || safeFallback.gender || 'M'),
+    zone: String(rec.zone || extraMeta.zone || rec.state_of_origin || safeFallback.zone || 'South East'),
+    gender: cleanGender,
     avatar_url: avatar,
     profile_photo_url: avatar,
     role: isGraduated ? 'Alumni Member' : (rec.role || safeFallback.role || 'Student Member'),
@@ -145,6 +156,8 @@ const loadSessionUser = () => {
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [lockedError, setLockedError] = useState(null);
+  const [saveSuccess, setSaveSuccess] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [isLoadingDb, setIsLoadingDb] = useState(true);
 
   // Dynamic user state initialized from session or default
@@ -290,28 +303,83 @@ const Profile = () => {
     return unsubscribe;
   }, []);
 
-  // Handle Save Attempt: Disallow updating profile after initial registration
-  // Allows user to edit text in fields while in edit mode, but once Save is clicked,
-  // rejects the changes and displays an error instructing the student to contact the administrator.
-  const handleSave = (e) => {
+  // Handle Save: Persist specific student profile fields (Gender, Phone, Address, DOB, Bio, Zone)
+  // Maintains strict lock on institutional academic bio-data (Official Name, Matric, Dept, Level)
+  const handleSave = async (e) => {
     if (e) e.preventDefault();
-    
-    // 1. Reject save - do not write to database or localStorage
-    // 2. Revert any in-flight form edits back to authoritative database profile
-    if (dbUserRef.current) {
-      setUser({ ...dbUserRef.current });
+    setIsSaving(true);
+    setLockedError(null);
+    setSaveSuccess(null);
+
+    const pristine = dbUserRef.current || {};
+
+    // Check if user attempted to alter locked academic records
+    const attemptedLockedChange = 
+      (user.surname && user.surname !== pristine.surname) ||
+      (user.firstName && user.firstName !== pristine.firstName) ||
+      (user.matric && user.matric !== pristine.matric) ||
+      (user.studentId && user.studentId !== pristine.studentId) ||
+      (user.department && user.department !== pristine.department) ||
+      (user.dept && user.dept !== pristine.dept) ||
+      (user.institution && user.institution !== pristine.institution);
+
+    // Revert official academic records to authoritative values
+    const sanitizedUser = {
+      ...user,
+      surname: pristine.surname || user.surname,
+      firstName: pristine.firstName || user.firstName,
+      name: pristine.name || user.name,
+      full_name: pristine.full_name || user.full_name,
+      matric: pristine.matric || user.matric,
+      studentId: pristine.studentId || user.studentId,
+      registration_number: pristine.registration_number || user.registration_number,
+      department: pristine.department || user.department,
+      dept: pristine.dept || user.dept,
+      institution: pristine.institution || user.institution,
+      level: pristine.level || user.level,
+      current_level: pristine.current_level || user.current_level,
+      admission_year: pristine.admission_year || user.admission_year,
+      programme: pristine.programme || user.programme,
+      faculty: pristine.faculty || user.faculty
+    };
+
+    const targetId = sanitizedUser.matric || sanitizedUser.registration_number || sanitizedUser.id;
+    const cleanGender = (String(sanitizedUser.gender).toUpperCase().startsWith('F') || String(sanitizedUser.gender).toLowerCase() === 'female') ? 'F' : 'M';
+    sanitizedUser.gender = cleanGender;
+
+    const updates = {
+      gender: cleanGender,
+      phone: sanitizedUser.phone || '',
+      phone_number: sanitizedUser.phone || '',
+      dob: sanitizedUser.dobFormatted || sanitizedUser.dob || '',
+      date_of_birth: sanitizedUser.dobFormatted || sanitizedUser.dob || '',
+      address: sanitizedUser.address || '',
+      residential_address: sanitizedUser.address || '',
+      bio: sanitizedUser.bio || '',
+      zone: sanitizedUser.zone || 'South East'
+    };
+
+    try {
+      const res = await updateStudentProfile(targetId, updates);
+      const savedUser = res?.data ? { ...sanitizedUser, ...res.data } : sanitizedUser;
+      
+      setUser(savedUser);
+      dbUserRef.current = savedUser;
+      setIsEditing(false);
+
+      if (attemptedLockedChange) {
+        setSaveSuccess('Specific profile details (Gender, Contact & Bio) have been updated successfully! Note: Official academic bio-data (Name, Matric No, Department) remains protected under departmental authority.');
+      } else {
+        setSaveSuccess('Profile updated successfully! Your default gender and personal details have been saved.');
+      }
+      setTimeout(() => setSaveSuccess(null), 6000);
+    } catch (err) {
+      console.error('Failed to save profile updates:', err);
+      setLockedError('Failed to save profile updates. Please verify your connection and try again.');
+    } finally {
+      setIsSaving(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    
-    // 3. Exit edit mode
-    setIsEditing(false);
-
-    // 4. Set explicit administrator contact error
-    setLockedError(
-      'Profile Update Locked: Official student bio-data cannot be updated after initial registration. Changes to your full name, registration number, department, or academic records require administrative clearance. Please contact the departmental administrator at support@nacosfuto.com.ng or visit the NACOS Secretariat.'
-    );
-
-    // Scroll to the error alert for immediate user feedback
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Handle Photo Click/Upload Attempt: Also locked after initial registration
@@ -350,6 +418,32 @@ const Profile = () => {
   return (
     <PortalLayout>
       <div className="space-y-6">
+
+        {/* ─── Profile Update Success Banner ─── */}
+        {saveSuccess && (
+          <div className="rounded-xl border border-green-200 dark:border-green-900/60 bg-green-50 dark:bg-green-950/40 p-4 sm:p-5 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-300 shrink-0 mt-0.5">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm sm:text-base font-bold text-green-900 dark:text-green-200">
+                  Profile Updated Successfully
+                </h3>
+                <p className="text-xs sm:text-sm text-green-800 dark:text-green-300/90 mt-1 leading-relaxed">
+                  {saveSuccess}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSaveSuccess(null)}
+                className="text-xs font-semibold text-green-700 dark:text-green-300 hover:underline cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ─── Profile Update Locked Error Banner ─── */}
         {lockedError && (
@@ -483,7 +577,7 @@ const Profile = () => {
 
                 {/* Gender Badge */}
                 <span className="px-2.5 py-1 rounded-md border border-green-200 dark:border-[#138601]/40 text-xs font-bold text-[#138601] dark:text-[#4bd043] flex items-center justify-center">
-                  Gender: {user.gender || 'M'}
+                  Gender: {user.gender === 'F' || user.gender === 'Female' ? 'Female (F)' : 'Male (M)'}
                 </span>
               </div>
             </div>
@@ -598,7 +692,7 @@ const Profile = () => {
                 />
               </div>
 
-              {/* Phone Number & Date of Birth */}
+              {/* Phone Number & Gender */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Phone Number</label>
@@ -612,16 +706,33 @@ const Profile = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Date of Birth</label>
-                  <input
-                    type="text"
-                    value={user.dobFormatted || user.dob}
-                    disabled={!isEditing}
-                    placeholder="MM/DD/YYYY"
-                    onChange={(e) => setUser({ ...user, dobFormatted: e.target.value, dob: e.target.value })}
-                    className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 transition-colors"
-                  />
+                  <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Gender</label>
+                  <div className="relative">
+                    <select
+                      value={user.gender || 'M'}
+                      disabled={!isEditing}
+                      onChange={(e) => setUser({ ...user, gender: e.target.value })}
+                      className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 cursor-pointer font-medium"
+                    >
+                      <option value="M">Male (M)</option>
+                      <option value="F">Female (F)</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-400 dark:text-green-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
+              </div>
+
+              {/* Date of Birth */}
+              <div>
+                <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Date of Birth</label>
+                <input
+                  type="text"
+                  value={user.dobFormatted || user.dob}
+                  disabled={!isEditing}
+                  placeholder="MM/DD/YYYY"
+                  onChange={(e) => setUser({ ...user, dobFormatted: e.target.value, dob: e.target.value })}
+                  className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 transition-colors"
+                />
               </div>
 
               {/* Address */}

@@ -31,12 +31,12 @@ export async function studentSignupStep1(registrationNumber) {
  * @param {{ firstName: string, lastName: string, middleName?: string }} names 
  * @returns {Promise<{ success: boolean, step2Token?: string, channels?: Array<{ type: string, label: string, masked: string }>, noVerifiedContact?: boolean, error?: string, message?: string }>}
  */
-export async function studentSignupStep2(step1Token, { firstName, lastName, middleName, email }) {
+export async function studentSignupStep2(step1Token, { firstName, lastName, middleName, email, gender }) {
   try {
     const res = await fetch('/api/auth/student/signup-step2', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ step1Token, firstName, lastName, middleName, email })
+      body: JSON.stringify({ step1Token, firstName, lastName, middleName, email, gender })
     });
     const data = await res.json();
     return data;
@@ -85,15 +85,15 @@ export async function verifyStudentOtp({ stepToken, otpCode, purpose = 'SIGNUP' 
 
 /**
  * Step 4: Complete Signup & Set Password
- * @param {{ authorizationToken: string, password: string }} params 
+ * @param {{ authorizationToken: string, password: string, gender?: string }} params 
  * @returns {Promise<{ success: boolean, user?: object, error?: string, message?: string }>}
  */
-export async function completeStudentSignup({ authorizationToken, password }) {
+export async function completeStudentSignup({ authorizationToken, password, gender }) {
   try {
     const res = await fetch('/api/auth/student/complete-signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ authorizationToken, password })
+      body: JSON.stringify({ authorizationToken, password, gender })
     });
     const data = await res.json();
     if (data.success && data.user) {

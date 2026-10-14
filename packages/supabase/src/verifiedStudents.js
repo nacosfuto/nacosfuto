@@ -761,17 +761,35 @@ export async function adminGetAllVerifiedStudents() {
 
       const registeredRegs = new Set(
         (Array.isArray(profsRecords) ? profsRecords : [])
-          .map(p => p.registration_number?.toUpperCase())
+          .map(p => p.registration_number?.toUpperCase()?.trim())
           .filter(Boolean)
       );
 
+      // Ensure any student profile registered in public.profiles is fully accounted for in the roster
+      if (Array.isArray(profsRecords) && profsRecords.length > 0) {
+        profsRecords.forEach(p => {
+          const reg = p.registration_number?.toUpperCase()?.trim();
+          if (reg && !map.has(reg)) {
+            map.set(reg, {
+              ...p,
+              has_registered: true,
+              is_registered: true,
+              status: p.is_active !== false ? 'active' : 'suspended'
+            });
+          }
+        });
+      }
+
       const merged = Array.from(map.values()).map(s => {
-        const isReg = registeredRegs.has(s.registration_number?.toUpperCase()) || Boolean(s.has_registered || s.is_registered);
+        const reg = s.registration_number?.toUpperCase()?.trim();
+        const isReg = registeredRegs.has(reg) || Boolean(s.has_registered || s.is_registered);
         const progression = calculateAcademicProgression(s);
+        const isStudentActive = s.is_active !== false && s.status !== 'suspended' && s.status !== 'deactivated';
         return {
           ...s,
           has_registered: isReg,
           is_registered: isReg,
+          is_active: isStudentActive,
           level: progression.levelString,
           current_level: progression.levelString,
           numeric_level: progression.numericLevel,

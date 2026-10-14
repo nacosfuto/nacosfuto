@@ -263,7 +263,7 @@ export async function handleSignupStep1({ registrationNumber }) {
 // 2. STEP 2: NAME & CONTACT VERIFICATION
 // =============================================================================
 
-export async function handleSignupStep2({ step1Token, firstName, lastName, middleName, email }) {
+export async function handleSignupStep2({ step1Token, firstName, lastName, middleName, email, gender }) {
   const verifiedToken = verifyAuthToken(step1Token);
   if (!verifiedToken || verifiedToken.step !== 1 || verifiedToken.purpose !== 'SIGNUP') {
     return { success: false, error: 'Invalid or expired verification session. Please restart from Step 1.' };
@@ -374,6 +374,9 @@ export async function handleSignupStep2({ step1Token, firstName, lastName, middl
     };
   }
 
+  const rawGender = gender || officialRecord.gender || 'M';
+  const cleanGender = (String(rawGender).toUpperCase().startsWith('F') || String(rawGender).toLowerCase() === 'female') ? 'F' : 'M';
+
   // Issue Step 2 Token (stores trusted contact info server-side, valid for 20 minutes)
   const step2Token = signAuthToken({
     step: 2,
@@ -383,6 +386,7 @@ export async function handleSignupStep2({ step1Token, firstName, lastName, middl
     hasEmail: Boolean(effectiveEmail),
     hasPhone: Boolean(officialPhone),
     providedEmail: effectiveEmail || null,
+    providedGender: cleanGender,
     exp: Date.now() + 20 * 60 * 1000
   });
 
@@ -717,6 +721,7 @@ export async function handleVerifyOtp({ stepToken, otpCode, purpose = 'SIGNUP' }
     registrationNumber: cleanReg,
     studentId: verifiedToken.studentId,
     providedEmail: verifiedToken.providedEmail || null,
+    providedGender: verifiedToken.providedGender || null,
     verifiedAt: Date.now(),
     exp: Date.now() + ACTION_TOKEN_EXPIRY_MINUTES * 60 * 1000
   });
@@ -747,7 +752,7 @@ export async function handleVerifyOtp({ stepToken, otpCode, purpose = 'SIGNUP' }
 // 4. STEP 4: COMPLETE SIGNUP & ACCOUNT CREATION
 // =============================================================================
 
-export async function handleCompleteSignup({ authorizationToken, password }) {
+export async function handleCompleteSignup({ authorizationToken, password, gender }) {
   const verifiedToken = verifyAuthToken(authorizationToken);
   if (!verifiedToken || verifiedToken.purpose !== 'SIGNUP') {
     return { success: false, error: 'Unauthorized or expired session. Please complete identity verification first.' };
@@ -762,6 +767,9 @@ export async function handleCompleteSignup({ authorizationToken, password }) {
   if (!officialRecord) {
     return { success: false, error: 'Student record could not be found.' };
   }
+
+  const rawGender = gender || verifiedToken.providedGender || officialRecord.gender || 'M';
+  const cleanGender = (String(rawGender).toUpperCase().startsWith('F') || String(rawGender).toLowerCase() === 'female') ? 'F' : 'M';
 
   const passwordHash = hashPasswordServer(password);
   const nowIso = new Date().toISOString();
@@ -787,43 +795,65 @@ export async function handleCompleteSignup({ authorizationToken, password }) {
     role: 'Student Member',
     institution: 'Federal University of Technology, Owerri (FUTO)',
     is_active: true,
+    gender: cleanGender,
+    photo_alt: JSON.stringify({ gender: cleanGender }),
     password_hash: passwordHash,
     updated_at: nowIso
   };
 
-    if (supabase) {
-      try {
-        // 1. Create or update profile in public.profiles
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('id')
-          .or(`registration_number.eq.${cleanReg},id.eq.${profileRecord.id}`)
-          .limit(1)
-          .maybeSingle();
+  if (supabase) {
+    try {
+      // 1. Create or update profile in public.profiles
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .or(`registration_number.eq.${cleanReg},id.eq.${profileRecord.id}`)
+        .limit(1)
+        .maybeSingle();
 
-        if (existingProfile) {
-          profileRecord.id = existingProfile.id;
+      if (existingProfile) {
+        profileRecord.id = existingProfile.id;
+        try {
           await supabase.from('profiles').update(profileRecord).eq('id', existingProfile.id);
-        } else {
+        } catch (updErr) {
+          const fallback = { ...profileRecord };
+          delete fallback.gender;
+          await supabase.from('profiles').update(fallback).eq('id', existingProfile.id);
+        }
+      } else {
+        try {
           await supabase.from('profiles').insert([profileRecord]);
+        } catch (insErr) {
+          const fallback = { ...profileRecord };
+          delete fallback.gender;
+          await supabase.from('profiles').insert([fallback]);
         }
+      }
 
-        // 2. Mark verified_students as registered and persist email if provided
-        const vsUpdatePayload = {
-          has_registered: true,
-          is_registered: true,
-          registered_at: nowIso,
-          updated_at: nowIso
-        };
-        if (candidateEmail) {
-          vsUpdatePayload.email = candidateEmail;
-          vsUpdatePayload.masked_email = maskEmail(candidateEmail);
-        }
+      // 2. Mark verified_students as registered and persist email if provided
+      const vsUpdatePayload = {
+        has_registered: true,
+        is_registered: true,
+        registered_at: nowIso,
+        updated_at: nowIso,
+        status: 'active'
+      };
+      if (candidateEmail) {
+        vsUpdatePayload.email = candidateEmail;
+        vsUpdatePayload.masked_email = maskEmail(candidateEmail);
+      }
 
+      try {
+        await supabase
+          .from('verified_students')
+          .update({ ...vsUpdatePayload, gender: cleanGender })
+          .eq('registration_number', cleanReg);
+      } catch (_) {
         await supabase
           .from('verified_students')
           .update(vsUpdatePayload)
           .eq('registration_number', cleanReg);
+      }
 
       // 3. Mark verification session consumed
       await supabase
@@ -849,7 +879,10 @@ export async function handleCompleteSignup({ authorizationToken, password }) {
   }
 
   const { enrichStudentProfile } = await import('../auth.js');
-  const enriched = enrichStudentProfile(profileRecord);
+  const enriched = enrichStudentProfile({
+    ...profileRecord,
+    gender: cleanGender
+  });
 
   return {
     success: true,

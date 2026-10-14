@@ -174,8 +174,11 @@ export const PortalAdminDashboard = () => {
       setIdCardsList(idCards);
 
       // Exact database count (surpassing 1000 limit)
-      const exactWhitelistCount = vsCountRes > 0 ? vsCountRes : whitelist.length;
-      const exactAccountsCount = profsCountRes > 0 ? profsCountRes : accounts.length;
+      const exactWhitelistCount = Math.max(vsCountRes || 0, whitelist.length);
+      const activeEnrolledCount = accounts.filter(a => a.is_active !== false).length;
+      const exactAccountsCount = profsCountRes > 0 
+        ? Math.max(profsCountRes, activeEnrolledCount) 
+        : (activeEnrolledCount || accounts.length);
 
       setStats({
         whitelistTotal: exactWhitelistCount,
@@ -288,7 +291,7 @@ export const PortalAdminDashboard = () => {
       link: '/students'
     },
     {
-      title: 'Active Portal Users',
+      title: 'Active Enrolled Users',
       value: stats.activeAccounts,
       subtitle: 'Registered live student accounts',
       icon: GraduationCap,

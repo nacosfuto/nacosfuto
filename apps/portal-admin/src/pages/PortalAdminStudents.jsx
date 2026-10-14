@@ -1078,11 +1078,11 @@ const AdminStudents = () => {
                           </span>
                         ) : (
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold ${
-                            s.is_active 
+                            s.is_active !== false && s.status !== 'suspended' && s.status !== 'deactivated'
                               ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
                               : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
                           }`}>
-                            {s.is_active ? 'Active Enrolled' : 'Suspended'}
+                            {s.is_active !== false && s.status !== 'suspended' && s.status !== 'deactivated' ? 'Active Enrolled' : 'Suspended'}
                           </span>
                         )}
                       </td>
@@ -2048,8 +2048,8 @@ const AdminStudents = () => {
                 </div>
                 <div className="flex justify-between py-1 border-b border-gray-100 dark:border-[#138601]/10">
                   <span className="text-gray-500">Status:</span>
-                  <span className={selectedStudent.is_active ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
-                    {selectedStudent.is_active ? 'Active Enrolled' : 'Deactivated'}
+                  <span className={selectedStudent.is_active !== false && selectedStudent.status !== 'suspended' ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                    {selectedStudent.is_active !== false && selectedStudent.status !== 'suspended' ? 'Active Enrolled' : 'Deactivated'}
                   </span>
                 </div>
               </div>
