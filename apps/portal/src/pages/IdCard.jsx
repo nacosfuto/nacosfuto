@@ -23,7 +23,8 @@ import {
   Check,
   Plus,
   ChevronDown,
-  X
+  X,
+  ArrowLeft
 } from 'lucide-react';
 import { getProgressiveLevels } from './Dues';
 import { 
@@ -151,6 +152,7 @@ const IdCard = () => {
   // ID Card Display On-Demand & Backend Access Verification States
   const [isCardViewRequested, setIsCardViewRequested] = useState(false);
   const [isVerifyingCardAccess, setIsVerifyingCardAccess] = useState(false);
+  const [isChangingPhoto, setIsChangingPhoto] = useState(false);
 
   // Progressive Level & Session Selection Modal
   const [isNewPaymentModalOpen, setIsNewPaymentModalOpen] = useState(false);
@@ -539,59 +541,17 @@ const IdCard = () => {
     const regNo = student?.matric || student?.registration_number;
 
     try {
-      const res = await verifyStudentIdCardAccess({
-        registrationNumber: regNo,
-        studentId: student?.id,
-        level: targetLvl,
-        session: targetOb?.session || formSession
-      });
-
-      if (!res.allowed) {
-        // If client already confirmed payment locally, fallback gracefully
-        if (isLevelPaid || targetOb?.isPaid) {
-          setIsCardViewRequested(true);
-          setIsVerifyingCardAccess(false);
-          showNotification(`Official ID Card for ${targetLvl} verified and loaded!`);
-          setTimeout(() => {
-            const el = document.getElementById('nacos-id-card-stage');
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 150);
-          return;
-        }
-
-        showNotification(res.error || `Payment required for ${targetLvl}. Please complete payment to view your ID card.`, 'error');
-        setIsCardViewRequested(false);
-        setIsVerifyingCardAccess(false);
-        return;
-      }
-
-      // Access Granted! Synchronize application and reveal card in page section
-      if (res.application) {
-        setApplication(prev => ({ ...prev, ...res.application }));
-      }
+      await loadStudentAndApplication(targetLvl);
       setIsCardViewRequested(true);
+      setIsChangingPhoto(false);
       setIsVerifyingCardAccess(false);
-      showNotification(`Official ID Card for ${res.targetLevel || targetLvl} verified and loaded!`);
-
-      setTimeout(() => {
-        const el = document.getElementById('nacos-id-card-stage');
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 150);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       console.warn('Backend verification notice:', err);
-      if (isLevelPaid || targetOb?.isPaid) {
-        setIsCardViewRequested(true);
-        setTimeout(() => {
-          const el = document.getElementById('nacos-id-card-stage');
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 150);
-      } else {
-        showNotification('Unable to verify ID card clearance. Please try again.', 'error');
-        setIsCardViewRequested(false);
-      }
+      setIsCardViewRequested(true);
+      setIsChangingPhoto(false);
       setIsVerifyingCardAccess(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -1285,9 +1245,10 @@ const IdCard = () => {
       generated_at: now
     }));
 
+    setIsChangingPhoto(false);
     setIsUploadingPhoto(false);
     window.dispatchEvent(new Event('nacos_user_updated'));
-    showNotification('Photograph uploaded and synced to your profile! ID Card generated on the spot.');
+    showNotification('Photograph uploaded successfully! Official ID card generated.');
   };
 
   // State 4 -> State 5: Submit Application
@@ -1622,7 +1583,7 @@ const IdCard = () => {
         render(null);
       }
     }
-  }, [isCardViewRequested, application?.status, isState7, student?.matric, student?.profile_photo_url, selectedObligation?.level, selectedObligation?.session]);
+  }, [isCardViewRequested, isChangingPhoto, application?.status, application?.passport_url, isState7, student?.matric, student?.profile_photo_url, student?.avatar_url, selectedObligation?.level, selectedObligation?.session]);
 
   // Format card expiration date (1-year validity from generation or current session)
   const expiryDateFormatted = (() => {
@@ -1637,19 +1598,12 @@ const IdCard = () => {
     }
   })();
 
+  const currentPhotoUrl = application?.passport_url || student?.profile_photo_url || student?.avatar_url;
+  const isPhotoMissingOrChanging = !currentPhotoUrl || isChangingPhoto;
+
   return (
     <PortalLayout>
       <div className="space-y-6">
-
-        {/* Top Header */}
-        <div className="print:hidden">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-            Student ID Card Application &amp; Issuance
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
-            Official clearance history and electronic POS receipts for Department of Computer Science.
-          </p>
-        </div>
 
         {/* Global Notification Banner */}
         {notification.message && (
@@ -1662,9 +1616,344 @@ const IdCard = () => {
           </div>
         )}
 
-        {/* ==================================================================== */}
-        {/* LEVEL-BY-LEVEL ID CARD OBLIGATIONS & RENEWAL RECORDS TABLE             */}
-        {/* ==================================================================== */}
+        {isCardViewRequested ? (
+          /* ==================================================================== */
+          /* DEDICATED ID CARD STUDIO PAGE VIEW (Loads like a new page)           */
+          /* ==================================================================== */
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Studio Navigation & Status Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#083002] p-4 sm:p-5 rounded-2xl border border-gray-200/80 dark:border-[#138601]/30 shadow-xs">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsCardViewRequested(false)}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-gray-700 dark:text-green-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#138601]/30 border border-gray-200/80 dark:border-[#138601]/30 transition-all cursor-pointer active:scale-95"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back to Overview</span>
+                </button>
+                <div className="h-6 w-px bg-gray-200 dark:bg-[#138601]/30 hidden sm:block" />
+                <div>
+                  <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white tracking-tight">
+                    Official Student Identity Card ({selectedObligation?.level || application?.level || formLevel || 'Active'})
+                  </h1>
+                  <p className="text-[11px] sm:text-xs text-gray-500 dark:text-green-200/70">
+                    Department of Computer Science • Session {selectedObligation?.session || application?.academic_session || currentAcademicSession}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 border border-green-200 dark:border-green-800">
+                  <CheckCircle className="w-3.5 h-3.5" /> Clearance Verified
+                </span>
+              </div>
+            </div>
+
+            {/* If photo is missing or user clicked 'Change Photograph': Prompt to upload image first */}
+            {isPhotoMissingOrChanging ? (
+              <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 text-center space-y-6 shadow-xs max-w-2xl mx-auto">
+                <div className="w-16 h-16 rounded-2xl bg-green-50 dark:bg-green-900/20 text-[#138601] dark:text-[#4bd043] flex items-center justify-center mx-auto border border-green-200 dark:border-green-800/40">
+                  <Camera className="w-8 h-8" />
+                </div>
+
+                <div className="max-w-md mx-auto space-y-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-semibold">
+                    <CheckCircle className="w-3.5 h-3.5" /> Step: ID Card Photograph Required
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                    {isChangingPhoto ? 'Update Your ID Card Photograph' : 'Upload ID Card Photograph'}
+                  </h2>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
+                    To generate your official student identity card on the spot, please provide a clear front-facing portrait photograph on a light background.
+                  </p>
+                </div>
+
+                {uploadError && (
+                  <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-xs text-red-600 dark:text-red-300 font-semibold max-w-md mx-auto">
+                    {uploadError}
+                  </div>
+                )}
+
+                <div className="max-w-md mx-auto text-left space-y-4">
+                  <MediaUpload
+                    folder={CLOUDINARY_FOLDERS.STUDENTS}
+                    publicId={`${CLOUDINARY_FOLDERS.STUDENTS}/${(student?.matric || student?.registration_number || 'student').replace(/[^a-zA-Z0-9]/g, '_')}_passport`}
+                    label="Passport Photograph (JPG/PNG/WebP, max 5MB)"
+                    helperText="Clear front portrait with neutral background"
+                    aspectRatio="portrait"
+                    previewPreset="id_card_photo"
+                    onUploadSuccess={handlePhotoUploaded}
+                    onError={(err) => setUploadError(err)}
+                  />
+
+                  {/* Option to use existing profile photo if student already has one */}
+                  {(student?.profile_photo_url || student?.avatar_url) && (
+                    <div className="p-3.5 rounded-xl bg-gray-50/80 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/25 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={student.profile_photo_url || student.avatar_url}
+                          alt="Current Profile Photo"
+                          className="w-10 h-10 rounded-full object-cover border-2 border-[#138601]"
+                        />
+                        <div>
+                          <div className="text-xs font-semibold text-gray-800 dark:text-white">Use Current Account Photo</div>
+                          <div className="text-[11px] text-gray-500 dark:text-green-200/60">Generate card using existing portrait</div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handlePhotoUploaded({ url: student.profile_photo_url || student.avatar_url })}
+                        className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-lg transition-colors cursor-pointer"
+                      >
+                        Use Photo
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Direct file picker fallback */}
+                  <div className="pt-1 text-center">
+                    <label className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 dark:hover:text-white cursor-pointer underline">
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Choose image directly from device</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (evt) => {
+                              handlePhotoUploaded({ url: evt.target.result });
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  {isChangingPhoto && currentPhotoUrl && (
+                    <div className="pt-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setIsChangingPhoto(false)}
+                        className="text-xs font-semibold text-gray-500 hover:text-gray-800 dark:text-green-200/70 dark:hover:text-white cursor-pointer"
+                      >
+                        Cancel and keep current photo
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* TWO-SIDED ID CARD GENERATED STUDIO VIEW */
+              <div className="space-y-6">
+                <div id="nacos-id-card-stage" className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 shadow-xs space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-[#138601]/20 pb-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                          Official Student Identity Card (Two-Sided)
+                        </h3>
+                        <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">
+                          Active
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-green-200/70 mt-0.5">
+                        Official NACOS FUTO double-sided identity card. Tap Front or Back to inspect each side.
+                      </p>
+                    </div>
+
+                    {/* Front / Back Toggle Buttons & Action Controls */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsChangingPhoto(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-700 dark:text-green-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#138601]/20 border border-gray-200/80 dark:border-[#138601]/30 transition-colors cursor-pointer"
+                        title="Change ID Card Photograph"
+                      >
+                        <Camera className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
+                        <span>Change Photo</span>
+                      </button>
+
+                      <div className="inline-flex p-1 rounded-xl bg-gray-100 dark:bg-[#041801] border border-gray-200/80 dark:border-[#138601]/30">
+                        <button
+                          type="button"
+                          onClick={() => setCurrentSide('front')}
+                          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentSide === 'front'
+                              ? 'bg-[#138601] text-white shadow-xs'
+                              : 'text-gray-600 dark:text-green-200/70 hover:text-black dark:hover:text-white'
+                            }`}
+                        >
+                          Front Side
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentSide('back')}
+                          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentSide === 'back'
+                              ? 'bg-[#138601] text-white shadow-xs'
+                              : 'text-gray-600 dark:text-green-200/70 hover:text-black dark:hover:text-white'
+                            }`}
+                        >
+                          Back Side
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setCurrentSide(prev => prev === 'front' ? 'back' : 'front')}
+                        className="p-2 rounded-xl bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#138601]/20 text-gray-700 dark:text-green-200 border border-gray-200/80 dark:border-[#138601]/30 transition-colors cursor-pointer"
+                        title="Flip Card"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+
+                      <a
+                        href={`/verify/id/${application?.id_card_number || student?.matric || 'NACOS'}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-gray-700 dark:text-green-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 border border-gray-200/80 dark:border-[#138601]/30 transition-colors"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Verify</span>
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Card Sides Preview Area (Portrait CR-80 Card: 662 × 1075 px) */}
+                  <div className="flex justify-center items-center py-4">
+                    <div className="max-w-xs sm:max-w-sm w-full rounded-2xl overflow-hidden shadow-2xl border-2 border-[#138601]/50 bg-[#083002]">
+
+                      {/* FRONT SIDE */}
+                      <div className={`${currentSide === 'front' ? 'block' : 'hidden'}`}>
+                        <canvas
+                          ref={canvasRef}
+                          className="w-full h-auto block"
+                          style={{ aspectRatio: `${ID_CARD_TEMPLATE.dimensions.aspectRatio}` }}
+                        />
+                      </div>
+
+                      {/* BACK SIDE (Static Master Back Template) */}
+                      <div className={`${currentSide === 'back' ? 'block' : 'hidden'}`}>
+                        <img
+                          src={application?.id_card_back_url || ID_CARD_TEMPLATE.masterBackUrl || idTemplateBack}
+                          alt="NACOS Student ID Card Back"
+                          className="w-full h-auto block object-cover"
+                          style={{ aspectRatio: `${ID_CARD_TEMPLATE.dimensions.aspectRatio}` }}
+                        />
+                      </div>
+
+                    </div>
+                  </div>
+
+                  {/* Side indicator badge */}
+                  <div className="text-center text-xs font-semibold text-gray-500 dark:text-green-200/70">
+                    Viewing: <span className="text-[#138601] dark:text-[#4bd043] uppercase font-bold">{currentSide} of official card</span>
+                  </div>
+
+                  {/* Download Buttons Bar */}
+                  <div className="flex flex-wrap items-center justify-end gap-2.5 pt-4 border-t border-gray-100 dark:border-[#138601]/20">
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadImage('front')}
+                      className="px-4 py-2.5 min-h-[40px] text-xs font-semibold text-gray-800 dark:text-white bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-black rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
+                      <span>Front (PNG)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadImage('back')}
+                      className="px-4 py-2.5 min-h-[40px] text-xs font-semibold text-gray-800 dark:text-white bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-black rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
+                      <span>Back (PNG)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadImage('both')}
+                      className="px-4 py-2.5 min-h-[40px] text-xs font-semibold text-gray-800 dark:text-white bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-black rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
+                      <span>Both Sides (PNG)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadZip}
+                      className="px-4 py-2.5 min-h-[40px] text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                      title="Download Front & Back as ZIP Archive"
+                    >
+                      <Download className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
+                      <span>Download Bundle (ZIP)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenReceipt(selectedObligation?.payment || {
+                        receiptNo: selectedObligation?.receiptNo,
+                        transactionId: selectedObligation?.transactionId,
+                        amount: selectedObligation?.amount,
+                        level: selectedObligation?.level,
+                        session: selectedObligation?.session,
+                        date: selectedObligation?.date
+                      })}
+                      className="px-5 py-2.5 min-h-[40px] text-xs font-semibold text-[#0e8040] hover:text-[#0b6a34] bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Receipt ({selectedObligation?.level || 'Card'})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadPdf}
+                      className="px-6 py-2.5 min-h-[40px] text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-2"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>Print / Two-Sided PDF</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Verification & Metadata Summary */}
+                <div className="p-5 rounded-xl bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs space-y-2">
+                  <h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
+                    <span>Card Validity & Details</span>
+                  </h4>
+                  <ul className="list-disc list-inside text-gray-600 dark:text-green-100/70 space-y-1">
+                    <li>Student Name: <strong className="text-gray-900 dark:text-white">{student?.name || student?.full_name || 'Student'}</strong></li>
+                    <li>NACOS ID Number: <strong className="font-mono text-gray-900 dark:text-white">{application?.id_card_number || student?.matric || 'N/A'}</strong></li>
+                    <li>Valid for Session: <strong className="text-gray-900 dark:text-white">{selectedObligation?.session || settings?.academic_session || 'Current'}</strong></li>
+                    <li>Expiration Date: <strong className="text-[#138601] dark:text-[#4bd043]">{expiryDateFormatted} (1-Year Validity)</strong></li>
+                    <li>Present this digital or printed card for departmental verification, election voting, and lab access.</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* ==================================================================== */
+          /* DEFAULT OVERVIEW: HEADER + LEVEL OBLIGATIONS TABLE                   */
+          /* ==================================================================== */
+          <>
+            {/* Top Header */}
+            <div className="print:hidden">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+                Student ID Card Application &amp; Issuance
+              </h1>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
+                Official clearance history and electronic POS receipts for Department of Computer Science.
+              </p>
+            </div>
+
+            {/* ==================================================================== */}
+            {/* LEVEL-BY-LEVEL ID CARD OBLIGATIONS & RENEWAL RECORDS TABLE             */}
+            {/* ==================================================================== */}
         <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200/80 dark:border-[#138601]/30 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs sm:text-sm">
@@ -1989,553 +2278,10 @@ const IdCard = () => {
             )}
           </div>
         )}
+      </>
+    )}
 
-
-
-        {/* ====================================================================
-            STATE 1: NOT APPLIED (Initial On-Demand State)
-            ==================================================================== */}
-        {isState1 && (
-          <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 text-center space-y-6 shadow-xs">
-            <div className="w-16 h-16 rounded-2xl bg-green-50 dark:bg-[#041801] text-[#138601] dark:text-[#4bd043] flex items-center justify-center mx-auto border border-[#138601]/30">
-              <CreditCard className="w-8 h-8" />
-            </div>
-
-            <div className="max-w-xl mx-auto space-y-2">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-                Get Your NACOS Student ID Card
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
-                The official NACOS FUTO Student Identity Card is an on-demand credential that grants you access to departmental computing laboratories, election voting rights, academic library clearance, and verified national member benefits.
-              </p>
-            </div>
-
-            {/* Checklist of What You Need */}
-            <div className="max-w-lg mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
-              <div className="p-4 rounded-xl bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 space-y-1">
-                <div className="flex items-center gap-2 font-bold text-xs text-gray-900 dark:text-white">
-                  <CreditCard className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
-                  <span>ID Card Fee</span>
-                </div>
-                <p className="text-[11px] text-gray-500 dark:text-green-200/70">
-                  Current fee: <strong className="text-[#138601] dark:text-[#4bd043]">{settings?.id_card_fee ? `₦${Number(settings.id_card_fee).toLocaleString()}` : 'Configured via Admin'}</strong> for session {settings?.academic_session || 'Current'}.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 space-y-1">
-                <div className="flex items-center gap-2 font-bold text-xs text-gray-900 dark:text-white">
-                  <Camera className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
-                  <span>Passport Photo</span>
-                </div>
-                <p className="text-[11px] text-gray-500 dark:text-green-200/70">
-                  A front-facing, high-resolution portrait photograph on a light background.
-                </p>
-              </div>
-            </div>
-
-            {/* Apply Action Button */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleApply}
-                disabled={isApplying}
-                className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
-              >
-                {isApplying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                <span>{isApplying ? 'Initiating Application...' : 'Apply for ID Card'}</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-
-
-        {/* ====================================================================
-            STATE 3: PAYMENT CONFIRMED / PHOTO REQUIRED
-            ==================================================================== */}
-        {isState3 && (
-          <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 text-center space-y-6 shadow-xs">
-            <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto border border-blue-200 dark:border-blue-800/40">
-              <Camera className="w-8 h-8" />
-            </div>
-
-            <div className="max-w-md mx-auto space-y-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-semibold">
-                <CheckCircle className="w-3.5 h-3.5" /> Payment Verified ({application?.payment_reference || 'CLEARED'})
-              </span>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                Upload Passport Photograph
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
-                Your payment is verified. Please upload a clear front-facing photograph to complete your ID card application.
-              </p>
-            </div>
-
-            {uploadError && (
-              <div className="p-3.5 rounded-xl bg-red-50 text-xs text-red-600 font-semibold max-w-md mx-auto">
-                {uploadError}
-              </div>
-            )}
-
-            <div className="max-w-sm mx-auto text-left space-y-3">
-              <MediaUpload
-                folder={CLOUDINARY_FOLDERS.STUDENTS}
-                publicId={`${CLOUDINARY_FOLDERS.STUDENTS}/${(student?.matric || student?.registration_number || 'student').replace(/[^a-zA-Z0-9]/g, '_')}_passport`}
-                label="Passport Photograph (JPG/PNG/WebP, max 5MB)"
-                helperText="Clear front portrait with neutral background"
-                aspectRatio="portrait"
-                previewPreset="id_card_photo"
-                onUploadSuccess={handlePhotoUploaded}
-                onError={(err) => setUploadError(err)}
-              />
-
-              {/* Option to use existing profile photo if student already has one */}
-              {(student?.profile_photo_url || student?.avatar_url) && (
-                <div className="pt-2 border-t border-gray-100 dark:border-[#138601]/20 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={student.profile_photo_url || student.avatar_url}
-                      alt="Current Avatar"
-                      className="w-8 h-8 rounded-full object-cover border border-gray-300 dark:border-[#138601]/40"
-                    />
-                    <span className="text-[11px] text-gray-600 dark:text-green-200">Use current profile photo</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handlePhotoUploaded({ url: student.profile_photo_url || student.avatar_url })}
-                    className="px-3 py-1 text-xs font-semibold text-[#138601] dark:text-[#4bd043] hover:text-white hover:bg-[#138601] border border-[#138601] dark:border-[#138601]/50 rounded-lg transition-colors cursor-pointer"
-                  >
-                    Select Photo
-                  </button>
-                </div>
-              )}
-
-              {/* Direct file picker fallback */}
-              <div className="pt-1 text-center">
-                <label className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 dark:hover:text-white cursor-pointer underline">
-                  <Camera className="w-3.5 h-3.5" />
-                  <span>Choose file from device directly</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (evt) => {
-                          handlePhotoUploaded({ url: evt.target.result });
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ====================================================================
-            STATE 4: READY TO SUBMIT (Review & Submit Application)
-            ==================================================================== */}
-        {isState4 && (
-          <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 text-center space-y-6 shadow-xs">
-            <div className="w-16 h-16 rounded-2xl bg-green-100 dark:bg-green-900/30 text-[#138601] dark:text-[#4bd043] flex items-center justify-center mx-auto border border-green-300 dark:border-green-800">
-              <CheckCircle className="w-8 h-8" />
-            </div>
-
-            <div className="max-w-md mx-auto space-y-2">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                Review & Submit Your Application
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
-                Please verify your details and photograph before submitting your application for administrator review.
-              </p>
-            </div>
-
-            {/* Profile Confirmation Card */}
-            <div className="max-w-md mx-auto p-5 rounded-xl bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 flex items-center gap-5 text-left">
-              <img
-                src={application?.passport_url || student?.profile_photo_url || ''}
-                alt="Passport Photo"
-                className="w-20 h-24 object-cover rounded-xl border-2 border-[#138601] shadow-xs"
-              />
-              <div className="space-y-1 text-xs">
-                <div className="font-bold text-sm text-gray-900 dark:text-white">{student?.name || student?.full_name || 'Student'}</div>
-                <div className="font-mono text-[#138601] dark:text-[#4bd043] font-semibold">{student?.matric || student?.registration_number || ''}</div>
-                <div className="text-gray-500 dark:text-green-200/70">{student?.level || student?.current_level || '100 Level'} • {student?.programme || 'B.Tech Computer Science'}</div>
-                <div className="text-[11px] text-gray-400 dark:text-green-200/50 pt-1">
-                  App No: {application?.application_number || 'N/A'}
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => setApplication(prev => ({ ...prev, status: 'photo_required' }))}
-                className="px-5 py-3 min-h-[44px] text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer"
-              >
-                Change Photograph
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSubmitApplication}
-                disabled={isSubmitting}
-                className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
-              >
-                {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                <span>{isSubmitting ? 'Submitting Application...' : 'Submit Application for Review'}</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ====================================================================
-            STATE 5: PROCESSING (Under Review by Portal Admin)
-            ==================================================================== */}
-        {isState5 && (
-          <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 text-center space-y-6 shadow-xs">
-            <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800/40 animate-pulse">
-              <Clock className="w-8 h-8" />
-            </div>
-
-            <div className="max-w-md mx-auto space-y-2">
-              <span className="inline-block px-3 py-1 rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-semibold">
-                Status: Application Under Review
-              </span>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                Your ID Application is Being Reviewed
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
-                Your application has been received and is currently undergoing verification by the NACOS Student Portal Administrator. Once approved, your official digital ID card will be generated automatically.
-              </p>
-            </div>
-
-            <div className="p-5 rounded-xl max-w-sm mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Application Number:</span>
-                <span className="font-mono font-bold text-gray-900 dark:text-white">{application?.application_number || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Payment Status:</span>
-                <span className="font-semibold text-green-600 dark:text-green-400">Paid</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Submitted On:</span>
-                <span className="text-gray-700 dark:text-gray-300">
-                  {application?.submitted_at ? new Date(application.submitted_at).toLocaleDateString() : 'Today'}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ====================================================================
-            STATE 6: APPROVED / PREPARING
-            ==================================================================== */}
-        {isState6 && (
-          <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 text-center space-y-4 shadow-xs">
-            <div className="w-16 h-16 rounded-2xl bg-green-50 dark:bg-green-900/20 text-[#138601] dark:text-[#4bd043] flex items-center justify-center mx-auto border border-green-200">
-              <RefreshCw className="w-8 h-8 animate-spin" />
-            </div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Your ID Card is Being Prepared</h2>
-            <p className="text-xs text-gray-500 dark:text-green-100/80">
-              Application approved! Generating high-resolution digital security assets...
-            </p>
-          </div>
-        )}
-
-        {/* ====================================================================
-            STATE 7: GENERATED (Active Official Digital ID Card)
-            Appears ONLY when student clicks "View ID Card" & passes verification
-            ==================================================================== */}
-        {isCardViewRequested && (
-          <div className="space-y-6">
-
-            {/* Visual Canvas Two-Sided ID Card Preview Container */}
-            <div id="nacos-id-card-stage" className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 shadow-xs space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-[#138601]/20 pb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-gray-900 dark:text-white">
-                      Official Student Identity Card (Two-Sided)
-                    </h3>
-                    <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">
-                      Active
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-green-200/70 mt-0.5">
-                    Official NACOS FUTO double-sided identity card. Tap Front or Back to inspect each side.
-                  </p>
-                </div>
-
-                {/* Front / Back Toggle Buttons */}
-                <div className="flex items-center gap-2">
-                  <div className="inline-flex p-1 rounded-xl bg-gray-100 dark:bg-[#041801] border border-gray-200/80 dark:border-[#138601]/30">
-                    <button
-                      type="button"
-                      onClick={() => setCurrentSide('front')}
-                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentSide === 'front'
-                          ? 'bg-[#138601] text-white shadow-xs'
-                          : 'text-gray-600 dark:text-green-200/70 hover:text-black dark:hover:text-white'
-                        }`}
-                    >
-                      Front Side
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCurrentSide('back')}
-                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentSide === 'back'
-                          ? 'bg-[#138601] text-white shadow-xs'
-                          : 'text-gray-600 dark:text-green-200/70 hover:text-black dark:hover:text-white'
-                        }`}
-                    >
-                      Back Side
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setCurrentSide(prev => prev === 'front' ? 'back' : 'front')}
-                    className="p-2 rounded-xl bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#138601]/20 text-gray-700 dark:text-green-200 border border-gray-200/80 dark:border-[#138601]/30 transition-colors cursor-pointer"
-                    title="Flip Card"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                  </button>
-
-                  <a
-                    href={`/verify/id/${application?.id_card_number || student?.matric || 'NACOS'}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-gray-700 dark:text-green-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 border border-gray-200/80 dark:border-[#138601]/30 transition-colors"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Verify</span>
-                  </a>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsCardViewRequested(false)}
-                    className="p-2 rounded-xl bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#138601]/20 text-gray-500 hover:text-gray-800 dark:text-green-200 border border-gray-200/80 dark:border-[#138601]/30 transition-colors cursor-pointer"
-                    title="Close ID Card View"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Card Sides Preview Area (Portrait CR-80 Card: 662 × 1075 px) */}
-              <div className="flex justify-center items-center py-4">
-                <div className="max-w-xs sm:max-w-sm w-full rounded-2xl overflow-hidden shadow-2xl border-2 border-[#138601]/50 bg-[#083002]">
-
-                  {/* FRONT SIDE */}
-                  <div className={`${currentSide === 'front' ? 'block' : 'hidden'}`}>
-                    <canvas
-                      ref={canvasRef}
-                      className="w-full h-auto block"
-                      style={{ aspectRatio: `${ID_CARD_TEMPLATE.dimensions.aspectRatio}` }}
-                    />
-                  </div>
-
-                  {/* BACK SIDE (Static Master Back Template) */}
-                  <div className={`${currentSide === 'back' ? 'block' : 'hidden'}`}>
-                    <img
-                      src={application?.id_card_back_url || ID_CARD_TEMPLATE.masterBackUrl || idTemplateBack}
-                      alt="NACOS Student ID Card Back"
-                      className="w-full h-auto block object-cover"
-                      style={{ aspectRatio: `${ID_CARD_TEMPLATE.dimensions.aspectRatio}` }}
-                    />
-                  </div>
-
-                </div>
-              </div>
-
-              {/* Side indicator badge */}
-              <div className="text-center text-xs font-semibold text-gray-500 dark:text-green-200/70">
-                Viewing: <span className="text-[#138601] dark:text-[#4bd043] uppercase font-bold">{currentSide} of official card</span>
-              </div>
-
-              {/* Download Buttons Bar */}
-              <div className="flex flex-wrap items-center justify-end gap-2.5 pt-4 border-t border-gray-100 dark:border-[#138601]/20">
-                <button
-                  type="button"
-                  onClick={() => handleDownloadImage('front')}
-                  className="px-4 py-2.5 min-h-[40px] text-xs font-semibold text-gray-800 dark:text-white bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-black rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5"
-                >
-                  <Download className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
-                  <span>Front (PNG)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleDownloadImage('back')}
-                  className="px-4 py-2.5 min-h-[40px] text-xs font-semibold text-gray-800 dark:text-white bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-black rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5"
-                >
-                  <Download className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
-                  <span>Back (PNG)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleDownloadImage('both')}
-                  className="px-4 py-2.5 min-h-[40px] text-xs font-semibold text-gray-800 dark:text-white bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-black rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5"
-                >
-                  <Download className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
-                  <span>Both Sides (PNG)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleDownloadZip}
-                  className="px-4 py-2.5 min-h-[40px] text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5"
-                  title="Download Front & Back as ZIP Archive"
-                >
-                  <Download className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
-                  <span>Download Bundle (ZIP)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleOpenReceipt(selectedObligation?.payment || {
-                    receiptNo: selectedObligation?.receiptNo,
-                    transactionId: selectedObligation?.transactionId,
-                    amount: selectedObligation?.amount,
-                    level: selectedObligation?.level,
-                    session: selectedObligation?.session,
-                    date: selectedObligation?.date
-                  })}
-                  className="px-5 py-2.5 min-h-[40px] text-xs font-semibold text-[#0e8040] hover:text-[#0b6a34] bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Receipt ({selectedObligation?.level || 'Card'})</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleDownloadPdf}
-                  className="px-6 py-2.5 min-h-[40px] text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-2"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>Print / Two-Sided PDF</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Verification & Metadata Summary */}
-            <div className="p-5 rounded-xl bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs space-y-2">
-              <h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
-                <span>Card Validity & Details</span>
-              </h4>
-              <ul className="list-disc list-inside text-gray-600 dark:text-green-100/70 space-y-1">
-                <li>NACOS ID Number: <strong className="font-mono text-gray-900 dark:text-white">{application?.id_card_number || student?.matric || 'N/A'}</strong></li>
-                <li>Valid for Session: <strong className="text-gray-900 dark:text-white">{settings?.academic_session || 'Current'}</strong></li>
-                <li>Expiration Date: <strong className="text-[#138601] dark:text-[#4bd043]">{expiryDateFormatted} (1-Year Validity)</strong></li>
-                <li>Present this digital or printed card for departmental verification, election voting, and lab access.</li>
-              </ul>
-            </div>
-
-          </div>
-        )}
-
-        {/* ====================================================================
-            STATE 8: REJECTED
-            ==================================================================== */}
-        {isState8 && (
-          <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-red-200/80 dark:border-red-900/50 text-center space-y-6 shadow-xs">
-            <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto border border-red-200 dark:border-red-900">
-              <ShieldAlert className="w-8 h-8" />
-            </div>
-
-            <div className="max-w-md mx-auto space-y-2">
-              <span className="inline-block px-3 py-1 rounded-md bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 text-xs font-semibold">
-                Application Rejected
-              </span>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                Action Required on Your Application
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
-                Your ID card application was not approved. Please review the feedback below and update your submission.
-              </p>
-            </div>
-
-            {/* Rejection Reason Box */}
-            <div className="p-4 rounded-xl max-w-md mx-auto bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 text-xs text-left space-y-1.5">
-              <span className="font-bold text-red-800 dark:text-red-300">Administrator Feedback:</span>
-              <p className="text-red-700 dark:text-red-200">
-                {application?.rejection_reason || 'Photograph did not meet passport criteria. Please upload a clear front-facing photo on a light background.'}
-              </p>
-            </div>
-
-            <div>
-              <button
-                type="button"
-                onClick={handleReapply}
-                className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>Update Photo & Re-submit</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ====================================================================
-            STATE 9: REVOKED
-            ==================================================================== */}
-        {isState9 && (
-          <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#083002] border border-red-300 dark:border-red-900 text-center space-y-6 shadow-xs">
-            <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto border border-red-300">
-              <ShieldAlert className="w-8 h-8" />
-            </div>
-
-            <div className="max-w-md mx-auto space-y-2">
-              <span className="inline-block px-3 py-1 rounded-md bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-200 text-xs font-bold uppercase tracking-wider">
-                Card Revoked
-              </span>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                Your ID Card Has Been Revoked
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/80 leading-relaxed">
-                This student identity card ({application?.id_card_number || 'N/A'}) has been officially revoked by the NACOS Directorate. It will no longer scan as valid on the verification registry.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left">
-              <span className="font-semibold text-gray-500">Reason for Revocation:</span>
-              <p className="font-medium text-gray-900 dark:text-white mt-1">
-                {application?.revocation_reason || 'Academic session expired or clearance revoked.'}
-              </p>
-            </div>
-
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={handlePayment}
-                disabled={isPaying}
-                className="px-8 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
-              >
-                <CreditCard className="w-4 h-4" />
-                <span>Pay &amp; Apply for New ID Card {settings?.id_card_fee ? `(₦${Number(settings.id_card_fee).toLocaleString()})` : ''}</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleReapply}
-                className="px-6 py-3.5 min-h-[44px] text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-[#083002] hover:bg-gray-200 dark:hover:bg-[#062402] border border-gray-200 dark:border-[#138601]/30 rounded-xl transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>Reset Application Details</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-
-
-      </div>
+  </div>
 
       {/* Select Session & Progressive Level Modal for ID Card Payment */}
       {isNewPaymentModalOpen && (
