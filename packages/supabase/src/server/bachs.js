@@ -1538,22 +1538,38 @@ export async function verifyIdCardAccess({ registrationNumber, studentId, reques
     const activeLevel = progression?.levelString || '100 Level';
     const activeLevelNum = String(progression?.numericLevel ? progression.numericLevel * 100 : activeLevel).replace(/[^0-9]/g, '') || '100';
 
-    // Target academic level to verify (requested level or active level)
-    const targetLevel = requestedLevel || activeLevel;
-    const targetLevelNum = String(targetLevel).replace(/[^0-9]/g, '') || activeLevelNum;
+    // 4. Validate requested level against student's current authoritative active level
+    // Students can ONLY view an ID card for their current academic level.
+    if (requestedLevel) {
+      const reqNum = String(requestedLevel).replace(/[^0-9]/g, '');
+      if (reqNum && reqNum !== activeLevelNum) {
+        return {
+          allowed: false,
+          isPaid: false,
+          statusCode: 403,
+          activeLevel,
+          requestedLevel,
+          activeSession,
+          error: `ID Card access is restricted to your current academic level (${activeLevel}). ID cards from previous levels are no longer accessible.`
+        };
+      }
+    }
 
-    // 4. Check if student has a confirmed payment or verified application
+    // Target academic level to verify is strictly the student's current active level
+    const targetLevel = activeLevel;
+    const targetLevelNum = activeLevelNum;
+
+    // 5. Check if student has a confirmed payment or verified application for their CURRENT active level
     let isPaidForLevel = false;
     let confirmedPayment = null;
     let matchedApplication = null;
 
     if (supabase) {
-      // Build comprehensive student matching identifiers (with & without slashes)
+      // Build comprehensive student matching identifiers
       const regDigits = cleanReg.replace(/\D/g, '');
-      const regSlashed = regDigits.length >= 8 ? `${regDigits.slice(0, 4)}/${regDigits.slice(4)}` : cleanReg;
-      const idMatchTerms = Array.from(new Set([cleanReg, regDigits, regSlashed, cleanStudentId].filter(Boolean)));
+      const idMatchTerms = Array.from(new Set([cleanReg, regDigits, cleanStudentId].filter(Boolean)));
 
-      // 4a. Check id_card_applications table
+      // 5a. Check id_card_applications table strictly for current active level
       let appQuery = supabase
         .from('id_card_applications')
         .select('*');
@@ -1570,7 +1586,7 @@ export async function verifyIdCardAccess({ registrationNumber, studentId, reques
       const { data: appList } = await appQuery.order('created_at', { ascending: false });
 
       if (Array.isArray(appList) && appList.length > 0) {
-        // Look for application with confirmed payment or generated status
+        // Look for application strictly matching the student's current active level
         const validApp = appList.find(a => {
           const rawStatus = String(a.status || '').toLowerCase();
           const rawPayStatus = String(a.payment_status || '').toLowerCase();
@@ -1580,33 +1596,17 @@ export async function verifyIdCardAccess({ registrationNumber, studentId, reques
           const aLvl = String(a.level || '').replace(/[^0-9]/g, '');
           const aSess = String(a.academic_session || '').trim();
 
-          // Matches if level matches target OR if application has no explicit level bound (universal)
-          const levelMatches = !aLvl || aLvl === targetLevelNum || aLvl === activeLevelNum;
-          const sessionMatches = !aSess || aSess === activeSession;
-          return levelMatches || sessionMatches;
-        }) || appList.find(a => {
-          const rawPayStatus = String(a.payment_status || '').toLowerCase();
-          return a.status === 'generated' || ['paid', 'verified', 'cleared'].includes(rawPayStatus);
+          // Must strictly match current active level
+          return aLvl === targetLevelNum || (!aLvl && aSess === activeSession);
         });
 
         if (validApp) {
           matchedApplication = validApp;
           isPaidForLevel = true;
-
-          // Backfill missing level/session on application record if null
-          if ((!validApp.level || !validApp.academic_session) && validApp.id) {
-            try {
-              supabase.from('id_card_applications').update({
-                level: validApp.level || targetLevel,
-                academic_session: validApp.academic_session || activeSession,
-                updated_at: new Date().toISOString()
-              }).eq('id', validApp.id).then(() => {}).catch(() => {});
-            } catch (_) {}
-          }
         }
       }
 
-      // 4b. Check payments table for confirmed ID Card payment
+      // 5b. Check payments table for confirmed ID Card payment strictly for current active level
       let payQuery = supabase
         .from('payments')
         .select('*');
@@ -1633,18 +1633,20 @@ export async function verifyIdCardAccess({ registrationNumber, studentId, reques
         });
 
         if (idPayments.length > 0) {
-          // Look for payment matching target level or unassigned payment
+          // STRICT RULE: Must match the student's CURRENT active level!
+          // Previous level payments must NEVER grant access to the current level or be treated as proof of current level payment.
           const matchPay = idPayments.find(p => {
             const pLvl = String(p.level || p.metadata?.level || p.metadata?.academic_level || '').replace(/[^0-9]/g, '');
             const pSess = String(p.academic_session || p.metadata?.academic_session || p.metadata?.academicSession || p.session || '').trim();
             const levelMatches = Boolean(pLvl && pLvl === targetLevelNum);
             const sessionMatches = Boolean(pSess && pSess === activeSession);
-            return (levelMatches && sessionMatches) || levelMatches || sessionMatches;
+            return (levelMatches && sessionMatches) || levelMatches;
           }) || idPayments.find(p => {
-            // If payment has no explicit level, it covers the student's ID Card
+            // Payment with no explicit level only matches if academic_session matches current active session
             const pLvl = String(p.level || p.metadata?.level || p.metadata?.academic_level || '').replace(/[^0-9]/g, '');
-            return !pLvl;
-          }) || idPayments[0];
+            const pSess = String(p.academic_session || p.metadata?.academic_session || p.metadata?.academicSession || p.session || '').trim();
+            return !pLvl && pSess && pSess === activeSession;
+          });
 
           if (matchPay) {
             confirmedPayment = matchPay;
@@ -1654,7 +1656,7 @@ export async function verifyIdCardAccess({ registrationNumber, studentId, reques
       }
     }
 
-    // 5. Deny access if NOT paid for the target academic level
+    // 6. Deny access if NOT paid for the student's current active level
     if (!isPaidForLevel) {
       return {
         allowed: false,
@@ -1663,7 +1665,7 @@ export async function verifyIdCardAccess({ registrationNumber, studentId, reques
         activeLevel,
         targetLevel,
         activeSession,
-        error: `Payment required: You have not completed payment for your ${targetLevel}. Please pay for ${targetLevel} to access your ID card.`
+        error: `Your ID card payment for ${activeLevel} is required. Please complete your payment to view your current ID card.`
       };
     }
 
