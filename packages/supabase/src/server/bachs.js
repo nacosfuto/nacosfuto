@@ -996,20 +996,23 @@ export async function processBachsWebhook(event) {
     return { success: true, message: 'Empty or invalid ping payload acknowledged.', statusCode: 200 };
   }
 
-  const eventType = String(
+  const rawEventType = String(
     event.event_type ||
     event.type ||
     event.event ||
     event.name ||
     (event.status ? 'status.update' : 'generic.event')
-  ).toLowerCase();
+  ).toLowerCase().trim();
+
+  // Normalize separators: e.g. "collection succeeded", "collection_succeeded", "collection.succeeded" -> "collection.succeeded"
+  const eventType = rawEventType.replace(/[\s_-]+/g, '.');
 
   // Handshake / Ping / Verification check from Bachs Gateway
   if (
     eventType === 'ping' ||
     eventType === 'test' ||
-    eventType === 'webhook.test' ||
-    eventType === 'endpoint.verification' ||
+    eventType.includes('webhook.test') ||
+    eventType.includes('endpoint.verification') ||
     eventType.includes('ping')
   ) {
     return { success: true, message: 'Bachs webhook endpoint is operational.', statusCode: 200 };
@@ -1049,27 +1052,39 @@ export async function processBachsWebhook(event) {
     console.warn('[Bachs Webhook] Idempotency record error:', idempErr);
   }
 
-  // 2. Identify transaction outcome events
+  // 2. Identify transaction outcome events from Bachs Dashboard
   const isPaymentSuccess = 
-    eventType === 'payment.successful' || 
-    eventType === 'checkout.completed' ||
-    eventType === 'charge.success' ||
+    eventType.includes('collection.succeeded') ||
+    eventType.includes('checkout.completed') ||
+    eventType.includes('payment.successful') ||
+    eventType.includes('payment.success') ||
+    eventType.includes('charge.success') ||
+    eventType.includes('invoice.paid') ||
     payload.status === 'successful' ||
-    payload.status === 'paid';
+    payload.status === 'paid' ||
+    payload.status === 'completed';
 
   const isPaymentFailed = 
-    eventType === 'payment.failed' ||
-    eventType === 'charge.failed' ||
-    eventType === 'checkout.failed' ||
-    eventType === 'payment.cancelled' ||
-    eventType === 'checkout.cancelled' ||
+    eventType.includes('collection.failed') ||
+    eventType.includes('collection.underpaid') ||
+    eventType.includes('checkout.failed') ||
+    eventType.includes('checkout.expired') ||
+    eventType.includes('checkout.cancelled') ||
+    eventType.includes('payment.failed') ||
+    eventType.includes('payment.cancelled') ||
+    eventType.includes('charge.failed') ||
+    eventType.includes('invoice.payment.failed') ||
     payload.status === 'failed' ||
-    payload.status === 'cancelled';
+    payload.status === 'cancelled' ||
+    payload.status === 'expired';
 
   const isPaymentRefunded = 
-    eventType === 'payment.reversed' ||
-    eventType === 'payment.refunded' ||
-    eventType === 'charge.refunded' ||
+    eventType.includes('refund.paid') ||
+    eventType.includes('refund.created') ||
+    eventType.includes('payment.reversed') ||
+    eventType.includes('payment.refunded') ||
+    eventType.includes('charge.refunded') ||
+    eventType.includes('dispute.lost') ||
     payload.status === 'refunded' ||
     payload.status === 'reversed';
 
