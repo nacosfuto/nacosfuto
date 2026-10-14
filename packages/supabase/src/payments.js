@@ -4,6 +4,7 @@
  */
 
 import { supabase } from './client.js';
+import { invalidateStudentDataCache } from './studentDataCache.js';
 
 export const PAYMENT_TYPES = {
   ID_CARD: 'ID_CARD',
@@ -93,7 +94,13 @@ export async function verifyPaymentStatus({ reference, paymentType, registration
 
     const resp = await fetch(`/api/payments/status?${params.toString()}`);
     if (resp.ok) {
-      return await resp.json();
+      const result = await resp.json();
+      if (result && (result.isPaid || result.status === 'successful')) {
+        try {
+          invalidateStudentDataCache(registrationNumber || result.payment?.registration_number);
+        } catch (_) {}
+      }
+      return result;
     }
   } catch (err) {
     console.warn('[Payment Status Check Warning]:', err.message);
@@ -110,6 +117,11 @@ export async function verifyPaymentStatus({ reference, paymentType, registration
       }
       const { data } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
       if (data) {
+        if (data.status === 'successful') {
+          try {
+            invalidateStudentDataCache(registrationNumber || data.registration_number);
+          } catch (_) {}
+        }
         return {
           status: data.status,
           isPaid: data.status === 'successful',

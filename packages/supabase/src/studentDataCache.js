@@ -1,0 +1,418 @@
+/**
+ * studentDataCache.js
+ * Centralized, intelligent, resilient data cache and retrieval layer for NACOS Student Portal.
+ * 
+ * Features:
+ * 1. Stale-While-Revalidate: Instant synchronous cache returns on route transitions (no more blank or ₦0 flashes).
+ * 2. Request Deduplication: Merges concurrent in-flight requests into a single network call.
+ * 3. Scoped Cache Security: Isolated per student registration/matric number; wiped completely on logout.
+ * 4. Reactive Invalidation: Listens to payment completions, session adjustments, and profile changes.
+ * 5. Supabase Authoritative: Only verified, cleared, and completed records are cached as successful.
+ */
+
+import { supabase } from './client.js';
+import { getDepartmentalDuesFee } from './payments.js';
+import { getIdCardSettings } from './idCard.js';
+import { fetchResultsForStudent } from './results.js';
+import { fetchCourses } from './courses.js';
+import { 
+  calculateAcademicProgression, 
+  getActiveAcademicSession, 
+  getStudentApplicableLevelSessions 
+} from '@nacos/config/academic';
+
+const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes fresh cache window
+const SESSION_CACHE_PREFIX = 'nacos_cache_student_clearance_';
+
+// In-memory cache map
+const memoryCache = new Map();
+// In-flight promises map for request deduplication
+const inFlightRequests = new Map();
+
+/**
+ * Normalizes matric/registration number for cache scoping
+ */
+export function getStudentIdentifier(student) {
+  if (!student) return '';
+  const raw = student.registration_number || student.matric || student.matricNumber || student.id || '';
+  return String(raw).trim().toUpperCase();
+}
+
+/**
+ * Derives numeric academic level string (e.g. '100', '200')
+ */
+export function deriveStudentLevelNum(student) {
+  if (!student) return '100';
+  const prog = calculateAcademicProgression(student);
+  if (prog && prog.valid && prog.numericLevel) {
+    return String(prog.numericLevel * 100);
+  }
+  const raw = String(student?.level || student?.current_level || '100');
+  const match = raw.match(/\d{3}/);
+  return match ? match[0] : '100';
+}
+
+/**
+ * Synchronously retrieves cached clearance data if valid
+ */
+export function getCachedStudentClearance(student) {
+  const identifier = getStudentIdentifier(student);
+  if (!identifier) return null;
+
+  // 1. Check in-memory cache first
+  const mem = memoryCache.get(identifier);
+  if (mem && (Date.now() - mem.timestamp < CACHE_TTL_MS)) {
+    return mem.data;
+  }
+
+  // 2. Check sessionStorage fallback
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = sessionStorage.getItem(`${SESSION_CACHE_PREFIX}${identifier}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && (Date.now() - parsed.timestamp < CACHE_TTL_MS)) {
+          memoryCache.set(identifier, parsed);
+          return parsed.data;
+        }
+      }
+    } catch (_) {}
+  }
+
+  return null;
+}
+
+/**
+ * Authoritatively fetches and calculates student clearance & financial summary with caching and deduplication
+ */
+export async function getStudentClearanceSummary(student, { forceRefresh = false } = {}) {
+  const identifier = getStudentIdentifier(student);
+  if (!identifier) {
+    return null;
+  }
+
+  // If not forcing refresh, return valid cached data
+  if (!forceRefresh) {
+    const cached = getCachedStudentClearance(student);
+    if (cached) {
+      return cached;
+    }
+  }
+
+  // Request deduplication: if request for this student is already running, join it
+  if (inFlightRequests.has(identifier)) {
+    return inFlightRequests.get(identifier);
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      const cleanMatric = identifier;
+      const userId = student?.id;
+      const currentLvl = deriveStudentLevelNum(student);
+
+      const matrix = {
+        '100': { dues: false, duesAmount: 0, idCard: false },
+        '200': { dues: false, duesAmount: 0, idCard: false },
+        '300': { dues: false, duesAmount: 0, idCard: false },
+        '400': { dues: false, duesAmount: 0, idCard: false },
+        '500': { dues: false, duesAmount: 0, idCard: false }
+      };
+
+      let totalSum = 0;
+
+      // Parallelize queries across database tables
+      const [paymentsResult, idAppsResult, legacyDuesResult, duesCfg, idCfg] = await Promise.all([
+        // 1. Live Payments table
+        (async () => {
+          if (!supabase || (!cleanMatric && !userId)) return [];
+          try {
+            let query = supabase.from('payments').select('*');
+            if (cleanMatric && userId && !String(userId).startsWith('student-')) {
+              query = query.or(`registration_number.eq.${cleanMatric},student_id.eq.${userId}`);
+            } else if (cleanMatric) {
+              query = query.eq('registration_number', cleanMatric);
+            } else if (userId) {
+              query = query.eq('student_id', userId);
+            }
+            const { data } = await query;
+            return data || [];
+          } catch (e) {
+            console.warn('[Cache Service] Payments fetch notice:', e);
+            return [];
+          }
+        })(),
+
+        // 2. ID Card Applications table
+        (async () => {
+          if (!supabase || (!cleanMatric && !userId)) return [];
+          try {
+            let appQuery = supabase
+              .from('id_card_applications')
+              .select('*')
+              .in('payment_status', ['paid', 'verified']);
+
+            if (cleanMatric && userId && !String(userId).startsWith('student-')) {
+              appQuery = appQuery.or(`matric_number.eq.${cleanMatric},user_id.eq.${userId}`);
+            } else if (cleanMatric) {
+              appQuery = appQuery.eq('matric_number', cleanMatric);
+            }
+            const { data } = await appQuery;
+            return data || [];
+          } catch (e) {
+            console.warn('[Cache Service] ID Apps fetch notice:', e);
+            return [];
+          }
+        })(),
+
+        // 3. Legacy Dues Payments table
+        (async () => {
+          if (!supabase || !userId || String(userId).startsWith('student-')) return [];
+          try {
+            const { data } = await supabase
+              .from('dues_payments')
+              .select('*')
+              .eq('student_id', userId)
+              .in('status', ['successful', 'verified', 'cleared', 'paid']);
+            return data || [];
+          } catch (e) {
+            return [];
+          }
+        })(),
+
+        // 4. Live Dues fee configuration
+        getDepartmentalDuesFee().catch(() => null),
+
+        // 5. Live ID Card fee configuration
+        getIdCardSettings().catch(() => null)
+      ]);
+
+      // Process payments
+      paymentsResult.forEach((p) => {
+        const isConfirmed = ['successful', 'paid', 'verified', 'cleared', 'completed'].includes(String(p.status || '').toLowerCase()) || Boolean(p.paid_at);
+        if (!isConfirmed) return;
+
+        const amt = Number(p.amount || 0);
+        totalSum += amt;
+
+        const lvlRaw = p.metadata?.level || p.level || '';
+        const match = String(lvlRaw).match(/\d{3}/);
+        const lvl = match ? match[0] : currentLvl;
+
+        if (matrix[lvl]) {
+          if (p.payment_type === 'DEPARTMENTAL_DUES' || String(p.payment_type || '').toLowerCase().includes('due')) {
+            matrix[lvl].dues = true;
+            matrix[lvl].duesAmount = amt;
+          } else if (p.payment_type === 'ID_CARD' || String(p.payment_type || '').toLowerCase().includes('id')) {
+            matrix[lvl].idCard = true;
+          }
+        }
+      });
+
+      // Process ID applications
+      idAppsResult.forEach((app) => {
+        const lvlRaw = app.level || '';
+        const match = String(lvlRaw).match(/\d{3}/);
+        const lvl = match ? match[0] : currentLvl;
+        if (matrix[lvl]) {
+          matrix[lvl].idCard = true;
+        }
+      });
+
+      // Process Legacy Dues
+      legacyDuesResult.forEach((item) => {
+        const amt = Number(item.amount || 0);
+        const lvlRaw = item.level || '';
+        const match = String(lvlRaw).match(/\d{3}/);
+        const lvl = match ? match[0] : currentLvl;
+        if (matrix[lvl] && !matrix[lvl].dues) {
+          matrix[lvl].dues = true;
+          matrix[lvl].duesAmount = amt;
+          totalSum += amt;
+        }
+      });
+
+      // Profile fallback for current level dues clearance
+      if (
+        !matrix[currentLvl].dues &&
+        (student?.dues_cleared === true ||
+          student?.has_paid_dues === true ||
+          ['cleared', 'successful', 'verified', 'paid'].includes(String(student?.payment_status).toLowerCase()))
+      ) {
+        const dynFee = Number(duesCfg?.dues_amount) || 0;
+        matrix[currentLvl].dues = true;
+        matrix[currentLvl].duesAmount = dynFee;
+        totalSum += dynFee;
+      }
+
+      // Resolve fee amounts
+      const duesFeeAmount = Number(duesCfg?.dues_amount) || 0;
+      const idCardFeeAmount = Number(idCfg?.id_card_fee) || 0;
+
+      // Calculate total owing (payable) across all applicable levels
+      const applicableLevels = getStudentApplicableLevelSessions(student) || [];
+      let calculatedOwing = 0;
+      let pendingCount = 0;
+
+      applicableLevels.forEach((item) => {
+        const lvlStr = String(item.numericLevel || item.level || '').replace(/\D/g, '');
+        const lvlEntry = matrix[lvlStr] || { dues: false, idCard: false };
+
+        if (!lvlEntry.dues) {
+          calculatedOwing += duesFeeAmount;
+          pendingCount++;
+        }
+        if (!lvlEntry.idCard) {
+          calculatedOwing += idCardFeeAmount;
+          pendingCount++;
+        }
+      });
+
+      // Fetch supplementary counts (non-blocking)
+      let coursesCount = null;
+      let resultsPublishedCount = null;
+
+      try {
+        const studentId = cleanMatric || userId;
+        if (studentId) {
+          const res = await fetchResultsForStudent(studentId);
+          if (res && res.data && res.data.length > 0) {
+            const distinctSemesters = new Set(res.data.map((r) => `${r.level}-${r.semester}`));
+            resultsPublishedCount = distinctSemesters.size;
+          } else {
+            resultsPublishedCount = 0;
+          }
+        } else {
+          resultsPublishedCount = 0;
+        }
+      } catch (_) {
+        resultsPublishedCount = 0;
+      }
+
+      try {
+        const lvlNum = parseInt(currentLvl, 10) || 100;
+        const cRes = await fetchCourses({ level: lvlNum });
+        if (cRes && cRes.data && cRes.data.length > 0) {
+          coursesCount = cRes.data.length;
+        } else {
+          coursesCount = 0;
+        }
+      } catch (_) {
+        coursesCount = 0;
+      }
+
+      const summary = {
+        totalPaid: totalSum,
+        totalPayable: calculatedOwing,
+        pendingObligationsCount: pendingCount,
+        levelClearanceMatrix: matrix,
+        isPaid: Boolean(matrix[currentLvl]?.dues),
+        coursesCount,
+        resultsPublishedCount,
+        isLoaded: true,
+        isError: false,
+        cachedAt: Date.now()
+      };
+
+      // Store in memory cache
+      const cacheEnvelope = { timestamp: Date.now(), data: summary };
+      memoryCache.set(identifier, cacheEnvelope);
+
+      // Persist to sessionStorage for tab transitions
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem(`${SESSION_CACHE_PREFIX}${identifier}`, JSON.stringify(cacheEnvelope));
+        } catch (_) {}
+      }
+
+      return summary;
+    } catch (error) {
+      console.error('[Cache Service] Clearance summary calculation error:', error);
+      return {
+        totalPaid: null,
+        totalPayable: null,
+        pendingObligationsCount: 0,
+        levelClearanceMatrix: {},
+        isPaid: false,
+        coursesCount: null,
+        resultsPublishedCount: null,
+        isLoaded: false,
+        isError: true
+      };
+    } finally {
+      inFlightRequests.delete(identifier);
+    }
+  })();
+
+  inFlightRequests.set(identifier, fetchPromise);
+  return fetchPromise;
+}
+
+/**
+ * Invalidates cache for a student (or all if omitted)
+ */
+export function invalidateStudentDataCache(studentOrIdentifier) {
+  const identifier = typeof studentOrIdentifier === 'string' 
+    ? studentOrIdentifier.trim().toUpperCase() 
+    : getStudentIdentifier(studentOrIdentifier);
+
+  if (identifier) {
+    memoryCache.delete(identifier);
+    inFlightRequests.delete(identifier);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem(`${SESSION_CACHE_PREFIX}${identifier}`);
+      } catch (_) {}
+      window.dispatchEvent(new CustomEvent('nacos_student_cache_invalidated', { detail: { identifier } }));
+    }
+  } else {
+    memoryCache.clear();
+    inFlightRequests.clear();
+    if (typeof window !== 'undefined') {
+      try {
+        Object.keys(sessionStorage).forEach((key) => {
+          if (key.startsWith(SESSION_CACHE_PREFIX)) {
+            sessionStorage.removeItem(key);
+          }
+        });
+      } catch (_) {}
+      window.dispatchEvent(new CustomEvent('nacos_student_cache_invalidated', { detail: {} }));
+    }
+  }
+}
+
+/**
+ * Clears all cached student information immediately (e.g. on user sign-out)
+ */
+export function clearStudentDataCache() {
+  memoryCache.clear();
+  inFlightRequests.clear();
+  if (typeof window !== 'undefined') {
+    try {
+      Object.keys(sessionStorage).forEach((key) => {
+        if (key.startsWith(SESSION_CACHE_PREFIX)) {
+          sessionStorage.removeItem(key);
+        }
+      });
+    } catch (_) {}
+  }
+}
+
+// Global lifecycle listeners
+if (typeof window !== 'undefined') {
+  // Clear cache when user logs out
+  window.addEventListener('nacos_user_logged_out', clearStudentDataCache);
+
+  // Invalidate cache when cross-tab payment or user update occurs
+  window.addEventListener('nacos_user_updated', () => {
+    invalidateStudentDataCache();
+  });
+
+  try {
+    const channel = new BroadcastChannel('nacos_payment_sync');
+    channel.onmessage = (e) => {
+      if (e.data?.status === 'successful') {
+        invalidateStudentDataCache();
+      }
+    };
+  } catch (_) {}
+}

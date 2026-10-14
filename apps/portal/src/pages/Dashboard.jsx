@@ -31,7 +31,10 @@ import {
   fetchCourses, 
   getDepartmentalDuesFee,
   getIdCardSettings,
-  initAcademicSessionSync 
+  initAcademicSessionSync,
+  getCachedStudentClearance,
+  getStudentClearanceSummary,
+  invalidateStudentDataCache
 } from '@nacos/supabase';
 import { enrichStudentProfile } from '@nacos/supabase/auth';
 import { 
@@ -55,15 +58,21 @@ const Dashboard = () => {
   });
 
   const navigate = useNavigate();
-  const [isPaid, setIsPaid] = useState(false);
-  const [verified, setVerified] = useState(false); // true once DB confirms student exists
-  const [totalLifetimePayments, setTotalLifetimePayments] = useState(0);
-  const [totalPayable, setTotalPayable] = useState(0);
-  const [pendingObligationsCount, setPendingObligationsCount] = useState(0);
-  const [coursesCount, setCoursesCount] = useState(null);
-  const [resultsPublishedCount, setResultsPublishedCount] = useState(null);
 
-  const [levelClearanceMatrix, setLevelClearanceMatrix] = useState({
+  // Instant synchronous cache pre-load to eliminate ₦0 and unverified state flashes
+  const initialCache = getCachedStudentClearance(user);
+
+  const [isPaid, setIsPaid] = useState(() => initialCache?.isPaid ?? false);
+  const [verified, setVerified] = useState(false); // true once DB confirms student exists
+  const [totalLifetimePayments, setTotalLifetimePayments] = useState(() => initialCache?.totalPaid ?? null);
+  const [totalPayable, setTotalPayable] = useState(() => initialCache?.totalPayable ?? null);
+  const [pendingObligationsCount, setPendingObligationsCount] = useState(() => initialCache?.pendingObligationsCount ?? 0);
+  const [coursesCount, setCoursesCount] = useState(() => initialCache?.coursesCount ?? null);
+  const [resultsPublishedCount, setResultsPublishedCount] = useState(() => initialCache?.resultsPublishedCount ?? null);
+  const [statsLoading, setStatsLoading] = useState(() => !initialCache);
+  const [statsError, setStatsError] = useState(false);
+
+  const [levelClearanceMatrix, setLevelClearanceMatrix] = useState(() => initialCache?.levelClearanceMatrix ?? {
     '100': { dues: false, duesAmount: 0, idCard: false },
     '200': { dues: false, duesAmount: 0, idCard: false },
     '300': { dues: false, duesAmount: 0, idCard: false },
@@ -84,208 +93,25 @@ const Dashboard = () => {
 
   const studentLevelNum = deriveLevelNum(user);
 
-  // Authoritatively load student payment history and level-by-level clearance from database
-  const loadStudentClearanceHistory = async (currentUser) => {
-    const matric = currentUser?.registration_number || currentUser?.matric || currentUser?.matricNumber || '';
-    const cleanMatric = String(matric).trim().toUpperCase();
-    const userId = currentUser?.id;
-    const currentLvl = deriveLevelNum(currentUser);
-
-    const matrix = {
-      '100': { dues: false, duesAmount: 0, idCard: false },
-      '200': { dues: false, duesAmount: 0, idCard: false },
-      '300': { dues: false, duesAmount: 0, idCard: false },
-      '400': { dues: false, duesAmount: 0, idCard: false },
-      '500': { dues: false, duesAmount: 0, idCard: false }
-    };
-
-    let totalSum = 0;
-
-    // 1. Authoritative Bachs Live Payments Table
+  // Authoritatively load student payment history and level-by-level clearance from database cache service
+  const loadStudentClearanceHistory = async (currentUser, { forceRefresh = false } = {}) => {
     try {
-      if (supabase && (cleanMatric || userId)) {
-        let query = supabase.from('payments').select('*');
-
-        if (cleanMatric && userId) {
-          query = query.or(`registration_number.eq.${cleanMatric},student_id.eq.${userId}`);
-        } else if (cleanMatric) {
-          query = query.eq('registration_number', cleanMatric);
-        } else if (userId) {
-          query = query.eq('student_id', userId);
-        }
-
-        const { data: payments } = await query;
-        if (payments && payments.length > 0) {
-          payments.forEach(p => {
-            const isConfirmed = ['successful', 'paid', 'verified', 'cleared', 'completed'].includes(String(p.status).toLowerCase()) || Boolean(p.paid_at);
-            if (!isConfirmed) return;
-
-            const amt = Number(p.amount || 0);
-            totalSum += amt;
-
-            const lvlRaw = p.metadata?.level || p.level || '';
-            const match = String(lvlRaw).match(/\d{3}/);
-            const lvl = match ? match[0] : currentLvl;
-
-            if (matrix[lvl]) {
-              if (p.payment_type === 'DEPARTMENTAL_DUES' || String(p.payment_type || '').toLowerCase().includes('due')) {
-                matrix[lvl].dues = true;
-                matrix[lvl].duesAmount = amt;
-              } else if (p.payment_type === 'ID_CARD' || String(p.payment_type || '').toLowerCase().includes('id')) {
-                matrix[lvl].idCard = true;
-              }
-            }
-          });
-        }
+      const summary = await getStudentClearanceSummary(currentUser, { forceRefresh });
+      if (summary) {
+        if (summary.totalPaid !== null) setTotalLifetimePayments(summary.totalPaid);
+        if (summary.totalPayable !== null) setTotalPayable(summary.totalPayable);
+        setPendingObligationsCount(summary.pendingObligationsCount ?? 0);
+        if (summary.levelClearanceMatrix) setLevelClearanceMatrix(summary.levelClearanceMatrix);
+        setIsPaid(Boolean(summary.isPaid));
+        if (summary.coursesCount !== null) setCoursesCount(summary.coursesCount);
+        if (summary.resultsPublishedCount !== null) setResultsPublishedCount(summary.resultsPublishedCount);
+        setStatsLoading(false);
+        setStatsError(Boolean(summary.isError));
       }
     } catch (e) {
-      console.warn('Dashboard payments history error:', e);
-    }
-
-    // 2. ID Card Applications Table
-    try {
-      if (supabase && (cleanMatric || userId)) {
-        let appQuery = supabase
-          .from('id_card_applications')
-          .select('*')
-          .in('payment_status', ['paid', 'verified']);
-
-        if (cleanMatric && userId) {
-          appQuery = appQuery.or(`matric_number.eq.${cleanMatric},user_id.eq.${userId}`);
-        } else if (cleanMatric) {
-          appQuery = appQuery.eq('matric_number', cleanMatric);
-        }
-
-        const { data: idApps } = await appQuery;
-        if (idApps && idApps.length > 0) {
-          idApps.forEach(app => {
-            const lvlRaw = app.level || '';
-            const match = String(lvlRaw).match(/\d{3}/);
-            const lvl = match ? match[0] : currentLvl;
-            if (matrix[lvl]) {
-              matrix[lvl].idCard = true;
-            }
-          });
-        }
-      }
-    } catch (e) {
-      console.warn('Dashboard id card apps error:', e);
-    }
-
-    // 3. Legacy dues_payments table
-    try {
-      if (supabase && userId) {
-        const { data: legacyDues } = await supabase
-          .from('dues_payments')
-          .select('*')
-          .eq('student_id', userId)
-          .in('status', ['successful', 'verified', 'cleared', 'paid']);
-
-        if (legacyDues && legacyDues.length > 0) {
-          legacyDues.forEach(item => {
-            const amt = Number(item.amount || 0);
-            const lvlRaw = item.level || '';
-            const match = String(lvlRaw).match(/\d{3}/);
-            const lvl = match ? match[0] : currentLvl;
-            if (matrix[lvl] && !matrix[lvl].dues) {
-              matrix[lvl].dues = true;
-              matrix[lvl].duesAmount = amt;
-              totalSum += amt;
-            }
-          });
-        }
-      }
-    } catch (e) {
-      console.warn('Dashboard legacy dues error:', e);
-    }
-
-    // Fallback profile check for current level dues
-    if (
-      !matrix[currentLvl].dues &&
-      (currentUser?.dues_cleared === true ||
-        currentUser?.has_paid_dues === true ||
-        ['cleared', 'successful', 'verified', 'paid'].includes(String(currentUser?.payment_status).toLowerCase()))
-    ) {
-      let dynFee = 0;
-      try {
-        const duesSettings = await getDepartmentalDuesFee();
-        dynFee = Number(duesSettings?.dues_amount) || 0;
-      } catch (_) {}
-      matrix[currentLvl].dues = true;
-      matrix[currentLvl].duesAmount = dynFee;
-      totalSum += dynFee;
-    }
-
-    // Dynamically resolve fee amounts for dues and ID card obligations strictly from live database
-    let duesFeeAmount = 0;
-    let idCardFeeAmount = 0;
-    try {
-      const [duesCfg, idCfg] = await Promise.all([
-        getDepartmentalDuesFee().catch(() => null),
-        getIdCardSettings().catch(() => null)
-      ]);
-      if (duesCfg?.dues_amount && !isNaN(Number(duesCfg.dues_amount))) {
-        duesFeeAmount = Number(duesCfg.dues_amount);
-      }
-      if (idCfg?.id_card_fee && !isNaN(Number(idCfg.id_card_fee))) {
-        idCardFeeAmount = Number(idCfg.id_card_fee);
-      }
-    } catch (_) {}
-
-    // Calculate total owing (payable) across all applicable levels (100L up to current level)
-    const applicableLevels = getStudentApplicableLevelSessions(currentUser) || [];
-    let calculatedOwing = 0;
-    let pendingCount = 0;
-
-    applicableLevels.forEach(item => {
-      const lvlStr = String(item.numericLevel || item.level || '').replace(/\D/g, '');
-      const lvlEntry = matrix[lvlStr] || { dues: false, idCard: false };
-
-      if (!lvlEntry.dues) {
-        calculatedOwing += duesFeeAmount;
-        pendingCount++;
-      }
-      if (!lvlEntry.idCard) {
-        calculatedOwing += idCardFeeAmount;
-        pendingCount++;
-      }
-    });
-
-    setLevelClearanceMatrix(matrix);
-    setTotalLifetimePayments(totalSum);
-    setTotalPayable(calculatedOwing);
-    setPendingObligationsCount(pendingCount);
-    setIsPaid(Boolean(matrix[currentLvl]?.dues));
-
-    // Live sync published results count for student
-    try {
-      const studentId = cleanMatric || userId;
-      if (studentId) {
-        const res = await fetchResultsForStudent(studentId);
-        if (res && res.data && res.data.length > 0) {
-          const distinctSemesters = new Set(res.data.map(r => `${r.level}-${r.semester}`));
-          setResultsPublishedCount(distinctSemesters.size);
-        } else {
-          setResultsPublishedCount(0);
-        }
-      } else {
-        setResultsPublishedCount(0);
-      }
-    } catch (e) {
-      setResultsPublishedCount(0);
-    }
-
-    // Live sync courses count for current level
-    try {
-      const lvlNum = parseInt(currentLvl, 10) || 100;
-      const cRes = await fetchCourses({ level: lvlNum });
-      if (cRes && cRes.data && cRes.data.length > 0) {
-        setCoursesCount(cRes.data.length);
-      } else {
-        setCoursesCount(0);
-      }
-    } catch (e) {
-      setCoursesCount(0);
+      console.warn('Dashboard loadStudentClearanceHistory error:', e);
+      setStatsLoading(false);
+      setStatsError(true);
     }
   };
 
@@ -388,13 +214,26 @@ const Dashboard = () => {
     window.addEventListener('storage', handleUserUpdate);
     window.addEventListener('nacos_user_updated', handleUserUpdate);
 
+    const handleCacheInvalidated = () => {
+      const stored = localStorage.getItem('nacos_user');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          loadStudentClearanceHistory(parsed, { forceRefresh: true });
+        } catch (_) {}
+      }
+    };
+    window.addEventListener('nacos_student_cache_invalidated', handleCacheInvalidated);
+
     const unsubSession = onAcademicSessionChange(() => {
+      invalidateStudentDataCache();
       handleUserUpdate();
     });
 
     return () => {
       window.removeEventListener('storage', handleUserUpdate);
       window.removeEventListener('nacos_user_updated', handleUserUpdate);
+      window.removeEventListener('nacos_student_cache_invalidated', handleCacheInvalidated);
       if (unsubSession) unsubSession();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -470,7 +309,7 @@ const Dashboard = () => {
 
           {/* Card 1: Total Payable (Amount Student is Owing) */}
           <Link
-            to={totalPayable > 0 ? (isPaid ? "/id-card" : "/dues") : "/dues"}
+            to={Number(totalPayable || 0) > 0 ? (isPaid ? "/id-card" : "/dues") : "/dues"}
             className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/90 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#4bd043] hover:shadow-md transition-all flex items-center justify-between shadow-xs group cursor-pointer active:scale-[0.98]"
           >
             <div className="space-y-1">
@@ -478,10 +317,20 @@ const Dashboard = () => {
                 Total Payable
               </span>
               <div className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
-                ₦{totalPayable.toLocaleString()}
+                {statsLoading && totalPayable === null ? (
+                  <div className="h-7 w-28 bg-gray-200 dark:bg-green-900/40 rounded-lg animate-pulse" />
+                ) : statsError && totalPayable === null ? (
+                  <span className="text-base font-semibold text-gray-400">Unavailable</span>
+                ) : (
+                  `₦${Number(totalPayable || 0).toLocaleString()}`
+                )}
               </div>
               <span className="text-[11px] font-medium text-gray-400 dark:text-green-200/60 block">
-                {totalPayable > 0 ? (
+                {statsLoading && totalPayable === null ? (
+                  <div className="h-3 w-20 bg-gray-200 dark:bg-green-900/30 rounded mt-1 animate-pulse" />
+                ) : statsError && totalPayable === null ? (
+                  <span className="text-red-500 font-semibold">• Retry later</span>
+                ) : Number(totalPayable || 0) > 0 ? (
                   <span className="text-amber-600 dark:text-amber-400 font-semibold">• Action required</span>
                 ) : (
                   <span className="text-emerald-600 dark:text-emerald-400 font-semibold">• All dues cleared</span>
@@ -503,10 +352,20 @@ const Dashboard = () => {
                 Total Paid
               </span>
               <div className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
-                ₦{totalLifetimePayments.toLocaleString()}
+                {statsLoading && totalLifetimePayments === null ? (
+                  <div className="h-7 w-28 bg-gray-200 dark:bg-green-900/40 rounded-lg animate-pulse" />
+                ) : statsError && totalLifetimePayments === null ? (
+                  <span className="text-base font-semibold text-gray-400">Unavailable</span>
+                ) : (
+                  `₦${Number(totalLifetimePayments || 0).toLocaleString()}`
+                )}
               </div>
               <span className="text-[11px] font-medium text-gray-400 dark:text-green-200/60 block">
-                Verified receipts
+                {statsLoading && totalLifetimePayments === null ? (
+                  <div className="h-3 w-20 bg-gray-200 dark:bg-green-900/30 rounded mt-1 animate-pulse" />
+                ) : (
+                  "Verified receipts"
+                )}
               </span>
             </div>
             <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#041801] text-gray-700 dark:text-green-300 flex items-center justify-center shrink-0 border border-gray-200/60 dark:border-[#138601]/30 group-hover:scale-105 group-hover:bg-[#138601] group-hover:text-white transition-all shadow-2xs">
@@ -524,7 +383,11 @@ const Dashboard = () => {
                 Courses Registered
               </span>
               <div className="text-base sm:text-lg font-bold text-gray-900 dark:text-white tracking-tight">
-                {getCoursesCount()}
+                {statsLoading && coursesCount === null ? (
+                  <div className="h-6 w-32 bg-gray-200 dark:bg-green-900/40 rounded-lg animate-pulse" />
+                ) : (
+                  getCoursesCount()
+                )}
               </div>
               <span className="text-[11px] font-medium text-gray-400 dark:text-green-200/60 block">
                 Enrolled syllabus
@@ -545,7 +408,11 @@ const Dashboard = () => {
                 Academic Results
               </span>
               <div className="text-base sm:text-lg font-bold text-gray-900 dark:text-white tracking-tight">
-                {getResultsCount()}
+                {statsLoading && resultsPublishedCount === null ? (
+                  <div className="h-6 w-32 bg-gray-200 dark:bg-green-900/40 rounded-lg animate-pulse" />
+                ) : (
+                  getResultsCount()
+                )}
               </div>
               <span className="text-[11px] font-medium text-gray-400 dark:text-green-200/60 block">
                 Semester transcript
@@ -576,15 +443,18 @@ const Dashboard = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">Dues Clearance Receipt</h4>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${isPaid
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                      statsLoading && totalPayable === null
+                        ? 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'
+                        : isPaid
                         ? 'bg-green-50 text-[#138601] border-green-200 dark:bg-[#041801] dark:text-[#4bd043] dark:border-[#138601]/30'
                         : 'bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700'
-                      }`}>
-                      {isPaid ? 'Cleared' : 'Pending'}
+                    }`}>
+                      {statsLoading && totalPayable === null ? 'Verifying...' : isPaid ? 'Cleared' : 'Pending'}
                     </span>
                   </div>
                   <p className="text-[11px] sm:text-xs text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
-                    {isPaid ? 'View verified electronic receipt' : 'Clearance required • Pay dues'}
+                    {statsLoading && totalPayable === null ? 'Checking clearance status...' : isPaid ? 'View verified electronic receipt' : 'Clearance required • Pay dues'}
                   </p>
                 </div>
               </div>

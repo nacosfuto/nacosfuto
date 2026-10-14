@@ -25,5 +25,6 @@ export * from './payments.js';
 export * from './studentAuth.js';
 export * from './studentCsvEngine.js';
 export * from './academicProgressionService.js';
+export * from './studentDataCache.js';
 export { default } from './client.js';
 

@@ -1,5 +1,6 @@
 import { supabase } from './client.js';
 import { syncMediaAsset } from './media.js';
+import { invalidateStudentDataCache } from './studentDataCache.js';
 import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
 import { getLocalStudentsDatabase } from './auth.js';
 import { uploadMedia, CLOUDINARY_FOLDERS, getOptimizedImageUrl, idTemplateMaster, idTemplateBack, idTemplateFrame } from '@nacos/media';
@@ -588,6 +589,10 @@ export async function recordStudentPayment(matricNumber, amount = null) {
   } catch (e) {
     // Offline
   }
+
+  try {
+    invalidateStudentDataCache(cleanMatric);
+  } catch (_) {}
 
   return { success: true, payment: newPayment };
 }

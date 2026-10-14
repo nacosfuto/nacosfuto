@@ -47,6 +47,18 @@
       "destination": "/portal/index.html"
     },
     {
+      "source": "/id/((?!.*\\.).*)",
+      "destination": "/portal/index.html"
+    },
+    {
+      "source": "/receipt",
+      "destination": "/portal/index.html"
+    },
+    {
+      "source": "/receipt/((?!.*\\.).*)",
+      "destination": "/portal/index.html"
+    },
+    {
       "source": "/dues",
       "destination": "/portal/index.html"
     },

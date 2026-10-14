@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { hashPassword, isLocalEnvironment, enrichStudentProfile } from '@nacos/supabase/auth';
-import { supabase, fetchActivePopupNotice } from '@nacos/supabase';
+import { supabase, fetchActivePopupNotice, clearStudentDataCache } from '@nacos/supabase';
 import { calculateAcademicProgression, onAcademicSessionChange } from '@nacos/config/academic';
 import { getAppUrls } from '@nacos/config/urls';
 import NoticeModal from './NoticeModal';
@@ -217,6 +217,7 @@ const PortalLayout = ({ children }) => {
       if (act && (Date.now() - act >= ONE_HOUR_MS)) {
         localStorage.removeItem('nacos_user');
         localStorage.removeItem('nacos_last_activity');
+        clearStudentDataCache();
         window.dispatchEvent(new Event('nacos_user_logged_out'));
         navigate('/login?reason=inactivity', { replace: true });
       }
@@ -235,6 +236,8 @@ const PortalLayout = ({ children }) => {
   const handleLogout = () => {
     localStorage.removeItem('nacos_user');
     localStorage.removeItem('nacos_last_activity');
+    clearStudentDataCache();
+    window.dispatchEvent(new Event('nacos_user_logged_out'));
     navigate('/login');
   };
 

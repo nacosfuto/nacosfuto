@@ -290,6 +290,10 @@ function App() {
               {/* Student Portal & Payment Redirects */}
               <Route path="/id-card" element={<PortalPassThroughRedirect />} />
               <Route path="/id-card/*" element={<PortalPassThroughRedirect />} />
+              <Route path="/id" element={<PortalPassThroughRedirect />} />
+              <Route path="/id/*" element={<PortalPassThroughRedirect />} />
+              <Route path="/receipt" element={<PortalPassThroughRedirect />} />
+              <Route path="/receipt/*" element={<PortalPassThroughRedirect />} />
               <Route path="/dues" element={<PortalPassThroughRedirect />} />
               <Route path="/dues/*" element={<PortalPassThroughRedirect />} />
               <Route path="/dashboard" element={<PortalPassThroughRedirect />} />
