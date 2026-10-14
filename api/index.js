@@ -935,6 +935,8 @@ export default async function handler(req, res) {
           scope: body.scope,
           assignedLevel: body.assignedLevel || body.assigned_level,
           permissions: body.permissions,
+          initialPassword: body.initialPassword || body.password,
+          password: body.password || body.initialPassword,
           originUrl
         });
         return res.status(result.success ? 201 : 400).json(result);

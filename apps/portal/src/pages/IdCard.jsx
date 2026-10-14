@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import PortalLayout from '../components/PortalLayout';
 import {
   CreditCard,
@@ -75,11 +75,21 @@ const withTimeout = (promise, ms = 6000) =>
     new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timed out')), ms))
   ]);
 
-const IdCard = () => {
+const IdCard = ({ viewMode = false }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const canvasRef = useRef(null);
   const pollIntervalRef = useRef(null);
+
+  const isViewRoute = Boolean(
+    viewMode ||
+    location.pathname.endsWith('/view') ||
+    location.pathname === '/id-card/view' ||
+    location.pathname === '/id/view' ||
+    searchParams.get('view') === 'true'
+  );
+  const queryLevel = searchParams.get('level');
 
   const [student, setStudent] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -153,6 +163,9 @@ const IdCard = () => {
   const [isCardViewRequested, setIsCardViewRequested] = useState(false);
   const [isVerifyingCardAccess, setIsVerifyingCardAccess] = useState(false);
   const [isChangingPhoto, setIsChangingPhoto] = useState(false);
+
+  // Authoritative active view state (derived from dedicated route or on-demand request)
+  const isCardViewActive = Boolean(isViewRoute || isCardViewRequested);
 
   // Progressive Level & Session Selection Modal
   const [isNewPaymentModalOpen, setIsNewPaymentModalOpen] = useState(false);
@@ -229,6 +242,23 @@ const IdCard = () => {
       if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
     };
   }, []);
+
+  // Synchronize route-based view mode with browser navigation (Back/Forward buttons)
+  useEffect(() => {
+    if (isViewRoute) {
+      if (queryLevel) {
+        const norm = normalizeLevel(queryLevel);
+        if (norm !== formLevelRef.current) {
+          formLevelRef.current = norm;
+          setFormLevel(norm);
+          loadStudentAndApplication(norm);
+        }
+      }
+      setIsChangingPhoto(false);
+    } else {
+      setIsCardViewRequested(false);
+    }
+  }, [isViewRoute, queryLevel]);
 
   const loadStudentAndApplication = async (preferredLevel = null) => {
     const stored = localStorage.getItem('nacos_user');
@@ -533,19 +563,20 @@ const IdCard = () => {
 
     // Authoritative Backend Validation:
     setIsVerifyingCardAccess(true);
-    const regNo = student?.matric || student?.registration_number;
 
     try {
       await loadStudentAndApplication(targetLvl);
       setIsCardViewRequested(true);
       setIsChangingPhoto(false);
       setIsVerifyingCardAccess(false);
+      navigate(`/id-card/view?level=${encodeURIComponent(targetLvl)}`);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       console.warn('Backend verification notice:', err);
       setIsCardViewRequested(true);
       setIsChangingPhoto(false);
       setIsVerifyingCardAccess(false);
+      navigate(`/id-card/view?level=${encodeURIComponent(targetLvl)}`);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -1489,7 +1520,7 @@ const IdCard = () => {
 
   // Redraw canvas whenever student requests card view and application reaches 'generated' state
   useEffect(() => {
-    if (isCardViewRequested && canvasRef.current && student) {
+    if (isCardViewActive && canvasRef.current && student) {
       const photoUrl = application?.passport_url || student.profile_photo_url || student.avatar_url;
       const cardLevel = selectedObligation?.level || application?.level || student?.level || '100 Level';
       const cardSession = selectedObligation?.session || application?.academic_session || settings?.academic_session || '2026/2027';
@@ -1536,7 +1567,7 @@ const IdCard = () => {
         render(null);
       }
     }
-  }, [isCardViewRequested, isChangingPhoto, application?.status, application?.passport_url, isState7, student?.matric, student?.profile_photo_url, student?.avatar_url, selectedObligation?.level, selectedObligation?.session]);
+  }, [isCardViewActive, isChangingPhoto, application?.status, application?.passport_url, isState7, student?.matric, student?.profile_photo_url, student?.avatar_url, selectedObligation?.level, selectedObligation?.session]);
 
   // Format card expiration date (1-year validity from generation or current session)
   const expiryDateFormatted = (() => {
@@ -1849,37 +1880,30 @@ const IdCard = () => {
               )}
             </div>
           </div>
-        ) : isCardViewRequested ? (
+        ) : isCardViewActive ? (
           /* ==================================================================== */
           /* DEDICATED ID CARD STUDIO PAGE VIEW (Loads like a new page)           */
           /* ==================================================================== */
           <div className="space-y-6 animate-in fade-in duration-200">
             {/* Studio Navigation & Status Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#083002] p-4 sm:p-5 rounded-2xl border border-gray-200/80 dark:border-[#138601]/30 shadow-xs">
+            <div className="flex flex-row items-center justify-between gap-4 bg-white dark:bg-[#083002] p-4 sm:p-5 rounded-2xl border border-gray-200/80 dark:border-[#138601]/30 shadow-xs">
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsCardViewRequested(false)}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-gray-700 dark:text-green-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#138601]/30 border border-gray-200/80 dark:border-[#138601]/30 transition-all cursor-pointer active:scale-95"
+                  onClick={() => {
+                    setIsCardViewRequested(false);
+                    if (isViewRoute) {
+                      navigate('/id-card');
+                    }
+                  }}
+                  aria-label="Back"
+                  className="p-2 -ml-2 rounded-lg text-gray-700 hover:text-black hover:bg-gray-100 dark:text-green-100 dark:hover:text-white dark:hover:bg-white/10 transition-colors cursor-pointer"
                 >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>Back to Overview</span>
+                  <ArrowLeft className="w-6 h-6 stroke-[2.5]" />
                 </button>
-                <div className="h-6 w-px bg-gray-200 dark:bg-[#138601]/30 hidden sm:block" />
-                <div>
-                  <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white tracking-tight">
-                    Official Student Identity Card ({selectedObligation?.level || application?.level || formLevel || 'Active'})
-                  </h1>
-                  <p className="text-[11px] sm:text-xs text-gray-500 dark:text-green-200/70">
-                    Department of Computer Science • Session {selectedObligation?.session || application?.academic_session || currentAcademicSession}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 border border-green-200 dark:border-green-800">
-                  <CheckCircle className="w-3.5 h-3.5" /> Clearance Verified
-                </span>
+                <h1 className="text-base sm:text-xl font-bold text-gray-900 dark:text-white tracking-tight">
+                  Official Student Identity Card ({selectedObligation?.level || application?.level || formLevel || 'Active'})
+                </h1>
               </div>
             </div>
 

@@ -506,7 +506,7 @@ export async function handleCreateAdminUser({
   permissions = [],
   initialPassword = '',
   password = '',
-  originUrl = 'https://admin.nacosfuto.com.ng'
+  originUrl = 'https://nacosfuto.com.ng/admin'
 }) {
   const authCheck = requireSuperAdmin(token);
   if (!authCheck.authorized) {
@@ -576,11 +576,11 @@ export async function handleCreateAdminUser({
   // 4. Resolve official login destination URL based on scope
   let loginUrl = originUrl;
   if (scope === 'student_portal' || role === 'portal_admin' || role === 'course_adviser') {
-    loginUrl = 'https://portal-admin.nacosfuto.com.ng';
+    loginUrl = 'https://nacosfuto.com.ng/portal-admin';
   } else if (scope === 'electoral_admin' || role === 'electoral_admin') {
-    loginUrl = 'https://electra-admin.nacosfuto.com.ng';
-  } else if (scope === 'main_website' || role === 'website_admin') {
-    loginUrl = 'https://admin.nacosfuto.com.ng';
+    loginUrl = 'https://nacosfuto.com.ng/electra-admin';
+  } else if (scope === 'main_website' || role === 'website_admin' || role === 'super_admin') {
+    loginUrl = 'https://nacosfuto.com.ng/admin';
   }
 
   // 5. Dispatch official invitation / assignment email via Resend
@@ -729,7 +729,7 @@ export async function handleDeleteAdminUser({ token, adminId }) {
 /**
  * Resends the official assignment / invitation email to an administrator.
  */
-export async function handleResendAdminInvite({ token, adminId, originUrl = 'https://admin.nacosfuto.com.ng' }) {
+export async function handleResendAdminInvite({ token, adminId, originUrl = 'https://nacosfuto.com.ng/admin' }) {
   const authCheck = requireSuperAdmin(token);
   if (!authCheck.authorized) {
     return { success: false, error: authCheck.error };
@@ -751,9 +751,11 @@ export async function handleResendAdminInvite({ token, adminId, originUrl = 'htt
 
   let loginUrl = originUrl;
   if (admin.scope === 'student_portal' || admin.role === 'portal_admin' || admin.role === 'course_adviser') {
-    loginUrl = 'https://portal-admin.nacosfuto.com.ng';
+    loginUrl = 'https://nacosfuto.com.ng/portal-admin';
   } else if (admin.scope === 'electoral_admin' || admin.role === 'electoral_admin') {
-    loginUrl = 'https://electra-admin.nacosfuto.com.ng';
+    loginUrl = 'https://nacosfuto.com.ng/electra-admin';
+  } else if (admin.scope === 'main_website' || admin.role === 'website_admin' || admin.role === 'super_admin') {
+    loginUrl = 'https://nacosfuto.com.ng/admin';
   }
 
   const result = await dispatchEmail({

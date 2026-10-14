@@ -122,6 +122,12 @@ const AdminUsers = () => {
         'feature:id_management',
         'feature:resource_management'
       ];
+    } else if (role === 'electoral_admin') {
+      scope = 'electoral_admin';
+      level = 'all';
+      defaultPerms = [
+        'feature:election_management'
+      ];
     } else if (role === 'super_admin') {
       scope = 'super_admin';
       level = 'all';
@@ -146,7 +152,12 @@ const AdminUsers = () => {
     }
     setActionLoadingId('invite');
     try {
-      const res = await superAdminCreateAdmin(formData);
+      const cleanPassword = formData.password.trim();
+      const res = await superAdminCreateAdmin({
+        ...formData,
+        initialPassword: cleanPassword,
+        password: cleanPassword
+      });
       if (res.error) {
         showNotification(res.error, 'error');
       } else {
@@ -338,7 +349,9 @@ const AdminUsers = () => {
                           <span className={`px-2 py-0.5 rounded-md font-mono text-[10px] font-bold border ${
                             adm.scope === 'super_admin'
                               ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800'
-                              : 'bg-green-50 text-[#138601] border-green-200 dark:bg-[#041801] dark:text-[#4bd043] dark:border-[#138601]/30'
+                              : adm.scope === 'electoral_admin' || adm.role === 'electoral_admin'
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                                : 'bg-green-50 text-[#138601] border-green-200 dark:bg-[#041801] dark:text-[#4bd043] dark:border-[#138601]/30'
                           }`}>
                             {adm.scope || 'main_website'}
                           </span>
@@ -498,6 +511,7 @@ const AdminUsers = () => {
                       <option value="website_admin">Website Administrator</option>
                       <option value="portal_admin">Portal Administrator</option>
                       <option value="course_adviser">Course Adviser (Results &amp; Registry)</option>
+                      <option value="electoral_admin">Electoral Commissioner (Electra)</option>
                       <option value="super_admin">Super Administrator (Universal)</option>
                     </select>
                   </div>
@@ -511,6 +525,7 @@ const AdminUsers = () => {
                     >
                       <option value="main_website">Main Website</option>
                       <option value="student_portal">Student Portal</option>
+                      <option value="electoral_admin">Electra Electoral System</option>
                       <option value="super_admin">Universal All Platforms</option>
                     </select>
                   </div>

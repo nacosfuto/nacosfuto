@@ -666,7 +666,7 @@ export function renderRecoveryNotificationEmail({ adminEmail, studentReg, studen
     </p>
 
     <div style="margin: 0 0 12px;">
-      <a href="https://portal-admin.nacosfuto.com.ng" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #138601; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 12px 24px; border-radius: 0;">
+      <a href="https://nacosfuto.com.ng/portal-admin" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #138601; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 12px 24px; border-radius: 0;">
         Open Admin Panel &rarr;
       </a>
     </div>
@@ -679,7 +679,7 @@ export function renderRecoveryNotificationEmail({ adminEmail, studentReg, studen
     `Student Name: ${studentName}`,
     `Registration Number: ${studentReg}`,
     '',
-    'Please review this request in the Portal Admin Panel: https://portal-admin.nacosfuto.com.ng',
+    'Please review this request in the Portal Admin Panel: https://nacosfuto.com.ng/portal-admin',
     '',
     '---------------------------------',
     'Department of Computer Science',
@@ -703,7 +703,7 @@ export function renderAdminAssignmentEmail({
   role = 'portal_admin',
   initialPassword = '',
   assignedLevel = 'all',
-  portalAdminUrl = 'https://portal-admin.nacosfuto.com.ng',
+  portalAdminUrl = 'https://nacosfuto.com.ng/portal-admin',
   assignedAt = new Date().toISOString()
 }) {
   const safeName = sanitizeHtml(fullName);
@@ -712,7 +712,7 @@ export function renderAdminAssignmentEmail({
   const safeRole = sanitizeHtml(role.replace(/_/g, ' ').toUpperCase());
   const safeInitialPass = sanitizeHtml(initialPassword);
   const levelDisplay = assignedLevel === 'all' ? 'All Academic Levels' : `${sanitizeHtml(assignedLevel)} Level`;
-  const accessUrl = portalAdminUrl || 'https://portal-admin.nacosfuto.com.ng';
+  const accessUrl = portalAdminUrl || 'https://nacosfuto.com.ng/portal-admin';
   const assignedDateFormatted = new Date(assignedAt).toLocaleString('en-NG', {
     dateStyle: 'medium',
     timeStyle: 'short'

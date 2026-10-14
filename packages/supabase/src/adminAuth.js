@@ -17,7 +17,8 @@ export const AVAILABLE_ADMIN_FEATURES = [
   { key: 'feature:campus_clubs', label: 'Campus Clubs & Tech Communities', platform: 'website', description: 'Approve student tech clubs, communities, and leadership links' },
   { key: 'feature:alumni_management', label: 'Alumni Network & Spotlights', platform: 'website', description: 'Review alumni join requests, spotlights, and graduate records' },
   { key: 'feature:news_events', label: 'News & Event Flyers CMS', platform: 'website', description: 'Publish departmental announcements, hackathons, and social mixers' },
-  { key: 'feature:media_library', label: 'Cloudinary Media Asset Library', platform: 'shared', description: 'Manage CDN image uploads, folders, and banners' }
+  { key: 'feature:media_library', label: 'Cloudinary Media Asset Library', platform: 'shared', description: 'Manage CDN image uploads, folders, and banners' },
+  { key: 'feature:election_management', label: 'Elections & Ballot Vetting (Electra)', platform: 'electra', description: 'Configure departmental elections, vet candidates, monitor ballots' }
 ];
 
 /**
@@ -609,7 +610,8 @@ export async function superAdminCreateAdmin({ email, fullName, role = 'website_a
         scope,
         assignedLevel: cleanLevel,
         permissions,
-        initialPassword: plainPassword
+        initialPassword: plainPassword,
+        password: plainPassword
       })
     });
 

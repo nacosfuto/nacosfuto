@@ -220,9 +220,12 @@ function App() {
               <Route path="/academics" element={<Academics />} />
               <Route path="/programs" element={<AcademicPrograms />} />
               <Route path="/administration" element={<Administration />} />
-              <Route path="/faculty" element={<Administration />} />
               <Route path="/news" element={<News />} />
+              <Route path="/news/:id" element={<News isArticlePage={true} />} />
+              <Route path="/news/article/:id" element={<News isArticlePage={true} />} />
               <Route path="/resources" element={<Resources />} />
+              <Route path="/resources/preview/:id" element={<Resources isPreviewPage={true} />} />
+              <Route path="/resources/:id/preview" element={<Resources isPreviewPage={true} />} />
 
               {/* Admissions */}
               <Route path="/admissions" element={<Admissions />} />

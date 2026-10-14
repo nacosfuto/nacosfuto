@@ -110,11 +110,26 @@ export default function SEOHandler() {
   const location = useLocation();
 
   useEffect(() => {
-    const path = location.pathname.replace(/\/+$/, '') || '/';
-    const config = ROUTE_SEO_MAP[path] || {
-      title: `${path.split('/').filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, ' ')).join(' - ') || 'Page'} | NACOS FUTO`,
-      description: 'Official portal and website of the Department of Computer Science and NACOS, Federal University of Technology Owerri (FUTO).'
-    };
+    const path = location.pathname;
+    let config = ROUTE_SEO_MAP[path];
+    if (!config) {
+      if (path.includes('/resources/preview') || path.includes('/preview')) {
+        config = {
+          title: 'Resource Preview | Department of Computer Science NACOS FUTO',
+          description: 'Preview verified academic course materials, lecture notes, and past questions from NACOS FUTO.'
+        };
+      } else if (path.startsWith('/news/')) {
+        config = {
+          title: 'Article Reader | Department of Computer Science NACOS FUTO',
+          description: 'Read official departmental news, tech articles, and announcements from NACOS FUTO.'
+        };
+      } else {
+        config = {
+          title: `${path.split('/').filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, ' ')).join(' - ') || 'Page'} | NACOS FUTO`,
+          description: 'Official portal and website of the Department of Computer Science and NACOS, Federal University of Technology Owerri (FUTO).'
+        };
+      }
+    }
 
     // 1. Update Document Title
     document.title = config.title;

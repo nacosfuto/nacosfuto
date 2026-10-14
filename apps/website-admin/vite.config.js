@@ -12,7 +12,8 @@ import {
   handleGetAdminUsers,
   handleCreateAdminUser,
   handleUpdateAdminStatus,
-  handleDeleteAdminUser
+  handleDeleteAdminUser,
+  handleResendAdminInvite
 } from '../../packages/supabase/src/server/adminAuthApi.js';
 
 function cloudinaryDevPlugin() {
@@ -116,14 +117,22 @@ function cloudinaryDevPlugin() {
               } else if (pathname === '/api/admin/users' && req.method === 'GET') {
                 result = await handleGetAdminUsers({ token });
                 status = result.success ? 200 : 403;
-              } else if (pathname === '/api/admin/users/create' && req.method === 'POST') {
-                result = await handleCreateAdminUser({ token, ...data });
+              } else if ((pathname === '/api/admin/users/create' || pathname === '/api/admin/users') && req.method === 'POST') {
+                result = await handleCreateAdminUser({ 
+                  token, 
+                  ...data, 
+                  initialPassword: data.initialPassword || data.password,
+                  password: data.password || data.initialPassword 
+                });
                 status = result.success ? 200 : 400;
               } else if (pathname === '/api/admin/users/status' && req.method === 'POST') {
                 result = await handleUpdateAdminStatus({ token, ...data });
                 status = result.success ? 200 : 400;
               } else if (pathname === '/api/admin/users/delete' && req.method === 'POST') {
                 result = await handleDeleteAdminUser({ token, ...data });
+                status = result.success ? 200 : 400;
+              } else if (pathname === '/api/admin/users/resend-invite' && req.method === 'POST') {
+                result = await handleResendAdminInvite({ token, ...data });
                 status = result.success ? 200 : 400;
               }
 

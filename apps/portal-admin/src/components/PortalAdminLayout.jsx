@@ -259,8 +259,6 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
 
           {/* Right Header Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
-
-
             {/* Launch Student Portal */}
             <a
               href={getAppUrls().portal}

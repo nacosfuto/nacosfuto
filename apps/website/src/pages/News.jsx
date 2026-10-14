@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Nav/Navbar';
 import Footer from '../components/Footer';
 import { useTheme } from '../context/ThemeContext';
@@ -26,20 +27,77 @@ const CATEGORIES = [
   { id: 'Alumni', label: 'Alumni' }
 ];
 
-const News = () => {
+const News = ({ isArticlePage }) => {
+  const { id: routeArticleId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { theme } = useTheme();
   const [articles, setArticles] = useState(() => getLocalNewsArticles({ publishedOnly: true }));
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeArticleModal, setActiveArticleModal] = useState(null);
+  const [loadingArticle, setLoadingArticle] = useState(false);
+  const [articleNotFound, setArticleNotFound] = useState(false);
+
+  // Synchronize routeArticleId with activeArticleModal
+  useEffect(() => {
+    if (routeArticleId) {
+      const match = articles.find(
+        (a) => String(a.id) === String(routeArticleId) || a.slug === routeArticleId
+      );
+      if (match) {
+        setActiveArticleModal(match);
+        setArticleNotFound(false);
+      } else {
+        setLoadingArticle(true);
+        fetchNewsArticles({ publishedOnly: true }).then((fetched) => {
+          setLoadingArticle(false);
+          if (fetched && fetched.length > 0) {
+            setArticles(fetched);
+            const refound = fetched.find(
+              (a) => String(a.id) === String(routeArticleId) || a.slug === routeArticleId
+            );
+            if (refound) {
+              setActiveArticleModal(refound);
+              setArticleNotFound(false);
+            } else {
+              setActiveArticleModal(null);
+              setArticleNotFound(true);
+            }
+          } else {
+            setActiveArticleModal(null);
+            setArticleNotFound(true);
+          }
+        }).catch(() => {
+          setLoadingArticle(false);
+          setArticleNotFound(true);
+        });
+      }
+    } else {
+      setActiveArticleModal(null);
+      setArticleNotFound(false);
+    }
+  }, [routeArticleId, articles.length]);
+
+  const handleOpenArticle = (item) => {
+    navigate(`/news/${encodeURIComponent(item.slug || item.id)}`);
+  };
+
+  const handleCloseArticle = () => {
+    if (routeArticleId) {
+      navigate('/news');
+    } else {
+      setActiveArticleModal(null);
+    }
+  };
 
   // Scroll lock and keyboard escape handler for full-screen article reader
   useEffect(() => {
-    if (activeArticleModal) {
+    if (activeArticleModal || articleNotFound) {
       document.body.style.overflow = 'hidden';
       const handleKeyDown = (e) => {
         if (e.key === 'Escape') {
-          setActiveArticleModal(null);
+          handleCloseArticle();
         }
       };
       window.addEventListener('keydown', handleKeyDown);
@@ -50,7 +108,7 @@ const News = () => {
     } else {
       document.body.style.overflow = 'auto';
     }
-  }, [activeArticleModal]);
+  }, [activeArticleModal, articleNotFound, routeArticleId]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -175,10 +233,10 @@ const News = () => {
                 >
                   <div 
                     className="relative h-52 w-full overflow-hidden bg-gray-900 cursor-pointer"
-                    onClick={() => setActiveArticleModal(item)}
+                    onClick={() => handleOpenArticle(item)}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter') setActiveArticleModal(item); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleOpenArticle(item); }}
                   >
                     <img
                       src={item.cover_image_url || item.image}
@@ -205,7 +263,7 @@ const News = () => {
                       </div>
 
                       <h2 
-                        onClick={() => setActiveArticleModal(item)}
+                        onClick={() => handleOpenArticle(item)}
                         className="text-lg font-bold text-black dark:text-white group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors line-clamp-2 mb-3 leading-snug cursor-pointer"
                       >
                         {item.title}
@@ -222,7 +280,7 @@ const News = () => {
                       </span>
                       <button
                         type="button"
-                        onClick={() => setActiveArticleModal(item)}
+                        onClick={() => handleOpenArticle(item)}
                         className="inline-flex items-center gap-1.5 text-xs font-bold text-[#138601] dark:text-[#4bd043] hover:underline cursor-pointer"
                       >
                         <span>Read Article</span>
@@ -249,7 +307,7 @@ const News = () => {
                 />
                 <button
                   type="button"
-                  onClick={() => setActiveArticleModal(null)}
+                  onClick={handleCloseArticle}
                   className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50 w-11 h-11 rounded-full bg-black/75 hover:bg-black text-white flex items-center justify-center text-2xl font-bold transition-all shadow-xl cursor-pointer hover:scale-105"
                   title="Close"
                   aria-label="Close"
@@ -284,6 +342,36 @@ const News = () => {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Full-Screen Article Not Found View */}
+        {articleNotFound && (
+          <div className="fixed inset-0 z-50 bg-white dark:bg-[#083002] overflow-y-auto flex flex-col justify-between">
+            <div className="w-full flex-grow flex flex-col items-center justify-center p-6 text-center">
+              <button
+                type="button"
+                onClick={handleCloseArticle}
+                className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50 w-11 h-11 rounded-full bg-black/75 hover:bg-black text-white flex items-center justify-center text-2xl font-bold transition-all shadow-xl cursor-pointer hover:scale-105"
+                title="Close"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+              <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-500 mb-4">
+                <FaNewspaper className="text-2xl" />
+              </div>
+              <h2 className="text-2xl font-bold text-black dark:text-white mb-2">Article Not Found</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300 max-w-md mb-6">
+                The article you are looking for could not be found or may have been unpublished.
+              </p>
+              <button
+                onClick={handleCloseArticle}
+                className="px-6 py-2.5 rounded-xl bg-[#138601] hover:bg-[#0f6c01] text-white font-bold text-sm transition-colors cursor-pointer"
+              >
+                Back to All Articles
+              </button>
             </div>
           </div>
         )}

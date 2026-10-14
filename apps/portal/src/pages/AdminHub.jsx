@@ -4,6 +4,7 @@ import {
   Shield, 
   GraduationCap, 
   LayoutDashboard, 
+  Vote,
   ArrowRight, 
   ChevronRight, 
   Lock,
@@ -55,6 +56,24 @@ const AdminHub = () => {
         { label: 'Media Library', href: `${urls.websiteAdmin}/media` },
         { label: 'Events Calendar', href: `${urls.websiteAdmin}/events` }
       ]
+    },
+    {
+      id: 'electra-admin',
+      title: 'Electra Electoral Dashboard',
+      category: 'Electoral Commission (NIPECO)',
+      description: 'Centralized administrative control for configuring departmental elections, screening contestant manifestos, supervising voter credentials, and certifying cryptographic election results.',
+      icon: Vote,
+      badge: 'Electoral Commissioners',
+      badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
+      iconBg: 'bg-amber-50 text-amber-600 border-amber-200',
+      primaryUrl: urls.electraAdmin,
+      primaryLabel: 'Open Electra Admin',
+      links: [
+        { label: 'Electoral Login', href: urls.electraAdmin },
+        { label: 'Manage Elections', href: urls.electraAdmin },
+        { label: 'Contestants & Manifestos', href: urls.electraAdmin },
+        { label: 'Live Ballot Results', href: urls.electraAdmin }
+      ]
     }
   ];
 
@@ -101,10 +120,6 @@ const AdminHub = () => {
           </div>
 
           <div className="flex items-center space-x-3">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-green-50 text-[#138601] border border-green-200">
-              <span className="w-2 h-2 rounded-full bg-[#138601] animate-pulse"></span>
-              <span>Systems Online</span>
-            </div>
           </div>
         </div>
       </header>
@@ -141,7 +156,7 @@ const AdminHub = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {adminDashboards.map((card) => {
               const Icon = card.icon;
               return (

@@ -141,6 +141,8 @@ function PortalSEOHandler() {
       '/courses': 'Course Registration & Syllabi | NACOS FUTO Portal',
       '/profile': 'Student Academic Profile | NACOS FUTO Portal',
       '/id-card': 'Digital Student ID Card | NACOS FUTO Portal',
+      '/id-card/view': 'View Student ID Card | NACOS FUTO Portal',
+      '/id/view': 'View Student ID Card | NACOS FUTO Portal',
       '/receipt': 'Official Payment Receipt | NACOS FUTO Portal',
       '/admin-hub': 'Administrative Control Gateway | NACOS FUTO',
       '/hackathons/BuildXNACOS': 'BuildX NACOS National Hackathon | NACOS FUTO',
@@ -185,6 +187,8 @@ function App() {
               <Route path="/resource-hub" element={<Courses />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/id-card" element={<IdCard />} />
+              <Route path="/id-card/view" element={<IdCard viewMode={true} />} />
+              <Route path="/id/view" element={<IdCard viewMode={true} />} />
               <Route path="/receipt" element={<Receipt />} />
               <Route path="/receipt/:reference" element={<Receipt />} />
               <Route path="/payment/success" element={<PaymentSuccess />} />

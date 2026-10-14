@@ -239,24 +239,18 @@ const Receipt = () => {
       <div className="space-y-6 max-w-4xl mx-auto pb-12">
         
         {/* Navigation & Actions Top Bar (Hidden on Print) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
-          <div className="space-y-1">
+        <div className="flex flex-row items-center justify-between gap-4 print:hidden">
+          <div className="flex items-center gap-3">
             <Link
               to={backRoute}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-[#0e8040] dark:text-green-200/70 dark:hover:text-[#4bd043] transition-colors"
+              aria-label="Back"
+              className="p-2 -ml-2 rounded-lg text-gray-700 hover:text-black hover:bg-gray-100 dark:text-green-100 dark:hover:text-white dark:hover:bg-white/10 transition-colors"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>{backLabel}</span>
+              <ArrowLeft className="w-6 h-6 stroke-[2.5]" />
             </Link>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
-              <span>Official Payment Receipt</span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-[#0e8040] dark:bg-emerald-950/60 dark:text-[#4bd043]">
-                {receiptData.isInvoice ? 'INVOICE' : 'VERIFIED'}
-              </span>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+              Official Payment Receipt
             </h1>
-            <p className="text-xs text-gray-500 dark:text-green-200/80 font-normal">
-              Department of Computer Science &bull; Electronic Institutional Clearance
-            </p>
           </div>
 
           {/* Action Buttons */}

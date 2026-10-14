@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Nav/Navbar';
 import Footer from '../components/Footer';
 import { 
@@ -30,13 +31,20 @@ import {
   fetchResourceCategories, 
   recordResourceDownload, 
   recordResourceView,
-  storageService 
+  storageService,
+  supabase
 } from '@nacos/supabase';
 import { getAppUrls } from '@nacos/config/urls';
 
 // Pure real-time resource catalog connected to Supabase & Backblaze B2
 
-const Resources = () => {
+const Resources = ({ isPreviewPage = false }) => {
+  const { id: routeResourceId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isPreviewRoute = Boolean(isPreviewPage || routeResourceId || location.pathname.includes('/preview'));
+  const [previewNotFound, setPreviewNotFound] = useState(false);
+
   // Active Filter States (Strictly Level and Semester per requirement)
   const [selectedLevel, setSelectedLevel] = useState('All Levels');
   const [selectedSemester, setSelectedSemester] = useState('All Semesters');
@@ -129,6 +137,66 @@ const Resources = () => {
       console.warn('Error reading auth hash session:', e);
     }
   }, []);
+
+  // Synchronize route parameter with active resource preview (supports direct URL, refresh & browser Back/Forward)
+  useEffect(() => {
+    if (!routeResourceId) {
+      if (activePreviewResource) {
+        setActivePreviewResource(null);
+        setPreviewUrl(null);
+        setPreviewNotFound(false);
+      }
+      return;
+    }
+
+    const found = resources.find(r => String(r.id) === String(routeResourceId) || String(r.slug) === String(routeResourceId));
+    if (found) {
+      openPreviewModal(found);
+    } else {
+      setIsLoadingPreview(true);
+      setPreviewNotFound(false);
+      if (supabase) {
+        supabase
+          .from('academic_resources')
+          .select('*')
+          .or(`id.eq.${routeResourceId},slug.eq.${routeResourceId}`)
+          .maybeSingle()
+          .then(({ data, error }) => {
+            if (data && !error) {
+              openPreviewModal(data);
+            } else {
+              setIsLoadingPreview(false);
+              setPreviewNotFound(true);
+            }
+          })
+          .catch(() => {
+            setIsLoadingPreview(false);
+            setPreviewNotFound(true);
+          });
+      } else {
+        setIsLoadingPreview(false);
+        setPreviewNotFound(true);
+      }
+    }
+  }, [routeResourceId, resources]);
+
+  // Handle escape key to exit preview
+  useEffect(() => {
+    if (activePreviewResource || isPreviewRoute) {
+      const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+          if (routeResourceId || location.pathname.includes('/preview')) {
+            navigate('/resources');
+          } else {
+            setActivePreviewResource(null);
+            setPreviewUrl(null);
+          }
+        }
+      };
+      window.addEventListener('keydown', handleEscape);
+      return () => window.removeEventListener('keydown', handleEscape);
+    }
+  }, [activePreviewResource, isPreviewRoute, routeResourceId]);
 
   // Auto-trigger pending download once student is authenticated and resource catalog has loaded
   useEffect(() => {
@@ -233,9 +301,9 @@ const Resources = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Preview Handler: Direct Fullscreen Preview (Free for all students and visitors without login)
+  // Preview Handler: Direct Fullscreen Preview with Dedicated URL
   const handlePreviewClick = (resource) => {
-    openPreviewModal(resource);
+    navigate(`/resources/preview/${resource.id || resource.slug}`);
   };
 
   // Auth Guard Handler: Trigger Download or Prompt Sign-In
@@ -256,9 +324,11 @@ const Resources = () => {
 
   // Open Preview Modal
   const openPreviewModal = async (resource) => {
+    if (!resource) return;
     setActivePreviewResource(resource);
     setIsLoadingPreview(true);
     setPreviewUrl(null);
+    setPreviewNotFound(false);
 
     // Record view analytics in database
     if (resource.id) {
@@ -872,42 +942,50 @@ const Resources = () => {
       )}
 
       {/* ─── FULLSCREEN RESOURCE PREVIEW MODAL ─── */}
-      {activePreviewResource && (
+      {(activePreviewResource || (isPreviewRoute && (isLoadingPreview || previewNotFound))) && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col w-screen h-screen overflow-hidden animate-in fade-in duration-150">
           
           {/* Fullscreen Header Bar */}
           <div className="w-full px-4 sm:px-6 py-2.5 sm:py-3 bg-[#083002] border-b border-[#138601]/40 flex items-center justify-between gap-3 shrink-0 text-white shadow-xl z-20">
             <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              {activePreviewResource.course_code && (
+              {activePreviewResource?.course_code && (
                 <span className="text-xs font-bold px-2 py-0.5 rounded bg-[#138601] text-white shadow-xs shrink-0">
                   {activePreviewResource.course_code}
                 </span>
               )}
               <div className="min-w-0">
                 <h3 className="text-xs sm:text-base font-bold text-white truncate max-w-[200px] sm:max-w-md md:max-w-xl">
-                  {activePreviewResource.title}
+                  {activePreviewResource?.title || (isLoadingPreview ? 'Loading Resource Preview...' : 'Resource Preview')}
                 </h3>
-                <p className="text-[11px] text-green-200/70 font-mono truncate hidden sm:block">
-                  {activePreviewResource.file_name} • {formatFileSize(activePreviewResource.file_size)}
-                </p>
+                {activePreviewResource?.file_name && (
+                  <p className="text-[11px] text-green-200/70 font-mono truncate hidden sm:block">
+                    {activePreviewResource.file_name} • {formatFileSize(activePreviewResource.file_size)}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => handleDownloadClick(activePreviewResource)}
-                className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs transition-colors cursor-pointer"
-              >
-                <FiDownload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="hidden xs:inline">Download</span>
-              </button>
+              {activePreviewResource && (
+                <button
+                  type="button"
+                  onClick={() => handleDownloadClick(activePreviewResource)}
+                  className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs transition-colors cursor-pointer"
+                >
+                  <FiDownload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="hidden xs:inline">Download</span>
+                </button>
+              )}
               
               <button
                 type="button"
                 onClick={() => {
                   setActivePreviewResource(null);
                   setPreviewUrl(null);
+                  setPreviewNotFound(false);
+                  if (routeResourceId || location.pathname.includes('/preview')) {
+                    navigate('/resources');
+                  }
                 }}
                 className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                 aria-label="Close preview"
@@ -925,7 +1003,22 @@ const Resources = () => {
                 <div className="w-10 h-10 border-3 border-[#138601] border-t-transparent rounded-full animate-spin"></div>
                 <p className="text-xs text-gray-300 font-medium">Generating secure resource preview...</p>
               </div>
-            ) : (
+            ) : previewNotFound ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3">
+                <FiAlertCircle className="w-16 h-16 text-amber-500" />
+                <h4 className="text-base font-bold text-white">Resource Not Found</h4>
+                <p className="text-xs text-gray-300 max-w-md">
+                  The requested resource could not be found or may have been updated.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/resources')}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-md transition-colors cursor-pointer"
+                >
+                  <span>Return to Resources Catalog</span>
+                </button>
+              </div>
+            ) : activePreviewResource ? (
               <>
                 {/* PDF Viewer — Fills 100% Fullscreen */}
                 {(activePreviewResource.file_extension === 'pdf' || activePreviewResource.mime_type === 'application/pdf') && (
@@ -981,7 +1074,7 @@ const Resources = () => {
                   </div>
                 )}
               </>
-            )}
+            ) : null}
           </div>
         </div>
       )}
