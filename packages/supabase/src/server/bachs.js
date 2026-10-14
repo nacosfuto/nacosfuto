@@ -711,7 +711,7 @@ export async function createPaymentCheckout({
       process.env.PUBLIC_PORTAL_URL || 
       process.env.NEXT_PUBLIC_PORTAL_URL || 
       process.env.VITE_PORTAL_URL || 
-      'https://portal.nacosfuto.com.ng'
+      'https://nacosfuto.com.ng/portal'
     ).replace(/\/+$/, '');
 
     const isLocalReturn = returnUrl.includes('localhost') || returnUrl.includes('127.0.0.1');

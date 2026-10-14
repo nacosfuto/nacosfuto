@@ -1141,6 +1141,7 @@ const IdCard = () => {
 
   // State 3 -> State 7: Photo Upload & Instant ID Generation
   const handlePhotoUploaded = async (media) => {
+    setUploadError('');
     const photoUrl = media?.secureUrl || media?.url;
     if (!photoUrl) return;
     const matric = student?.matric || student?.registration_number;

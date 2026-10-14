@@ -66,6 +66,7 @@ export const MediaUpload = ({
     if (!file || disabled) return;
 
     setStatusMessage(null);
+    if (onError) onError('');
     setProgress(0);
     setIsUploading(true);
 

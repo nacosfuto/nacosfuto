@@ -263,15 +263,25 @@ export function formatPaymentCategoryName(paymentType = '') {
  */
 function resolvePortalUrl(customUrl = '') {
   if (customUrl && typeof customUrl === 'string' && customUrl.startsWith('http')) {
-    return customUrl.replace(/\/+$/, '');
+    let clean = customUrl.replace(/\/+$/, '');
+    if (clean === 'https://portal.nacosfuto.com.ng') {
+      clean = 'https://nacosfuto.com.ng/portal';
+    }
+    return clean;
   }
   const env = typeof process !== 'undefined' ? process.env : {};
-  return (
+  let portalBase = (
     env.PUBLIC_PORTAL_URL ||
     env.NEXT_PUBLIC_PORTAL_URL ||
     env.VITE_PORTAL_URL ||
-    'https://portal.nacosfuto.com.ng'
+    'https://nacosfuto.com.ng/portal'
   ).replace(/\/+$/, '');
+
+  if (portalBase === 'https://portal.nacosfuto.com.ng') {
+    portalBase = 'https://nacosfuto.com.ng/portal';
+  }
+
+  return portalBase;
 }
 
 /**

@@ -358,12 +358,18 @@ export async function uploadMedia(file, options = {}) {
         if (signData.tags) formDataEntries.tags = signData.tags;
         else if (tags) formDataEntries.tags = tags;
 
-        return await executeCloudinaryPost({
+        const signedResult = await executeCloudinaryPost({
           file,
           cloudName: signData.cloudName || cloudName,
           formDataEntries,
           onProgress: options.onProgress
         });
+
+        if (signedResult.success) {
+          return signedResult;
+        }
+
+        console.warn('Cloudinary signed upload rejected, falling back to next strategy:', signedResult.error);
       }
     }
   } catch (signErr) {
@@ -531,7 +537,7 @@ export async function replaceMedia(oldPublicId, newFile, options = {}) {
   }
 
   // Step 2: Delete old asset if it exists and differs from new
-  if (oldPublicId && oldPublicId !== uploadResult.publicId) {
+  if (oldPublicId && oldPublicId !== uploadResult.publicId && !uploadResult.isLocalFallback) {
     try {
       await deleteMedia(oldPublicId, options);
     } catch (e) {
