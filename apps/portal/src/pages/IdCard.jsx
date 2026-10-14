@@ -151,6 +151,11 @@ const IdCard = ({ viewMode = false }) => {
   const [uploadError, setUploadError] = useState('');
   const [notification, setNotification] = useState({ message: '', type: '' });
 
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification({ message: '', type: '' }), 4500);
+  };
+
   // Bachs Payment Verification & Polling States
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
   const [verifyingReference, setVerifyingReference] = useState('');
@@ -250,30 +255,11 @@ const IdCard = ({ viewMode = false }) => {
     };
   }, []);
 
-  // Synchronize route-based view mode with browser navigation (Back/Forward buttons) & enforce current-level eligibility
+  // Synchronize route-based view mode with browser navigation (Back/Forward buttons)
   useEffect(() => {
     if (isViewRoute) {
-      const activeLvl = studentLevel;
-      const activeLvlNum = String(activeLvl).replace(/\D/g, '') || '100';
-      const curOb = levelObligations.find(o => String(o.level).replace(/\D/g, '') === activeLvlNum) || currentLevelObligation;
-      const isCurPaid = Boolean(curOb?.isPaid);
-
-      if (!isCurPaid && !isInitialLoading) {
-        // Deny direct route access to ID card studio if current level has not been paid
-        setIsCardViewRequested(false);
-        navigate('/id-card', { replace: true });
-        showNotification(`Your ID card payment for ${activeLvl} is required. Please complete your payment to view your current ID card.`, 'error');
-        return;
-      }
-
       if (queryLevel) {
         const norm = normalizeLevel(queryLevel);
-        const queryNum = String(norm).replace(/\D/g, '');
-        // If attempting to access an old level, force navigation to current active level
-        if (queryNum !== activeLvlNum) {
-          navigate(`/id-card/view?level=${encodeURIComponent(activeLvl)}`, { replace: true });
-          return;
-        }
         if (norm !== formLevelRef.current) {
           formLevelRef.current = norm;
           setFormLevel(norm);
@@ -284,7 +270,7 @@ const IdCard = ({ viewMode = false }) => {
     } else {
       setIsCardViewRequested(false);
     }
-  }, [isViewRoute, queryLevel, studentLevel, isInitialLoading, isCurrentLevelPaid, levelObligations]);
+  }, [isViewRoute, queryLevel]);
 
   const loadStudentAndApplication = async (preferredLevel = null) => {
     const stored = localStorage.getItem('nacos_user');
@@ -563,61 +549,7 @@ const IdCard = ({ viewMode = false }) => {
 
 
 
-  const handleViewIdCard = async (obligation = null) => {
-    // 1. Authoritative active level derived from progression
-    const activeLevel = studentLevel;
-    const activeLevelNum = String(activeLevel).replace(/\D/g, '') || '100';
 
-    // 2. Authoritative check: has the student successfully paid for their CURRENT level?
-    const currentOb = levelObligations.find(o => String(o.level).replace(/\D/g, '') === activeLevelNum) || currentLevelObligation;
-    const isCurrentPaid = Boolean(currentOb?.isPaid);
-
-    if (!isCurrentPaid) {
-      showNotification(`Your ID card payment for ${activeLevel} is required. Please complete your payment to view your current ID card.`, 'error');
-      setIsCardViewRequested(false);
-      if (currentOb) {
-        handlePayObligation(currentOb);
-      }
-      return;
-    }
-
-    // 3. If student clicked on a past level obligation, inform them that previous level card has expired
-    if (obligation && String(obligation.level).replace(/\D/g, '') !== activeLevelNum) {
-      showNotification(`ID cards from previous levels are expired. Accessing your current ${activeLevel} ID Card.`, 'info');
-    }
-
-    // 4. Synchronize state strictly to the current level
-    const targetLvl = currentOb?.level || activeLevel;
-    const targetSess = currentOb?.session || currentAcademicSession;
-    formLevelRef.current = normalizeLevel(targetLvl);
-    formSessionRef.current = targetSess;
-    setFormLevel(normalizeLevel(targetLvl));
-    setFormSession(targetSess);
-
-    // 5. Authoritative Backend Validation:
-    setIsVerifyingCardAccess(true);
-
-    try {
-      await loadStudentAndApplication(targetLvl);
-      setIsCardViewRequested(true);
-      setIsChangingPhoto(false);
-      setIsVerifyingCardAccess(false);
-      navigate(`/id-card/view?level=${encodeURIComponent(targetLvl)}`);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err) {
-      console.warn('Backend verification notice:', err);
-      setIsCardViewRequested(true);
-      setIsChangingPhoto(false);
-      setIsVerifyingCardAccess(false);
-      navigate(`/id-card/view?level=${encodeURIComponent(targetLvl)}`);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const showNotification = (message, type = 'success') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification({ message: '', type: '' }), 4500);
-  };
 
   // Authoritative status verification against backend & gateway
   const checkPaymentStatusAuthoritative = async (reference, checkoutId, targetLevel = null, isTabCloseEvent = false) => {
@@ -1412,28 +1344,7 @@ const IdCard = ({ viewMode = false }) => {
   };
 
 
-  if (!student) {
-    return (
-      <PortalLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center space-y-3 p-8 max-w-md mx-auto">
-            <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Student Session Required</h2>
-            <p className="text-xs text-gray-500 dark:text-green-200/70 font-medium">Please sign in to your student portal account to access ID card clearance.</p>
-            <button
-              type="button"
-              onClick={() => navigate('/login')}
-              className="px-5 py-2.5 rounded-lg text-xs font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] cursor-pointer"
-            >
-              Sign In to Portal
-            </button>
-          </div>
-        </div>
-      </PortalLayout>
-    );
-  }
+
 
   // Dynamic Progression & Obligation Generation from shared academic engine
   let studentProgression = { numericLevel: 1, levelString: '100 Level' };
@@ -1531,6 +1442,27 @@ const IdCard = ({ viewMode = false }) => {
   const isCardViewActive = Boolean((isViewRoute || isCardViewRequested) && isCurrentLevelPaid);
   const hasAnyPaidLevel = levelObligations.some(o => o.isPaid);
 
+  // Enforce current-level ID card eligibility on route access
+  useEffect(() => {
+    if (isViewRoute) {
+      const activeLvlNum = String(studentLevel).replace(/\D/g, '') || '100';
+      if (!isCurrentLevelPaid && !isInitialLoading) {
+        setIsCardViewRequested(false);
+        navigate('/id-card', { replace: true });
+        showNotification(`Your ID card payment for ${studentLevel} is required. Please complete your payment to view your current ID card.`, 'error');
+        return;
+      }
+
+      if (queryLevel) {
+        const norm = normalizeLevel(queryLevel);
+        const queryNum = String(norm).replace(/\D/g, '');
+        if (queryNum !== activeLvlNum) {
+          navigate(`/id-card/view?level=${encodeURIComponent(studentLevel)}`, { replace: true });
+        }
+      }
+    }
+  }, [isViewRoute, queryLevel, studentLevel, isInitialLoading, isCurrentLevelPaid]);
+
   const selectedObligation = levelObligations.find(o => {
     const l1 = String(o.level || '').replace(/\D/g, '');
     const l2 = String(formLevel || '').replace(/\D/g, '');
@@ -1563,6 +1495,57 @@ const IdCard = ({ viewMode = false }) => {
     setFormLevel(ob.level);
     setFormSession(ob.session);
     setIsNewPaymentModalOpen(true);
+  };
+
+  const handleViewIdCard = async (obligation = null) => {
+    // 1. Authoritative active level derived from progression
+    const activeLevel = studentLevel;
+    const activeLevelNum = String(activeLevel).replace(/\D/g, '') || '100';
+
+    // 2. Authoritative check: has the student successfully paid for their CURRENT level?
+    const currentOb = levelObligations.find(o => String(o.level).replace(/\D/g, '') === activeLevelNum) || currentLevelObligation;
+    const isCurrentPaid = Boolean(currentOb?.isPaid);
+
+    if (!isCurrentPaid) {
+      showNotification(`Your ID card payment for ${activeLevel} is required. Please complete your payment to view your current ID card.`, 'error');
+      setIsCardViewRequested(false);
+      if (currentOb) {
+        handlePayObligation(currentOb);
+      }
+      return;
+    }
+
+    // 3. If student clicked on a past level obligation, inform them that previous level card has expired
+    if (obligation && String(obligation.level).replace(/\D/g, '') !== activeLevelNum) {
+      showNotification(`ID cards from previous levels are expired. Accessing your current ${activeLevel} ID Card.`, 'info');
+    }
+
+    // 4. Synchronize state strictly to the current level
+    const targetLvl = currentOb?.level || activeLevel;
+    const targetSess = currentOb?.session || currentAcademicSession;
+    formLevelRef.current = normalizeLevel(targetLvl);
+    formSessionRef.current = targetSess;
+    setFormLevel(normalizeLevel(targetLvl));
+    setFormSession(targetSess);
+
+    // 5. Authoritative Backend Validation:
+    setIsVerifyingCardAccess(true);
+
+    try {
+      await loadStudentAndApplication(targetLvl);
+      setIsCardViewRequested(true);
+      setIsChangingPhoto(false);
+      setIsVerifyingCardAccess(false);
+      navigate(`/id-card/view?level=${encodeURIComponent(targetLvl)}`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      console.warn('Backend verification notice:', err);
+      setIsCardViewRequested(true);
+      setIsChangingPhoto(false);
+      setIsVerifyingCardAccess(false);
+      navigate(`/id-card/view?level=${encodeURIComponent(targetLvl)}`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const isSelectedLevelPaid = Boolean(selectedObligation?.isPaid);
@@ -1650,6 +1633,29 @@ const IdCard = ({ viewMode = false }) => {
 
   const currentPhotoUrl = application?.passport_url || student?.profile_photo_url || student?.avatar_url;
   const isPhotoMissingOrChanging = !currentPhotoUrl || isChangingPhoto;
+
+  if (!student) {
+    return (
+      <PortalLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center space-y-3 p-8 max-w-md mx-auto">
+            <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Student Session Required</h2>
+            <p className="text-xs text-gray-500 dark:text-green-200/70 font-medium">Please sign in to your student portal account to access ID card clearance.</p>
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="px-5 py-2.5 rounded-lg text-xs font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] cursor-pointer"
+            >
+              Sign In to Portal
+            </button>
+          </div>
+        </div>
+      </PortalLayout>
+    );
+  }
 
   return (
     <PortalLayout>
