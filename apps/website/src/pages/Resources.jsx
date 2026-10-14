@@ -24,8 +24,9 @@ import {
   FiBookOpen,
   FiUploadCloud
 } from 'react-icons/fi';
-const libraryShelfCloseup = '';
-const libraryHero = '';
+import libraryShelfCloseup from '../assets/library_shelf_closeup.jpg';
+import libraryHero from '../assets/library_hero.jpg';
+import libraryStudyGuides from '../assets/library_study_guides.jpg';
 import { 
   fetchResources, 
   fetchResourceCategories, 
@@ -453,7 +454,7 @@ const Resources = ({ isPreviewPage = false }) => {
       subtitle: 'Browse authentic lecture notes, syllabus companion guides, and slides prepared for FUTO Computer Science undergraduates.',
       linkText: 'Explore handouts',
       category: 'Handouts',
-      bgImage: libraryShelfCloseup,
+      bgImage: libraryStudyGuides,
     }
   ], []);
 

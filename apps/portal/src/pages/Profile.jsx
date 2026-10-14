@@ -313,16 +313,6 @@ const Profile = () => {
 
     const pristine = dbUserRef.current || {};
 
-    // Check if user attempted to alter locked academic records
-    const attemptedLockedChange = 
-      (user.surname && user.surname !== pristine.surname) ||
-      (user.firstName && user.firstName !== pristine.firstName) ||
-      (user.matric && user.matric !== pristine.matric) ||
-      (user.studentId && user.studentId !== pristine.studentId) ||
-      (user.department && user.department !== pristine.department) ||
-      (user.dept && user.dept !== pristine.dept) ||
-      (user.institution && user.institution !== pristine.institution);
-
     // Revert official academic records to authoritative values
     const sanitizedUser = {
       ...user,
@@ -356,7 +346,8 @@ const Profile = () => {
       address: sanitizedUser.address || '',
       residential_address: sanitizedUser.address || '',
       bio: sanitizedUser.bio || '',
-      zone: sanitizedUser.zone || 'South East'
+      zone: sanitizedUser.zone || 'South East',
+      email: sanitizedUser.email || ''
     };
 
     try {
@@ -367,18 +358,25 @@ const Profile = () => {
       dbUserRef.current = savedUser;
       setIsEditing(false);
 
-      if (attemptedLockedChange) {
-        setSaveSuccess('Specific profile details (Gender, Contact & Bio) have been updated successfully! Note: Official academic bio-data (Name, Matric No, Department) remains protected under departmental authority.');
-      } else {
-        setSaveSuccess('Profile updated successfully! Your default gender and personal details have been saved.');
-      }
+      // Keep localStorage in sync so other tabs and layouts immediately reflect
+      try {
+        localStorage.setItem('nacos_user', JSON.stringify(savedUser));
+        window.dispatchEvent(new Event('nacos_user_updated'));
+      } catch (_) {}
+
+      setSaveSuccess('Profile updated successfully! Your personal details and geopolitical zone have been saved.');
       setTimeout(() => setSaveSuccess(null), 6000);
     } catch (err) {
       console.error('Failed to save profile updates:', err);
       setLockedError('Failed to save profile updates. Please verify your connection and try again.');
     } finally {
       setIsSaving(false);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const topEl = document.getElementById('profile-top-anchor');
+      if (topEl) {
+        topEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   };
 
@@ -388,7 +386,12 @@ const Profile = () => {
     setLockedError(
       'Profile Photo Locked: Official passport photographs cannot be changed after initial registration. Please contact the departmental administrator at support@nacosfuto.com.ng or visit the NACOS Secretariat with your school ID to request a verified photo update.'
     );
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const topEl = document.getElementById('profile-top-anchor');
+    if (topEl) {
+      topEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const displayName = (user?.full_name || user?.name || `${user?.surname || ''} ${user?.firstName || ''}`).trim() || 'Student Profile';
@@ -417,7 +420,25 @@ const Profile = () => {
 
   return (
     <PortalLayout>
-      <div className="space-y-6">
+      <div id="profile-top-anchor" className="space-y-5 sm:space-y-6 pt-1 sm:pt-2 scroll-mt-24">
+
+        {/* ─── Page Title Header ─── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-gray-200/60 dark:border-[#138601]/20">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+              Student Profile & Bio-Data
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/70 mt-0.5">
+              Manage personal details and view official departmental enrollment records
+            </p>
+          </div>
+          {isEditing && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 text-xs font-semibold text-amber-800 dark:text-amber-300 self-start sm:self-auto shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span>Editing Active</span>
+            </div>
+          )}
+        </div>
 
         {/* ─── Profile Update Success Banner ─── */}
         {saveSuccess && (
@@ -499,16 +520,16 @@ const Profile = () => {
         )}
 
         {/* ─── Top Header Card (Authoritative Database Information) ─── */}
-        <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200/80 dark:border-[#138601]/30 p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
+        <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200/80 dark:border-[#138601]/30 p-4 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6">
           
-          {/* Avatar & Core Profile Summary */}
-          <div className="flex items-center space-x-4 sm:space-x-5">
+          {/* Avatar & Core Profile Summary: Stacks vertically on mobile, side-by-side on tablet/desktop */}
+          <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-4 sm:gap-5 w-full md:w-auto">
             
             {/* Avatar Container with Camera Overlay */}
             <div 
               onClick={handlePhotoClick}
               className="relative shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-[#138601]/30 bg-gray-100 dark:bg-[#041801] shadow-xs group cursor-pointer"
-              title="Profile photo is locked after registration — contact admin to update"
+              title="Official passport photo is locked after registration — click to contact admin"
             >
               {avatarUrl ? (
                 <img 
@@ -537,31 +558,31 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Student Name, ID & Database Badges */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+            {/* Student Name, ID & Badges */}
+            <div className="space-y-1.5 min-w-0 w-full sm:w-auto">
+              <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight break-words">
                   {displayName}
                 </h2>
               </div>
 
-              <p className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-green-200/80 font-mono">
+              <p className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-green-200/80 font-mono break-words">
                 {displayMatric} • {user.dept_code || 'CSC'} • {user.programme}
               </p>
               
-              {/* Badges Row */}
-              <div className="flex flex-wrap items-center gap-2.5 pt-1.5 text-xs">
+              {/* Badges Row - wraps cleanly on mobile with center alignment */}
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1 text-xs">
                 {/* Level / Alumni Badge */}
                 {user.is_graduated || user.level === 'Graduated' ? (
-                  <span className="px-3 py-1 rounded-md text-xs font-bold border border-purple-300 dark:border-purple-600/40 text-purple-800 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 flex items-center gap-1.5 shadow-xs">
+                  <span className="px-2.5 py-1 rounded-md text-xs font-bold border border-purple-300 dark:border-purple-600/40 text-purple-800 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 flex items-center gap-1.5 shadow-xs">
                     <Award className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                    <span>Status: Graduated • {user.class_of_display || `Class of ${user.class_of || user.graduation_year || '2026'}`}</span>
+                    <span>Graduated • {user.class_of_display || `Class of ${user.class_of || user.graduation_year || '2026'}`}</span>
                   </span>
                 ) : (
                   <>
-                    <span className="px-3 py-1 rounded-md text-xs font-semibold border border-green-200 dark:border-[#138601]/40 text-[#138601] dark:text-[#4bd043] bg-green-50/60 dark:bg-[#138601]/10 flex items-center gap-1.5">
-                      <GraduationCap className="w-3.5 h-3.5" />
-                      <span>Level: {user.level || user.current_level || '100 Level'}</span>
+                    <span className="px-2.5 py-1 rounded-md text-xs font-semibold border border-green-200 dark:border-[#138601]/40 text-[#138601] dark:text-[#4bd043] bg-green-50/60 dark:bg-[#138601]/10 flex items-center gap-1.5">
+                      <GraduationCap className="w-3.5 h-3.5 shrink-0" />
+                      <span>{user.level || user.current_level || '100 Level'}</span>
                     </span>
                     <span className="px-2.5 py-1 rounded-md text-xs font-medium border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-white/5">
                       Session: {typeof user?.academic_session === 'string' ? user.academic_session : (user?.academic_session?.sessionName || user?.academic_session?.session || '2026/2027')}
@@ -570,31 +591,25 @@ const Profile = () => {
                 )}
 
                 {/* Institution Badge */}
-                <span className="text-xs font-semibold uppercase tracking-wide text-[#138601] dark:text-[#4bd043] flex items-center gap-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-[#138601] dark:text-[#4bd043] flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate max-w-[280px] sm:max-w-none">{String(user?.institution || 'FEDERAL UNIVERSITY OF TECHNOLOGY, OWERRI')}</span>
+                  <span className="truncate max-w-[220px] sm:max-w-xs">{String(user?.institution || 'FEDERAL UNIVERSITY OF TECHNOLOGY, OWERRI')}</span>
                 </span>
 
                 {/* Gender Badge */}
-                <span className="px-2.5 py-1 rounded-md border border-green-200 dark:border-[#138601]/40 text-xs font-bold text-[#138601] dark:text-[#4bd043] flex items-center justify-center">
-                  Gender: {user.gender === 'F' || user.gender === 'Female' ? 'Female (F)' : 'Male (M)'}
+                <span className="px-2.5 py-1 rounded-md border border-green-200 dark:border-[#138601]/40 text-xs font-bold text-[#138601] dark:text-[#4bd043]">
+                  {user.gender === 'F' || user.gender === 'Female' ? 'Female (F)' : 'Male (M)'}
                 </span>
               </div>
             </div>
 
           </div>
 
-          {/* Action Button: Allows user to click Edit and modify text in form, but Save triggers the administrator lock error */}
-          <div className="flex items-center gap-2.5 self-start md:self-center shrink-0">
-            {isEditing && (
-              <span className="text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
-                <Lock className="w-3 h-3 text-amber-600" />
-                <span>Protected Record</span>
-              </span>
-            )}
-
+          {/* Action Buttons: Edit / Save / Cancel */}
+          <div className="flex items-center justify-center sm:justify-end gap-2.5 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-gray-100 dark:border-[#138601]/20 shrink-0">
             <button
               type="button"
+              disabled={isSaving}
               onClick={() => {
                 if (isEditing) {
                   handleSave();
@@ -603,16 +618,18 @@ const Profile = () => {
                   setIsEditing(true);
                 }
               }}
-              className={`px-5 py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all shadow-xs inline-flex items-center gap-2 cursor-pointer ${
+              className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all shadow-xs inline-flex items-center justify-center gap-2 cursor-pointer ${
                 isEditing
-                  ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                  ? 'bg-[#138601] hover:bg-[#0f6c01] text-white disabled:opacity-60'
                   : 'bg-[#138601] hover:bg-[#0f6c01] text-white'
               }`}
             >
-              {isEditing ? (
+              {isSaving ? (
+                <span>Saving...</span>
+              ) : isEditing ? (
                 <>
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Save Profile</span>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Save Changes</span>
                 </>
               ) : (
                 <span>Edit Profile</span>
@@ -622,12 +639,12 @@ const Profile = () => {
             {isEditing && (
               <button
                 type="button"
+                disabled={isSaving}
                 onClick={() => {
-                  // Revert changes on cancel
                   if (dbUserRef.current) setUser({ ...dbUserRef.current });
                   setIsEditing(false);
                 }}
-                className="px-3.5 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 transition-all cursor-pointer"
+                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 transition-all cursor-pointer text-center"
               >
                 Cancel
               </button>
@@ -640,41 +657,49 @@ const Profile = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Card 1: Personal Information */}
-          <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200/80 dark:border-[#138601]/30 p-6 shadow-xs space-y-4">
+          <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200/80 dark:border-[#138601]/30 p-5 sm:p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">Personal Information</h3>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/70 mt-0.5">Authoritative student bio-data from database</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/70 mt-0.5">Student bio-data and contact records</p>
               </div>
               <span className="text-[11px] text-gray-400 dark:text-green-200/60 font-mono">
-                {isEditing ? 'Editing Mode (Locked on Save)' : 'Read-Only Record'}
+                {isEditing ? 'Editing Mode' : 'View Mode'}
               </span>
             </div>
 
             <div className="space-y-3.5 pt-2">
               
-              {/* Surname & First Name */}
+              {/* Surname & First Name - Permanently Locked Official Records */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Surname</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-gray-700 dark:text-green-200">Surname</label>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-800/40">
+                      <Lock className="w-2.5 h-2.5" />
+                      <span>Official Record (Locked)</span>
+                    </span>
+                  </div>
                   <input
                     type="text"
                     value={user.surname}
-                    disabled={!isEditing}
-                    placeholder="Enter surname"
-                    onChange={(e) => setUser({ ...user, surname: e.target.value })}
-                    className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 transition-colors"
+                    disabled={true}
+                    className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/30 bg-gray-100/80 dark:bg-[#041801]/80 text-gray-600 dark:text-gray-300 cursor-not-allowed select-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">First Name</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-gray-700 dark:text-green-200">First Name</label>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-800/40">
+                      <Lock className="w-2.5 h-2.5" />
+                      <span>Official Record (Locked)</span>
+                    </span>
+                  </div>
                   <input
                     type="text"
                     value={user.firstName}
-                    disabled={!isEditing}
-                    placeholder="Enter first name"
-                    onChange={(e) => setUser({ ...user, firstName: e.target.value })}
-                    className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 transition-colors"
+                    disabled={true}
+                    className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/30 bg-gray-100/80 dark:bg-[#041801]/80 text-gray-600 dark:text-gray-300 cursor-not-allowed select-none"
                   />
                 </div>
               </div>
@@ -765,7 +790,7 @@ const Profile = () => {
           </div>
 
           {/* Card 2: Academic Information */}
-          <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200/80 dark:border-[#138601]/30 p-6 shadow-xs space-y-4">
+          <div className="bg-white dark:bg-[#083002] rounded-xl border border-gray-200/80 dark:border-[#138601]/30 p-5 sm:p-6 shadow-xs space-y-4">
             <div>
               <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">Academic Information</h3>
               <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/70 mt-0.5">Verified Departmental enrollment records</p>
@@ -773,28 +798,37 @@ const Profile = () => {
 
             <div className="space-y-3.5 pt-2">
               
-              {/* Institution */}
+              {/* Institution - Permanently Locked */}
               <div>
-                <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Institution</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-gray-700 dark:text-green-200">Institution</label>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-800/40">
+                    <Lock className="w-2.5 h-2.5" />
+                    <span>Official Record (Locked)</span>
+                  </span>
+                </div>
                 <input
                   type="text"
                   value={user.institution}
-                  disabled={!isEditing}
-                  onChange={(e) => setUser({ ...user, institution: e.target.value })}
-                  className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-gray-50/80 dark:bg-[#041801]/80 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 transition-colors"
+                  disabled={true}
+                  className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/30 bg-gray-100/80 dark:bg-[#041801]/80 text-gray-600 dark:text-gray-300 cursor-not-allowed select-none"
                 />
               </div>
 
-              {/* Student ID / Matric Number */}
+              {/* Student ID / Matric Number - Permanently Locked */}
               <div>
-                <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Registration Number / Student ID</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-gray-700 dark:text-green-200">Registration Number / Student ID</label>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-800/40">
+                    <Lock className="w-2.5 h-2.5" />
+                    <span>Official Record (Locked)</span>
+                  </span>
+                </div>
                 <input
                   type="text"
                   value={user.studentId || user.matric}
-                  disabled={!isEditing}
-                  placeholder="e.g. 20241450682"
-                  onChange={(e) => setUser({ ...user, studentId: e.target.value, matric: e.target.value })}
-                  className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-gray-50/80 dark:bg-[#041801]/80 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 font-mono font-semibold transition-colors"
+                  disabled={true}
+                  className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/30 bg-gray-100/80 dark:bg-[#041801]/80 text-gray-600 dark:text-gray-300 font-mono font-semibold cursor-not-allowed select-none"
                 />
               </div>
 
@@ -833,38 +867,45 @@ const Profile = () => {
                 </div>
               )}
 
-              {/* Department */}
+              {/* Department - Permanently Locked */}
               <div>
-                <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Department</label>
-                <div className="relative">
-                  <select
-                    value={user.dept || user.department}
-                    disabled={!isEditing}
-                    onChange={(e) => {
-                      const newDept = e.target.value;
-                      const code = newDept.toLowerCase().includes('software') ? 'SE' : 'CSC';
-                      setUser({ ...user, dept: newDept, department: newDept, dept_code: code });
-                    }}
-                    className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 cursor-pointer"
-                  >
-                    <option value="Computer Science">Department of Computer Science</option>
-                    <option value="Software Engineering">Department of Software Engineering</option>
-                    <option value="Cyber Security">Department of Cyber Security</option>
-                    <option value="Information Technology">Department of Information Technology</option>
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-gray-400 dark:text-green-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-gray-700 dark:text-green-200">Department</label>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-800/40">
+                    <Lock className="w-2.5 h-2.5" />
+                    <span>Official Record (Locked)</span>
+                  </span>
                 </div>
+                <input
+                  type="text"
+                  value={user.dept || user.department || 'Department of Computer Science'}
+                  disabled={true}
+                  className="w-full px-4 py-2.5 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/30 bg-gray-100/80 dark:bg-[#041801]/80 text-gray-600 dark:text-gray-300 cursor-not-allowed select-none"
+                />
               </div>
 
-              {/* Zone */}
+              {/* Geopolitical Zone / Origin - EDITABLE by student */}
               <div>
-                <label className="text-xs font-semibold text-gray-700 dark:text-green-200 block mb-1.5">Geopolitical Zone / Origin</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-gray-700 dark:text-green-200">
+                    Geopolitical Zone / Origin
+                  </label>
+                  {isEditing ? (
+                    <span className="text-[10px] font-semibold text-[#138601] dark:text-[#4bd043] bg-green-50 dark:bg-[#138601]/20 px-2 py-0.5 rounded border border-green-200/60 dark:border-[#138601]/40">
+                      Editable
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-gray-400 dark:text-green-200/60 font-mono">
+                      Click Edit to modify
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <select
-                    value={user.zone}
+                    value={user.zone || 'South East'}
                     disabled={!isEditing}
                     onChange={(e) => setUser({ ...user, zone: e.target.value })}
-                    className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 cursor-pointer"
+                    className="w-full appearance-none px-4 py-2.5 pr-10 text-xs sm:text-sm rounded-lg border border-gray-200 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601] disabled:bg-gray-50/70 dark:disabled:bg-[#041801]/60 disabled:text-gray-700 dark:disabled:text-gray-200 cursor-pointer font-medium"
                   >
                     <option value="South East">South East</option>
                     <option value="South South">South South</option>
