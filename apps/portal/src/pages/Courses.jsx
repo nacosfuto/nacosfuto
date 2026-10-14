@@ -295,7 +295,24 @@ const Courses = () => {
         )}
 
         {/* ─── Courses Directory Grid or Clean Empty State ─── */}
-        {coursesList.length === 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 space-y-3.5 shadow-xs animate-pulse">
+                <div className="flex items-center justify-between">
+                  <div className="h-5 w-20 bg-gray-200 dark:bg-green-950/60 rounded" />
+                  <div className="h-4 w-12 bg-gray-200 dark:bg-green-950/60 rounded" />
+                </div>
+                <div className="h-4 w-5/6 bg-gray-200 dark:bg-green-950/60 rounded" />
+                <div className="h-3 w-1/2 bg-gray-200 dark:bg-green-950/60 rounded" />
+                <div className="pt-2 border-t border-gray-100 dark:border-[#138601]/20 flex justify-between">
+                  <div className="h-3 w-28 bg-gray-200 dark:bg-green-950/60 rounded" />
+                  <div className="h-3 w-16 bg-gray-200 dark:bg-green-950/60 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : coursesList.length === 0 ? (
           <div className="p-8 sm:p-12 text-center rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 space-y-4 shadow-xs">
             <div className="w-14 h-14 mx-auto rounded-2xl bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 flex items-center justify-center text-[#138601] dark:text-[#4bd043]">
               <BookOpen className="w-7 h-7" />
