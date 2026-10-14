@@ -331,29 +331,37 @@ export async function uploadMedia(file, options = {}) {
   const cloudName = getCloudName();
   const folder = options.folder || CLOUDINARY_FOLDERS.GENERAL;
   const publicId = options.publicId || undefined;
-  const tags = options.tags || ['nacos'];
+  const tags = options.tags ? (Array.isArray(options.tags) ? options.tags.join(',') : options.tags) : undefined;
 
   // Attempt 1: Server-side signed upload
   try {
+    const signPayload = { folder };
+    if (publicId) signPayload.public_id = publicId;
+    if (tags) signPayload.tags = tags;
+
     const signRes = await fetch('/api/cloudinary/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ folder, public_id: publicId, tags })
+      body: JSON.stringify(signPayload)
     });
 
     if (signRes.ok) {
       const signData = await signRes.json();
       if (signData.signature && signData.apiKey) {
+        const formDataEntries = {
+          api_key: signData.apiKey,
+          timestamp: signData.timestamp,
+          signature: signData.signature,
+          folder: signData.folder || folder
+        };
+        if (signData.public_id) formDataEntries.public_id = signData.public_id;
+        if (signData.tags) formDataEntries.tags = signData.tags;
+        else if (tags) formDataEntries.tags = tags;
+
         return await executeCloudinaryPost({
           file,
           cloudName: signData.cloudName || cloudName,
-          formDataEntries: {
-            api_key: signData.apiKey,
-            timestamp: signData.timestamp,
-            signature: signData.signature,
-            folder: signData.folder || folder,
-            ...(signData.public_id ? { public_id: signData.public_id } : {})
-          },
+          formDataEntries,
           onProgress: options.onProgress
         });
       }

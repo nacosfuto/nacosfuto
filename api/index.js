@@ -855,7 +855,8 @@ export default async function handler(req, res) {
         apiKey,
         cloudName,
         folder: paramsToSign.folder,
-        public_id: paramsToSign.public_id
+        public_id: paramsToSign.public_id,
+        tags: paramsToSign.tags
       });
     }
 

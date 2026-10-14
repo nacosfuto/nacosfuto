@@ -429,7 +429,8 @@ function cloudinaryDevPlugin() {
                 apiKey,
                 cloudName,
                 folder: paramsToSign.folder,
-                public_id: paramsToSign.public_id
+                public_id: paramsToSign.public_id,
+                tags: paramsToSign.tags
               }));
             } catch (e) {
               res.statusCode = 500;
