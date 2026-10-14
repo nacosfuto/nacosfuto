@@ -184,31 +184,25 @@ const IdCard = () => {
   useEffect(() => {
     loadStudentAndApplication();
 
-    // Check for pending ID card payment transaction in localStorage to restore waiting state if URL indicates verifying
+    // Check for explicit callback from payment gateway (URL: ?payment=verifying&reference=...)
     try {
-      const isVerifyingUrl = searchParams.get('payment') === 'verifying';
-      const savedTxStr = localStorage.getItem('nacos_pending_id_card_tx');
-      if (savedTxStr && isVerifyingUrl) {
-        const savedTx = JSON.parse(savedTxStr);
-        const ageMs = Date.now() - new Date(savedTx.initiatedAt || 0).getTime();
-        if (ageMs < 15 * 60 * 1000) {
-          setPaymentTransaction(savedTx);
-          setIsVerifyingPayment(true);
-          setPaymentStatusOutcome('PENDING');
-          setVerifyingReference(savedTx.checkoutId || savedTx.reference || '');
-          if (savedTx.level) {
-            const norm = normalizeLevel(savedTx.level);
-            formLevelRef.current = norm;
-            setFormLevel(norm);
-          }
-          if (savedTx.session) {
-            formSessionRef.current = savedTx.session;
-            setFormSession(savedTx.session);
-          }
-          startPaymentVerificationPolling(savedTx.reference, savedTx.checkoutId, savedTx.level);
-        } else {
-          localStorage.removeItem('nacos_pending_id_card_tx');
-        }
+      const paymentAction = searchParams.get('payment');
+      const ref = searchParams.get('reference') || searchParams.get('checkout_id') || searchParams.get('checkoutId');
+
+      // Strip query parameters from URL immediately so subsequent page refreshes do NOT re-trigger this
+      if (paymentAction || ref) {
+        try {
+          window.history.replaceState({}, '', window.location.pathname);
+        } catch (_) {}
+      }
+
+      if (paymentAction === 'verifying' && ref) {
+        setVerifyingReference(ref);
+        setIsVerifyingPayment(true);
+        setPaymentStatusOutcome('PENDING');
+        startPaymentVerificationPolling(ref, null, formLevelRef.current);
+      } else if (paymentAction === 'cancelled') {
+        showNotification('Payment process was cancelled. You can retry checkout when you are ready.', 'info');
       }
     } catch (_) {}
 
@@ -231,6 +225,7 @@ const IdCard = () => {
     return () => {
       window.removeEventListener('nacos_id_card_settings_updated', handleSettingsUpdated);
       if (unsubSession) unsubSession();
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
       if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
     };
   }, []);
@@ -716,16 +711,13 @@ const IdCard = () => {
     };
     window.addEventListener('storage', handleStorageEvent);
 
-    // Automatic authoritative recheck when student switches back to this tab (visibilitychange only, throttled)
+    // Automatic authoritative recheck when student switches back to this tab (only when actively verifying payment)
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && isVerifyingPaymentRef.current) {
         const targetRef = paymentTransactionRef.current?.reference || verifyingReferenceRef.current;
         const targetChk = paymentTransactionRef.current?.checkoutId;
-        if (targetRef || targetChk || isVerifyingPaymentRef.current) {
+        if (targetRef || targetChk) {
           await checkPaymentStatusAuthoritative(targetRef, targetChk, formLevelRef.current);
-        } else if (Date.now() - lastFetchTimeRef.current > 30000) {
-          // Throttled: only re-fetch if at least 30s have elapsed
-          await loadStudentAndApplication(formLevelRef.current);
         }
       }
     };
@@ -735,40 +727,13 @@ const IdCard = () => {
       if (channel) channel.close();
       window.removeEventListener('storage', handleStorageEvent);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
-
-  // Handle URL Query Parameters on initial load
-  useEffect(() => {
-    const paymentAction = searchParams.get('payment');
-    const ref = searchParams.get('reference');
-    const chkId = searchParams.get('checkout_id') || searchParams.get('checkoutId');
-
-    if (paymentAction === 'verifying' && (ref || chkId)) {
-      setIsVerifyingPayment(true);
-      setPaymentStatusOutcome('PENDING');
-      setVerifyingReference(chkId || ref);
-      startPaymentVerificationPolling(ref, chkId, formLevelRef.current);
-    } else if (paymentAction === 'cancelled') {
-      setIsVerifyingPayment(true);
-      setPaymentStatusOutcome('CANCELLED');
-      setPaymentStatusMessage('Payment was cancelled. You can retry checkout when you are ready.');
-      try {
-        window.history.replaceState({}, '', window.location.pathname);
-      } catch (_) {}
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-      if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
     };
   }, []);
 
   const startPaymentVerificationPolling = (reference, checkoutId, targetLevel = null) => {
     let attempts = 0;
-    const maxAttempts = 60; // 60 attempts (~3-4 minutes)
+    const maxAttempts = 10; // 10 attempts (~40 seconds max)
 
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
 
@@ -776,25 +741,17 @@ const IdCard = () => {
       attempts++;
       const outcome = await checkPaymentStatusAuthoritative(reference, checkoutId, targetLevel);
       if (outcome === 'SUCCESS' || outcome === 'FAILED' || outcome === 'CANCELLED') {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         return;
       }
 
-      // If unresolved after 25 attempts (~50s), transition to delayed state & slow polling
-      if (attempts === 25) {
-        setIsPaymentDelayed(true);
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = setInterval(checkStatus, 5000);
-      }
-
       if (attempts >= maxAttempts) {
-        clearInterval(pollIntervalRef.current);
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         setIsPaymentDelayed(true);
-        showNotification('Payment confirmation is taking longer than expected. Use "Check Status Now" to refresh.', 'info');
       }
     };
 
-    checkStatus();
-    pollIntervalRef.current = setInterval(checkStatus, 2000);
+    pollIntervalRef.current = setInterval(checkStatus, 4000);
   };
 
   const handleManualCheckStatus = async () => {
@@ -831,12 +788,7 @@ const IdCard = () => {
     setIsNewPaymentModalOpen(true);
   };
 
-  const handleCancelVerification = async () => {
-    const ref = paymentTransaction?.reference || verifyingReference;
-    const chkId = paymentTransaction?.checkoutId;
-    const outcome = await checkPaymentStatusAuthoritative(ref, chkId, formLevel);
-    if (outcome === 'SUCCESS') return;
-
+  const handleCancelVerification = () => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
     try {
@@ -847,7 +799,7 @@ const IdCard = () => {
     setPaymentStatusOutcome('PENDING');
     setIsPaymentDelayed(false);
     setGatewayTabClosed(false);
-    showNotification('Payment verification cancelled. You can retry checkout when you are ready.', 'info');
+    showNotification('Returned to ID card overview.', 'info');
   };
 
   const handleReopenGatewayTab = () => {
@@ -1616,7 +1568,287 @@ const IdCard = () => {
           </div>
         )}
 
-        {isCardViewRequested ? (
+        {isVerifyingPayment ? (
+          /* ==================================================================== */
+          /* VIEW 1: DEDICATED PAYMENT PROCESSING & GATEWAY CONFIRMATION VIEW     */
+          /* ==================================================================== */
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Dedicated Navigation Bar & Status Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#083002] p-4 sm:p-5 rounded-2xl border border-gray-200/80 dark:border-[#138601]/30 shadow-xs">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelVerification}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-gray-700 dark:text-green-200 bg-gray-100 dark:bg-[#041801] hover:bg-gray-200 dark:hover:bg-[#138601]/30 border border-gray-200/80 dark:border-[#138601]/30 transition-all cursor-pointer active:scale-95"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Return to Payment Options</span>
+                </button>
+                <div className="h-6 w-px bg-gray-200 dark:bg-[#138601]/30 hidden sm:block" />
+                <div>
+                  <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white tracking-tight">
+                    Payment Processing &amp; Verification
+                  </h1>
+                  <p className="text-[11px] sm:text-xs text-gray-500 dark:text-green-200/70">
+                    Department of Computer Science • Official Student ID Card Clearance
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                  paymentStatusOutcome === 'SUCCESS'
+                    ? 'bg-emerald-100 text-[#0e8040] dark:bg-emerald-950 dark:text-[#4bd043] border border-emerald-200 dark:border-emerald-800'
+                    : paymentStatusOutcome === 'FAILED' || paymentStatusOutcome === 'CANCELLED'
+                    ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border border-red-200 dark:border-red-800'
+                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                }`}>
+                  {paymentStatusOutcome === 'SUCCESS' ? (
+                    <><CheckCircle className="w-3.5 h-3.5" /> Clearance Verified</>
+                  ) : paymentStatusOutcome === 'FAILED' || paymentStatusOutcome === 'CANCELLED' ? (
+                    <><AlertCircle className="w-3.5 h-3.5" /> Transaction Incomplete</>
+                  ) : (
+                    <><Clock className="w-3.5 h-3.5" /> Processing / Awaiting Confirmation</>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* Waiting / Processing Card */}
+            <div className="p-6 sm:p-10 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 text-center space-y-6 shadow-xs">
+              {paymentStatusOutcome === 'PENDING' && (
+                <>
+                  {/* Animated Loading Spinner */}
+                  <div className="flex items-center justify-center mx-auto py-2">
+                    <img
+                      src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png"
+                      alt="Loading"
+                      className="w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 object-contain animate-spin select-none pointer-events-none"
+                      style={{ animationDuration: '3s' }}
+                    />
+                  </div>
+
+                  <div className="max-w-xl mx-auto space-y-2.5">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                      <Clock className="w-3.5 h-3.5" /> Processing / Pending Gateway Confirmation
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+                      Waiting for Payment Confirmation
+                    </h2>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed">
+                      Your payment process has started. We are waiting for confirmation from the payment gateway. Please complete your payment in the other tab. This page will automatically update once your transaction status is verified.
+                    </p>
+                    <p className="text-[11px] sm:text-xs text-amber-700 dark:text-amber-300/90 font-medium">
+                      Please do not close or refresh this page while your payment is being verified.
+                    </p>
+
+                    {isPaymentDelayed && (
+                      <div className="p-3.5 rounded-xl bg-amber-50/90 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 text-left">
+                        <strong>Notice:</strong> Payment confirmation is taking longer than expected. We are still checking your transaction with the payment gateway. If you completed payment, click "I've completed payment (Check Now)" below.
+                      </div>
+                    )}
+
+                    {gatewayTabClosed && !isPaymentDelayed && (
+                      <div className="p-3.5 rounded-xl bg-blue-50/90 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-300 text-left flex items-start gap-2">
+                        <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                        <span>Payment gateway tab was closed. Still checking and verifying transaction with the server in the background...</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Transaction Details Card */}
+                  <div className="p-5 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-green-200/60">Transaction Reference:</span>
+                      <span className="font-mono font-bold text-gray-900 dark:text-white break-all">
+                        {paymentTransaction?.reference || verifyingReference || 'PENDING'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-green-200/60">Obligation:</span>
+                      <span className="font-bold text-[#0e8040] dark:text-[#4bd043]">
+                        {paymentTransaction?.level || formLevel} Level ({paymentTransaction?.session || formSession})
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-green-200/60">Amount:</span>
+                      <span className="font-bold text-gray-900 dark:text-white">
+                        {paymentTransaction?.amount || settings?.id_card_fee ? `₦${Number(paymentTransaction?.amount || settings?.id_card_fee).toLocaleString()}.00` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-green-200/60">Status:</span>
+                      <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3 animate-spin" /> Awaiting Gateway Confirmation
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleManualCheckStatus}
+                      disabled={isPaying}
+                      className="w-full sm:w-auto px-6 py-3 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-2 active:scale-95 disabled:opacity-60"
+                    >
+                      {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                      <span>{isPaying ? 'Checking...' : "I've completed payment (Check Now)"}</span>
+                    </button>
+
+                    {paymentTransaction?.checkoutUrl && (
+                      <a
+                        href={paymentTransaction.checkoutUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full sm:w-auto px-5 py-3 min-h-[44px] text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] border border-transparent rounded-xl transition-all cursor-pointer inline-flex items-center justify-center gap-2 shadow-xs"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Open Payment Gateway (New Window)</span>
+                      </a>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleCancelVerification}
+                      disabled={isPaying}
+                      className="w-full sm:w-auto px-4 py-3 min-h-[44px] text-xs font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer"
+                    >
+                      Cancel / Return to payment options
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {paymentStatusOutcome === 'SUCCESS' && (
+                <>
+                  {/* Success State */}
+                  <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800">
+                    <CheckCircle className="w-8 h-8" />
+                  </div>
+
+                  <div className="max-w-md mx-auto space-y-2">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-[#0e8040] dark:bg-emerald-950/60 dark:text-[#4bd043]">
+                      <CheckCircle className="w-3.5 h-3.5" /> Verified &amp; Cleared
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                      Payment Successful
+                    </h2>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed">
+                      Your payment of <strong className="text-[#0e8040] dark:text-[#4bd043]">{paymentTransaction?.amount || settings?.id_card_fee ? `₦${Number(paymentTransaction?.amount || settings?.id_card_fee).toLocaleString()}.00` : '—'}</strong> for <strong className="text-gray-900 dark:text-white">{paymentTransaction?.level || formLevel} Level ({paymentTransaction?.session || formSession})</strong> has been confirmed. Your official student ID card is ready!
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-green-200/60">Reference:</span>
+                      <span className="font-mono font-bold text-gray-900 dark:text-white break-all">
+                        {paymentTransaction?.reference || verifyingReference}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-green-200/60">Amount Paid:</span>
+                      <span className="font-bold text-[#0e8040] dark:text-[#4bd043]">
+                        {paymentTransaction?.amount || settings?.id_card_fee ? `₦${Number(paymentTransaction?.amount || settings?.id_card_fee).toLocaleString()}.00` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-green-200/60">Status:</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">CLEARED &amp; APPROVED</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsVerifyingPayment(false);
+                        handleViewIdCard(selectedObligation || currentLevelObligation);
+                      }}
+                      className="w-full sm:w-auto px-6 py-3 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-2"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      <span>View &amp; Download ID Card</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsVerifyingPayment(false);
+                        setPaymentStatusOutcome('PENDING');
+                      }}
+                      className="w-full sm:w-auto px-4 py-3 min-h-[44px] text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#041801] rounded-xl transition-colors cursor-pointer"
+                    >
+                      Return to Overview
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {(paymentStatusOutcome === 'FAILED' || paymentStatusOutcome === 'CANCELLED') && (
+                <>
+                  {/* Failure or Cancelled State */}
+                  <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto border border-red-200 dark:border-red-800">
+                    <AlertCircle className="w-8 h-8" />
+                  </div>
+
+                  <div className="max-w-md mx-auto space-y-2">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300">
+                      <AlertCircle className="w-3.5 h-3.5" /> {paymentStatusOutcome === 'CANCELLED' ? 'Transaction Cancelled' : 'Payment Failed'}
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                      Payment Not Completed
+                    </h2>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed">
+                      Your payment was not completed. No successful payment has been confirmed for this transaction. You can try again when you are ready.
+                    </p>
+                    {paymentStatusMessage && (
+                      <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                        {paymentStatusMessage}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="p-4 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-green-200/60">Reference:</span>
+                      <span className="font-mono font-bold text-gray-900 dark:text-white break-all">
+                        {paymentTransaction?.reference || verifyingReference || 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-green-200/60">Obligation:</span>
+                      <span className="font-medium text-gray-700 dark:text-gray-200">
+                        {paymentTransaction?.level || formLevel} Level ({paymentTransaction?.session || formSession})
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleRetryPayment}
+                      className="w-full sm:w-auto px-6 py-3 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Retry Payment</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsVerifyingPayment(false);
+                        setPaymentStatusOutcome('PENDING');
+                        try { localStorage.removeItem('nacos_pending_id_card_tx'); } catch (_) {}
+                      }}
+                      className="w-full sm:w-auto px-4 py-3 min-h-[44px] text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#041801] rounded-xl transition-colors cursor-pointer"
+                    >
+                      Return to Overview
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        ) : isCardViewRequested ? (
           /* ==================================================================== */
           /* DEDICATED ID CARD STUDIO PAGE VIEW (Loads like a new page)           */
           /* ==================================================================== */
@@ -1938,9 +2170,9 @@ const IdCard = () => {
           </div>
         ) : (
           /* ==================================================================== */
-          /* DEFAULT OVERVIEW: HEADER + LEVEL OBLIGATIONS TABLE                   */
+          /* VIEW 3: DEFAULT OVERVIEW (HEADER + OBLIGATIONS TABLE ONLY)           */
           /* ==================================================================== */
-          <>
+          <div className="space-y-6 animate-in fade-in duration-200">
             {/* Top Header */}
             <div className="print:hidden">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
@@ -2053,232 +2285,7 @@ const IdCard = () => {
             </table>
           </div>
         </div>
-
-        {/* ==================================================================== */}
-        {/* PAYMENT VERIFICATION & GATEWAY WAITING STATE INTERFACE                */}
-        {/* ==================================================================== */}
-        {isVerifyingPayment && (
-          <div className="p-6 sm:p-10 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200/80 dark:border-[#138601]/30 text-center space-y-6 shadow-xs animate-in fade-in duration-200">
-            {paymentStatusOutcome === 'PENDING' && (
-              <>
-                {/* Animated Loading Spinner */}
-                <div className="flex items-center justify-center mx-auto py-2">
-                  <img
-                    src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png"
-                    alt="Loading"
-                    className="w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 object-contain animate-spin select-none pointer-events-none"
-                    style={{ animationDuration: '3s' }}
-                  />
-                </div>
-
-                <div className="max-w-xl mx-auto space-y-2.5">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                    <Clock className="w-3.5 h-3.5" /> Processing / Pending Gateway Confirmation
-                  </span>
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-                    Waiting for Payment Confirmation
-                  </h2>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed">
-                    Your payment process has started. We are waiting for confirmation from the payment gateway. Please complete your payment in the other tab. This page will automatically update once your transaction status is verified.
-                  </p>
-                  <p className="text-[11px] sm:text-xs text-amber-700 dark:text-amber-300/90 font-medium">
-                    Please do not close or refresh this page while your payment is being verified.
-                  </p>
-
-                  {isPaymentDelayed && (
-                    <div className="p-3.5 rounded-xl bg-amber-50/90 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 text-left">
-                      <strong>Notice:</strong> Payment confirmation is taking longer than expected. We are still checking your transaction with the payment gateway. If you completed payment, click "I've completed payment (Check Now)" below.
-                    </div>
-                  )}
-
-                  {gatewayTabClosed && !isPaymentDelayed && (
-                    <div className="p-3.5 rounded-xl bg-blue-50/90 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-300 text-left flex items-start gap-2">
-                      <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                      <span>Payment gateway tab was closed. Still checking and verifying transaction with the server in the background...</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Transaction Details Card */}
-                <div className="p-5 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-green-200/60">Transaction Reference:</span>
-                    <span className="font-mono font-bold text-gray-900 dark:text-white break-all">
-                      {paymentTransaction?.reference || verifyingReference || 'PENDING'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-green-200/60">Obligation:</span>
-                    <span className="font-bold text-[#0e8040] dark:text-[#4bd043]">
-                      {paymentTransaction?.level || formLevel} Level ({paymentTransaction?.session || formSession})
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-green-200/60">Amount:</span>
-                    <span className="font-bold text-gray-900 dark:text-white">
-                      {paymentTransaction?.amount || settings?.id_card_fee ? `₦${Number(paymentTransaction?.amount || settings?.id_card_fee).toLocaleString()}.00` : '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-green-200/60">Status:</span>
-                    <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                      <RefreshCw className="w-3 h-3 animate-spin" /> Awaiting Gateway Confirmation
-                    </span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleManualCheckStatus}
-                    disabled={isPaying}
-                    className="w-full sm:w-auto px-6 py-3 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-2 active:scale-95 disabled:opacity-60"
-                  >
-                    {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                    <span>{isPaying ? 'Checking...' : "I've completed payment (Check Now)"}</span>
-                  </button>
-
-                  {paymentTransaction?.checkoutUrl && (
-                    <a
-                      href={paymentTransaction.checkoutUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full sm:w-auto px-5 py-3 min-h-[44px] text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] border border-transparent rounded-xl transition-all cursor-pointer inline-flex items-center justify-center gap-2 shadow-xs"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Open Payment Gateway (New Window)</span>
-                    </a>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handleCancelVerification}
-                    disabled={isPaying}
-                    className="w-full sm:w-auto px-4 py-3 min-h-[44px] text-xs font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer"
-                  >
-                    Cancel / Return to payment options
-                  </button>
-                </div>
-              </>
-            )}
-
-            {paymentStatusOutcome === 'SUCCESS' && (
-              <>
-                {/* Success State */}
-                <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800">
-                  <CheckCircle className="w-8 h-8" />
-                </div>
-
-                <div className="max-w-md mx-auto space-y-2">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-[#0e8040] dark:bg-emerald-950/60 dark:text-[#4bd043]">
-                    <CheckCircle className="w-3.5 h-3.5" /> Verified &amp; Cleared
-                  </span>
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                    Payment Successful
-                  </h2>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed">
-                    Your payment of <strong className="text-[#0e8040] dark:text-[#4bd043]">{paymentTransaction?.amount || settings?.id_card_fee ? `₦${Number(paymentTransaction?.amount || settings?.id_card_fee).toLocaleString()}.00` : '—'}</strong> for <strong className="text-gray-900 dark:text-white">{paymentTransaction?.level || formLevel} Level ({paymentTransaction?.session || formSession})</strong> has been confirmed. Your official student ID card is ready!
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-green-200/60">Reference:</span>
-                    <span className="font-mono font-bold text-gray-900 dark:text-white break-all">
-                      {paymentTransaction?.reference || verifyingReference}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-green-200/60">Amount Paid:</span>
-                    <span className="font-bold text-[#0e8040] dark:text-[#4bd043]">
-                      {paymentTransaction?.amount || settings?.id_card_fee ? `₦${Number(paymentTransaction?.amount || settings?.id_card_fee).toLocaleString()}.00` : '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-green-200/60">Status:</span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">CLEARED &amp; APPROVED</span>
-                  </div>
-                </div>
-
-                <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleViewIdCard(selectedObligation || currentLevelObligation)}
-                    className="w-full sm:w-auto px-6 py-3 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-2"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    <span>View &amp; Download ID Card</span>
-                  </button>
-                </div>
-              </>
-            )}
-
-            {(paymentStatusOutcome === 'FAILED' || paymentStatusOutcome === 'CANCELLED') && (
-              <>
-                {/* Failure or Cancelled State */}
-                <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto border border-red-200 dark:border-red-800">
-                  <AlertCircle className="w-8 h-8" />
-                </div>
-
-                <div className="max-w-md mx-auto space-y-2">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300">
-                    <AlertCircle className="w-3.5 h-3.5" /> {paymentStatusOutcome === 'CANCELLED' ? 'Transaction Cancelled' : 'Payment Failed'}
-                  </span>
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                    Payment Not Completed
-                  </h2>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-green-100/90 leading-relaxed">
-                    Your payment was not completed. No successful payment has been confirmed for this transaction. You can try again when you are ready.
-                  </p>
-                  {paymentStatusMessage && (
-                    <p className="text-xs text-red-600 dark:text-red-400 font-medium">
-                      {paymentStatusMessage}
-                    </p>
-                  )}
-                </div>
-
-                <div className="p-4 rounded-xl max-w-md mx-auto bg-gray-50/70 dark:bg-[#041801] border border-gray-200/60 dark:border-[#138601]/20 text-xs text-left space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-green-200/60">Reference:</span>
-                    <span className="font-mono font-bold text-gray-900 dark:text-white break-all">
-                      {paymentTransaction?.reference || verifyingReference || 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-green-200/60">Obligation:</span>
-                    <span className="font-medium text-gray-700 dark:text-gray-200">
-                      {paymentTransaction?.level || formLevel} Level ({paymentTransaction?.session || formSession})
-                    </span>
-                  </div>
-                </div>
-
-                <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleRetryPayment}
-                    className="w-full sm:w-auto px-6 py-3 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-2"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    <span>Retry Payment</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsVerifyingPayment(false);
-                      setPaymentStatusOutcome('PENDING');
-                      try { localStorage.removeItem('nacos_pending_id_card_tx'); } catch (_) {}
-                    }}
-                    className="w-full sm:w-auto px-4 py-3 min-h-[44px] text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#041801] rounded-xl transition-colors cursor-pointer"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </>
+      </div>
     )}
 
   </div>
