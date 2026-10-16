@@ -38,6 +38,8 @@ import {
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
+import AdminSaveButton from '../components/AdminSaveButton';
+import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
 
 const AdminExecutives = () => {
   const [activeTab, setActiveTab] = useState('current'); // 'current', 'past', 'header'
@@ -55,6 +57,7 @@ const AdminExecutives = () => {
   // Modal State for Add/Edit Executive
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
+  const [isSubmittingModal, setIsSubmittingModal] = useState(false);
   const [formData, setFormData] = useState({
     id: null,
     name: '',
@@ -68,8 +71,12 @@ const AdminExecutives = () => {
 
   // Archive Tenure Modal State
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
   const [archiveSessionInput, setArchiveSessionInput] = useState('2025/2026');
   const [newTenureSessionInput, setNewTenureSessionInput] = useState('2026/2027');
+
+  // Tenure creation loading state
+  const [isSavingTenure, setIsSavingTenure] = useState(false);
 
   // Header Settings State
   const [headerForm, setHeaderForm] = useState(DEFAULT_EXECUTIVES_PAGE_SETTINGS);
@@ -109,24 +116,39 @@ const AdminExecutives = () => {
     }
   };
 
-  const handleSaveNewTenure = (sessionVal) => {
+  const handleSaveNewTenure = async (sessionVal) => {
     const val = (sessionVal || newTenureInput).trim();
     if (!val) {
       showNotice('Please enter a valid tenure session (e.g. 2026/2027)', 'error');
       return '';
     }
-    const updated = addTenure(val);
-    setTenures(updated);
-    setNewTenureInput('');
-    setIsAddTenureModalOpen(false);
-    setIsQuickAddingTenure(false);
-    showNotice(`Tenure "${val}" added successfully!`);
-    return val;
+    setIsSavingTenure(true);
+    try {
+      const updated = await addTenure(val);
+      setTenures(updated);
+      setNewTenureInput('');
+      setIsAddTenureModalOpen(false);
+      setIsQuickAddingTenure(false);
+      showNotice(`Tenure "${val}" added successfully!`);
+      return val;
+    } catch (err) {
+      showNotice(getSafeErrorMessage(err, 'Failed to save tenure.'), 'error');
+      return '';
+    } finally {
+      setIsSavingTenure(false);
+    }
   };
 
   const showNotice = (msg, type = 'success') => {
     setNotification({ message: msg, type });
     setTimeout(() => setNotification({ message: '', type: '' }), 4000);
+    if (type === 'error') {
+      adminToast.error(msg);
+    } else if (type === 'success') {
+      adminToast.success(msg);
+    } else {
+      adminToast.info(msg);
+    }
   };
 
   // Filtered lists
@@ -191,26 +213,38 @@ const AdminExecutives = () => {
       return;
     }
 
-    await saveExecutive(formData);
-    await recordAdminAction(
-      modalMode === 'add' ? 'create_executive' : 'update_executive',
-      'executives',
-      formData.id || formData.name,
-      { name: formData.name, role: formData.role, category: formData.category }
-    );
+    setIsSubmittingModal(true);
+    try {
+      await saveExecutive(formData);
+      await recordAdminAction(
+        modalMode === 'add' ? 'create_executive' : 'update_executive',
+        'executives',
+        formData.id || formData.name,
+        { name: formData.name, role: formData.role, category: formData.category }
+      );
 
-    showNotice(`Executive "${formData.name}" successfully ${modalMode === 'add' ? 'added' : 'updated'}!`);
-    setIsModalOpen(false);
-    loadAll();
+      showNotice(`Executive "${formData.name}" successfully ${modalMode === 'add' ? 'added' : 'updated'}!`);
+      setIsModalOpen(false);
+      loadAll();
+    } catch (err) {
+      console.error('Error saving executive:', err);
+      showNotice(getSafeErrorMessage(err, 'Failed to save executive to database.'), 'error');
+    } finally {
+      setIsSubmittingModal(false);
+    }
   };
 
   // Delete Executive
   const handleDelete = async (exec) => {
     if (window.confirm(`Permanently remove executive "${exec.name}" (${exec.role})?`)) {
-      await deleteExecutive(exec.id);
-      await recordAdminAction('delete_executive', 'executives', exec.id, { name: exec.name });
-      showNotice(`Executive "${exec.name}" removed from directory.`);
-      loadAll();
+      try {
+        await deleteExecutive(exec.id);
+        await recordAdminAction('delete_executive', 'executives', exec.id, { name: exec.name });
+        showNotice(`Executive "${exec.name}" removed from directory.`);
+        loadAll();
+      } catch (err) {
+        showNotice(getSafeErrorMessage(err, 'Failed to remove executive.'), 'error');
+      }
     }
   };
 
@@ -218,43 +252,55 @@ const AdminExecutives = () => {
   const handleMoveToPast = async (exec) => {
     const sessionLabel = window.prompt(`Enter past session tenure for "${exec.name}":`, '2024/2025');
     if (sessionLabel) {
-      await moveExecutiveToPast(exec.id, sessionLabel);
-      await recordAdminAction('move_executive_to_past', 'executives', exec.id, { session: sessionLabel });
-      showNotice(`Moved "${exec.name}" to Past Executives (${sessionLabel}).`);
-      loadAll();
+      try {
+        await moveExecutiveToPast(exec.id, sessionLabel);
+        await recordAdminAction('move_executive_to_past', 'executives', exec.id, { session: sessionLabel });
+        showNotice(`Moved "${exec.name}" to Past Executives (${sessionLabel}).`);
+        loadAll();
+      } catch (err) {
+        showNotice(getSafeErrorMessage(err, 'Failed to update executive status.'), 'error');
+      }
     }
   };
 
   // Move single to Current
   const handleMoveToCurrent = async (exec) => {
     if (window.confirm(`Move "${exec.name}" back to Current Executives council?`)) {
-      await moveExecutiveToCurrent(exec.id, '2025/2026');
-      await recordAdminAction('move_executive_to_current', 'executives', exec.id);
-      showNotice(`Moved "${exec.name}" to Current Executives.`);
-      loadAll();
+      try {
+        await moveExecutiveToCurrent(exec.id, '2025/2026');
+        await recordAdminAction('move_executive_to_current', 'executives', exec.id);
+        showNotice(`Moved "${exec.name}" to Current Executives.`);
+        loadAll();
+      } catch (err) {
+        showNotice(getSafeErrorMessage(err, 'Failed to move executive to current council.'), 'error');
+      }
     }
   };
 
   // Reorder executive up/down
   const handleReorder = async (exec, direction) => {
-    const list = executives
-      .filter(e => e.category === exec.category)
-      .sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
+    try {
+      const list = executives
+        .filter(e => e.category === exec.category)
+        .sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
 
-    const currentIndex = list.findIndex(e => e.id === exec.id);
-    if (currentIndex === -1) return;
+      const currentIndex = list.findIndex(e => e.id === exec.id);
+      if (currentIndex === -1) return;
 
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex < 0 || targetIndex >= list.length) return;
+      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      if (targetIndex < 0 || targetIndex >= list.length) return;
 
-    // Swap order_index
-    const currentOrder = list[currentIndex].order_index ?? currentIndex;
-    const targetOrder = list[targetIndex].order_index ?? targetIndex;
+      // Swap order_index
+      const currentOrder = list[currentIndex].order_index ?? currentIndex;
+      const targetOrder = list[targetIndex].order_index ?? targetIndex;
 
-    await saveExecutive({ ...list[currentIndex], order_index: targetOrder });
-    await saveExecutive({ ...list[targetIndex], order_index: currentOrder });
+      await saveExecutive({ ...list[currentIndex], order_index: targetOrder });
+      await saveExecutive({ ...list[targetIndex], order_index: currentOrder });
 
-    loadAll();
+      loadAll();
+    } catch (err) {
+      showNotice(getSafeErrorMessage(err, 'Failed to reorder executive.'), 'error');
+    }
   };
 
   // Full Tenure Archiving
@@ -262,28 +308,41 @@ const AdminExecutives = () => {
     e.preventDefault();
     if (!archiveSessionInput.trim() || !newTenureSessionInput.trim()) return;
 
-    await archiveCurrentTenure(archiveSessionInput.trim(), newTenureSessionInput.trim());
-    await recordAdminAction('archive_tenure', 'executives', archiveSessionInput, {
-      archivedSession: archiveSessionInput,
-      newSession: newTenureSessionInput
-    });
+    setIsArchiving(true);
+    try {
+      await archiveCurrentTenure(archiveSessionInput.trim(), newTenureSessionInput.trim());
+      await recordAdminAction('archive_tenure', 'executives', archiveSessionInput, {
+        archivedSession: archiveSessionInput,
+        newSession: newTenureSessionInput
+      });
 
-    showNotice(`Successfully archived current council to ${archiveSessionInput}! Prepared for ${newTenureSessionInput}.`);
-    setIsArchiveModalOpen(false);
-    loadAll();
+      showNotice(`Successfully archived current council to ${archiveSessionInput}! Prepared for ${newTenureSessionInput}.`);
+      setIsArchiveModalOpen(false);
+      loadAll();
+    } catch (err) {
+      console.error('Error archiving tenure:', err);
+      showNotice(getSafeErrorMessage(err, 'Failed to archive tenure.'), 'error');
+    } finally {
+      setIsArchiving(false);
+    }
   };
 
   // Save Header Settings
   const handleSaveHeaderSettings = async (e) => {
     e.preventDefault();
     setIsSavingHeader(true);
+    try {
+      await updateExecutivesSettings(headerForm);
+      await recordAdminAction('update_executives_settings', 'executives_settings', 'default', headerForm);
 
-    await updateExecutivesSettings(headerForm);
-    await recordAdminAction('update_executives_settings', 'executives_settings', 'default', headerForm);
-
-    showNotice('Executive page hero header and session titles saved successfully!');
-    setIsSavingHeader(false);
-    loadAll();
+      showNotice('Executive page hero header and session titles saved successfully!');
+      loadAll();
+    } catch (err) {
+      console.error('Error saving header settings:', err);
+      showNotice(getSafeErrorMessage(err, 'Failed to save header settings.'), 'error');
+    } finally {
+      setIsSavingHeader(false);
+    }
   };
 
   return (
@@ -794,14 +853,14 @@ const AdminExecutives = () => {
 
             {/* Save Button */}
             <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={isSavingHeader}
-                className="inline-flex items-center gap-2 px-6 py-2.5 text-xs font-bold rounded-lg bg-[#138601] hover:bg-[#0f6c01] text-white shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              <AdminSaveButton
+                loading={isSavingHeader}
+                loadingText="Saving Settings..."
+                variant="primary"
+                icon={Save}
               >
-                {isSavingHeader ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save Header & Section Titles
-              </button>
+              </AdminSaveButton>
             </div>
           </form>
         )}
@@ -977,16 +1036,18 @@ const AdminExecutives = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
+                  disabled={isSubmittingModal}
                   className="px-4 py-2 text-xs font-semibold rounded-lg border border-gray-200 dark:border-[#138601]/30 hover:bg-gray-100 dark:hover:bg-[#041801] transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-bold rounded-lg bg-[#138601] hover:bg-[#0f6c01] text-white transition-colors cursor-pointer"
+                <AdminSaveButton
+                  loading={isSubmittingModal}
+                  loadingText={modalMode === 'add' ? 'Saving...' : 'Updating...'}
+                  variant="primary"
                 >
                   {modalMode === 'add' ? 'Save Executive' : 'Update Profile'}
-                </button>
+                </AdminSaveButton>
               </div>
 
             </form>
@@ -1044,16 +1105,19 @@ const AdminExecutives = () => {
                 <button
                   type="button"
                   onClick={() => setIsArchiveModalOpen(false)}
+                  disabled={isArchiving}
                   className="px-4 py-2 text-xs font-semibold rounded-lg border border-gray-200 dark:border-[#138601]/30 hover:bg-gray-100 dark:hover:bg-[#041801] cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white cursor-pointer"
+                <AdminSaveButton
+                  loading={isArchiving}
+                  loadingText="Archiving Council..."
+                  variant="amber"
+                  icon={Archive}
                 >
                   Confirm & Archive Council
-                </button>
+                </AdminSaveButton>
               </div>
             </form>
 
@@ -1110,16 +1174,18 @@ const AdminExecutives = () => {
                 <button
                   type="button"
                   onClick={() => setIsAddTenureModalOpen(false)}
+                  disabled={isSavingTenure}
                   className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-gray-200 dark:border-[#138601]/30 hover:bg-gray-100 dark:hover:bg-[#041801] cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-bold rounded-lg bg-[#138601] hover:bg-[#0f6c01] text-white cursor-pointer"
+                <AdminSaveButton
+                  loading={isSavingTenure}
+                  loadingText="Saving..."
+                  variant="primary"
                 >
                   Save Tenure
-                </button>
+                </AdminSaveButton>
               </div>
             </form>
           </div>

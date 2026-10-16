@@ -103,4 +103,22 @@
  * @property {boolean} is_featured
  */
 
+/**
+ * @typedef {Object} HeroSlide
+ * @property {string} id
+ * @property {string} image_url
+ * @property {string} [cloudinary_public_id]
+ * @property {string} [title]
+ * @property {string} [heading]
+ * @property {string} [subtext]
+ * @property {string} [cta_text]
+ * @property {string} [cta_link]
+ * @property {number} display_order
+ * @property {boolean} is_published
+ * @property {string} [image_position]
+ * @property {string} [created_by]
+ * @property {string} created_at
+ * @property {string} updated_at
+ */
+
 export {};

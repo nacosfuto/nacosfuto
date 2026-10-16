@@ -30,7 +30,7 @@ const INITIAL_MOCK_LEARNERS = [
   {
     id: 'lrn-1',
     name: 'Chukwuebuka Obi',
-    matric: '2022/134590',
+    matric: '20221345901',
     email: 'c.obi@futo.edu.ng',
     courseId: 'course-1',
     courseTitle: 'Modern Web Engineering with React & Node.js',
@@ -45,7 +45,7 @@ const INITIAL_MOCK_LEARNERS = [
   {
     id: 'lrn-2',
     name: 'Adaeze Victoria Nwosu',
-    matric: '2021/128472',
+    matric: '20211284720',
     email: 'a.nwosu@futo.edu.ng',
     courseId: 'course-1',
     courseTitle: 'Modern Web Engineering with React & Node.js',
@@ -60,7 +60,7 @@ const INITIAL_MOCK_LEARNERS = [
   {
     id: 'lrn-3',
     name: 'Emeka Divine Miracle',
-    matric: '2023/142981',
+    matric: '20231429810',
     email: 'e.miracle@futo.edu.ng',
     courseId: 'course-2',
     courseTitle: 'Python for Data Science & Machine Learning',
@@ -75,7 +75,7 @@ const INITIAL_MOCK_LEARNERS = [
   {
     id: 'lrn-4',
     name: 'Somtochukwu K. Ani',
-    matric: '2022/131902',
+    matric: '20221319020',
     email: 's.ani@futo.edu.ng',
     courseId: 'course-1',
     courseTitle: 'Modern Web Engineering with React & Node.js',
@@ -90,7 +90,7 @@ const INITIAL_MOCK_LEARNERS = [
   {
     id: 'lrn-5',
     name: 'Blessing Chinaza Eze',
-    matric: '2021/129031',
+    matric: '20211290310',
     email: 'b.eze@futo.edu.ng',
     courseId: 'course-3',
     courseTitle: 'DevOps & Cloud Systems Architecture',
@@ -105,7 +105,7 @@ const INITIAL_MOCK_LEARNERS = [
   {
     id: 'lrn-6',
     name: 'Kelechi Joshua Anyanwu',
-    matric: '2023/141029',
+    matric: '20231410290',
     email: 'k.anyanwu@futo.edu.ng',
     courseId: 'course-2',
     courseTitle: 'Python for Data Science & Machine Learning',

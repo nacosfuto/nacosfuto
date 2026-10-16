@@ -12,6 +12,7 @@ import NacosSection from "../components/Home/NacosSection";
 import QuickHelpCTA from "../components/Home/QuickHelpCTA";
 import TechTeamSection from "../components/TechTeamSection";
 import Footer from "../components/Footer";
+import HeroCarousel from "../components/Home/HeroCarousel";
 
 const alumniHomeImg = getCloudinaryAssetUrl('alumni_home') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569286/nacos/alumni/alumni_home.jpg";
 
@@ -48,7 +49,9 @@ const Home = () => {
             }
           }
         }
-      } catch (err) {}
+      } catch (err) {
+        console.debug('Homepage CMS fetch notice:', err);
+      }
     };
     loadCms();
   }, []);
@@ -69,26 +72,8 @@ const Home = () => {
       )}
       
       <main className="flex-grow">
-        {/* Standard Responsive Full-Screen Fitting Hero */}
-        <section className="relative flex min-h-[calc(100dvh-64px)] md:h-[calc(100vh-64px)] items-center justify-center overflow-hidden bg-gray-950 px-4 sm:px-6">
-          <img
-            src={HERO_IMAGE_URL}
-            alt="Department of Computer Science FUTO"
-            className="absolute inset-0 w-full h-full object-cover object-[center_35%]"
-          />
-
-          <div className="absolute inset-0 bg-gradient-to-t from-[#041801]/95 via-[#041801]/60 to-black/35" />
-          <div className="absolute inset-0 bg-black/25" />
-
-          <div className="relative z-10 text-center px-4 sm:px-6 max-w-4xl mx-auto flex flex-col items-center">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-4 sm:mb-6 drop-shadow-lg tracking-tight leading-[1.2]">
-              {cmsContent.hero_headline}
-            </h1>
-            <p className="text-base sm:text-lg md:text-xl text-gray-100 max-w-2xl drop-shadow font-normal leading-relaxed text-center">
-              {cmsContent.hero_subtext}
-            </p>
-          </div>
-        </section>
+        {/* Dynamic Database-Driven Hero Carousel */}
+        <HeroCarousel cmsContent={cmsContent} defaultImageUrl={HERO_IMAGE_URL} />
 
         {/* 1. Department at a Glance */}
         <DepartmentStats />

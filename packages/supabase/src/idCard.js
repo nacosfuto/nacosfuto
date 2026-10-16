@@ -655,7 +655,7 @@ export async function recordStudentPayment(matricNumber, amount = null) {
 export async function getStudentIdApplication(matricOrId, targetLevel = null) {
   if (!matricOrId) return null;
 
-  const cleanMatric = String(matricOrId).trim().toUpperCase();
+  const cleanMatric = String(matricOrId).replace(/[\/\s\-]/g, '').trim().toUpperCase();
   const cleanTargetLevel = targetLevel ? String(targetLevel).replace(/[^0-9]/g, '') : null;
 
   // 1. Try Supabase remote
@@ -672,10 +672,16 @@ export async function getStudentIdApplication(matricOrId, targetLevel = null) {
       if (prof?.id) studentUuid = prof.id;
     }
 
-    let orFilter = `matric_number.eq.${cleanMatric},registration_number.eq.${cleanMatric}`;
-    if (studentUuid) {
-      orFilter += `,student_id.eq.${studentUuid}`;
+    const cleanDigits = cleanMatric.replace(/\D/g, '');
+    const conds = [];
+    conds.push(`registration_number.eq.${cleanMatric}`);
+    if (cleanDigits && cleanDigits !== cleanMatric) {
+      conds.push(`registration_number.eq.${cleanDigits}`);
     }
+    if (studentUuid) {
+      conds.push(`student_id.eq.${studentUuid}`);
+    }
+    const orFilter = conds.join(',');
 
     let query = supabase
       .from('id_card_applications')
@@ -691,13 +697,12 @@ export async function getStudentIdApplication(matricOrId, targetLevel = null) {
       .limit(1)
       .maybeSingle();
 
-    // If level-specific app not found, fallback to latest general app (where level is not specified)
+    // If level-specific app not found, fallback to latest general app (or any existing application for this student)
     if (!data && cleanTargetLevel) {
       const fallbackRes = await supabase
         .from('id_card_applications')
         .select('*')
         .or(orFilter)
-        .is('level', null)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();

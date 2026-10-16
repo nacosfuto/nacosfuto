@@ -635,6 +635,32 @@ ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS uploaded_by TEXT;
 ALTER TABLE public.media_assets ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW());
 
 -- =========================================================================
+-- 13B. CMS HOMEPAGE HERO CAROUSEL SLIDES
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.website_hero_slides (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  image_url TEXT NOT NULL,
+  cloudinary_public_id TEXT,
+  title TEXT,
+  heading TEXT,
+  subtext TEXT,
+  cta_text TEXT,
+  cta_link TEXT,
+  display_order INTEGER NOT NULL DEFAULT 0,
+  is_published BOOLEAN NOT NULL DEFAULT true,
+  image_position TEXT DEFAULT 'center 35%',
+  created_by TEXT,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_hero_slides_order 
+  ON public.website_hero_slides (display_order ASC, created_at ASC);
+
+CREATE INDEX IF NOT EXISTS idx_hero_slides_published_order 
+  ON public.website_hero_slides (is_published, display_order ASC, created_at ASC);
+
+-- =========================================================================
 -- 14. CMS & PORTAL AUDIT TRAIL
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS public.audit_logs (
@@ -677,6 +703,7 @@ ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gallery_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.media_assets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.website_hero_slides ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- Permissive public read & operational policies for student portal & registration
@@ -728,6 +755,9 @@ CREATE POLICY "Public read gallery" ON public.gallery_items FOR SELECT USING (tr
 DROP POLICY IF EXISTS "Public read media assets" ON public.media_assets;
 CREATE POLICY "Public read media assets" ON public.media_assets FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Public read hero slides" ON public.website_hero_slides;
+CREATE POLICY "Public read hero slides" ON public.website_hero_slides FOR SELECT USING (true);
+
 -- Ensure admin scopes are never publicly readable
 DROP POLICY IF EXISTS "Public read admin scopes" ON public.admin_scopes;
 
@@ -749,6 +779,9 @@ CREATE POLICY "Admins manage gallery" ON public.gallery_items FOR ALL USING (tru
 
 DROP POLICY IF EXISTS "Admins manage media" ON public.media_assets;
 CREATE POLICY "Admins manage media" ON public.media_assets FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Admins manage hero slides" ON public.website_hero_slides;
+CREATE POLICY "Admins manage hero slides" ON public.website_hero_slides FOR ALL USING (true);
 
 DROP POLICY IF EXISTS "Admins manage courses" ON public.courses;
 CREATE POLICY "Admins manage courses" ON public.courses FOR ALL USING (true);

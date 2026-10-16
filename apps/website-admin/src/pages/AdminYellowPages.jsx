@@ -29,6 +29,8 @@ import {
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
+import AdminSaveButton from '../components/AdminSaveButton';
+import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
 
 const AdminYellowPages = () => {
   const [businesses, setBusinesses] = useState([]);
@@ -39,6 +41,7 @@ const AdminYellowPages = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
   const [selectedBizId, setSelectedBizId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // New Business Form State
   const [formData, setFormData] = useState({
@@ -95,28 +98,47 @@ const AdminYellowPages = () => {
   const showNotice = (msg, type = 'success') => {
     setNotification({ message: msg, type });
     setTimeout(() => setNotification({ message: '', type: '' }), 4000);
+    if (type === 'error') {
+      adminToast.error(msg);
+    } else if (type === 'success') {
+      adminToast.success(msg);
+    } else {
+      adminToast.info(msg);
+    }
   };
 
   const handleApprove = async (biz) => {
-    await approveYellowPageBusiness(biz.id);
-    await recordAdminAction('approve_yellow_pages', 'business', biz.id, { name: biz.name });
-    showNotice(`Business "${biz.name}" approved and published to Yellow Pages!`);
-    await loadBusinesses();
+    try {
+      await approveYellowPageBusiness(biz.id);
+      await recordAdminAction('approve_yellow_pages', 'business', biz.id, { name: biz.name });
+      showNotice(`Business "${biz.name}" approved and published to Yellow Pages!`);
+      await loadBusinesses();
+    } catch (err) {
+      showNotice(getSafeErrorMessage(err, 'Failed to approve business.'), 'error');
+    }
   };
 
   const handleDeny = async (biz) => {
-    await denyYellowPageBusiness(biz.id);
-    await recordAdminAction('deny_yellow_pages', 'business', biz.id, { name: biz.name });
-    showNotice(`Business "${biz.name}" marked as denied.`, 'error');
-    await loadBusinesses();
+    try {
+      await denyYellowPageBusiness(biz.id);
+      await recordAdminAction('deny_yellow_pages', 'business', biz.id, { name: biz.name });
+      showNotice(`Business "${biz.name}" marked as denied.`, 'error');
+      await loadBusinesses();
+    } catch (err) {
+      showNotice(getSafeErrorMessage(err, 'Failed to deny business.'), 'error');
+    }
   };
 
   const handleDelete = async (biz) => {
     if (window.confirm(`Are you sure you want to permanently delete "${biz.name}"?`)) {
-      await deleteYellowPageBusiness(biz.id);
-      await recordAdminAction('delete_yellow_pages', 'business', biz.id, { name: biz.name });
-      showNotice(`Business "${biz.name}" deleted successfully.`);
-      await loadBusinesses();
+      try {
+        await deleteYellowPageBusiness(biz.id);
+        await recordAdminAction('delete_yellow_pages', 'business', biz.id, { name: biz.name });
+        showNotice(`Business "${biz.name}" deleted successfully.`);
+        await loadBusinesses();
+      } catch (err) {
+        showNotice(getSafeErrorMessage(err, 'Failed to delete business.'), 'error');
+      }
     }
   };
 
@@ -163,29 +185,40 @@ const AdminYellowPages = () => {
 
   const handleAddSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) return;
-
-    if (modalMode === 'edit' && selectedBizId) {
-      await updateYellowPageBusiness(selectedBizId, formData);
-      await recordAdminAction('update_yellow_pages', 'business', selectedBizId, {
-        name: formData.name,
-        category: formData.category
-      });
-      showNotice(`Business "${formData.name}" updated successfully!`);
-    } else {
-      await submitYellowPageBusiness({
-        ...formData,
-        status: 'approved' // Direct admin adds are approved
-      });
-      await recordAdminAction('create_yellow_pages', 'business', formData.name, {
-        category: formData.category,
-        owner: formData.ownerName
-      });
-      showNotice(`Business "${formData.name}" added and published to Yellow Pages!`);
+    if (!formData.name.trim()) {
+      showNotice('Please enter the business name.', 'error');
+      return;
     }
 
-    setIsAddModalOpen(false);
-    loadBusinesses();
+    setIsSubmitting(true);
+    try {
+      if (modalMode === 'edit' && selectedBizId) {
+        await updateYellowPageBusiness(selectedBizId, formData);
+        await recordAdminAction('update_yellow_pages', 'business', selectedBizId, {
+          name: formData.name,
+          category: formData.category
+        });
+        showNotice(`Business "${formData.name}" updated successfully!`);
+      } else {
+        await submitYellowPageBusiness({
+          ...formData,
+          status: 'approved' // Direct admin adds are approved
+        });
+        await recordAdminAction('create_yellow_pages', 'business', formData.name, {
+          category: formData.category,
+          owner: formData.ownerName
+        });
+        showNotice(`Business "${formData.name}" added and published to Yellow Pages!`);
+      }
+
+      setIsAddModalOpen(false);
+      await loadBusinesses();
+    } catch (err) {
+      console.error('Error saving business:', err);
+      showNotice(getSafeErrorMessage(err, 'Failed to save business.'), 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const filtered = businesses.filter((b) => {
@@ -528,16 +561,18 @@ const AdminYellowPages = () => {
                   <button
                     type="button"
                     onClick={() => setIsAddModalOpen(false)}
+                    disabled={isSubmitting}
                     className="px-4 py-2 rounded-lg text-gray-600 bg-gray-100 dark:bg-white/10 dark:text-gray-300 cursor-pointer"
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-lg text-white bg-[#138601] hover:bg-[#0f6c01] font-bold shadow-xs cursor-pointer"
+                  <AdminSaveButton
+                    loading={isSubmitting}
+                    loadingText="Saving..."
+                    variant="primary"
                   >
                     {modalMode === 'edit' ? 'Save Changes' : 'Publish Business'}
-                  </button>
+                  </AdminSaveButton>
                 </div>
               </form>
             </div>

@@ -112,7 +112,14 @@ export async function verifyPaymentStatus({ reference, paymentType, registration
       let query = supabase.from('payments').select('*');
       if (reference) query = query.eq('reference', reference);
       else if (registrationNumber) {
-        query = query.eq('registration_number', registrationNumber);
+        const cleanReg = String(registrationNumber).replace(/[\/\s\-]/g, '').trim().toUpperCase();
+        const digits = cleanReg.replace(/\D/g, '');
+        const variants = [`registration_number.eq.${cleanReg}`, `matric_number.eq.${cleanReg}`];
+        if (digits && digits !== cleanReg) {
+          variants.push(`registration_number.eq.${digits}`);
+          variants.push(`matric_number.eq.${digits}`);
+        }
+        query = query.or(variants.join(','));
         if (paymentType) query = query.eq('payment_type', paymentType);
       }
       const { data } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();

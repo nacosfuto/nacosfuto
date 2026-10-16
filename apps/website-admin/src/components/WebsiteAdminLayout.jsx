@@ -107,6 +107,7 @@ export const WebsiteAdminLayout = ({ children, title, subtitle }) => {
     { label: 'Campus Gallery', path: '/admin/gallery', icon: Camera, permission: 'main_website.gallery' },
     { label: 'News & Journal', path: '/admin/news', icon: Newspaper, permission: 'main_website.news' },
     { label: 'Events & Flyers', path: '/admin/events', icon: Calendar, permission: 'main_website.events' },
+    { label: 'Hero Carousel', path: '/admin/hero-carousel', icon: Sparkles, permission: 'main_website.homepage' },
     { label: 'Homepage Content', path: '/admin/homepage', icon: Home, permission: 'main_website.homepage' },
     { label: 'Audit Trail', path: '/admin/audit-logs', icon: History, permission: 'main_website.view' },
     ...(admin?.is_super_admin

@@ -283,12 +283,8 @@ export async function createOTPVerification(regNumber, channel, destination, ful
 // =========================================================================
 
 export async function verifyOTP(regNumber, channel, submittedCode) {
-  const cleanReg = regNumber.trim().toUpperCase();
+  const cleanReg = (regNumber || '').toString().replace(/[\/\s\-]/g, '').trim().toUpperCase();
   const strippedReg = cleanReg.replace(/[^a-zA-Z0-9]/g, '');
-  let formattedReg = cleanReg;
-  if (cleanReg.length === 11 && !cleanReg.includes('/')) {
-    formattedReg = `${cleanReg.slice(0, 4)}/${cleanReg.slice(4)}`;
-  }
 
   const cleanCode = (submittedCode || '').toString().replace(/\D/g, '').trim();
 
@@ -301,7 +297,7 @@ export async function verifyOTP(regNumber, channel, submittedCode) {
   let match = null;
 
   try {
-    const orFilter = `registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg},registration_number.ilike.${formattedReg}`;
+    const orFilter = `registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg}`;
     const { data: activeList } = await supabase
       .from('otp_verifications')
       .select('*')

@@ -25,6 +25,8 @@ import {
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
+import AdminSaveButton from '../components/AdminSaveButton';
+import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
 
 const AdminClubs = () => {
   const [clubs, setClubs] = useState([]);
@@ -35,6 +37,7 @@ const AdminClubs = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
   const [selectedClubId, setSelectedClubId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -74,6 +77,13 @@ const AdminClubs = () => {
   const showNotice = (msg, type = 'success') => {
     setNotification({ message: msg, type });
     setTimeout(() => setNotification({ message: '', type: '' }), 4000);
+    if (type === 'error') {
+      adminToast.error(msg);
+    } else if (type === 'success') {
+      adminToast.success(msg);
+    } else {
+      adminToast.info(msg);
+    }
   };
 
   const handleOpenAdd = () => {
@@ -106,50 +116,73 @@ const AdminClubs = () => {
   };
 
   const handleApprove = async (club) => {
-    await approveCampusClub(club.id);
-    await recordAdminAction('approve_campus_club', 'club', club.id, { name: club.name });
-    showNotice(`Club "${club.name}" approved and published!`);
-    await loadClubs();
+    try {
+      await approveCampusClub(club.id);
+      await recordAdminAction('approve_campus_club', 'club', club.id, { name: club.name });
+      showNotice(`Club "${club.name}" approved and published!`);
+      await loadClubs();
+    } catch (err) {
+      showNotice(getSafeErrorMessage(err, 'Failed to approve club.'), 'error');
+    }
   };
 
   const handleDeny = async (club) => {
-    await denyCampusClub(club.id);
-    await recordAdminAction('deny_campus_club', 'club', club.id, { name: club.name });
-    showNotice(`Club "${club.name}" denied.`, 'error');
-    await loadClubs();
+    try {
+      await denyCampusClub(club.id);
+      await recordAdminAction('deny_campus_club', 'club', club.id, { name: club.name });
+      showNotice(`Club "${club.name}" denied.`, 'error');
+      await loadClubs();
+    } catch (err) {
+      showNotice(getSafeErrorMessage(err, 'Failed to deny club.'), 'error');
+    }
   };
 
   const handleDelete = async (club) => {
     if (window.confirm(`Delete campus club "${club.name}"?`)) {
-      await deleteCampusClub(club.id);
-      await recordAdminAction('delete_campus_club', 'club', club.id, { name: club.name });
-      showNotice(`Club "${club.name}" deleted.`);
-      await loadClubs();
+      try {
+        await deleteCampusClub(club.id);
+        await recordAdminAction('delete_campus_club', 'club', club.id, { name: club.name });
+        showNotice(`Club "${club.name}" deleted.`);
+        await loadClubs();
+      } catch (err) {
+        showNotice(getSafeErrorMessage(err, 'Failed to delete club.'), 'error');
+      }
     }
   };
 
   const handleAddSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) return;
-
-    if (modalMode === 'edit' && selectedClubId) {
-      await updateCampusClub(selectedClubId, formData);
-      await recordAdminAction('update_campus_club', 'club', selectedClubId, {
-        name: formData.name,
-        category: formData.category
-      });
-      showNotice(`Club "${formData.name}" updated successfully!`);
-    } else {
-      await submitCampusClub({
-        ...formData,
-        status: 'approved'
-      });
-      await recordAdminAction('create_campus_club', 'club', formData.name, { category: formData.category });
-      showNotice(`Club "${formData.name}" added successfully!`);
+    if (!formData.name.trim()) {
+      showNotice('Please enter the club or community name.', 'error');
+      return;
     }
 
-    setIsAddModalOpen(false);
-    await loadClubs();
+    setIsSubmitting(true);
+    try {
+      if (modalMode === 'edit' && selectedClubId) {
+        await updateCampusClub(selectedClubId, formData);
+        await recordAdminAction('update_campus_club', 'club', selectedClubId, {
+          name: formData.name,
+          category: formData.category
+        });
+        showNotice(`Club "${formData.name}" updated successfully!`);
+      } else {
+        await submitCampusClub({
+          ...formData,
+          status: 'approved'
+        });
+        await recordAdminAction('create_campus_club', 'club', formData.name, { category: formData.category });
+        showNotice(`Club "${formData.name}" added successfully!`);
+      }
+
+      setIsAddModalOpen(false);
+      await loadClubs();
+    } catch (err) {
+      console.error('Error saving club:', err);
+      showNotice(getSafeErrorMessage(err, 'Failed to save club.'), 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const filtered = clubs.filter((c) => {
@@ -409,16 +442,18 @@ const AdminClubs = () => {
                   <button
                     type="button"
                     onClick={() => setIsAddModalOpen(false)}
+                    disabled={isSubmitting}
                     className="px-4 py-2 rounded-lg text-gray-600 bg-gray-100 dark:bg-white/10 dark:text-gray-300 cursor-pointer"
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-lg text-white bg-[#138601] hover:bg-[#0f6c01] font-bold shadow-xs cursor-pointer"
+                  <AdminSaveButton
+                    loading={isSubmitting}
+                    loadingText="Saving..."
+                    variant="primary"
                   >
                     {modalMode === 'edit' ? 'Save Changes' : 'Publish Club'}
-                  </button>
+                  </AdminSaveButton>
                 </div>
               </form>
             </div>

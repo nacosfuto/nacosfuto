@@ -62,7 +62,7 @@ const HackathonApply = () => {
 
   const handleMemberChange = (idx, field, value) => {
     const updated = [...formData.members];
-    updated[idx][field] = value;
+    updated[idx][field] = field === 'matric' ? value.replace(/[\/\s\-]/g, '').toUpperCase() : value;
     setFormData({ ...formData, members: updated });
   };
 
@@ -234,9 +234,9 @@ const HackathonApply = () => {
                         <input
                           type="text"
                           required
-                          placeholder="2022/139481"
+                          placeholder="e.g. 20241400000"
                           value={formData.leadMatric}
-                          onChange={(e) => setFormData({ ...formData, leadMatric: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, leadMatric: e.target.value.replace(/[\/\s\-]/g, '').toUpperCase() })}
                           className="w-full px-4 py-2.5 text-sm rounded border border-[#138601]/30 bg-[#041801] text-white focus:outline-none focus:ring-2 focus:ring-[#138601]"
                         />
                       </div>

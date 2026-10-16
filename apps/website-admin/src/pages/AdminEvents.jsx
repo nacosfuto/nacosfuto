@@ -26,6 +26,8 @@ import {
   toggleEventPublish, 
   toggleEventFeatured 
 } from '@nacos/supabase';
+import AdminSaveButton from '../components/AdminSaveButton';
+import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
 
 const CATEGORIES = [
   { id: 'all', label: 'All Events' },
@@ -90,43 +92,62 @@ const AdminEvents = () => {
   const showFeedback = (text, type = 'success') => {
     setFeedback({ text, type });
     setTimeout(() => setFeedback(null), 3500);
+    if (type === 'error') {
+      adminToast.error(text);
+    } else if (type === 'success') {
+      adminToast.success(text);
+    } else {
+      adminToast.info(text);
+    }
   };
 
   const handleTogglePublish = async (id) => {
-    const updated = await toggleEventPublish(id);
-    setEvents(updated);
-    const target = updated.find(e => e.id === id);
-    if (target) {
-      await recordAdminAction(target.is_published ? 'event_publish' : 'event_unpublish', 'event', target.slug, {
-        title: target.title
-      });
+    try {
+      const updated = await toggleEventPublish(id);
+      setEvents(updated);
+      const target = updated.find(e => e.id === id);
+      if (target) {
+        await recordAdminAction(target.is_published ? 'event_publish' : 'event_unpublish', 'event', target.slug, {
+          title: target.title
+        });
+      }
+      showFeedback(`Event visibility updated: ${target?.is_published ? 'Active' : 'Hidden'}`);
+    } catch (err) {
+      showFeedback(getSafeErrorMessage(err, 'Failed to update event visibility.'), 'error');
     }
-    showFeedback(`Event visibility updated: ${target?.is_published ? 'Active' : 'Hidden'}`);
   };
 
   const handleToggleFeatured = async (id) => {
-    const updated = await toggleEventFeatured(id);
-    setEvents(updated);
-    const target = updated.find(e => e.id === id);
-    if (target) {
-      await recordAdminAction(target.is_featured ? 'event_featured' : 'event_unfeatured', 'event', target.slug, {
-        title: target.title
-      });
+    try {
+      const updated = await toggleEventFeatured(id);
+      setEvents(updated);
+      const target = updated.find(e => e.id === id);
+      if (target) {
+        await recordAdminAction(target.is_featured ? 'event_featured' : 'event_unfeatured', 'event', target.slug, {
+          title: target.title
+        });
+      }
+      showFeedback(`Featured highlight status updated for "${target?.title}"`);
+    } catch (err) {
+      showFeedback(getSafeErrorMessage(err, 'Failed to update featured status.'), 'error');
     }
-    showFeedback(`Featured highlight status updated for "${target?.title}"`);
   };
 
   const handleDelete = async (eventItem) => {
     if (!window.confirm(`Delete event "${eventItem.title}"? This will remove it from the website, database, and media storage.`)) return;
 
-    const updated = await deleteEvent(eventItem);
-    setEvents(updated);
+    try {
+      const updated = await deleteEvent(eventItem);
+      setEvents(updated);
 
-    await recordAdminAction('event_delete', 'event', eventItem.slug, {
-      title: eventItem.title
-    });
+      await recordAdminAction('event_delete', 'event', eventItem.slug, {
+        title: eventItem.title
+      });
 
-    showFeedback('Event removed from schedule and database.');
+      showFeedback('Event removed from schedule and database.');
+    } catch (err) {
+      showFeedback(getSafeErrorMessage(err, 'Failed to delete event from database.'), 'error');
+    }
   };
 
   const handleOpenAdd = () => {
@@ -167,7 +188,10 @@ const AdminEvents = () => {
 
   const handleSaveEvent = async (e) => {
     e.preventDefault();
-    if (!title.trim() || !date.trim()) return;
+    if (!title.trim() || !date.trim()) {
+      showFeedback('Please provide both an event title and scheduled date.', 'error');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -208,7 +232,7 @@ const AdminEvents = () => {
       showFeedback(modalMode === 'edit' ? 'Event details updated & synced!' : 'New event published & synced with database!');
     } catch (err) {
       console.error('Error saving event:', err);
-      showFeedback('Failed to save event. Check console for details.', 'error');
+      showFeedback(getSafeErrorMessage(err, 'Failed to save event to database.'), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -594,13 +618,13 @@ const AdminEvents = () => {
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-6 py-2 rounded-xl bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold cursor-pointer disabled:opacity-50"
+                  <AdminSaveButton
+                    loading={isSubmitting}
+                    loadingText="Saving..."
+                    variant="primary"
                   >
-                    {isSubmitting ? 'Saving...' : modalMode === 'edit' ? 'Save Changes' : 'Publish Event'}
-                  </button>
+                    {modalMode === 'edit' ? 'Save Changes' : 'Publish Event'}
+                  </AdminSaveButton>
                 </div>
               </form>
             </div>

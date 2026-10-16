@@ -24,6 +24,8 @@ import {
   deleteNewsArticle, 
   toggleNewsPublish 
 } from '@nacos/supabase';
+import AdminSaveButton from '../components/AdminSaveButton';
+import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
 
 const CATEGORIES = [
   { id: 'all', label: 'All Articles' },
@@ -89,6 +91,13 @@ const AdminNews = () => {
   const showFeedback = (text, type = 'success') => {
     setFeedback({ text, type });
     setTimeout(() => setFeedback(null), 3500);
+    if (type === 'error') {
+      adminToast.error(text);
+    } else if (type === 'success') {
+      adminToast.success(text);
+    } else {
+      adminToast.info(text);
+    }
   };
 
   const handleOpenAdd = () => {
@@ -131,33 +140,44 @@ const AdminNews = () => {
   };
 
   const handleTogglePublish = async (id) => {
-    const updated = await toggleNewsPublish(id);
-    setArticles(updated);
-    const target = updated.find(a => a.id === id);
-    if (target) {
-      await recordAdminAction(target.is_published ? 'news_publish' : 'news_unpublish', 'news', target.slug, {
-        title: target.title
-      });
+    try {
+      const updated = await toggleNewsPublish(id);
+      setArticles(updated);
+      const target = updated.find(a => a.id === id);
+      if (target) {
+        await recordAdminAction(target.is_published ? 'news_publish' : 'news_unpublish', 'news', target.slug, {
+          title: target.title
+        });
+      }
+      showFeedback(`Article publication status updated: ${target?.is_published ? 'Published' : 'Draft'}`);
+    } catch (err) {
+      showFeedback(getSafeErrorMessage(err, 'Could not update publication status.'), 'error');
     }
-    showFeedback(`Article publication status updated: ${target?.is_published ? 'Published' : 'Draft'}`);
   };
 
   const handleDelete = async (article) => {
     if (!window.confirm(`Delete article "${article.title}"? This will remove it from the website, database, and media storage.`)) return;
 
-    await deleteNewsArticle(article.id, article.slug, article.cloudinary_public_id);
-    setArticles(getLocalNewsArticles({ publishedOnly: false }));
+    try {
+      await deleteNewsArticle(article.id, article.slug, article.cloudinary_public_id);
+      setArticles(getLocalNewsArticles({ publishedOnly: false }));
 
-    await recordAdminAction('news_delete', 'news', article.slug, {
-      title: article.title
-    });
+      await recordAdminAction('news_delete', 'news', article.slug, {
+        title: article.title
+      });
 
-    showFeedback('Article deleted successfully from database.');
+      showFeedback('Article deleted successfully from database.');
+    } catch (err) {
+      showFeedback(getSafeErrorMessage(err, 'Failed to delete article from database.'), 'error');
+    }
   };
 
   const handleSaveArticle = async (e) => {
     e.preventDefault();
-    if (!title.trim() || !content.trim()) return;
+    if (!title.trim() || !content.trim()) {
+      showFeedback('Please provide both an article title and content body.', 'error');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -195,7 +215,7 @@ const AdminNews = () => {
       showFeedback(editorMode === 'edit' ? 'News & Journal article updated!' : 'News & Journal article published to website!');
     } catch (err) {
       console.error('Error saving article:', err);
-      showFeedback('Failed to save article. Check console for details.', 'error');
+      showFeedback(getSafeErrorMessage(err, 'Failed to save article to database.'), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -520,13 +540,13 @@ const AdminNews = () => {
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-6 py-2 rounded-xl bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold cursor-pointer disabled:opacity-50"
+                  <AdminSaveButton
+                    loading={isSubmitting}
+                    loadingText="Saving..."
+                    variant="primary"
                   >
-                    {isSubmitting ? 'Saving...' : editorMode === 'edit' ? 'Save Changes' : 'Publish Article'}
-                  </button>
+                    {editorMode === 'edit' ? 'Save Changes' : 'Publish Article'}
+                  </AdminSaveButton>
                 </div>
               </form>
             </div>

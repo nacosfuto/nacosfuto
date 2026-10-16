@@ -28,6 +28,8 @@ import {
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
+import AdminSaveButton from '../components/AdminSaveButton';
+import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
 
 const AdminSpiritualLife = () => {
   const [fellowships, setFellowships] = useState([]);
@@ -38,6 +40,7 @@ const AdminSpiritualLife = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
   const [selectedId, setSelectedId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -79,6 +82,13 @@ const AdminSpiritualLife = () => {
   const showNotice = (msg, type = 'success') => {
     setNotification({ message: msg, type });
     setTimeout(() => setNotification({ message: '', type: '' }), 4000);
+    if (type === 'error') {
+      adminToast.error(msg);
+    } else if (type === 'success') {
+      adminToast.success(msg);
+    } else {
+      adminToast.info(msg);
+    }
   };
 
   const handleOpenAdd = () => {
@@ -115,50 +125,73 @@ const AdminSpiritualLife = () => {
   };
 
   const handleApprove = async (fel) => {
-    await approveSpiritualFellowship(fel.id);
-    await recordAdminAction('approve_spiritual_fellowship', 'spiritual_life', fel.id, { name: fel.name });
-    showNotice(`Fellowship "${fel.name}" approved and published!`);
-    await loadFellowships();
+    try {
+      await approveSpiritualFellowship(fel.id);
+      await recordAdminAction('approve_spiritual_fellowship', 'spiritual_life', fel.id, { name: fel.name });
+      showNotice(`Fellowship "${fel.name}" approved and published!`);
+      await loadFellowships();
+    } catch (err) {
+      showNotice(getSafeErrorMessage(err, 'Failed to approve fellowship.'), 'error');
+    }
   };
 
   const handleDeny = async (fel) => {
-    await denySpiritualFellowship(fel.id);
-    await recordAdminAction('deny_spiritual_fellowship', 'spiritual_life', fel.id, { name: fel.name });
-    showNotice(`Fellowship "${fel.name}" denied.`, 'error');
-    await loadFellowships();
+    try {
+      await denySpiritualFellowship(fel.id);
+      await recordAdminAction('deny_spiritual_fellowship', 'spiritual_life', fel.id, { name: fel.name });
+      showNotice(`Fellowship "${fel.name}" denied.`, 'error');
+      await loadFellowships();
+    } catch (err) {
+      showNotice(getSafeErrorMessage(err, 'Failed to deny fellowship.'), 'error');
+    }
   };
 
   const handleDelete = async (fel) => {
     if (window.confirm(`Delete spiritual fellowship "${fel.name}" from directory?`)) {
-      await deleteSpiritualFellowship(fel.id);
-      await recordAdminAction('delete_spiritual_fellowship', 'spiritual_life', fel.id, { name: fel.name });
-      showNotice(`Fellowship "${fel.name}" deleted.`);
-      await loadFellowships();
+      try {
+        await deleteSpiritualFellowship(fel.id);
+        await recordAdminAction('delete_spiritual_fellowship', 'spiritual_life', fel.id, { name: fel.name });
+        showNotice(`Fellowship "${fel.name}" deleted.`);
+        await loadFellowships();
+      } catch (err) {
+        showNotice(getSafeErrorMessage(err, 'Failed to delete fellowship.'), 'error');
+      }
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) return;
-
-    if (modalMode === 'edit' && selectedId) {
-      await updateSpiritualFellowship(selectedId, formData);
-      await recordAdminAction('update_spiritual_fellowship', 'spiritual_life', selectedId, {
-        name: formData.name,
-        category: formData.category
-      });
-      showNotice(`Fellowship "${formData.name}" updated successfully!`);
-    } else {
-      await submitSpiritualFellowship({
-        ...formData,
-        status: 'approved'
-      });
-      await recordAdminAction('create_spiritual_fellowship', 'spiritual_life', formData.name, { category: formData.category });
-      showNotice(`Fellowship "${formData.name}" added successfully!`);
+    if (!formData.name.trim()) {
+      showNotice('Please enter the fellowship name.', 'error');
+      return;
     }
 
-    setIsModalOpen(false);
-    await loadFellowships();
+    setIsSubmitting(true);
+    try {
+      if (modalMode === 'edit' && selectedId) {
+        await updateSpiritualFellowship(selectedId, formData);
+        await recordAdminAction('update_spiritual_fellowship', 'spiritual_life', selectedId, {
+          name: formData.name,
+          category: formData.category
+        });
+        showNotice(`Fellowship "${formData.name}" updated successfully!`);
+      } else {
+        await submitSpiritualFellowship({
+          ...formData,
+          status: 'approved'
+        });
+        await recordAdminAction('create_spiritual_fellowship', 'spiritual_life', formData.name, { category: formData.category });
+        showNotice(`Fellowship "${formData.name}" added successfully!`);
+      }
+
+      setIsModalOpen(false);
+      await loadFellowships();
+    } catch (err) {
+      console.error('Error saving fellowship:', err);
+      showNotice(getSafeErrorMessage(err, 'Failed to save fellowship.'), 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const filteredFellowships = fellowships.filter(fel => {
@@ -521,16 +554,18 @@ const AdminSpiritualLife = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
+                  disabled={isSubmitting}
                   className="px-4 py-2 border border-gray-200 dark:border-[#138601]/40 rounded-xl text-xs font-semibold hover:bg-gray-100 dark:hover:bg-[#041801] transition-colors"
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-[#138601] hover:bg-[#0f6c01] text-white rounded-xl text-xs font-semibold shadow-xs transition-colors"
+                <AdminSaveButton
+                  loading={isSubmitting}
+                  loadingText="Saving..."
+                  variant="primary"
                 >
                   {modalMode === 'edit' ? 'Update Fellowship' : 'Save & Publish'}
-                </button>
+                </AdminSaveButton>
               </div>
             </form>
           </div>

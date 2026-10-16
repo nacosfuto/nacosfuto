@@ -375,9 +375,9 @@ const HealthServices = () => {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. 2022/123456"
+                    placeholder="e.g. 20241400000"
                     value={formData.matricNumber}
-                    onChange={(e) => setFormData({ ...formData, matricNumber: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, matricNumber: e.target.value.replace(/[\/\s\-]/g, '').toUpperCase() })}
                     className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-xs focus:ring-1 focus:ring-[#138601] outline-none"
                   />
                 </div>

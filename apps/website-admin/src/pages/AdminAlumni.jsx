@@ -26,6 +26,8 @@ import {
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
+import AdminSaveButton from '../components/AdminSaveButton';
+import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
 
 const AdminAlumni = () => {
   const [alumni, setAlumni] = useState([]);
@@ -36,6 +38,7 @@ const AdminAlumni = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
   const [selectedAlmId, setSelectedAlmId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -76,6 +79,13 @@ const AdminAlumni = () => {
   const showNotice = (msg, type = 'success') => {
     setNotification({ message: msg, type });
     setTimeout(() => setNotification({ message: '', type: '' }), 4000);
+    if (type === 'error') {
+      adminToast.error(msg);
+    } else if (type === 'success') {
+      adminToast.success(msg);
+    } else {
+      adminToast.info(msg);
+    }
   };
 
   const handleOpenAdd = () => {
@@ -110,55 +120,78 @@ const AdminAlumni = () => {
   };
 
   const handleApprove = async (alm) => {
-    await approveAlumnus(alm.id);
-    await recordAdminAction('approve_alumnus', 'alumni', alm.id, { name: alm.name });
-    showNotice(`Alumnus "${alm.name}" approved and featured in directory!`);
-    await loadAlumni();
+    try {
+      await approveAlumnus(alm.id);
+      await recordAdminAction('approve_alumnus', 'alumni', alm.id, { name: alm.name });
+      showNotice(`Alumnus "${alm.name}" approved and featured in directory!`);
+      await loadAlumni();
+    } catch (err) {
+      showNotice(getSafeErrorMessage(err, 'Failed to approve alumnus.'), 'error');
+    }
   };
 
   const handleDeny = async (alm) => {
-    await denyAlumnus(alm.id);
-    await recordAdminAction('deny_alumnus', 'alumni', alm.id, { name: alm.name });
-    showNotice(`Alumnus "${alm.name}" marked as denied.`, 'error');
-    await loadAlumni();
+    try {
+      await denyAlumnus(alm.id);
+      await recordAdminAction('deny_alumnus', 'alumni', alm.id, { name: alm.name });
+      showNotice(`Alumnus "${alm.name}" marked as denied.`, 'error');
+      await loadAlumni();
+    } catch (err) {
+      showNotice(getSafeErrorMessage(err, 'Failed to deny alumnus.'), 'error');
+    }
   };
 
   const handleDelete = async (alm) => {
     if (window.confirm(`Permanently remove alumnus "${alm.name}"?`)) {
-      await deleteAlumnus(alm.id);
-      await recordAdminAction('delete_alumnus', 'alumni', alm.id, { name: alm.name });
-      showNotice(`Alumnus "${alm.name}" removed.`);
-      await loadAlumni();
+      try {
+        await deleteAlumnus(alm.id);
+        await recordAdminAction('delete_alumnus', 'alumni', alm.id, { name: alm.name });
+        showNotice(`Alumnus "${alm.name}" removed.`);
+        await loadAlumni();
+      } catch (err) {
+        showNotice(getSafeErrorMessage(err, 'Failed to delete alumnus.'), 'error');
+      }
     }
   };
 
   const handleAddSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) return;
-
-    if (modalMode === 'edit' && selectedAlmId) {
-      await updateAlumnus(selectedAlmId, formData);
-      await recordAdminAction('update_alumnus', 'alumni', selectedAlmId, {
-        name: formData.name,
-        company: formData.company
-      });
-      showNotice(`Alumnus "${formData.name}" profile updated!`);
-    } else {
-      await submitAlumnus({
-        ...formData,
-        status: 'approved'
-      });
-
-      await recordAdminAction('create_alumnus', 'alumni', formData.name, {
-        position: formData.position,
-        company: formData.company
-      });
-
-      showNotice(`Alumnus "${formData.name}" added to Alumni Hall of Fame!`);
+    if (!formData.name.trim()) {
+      showNotice('Please enter the alumnus full name.', 'error');
+      return;
     }
 
-    setIsAddModalOpen(false);
-    await loadAlumni();
+    setIsSubmitting(true);
+    try {
+      if (modalMode === 'edit' && selectedAlmId) {
+        await updateAlumnus(selectedAlmId, formData);
+        await recordAdminAction('update_alumnus', 'alumni', selectedAlmId, {
+          name: formData.name,
+          company: formData.company
+        });
+        showNotice(`Alumnus "${formData.name}" profile updated!`);
+      } else {
+        await submitAlumnus({
+          ...formData,
+          status: 'approved'
+        });
+
+        await recordAdminAction('create_alumnus', 'alumni', formData.name, {
+          position: formData.position,
+          company: formData.company
+        });
+
+        showNotice(`Alumnus "${formData.name}" added to Alumni Hall of Fame!`);
+      }
+
+      setIsAddModalOpen(false);
+      await loadAlumni();
+    } catch (err) {
+      console.error('Error saving alumnus:', err);
+      showNotice(getSafeErrorMessage(err, 'Failed to save alumnus.'), 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const filtered = alumni.filter((a) => {
@@ -440,16 +473,18 @@ const AdminAlumni = () => {
                   <button
                     type="button"
                     onClick={() => setIsAddModalOpen(false)}
+                    disabled={isSubmitting}
                     className="px-4 py-2 rounded-lg text-gray-600 bg-gray-100 dark:bg-white/10 dark:text-gray-300 cursor-pointer"
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-lg text-white bg-[#138601] hover:bg-[#0f6c01] font-bold shadow-xs cursor-pointer"
+                  <AdminSaveButton
+                    loading={isSubmitting}
+                    loadingText="Saving..."
+                    variant="primary"
                   >
                     {modalMode === 'edit' ? 'Save Changes' : 'Publish Alumnus'}
-                  </button>
+                  </AdminSaveButton>
                 </div>
               </form>
             </div>

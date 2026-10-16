@@ -561,7 +561,7 @@ export async function registerStudent(studentData) {
 
   // 3. Check for duplicates in local DB
   const students = getLocalStudentsDatabase();
-  const cleanReg = matricNumber.trim().toUpperCase();
+  const cleanReg = matricNumber.trim().replace(/[\/\s\-]/g, '').toUpperCase();
   const cleanEmail = email.trim().toLowerCase();
 
   const regExists = students.some(s => s.registration_number.toUpperCase() === cleanReg);
@@ -865,7 +865,7 @@ export async function adminAddStudent(studentData) {
     studentData.matric_number || 
     studentData.regNumber || 
     studentData.reg_no || ''
-  ).toString().trim().toUpperCase();
+  ).toString().replace(/[\/\s\-]/g, '').trim().toUpperCase();
 
   const resolvedEmail = (studentData.email || '').toString().trim().toLowerCase();
 

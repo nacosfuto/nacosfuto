@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import Navbar from '../components/Nav/Navbar';
 import Footer from '../components/Footer';
 import { 
@@ -22,7 +22,8 @@ import {
   FiArrowRight,
   FiChevronDown,
   FiBookOpen,
-  FiUploadCloud
+  FiUploadCloud,
+  FiMessageCircle
 } from 'react-icons/fi';
 import libraryShelfCloseup from '../assets/library_shelf_closeup.jpg';
 import libraryHero from '../assets/library_hero.jpg';
@@ -877,6 +878,28 @@ const Resources = ({ isPreviewPage = false }) => {
             </button>
           </div>
         )}
+
+        {/* ─── Community Contribution Callout Banner ─── */}
+        <section className="mt-14 sm:mt-20">
+          <div className="relative overflow-hidden bg-[#072b0c] dark:bg-[#051c08] text-white px-6 py-12 sm:px-12 sm:py-16 text-center rounded-tl-2xl rounded-tr-[60px] sm:rounded-tr-[90px] rounded-bl-[60px] sm:rounded-bl-[90px] rounded-br-sm shadow-xl border border-[#138601]/30">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight uppercase text-white mb-3 sm:mb-4">
+              HAVE RESOURCES TO SHARE?
+            </h2>
+            <p className="max-w-2xl mx-auto text-xs sm:text-sm md:text-base text-gray-200 dark:text-emerald-100/90 leading-relaxed font-normal mb-6 sm:mb-8">
+              Contribute to the community. If you have study guides or notes that could help your peers, synchronize them with our repository.
+            </p>
+            <div className="flex justify-center">
+              <Link
+                to="/contact"
+                className="inline-flex items-center gap-2.5 px-6 py-2.5 bg-[#0e6b18] hover:bg-[#138601] text-white text-xs sm:text-sm font-bold uppercase tracking-wider border-2 border-white rounded-tl-md rounded-tr-2xl rounded-bl-2xl rounded-br-md shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5 cursor-pointer"
+              >
+                <FiMessageCircle className="w-4 h-4 text-white" />
+                <span>CONTACT</span>
+                <FiArrowRight className="w-4 h-4 text-white" />
+              </Link>
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* ─── AUTHENTICATION REQUIRED MODAL (FOR DOWNLOADS) ─── */}

@@ -309,26 +309,50 @@ const Dues = () => {
             newMap[lvl] = formatted;
           }
         }
+
+        // If cleared for 'All' levels by administration, populate all progressive levels
+        if (isPaid && String(itemLevelRaw).toLowerCase() === 'all') {
+          progressiveLevels.forEach(lvlCode => {
+            confirmedPaidLevelsRef.current.add(lvlCode);
+            if (!newMap[lvlCode]) {
+              newMap[lvlCode] = {
+                ...formatted,
+                id: `dues-all-${cleanMatric}-${lvlCode}`,
+                level: `${lvlCode} LEVEL`,
+                levelNum: lvlCode,
+                receiptNo: formatted.receiptNo || `NACOS/DUES/${cleanMatric}-${lvlCode}L`
+              };
+            }
+          });
+        }
       };
 
-      // Prepare filter criteria
+      // Prepare filter criteria with safe double-quoting for PostgREST .or() compatibility
       const filters = [];
+      const addFilter = (col, val) => {
+        if (!val) return;
+        const clean = String(val).trim();
+        if (!clean) return;
+        if (/[\.@,\s]/.test(clean)) {
+          filters.push(`${col}.eq."${clean}"`);
+        } else {
+          filters.push(`${col}.eq.${clean}`);
+        }
+      };
+
       if (cleanMatric) {
-        filters.push(`registration_number.eq.${cleanMatric}`);
-        filters.push(`matric_number.eq.${cleanMatric}`);
+        addFilter('registration_number', cleanMatric);
+        addFilter('matric_number', cleanMatric);
       }
       if (strippedDigits && strippedDigits !== cleanMatric) {
-        filters.push(`registration_number.eq.${strippedDigits}`);
-        filters.push(`matric_number.eq.${strippedDigits}`);
+        addFilter('registration_number', strippedDigits);
+        addFilter('matric_number', strippedDigits);
       }
       if (userId && !String(userId).startsWith('student-')) {
-        filters.push(`student_id.eq.${userId}`);
+        addFilter('student_id', userId);
       }
       if (currentUser?.email) {
-        const cleanEmail = String(currentUser.email).trim().toLowerCase();
-        if (cleanEmail) {
-          filters.push(`email.eq.${cleanEmail}`);
-        }
+        addFilter('email', String(currentUser.email).trim().toLowerCase());
       }
 
       const duesFilters = [];
@@ -336,14 +360,13 @@ const Dues = () => {
       if (strippedDigits && strippedDigits !== cleanMatric) duesFilters.push(`registration_number.eq.${strippedDigits}`);
       if (userId && !String(userId).startsWith('student-')) duesFilters.push(`student_id.eq.${userId}`);
 
+      // Departmental dues table only has registration_number column (not matric_number)
       const deptFilters = [];
       if (cleanMatric) {
         deptFilters.push(`registration_number.eq.${cleanMatric}`);
-        deptFilters.push(`matric_number.eq.${cleanMatric}`);
       }
       if (strippedDigits && strippedDigits !== cleanMatric) {
         deptFilters.push(`registration_number.eq.${strippedDigits}`);
-        deptFilters.push(`matric_number.eq.${strippedDigits}`);
       }
 
       // Parallelize queries concurrently with withTimeout(..., 6000)
@@ -472,12 +495,45 @@ const Dues = () => {
       uniqueRecords.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       const finalPaidSum = uniqueRecords.filter(r => r.isPaid).reduce((acc, r) => acc + (r.rawAmount || 0), 0);
-      setPaymentHistoryList(uniqueRecords);
+      setPaymentHistoryList(prev => {
+        if (uniqueRecords.length > 0) return uniqueRecords;
+        if (prev && prev.some(r => r.isPaid)) return prev;
+        return uniqueRecords;
+      });
       setLevelDuesMap(prev => {
         const merged = { ...newMap };
         ['100', '200', '300', '400', '500'].forEach(k => {
           if (!merged[k] && prev[k]?.isPaid) {
             merged[k] = prev[k];
+          }
+          if (confirmedPaidLevelsRef.current.has(k) && !merged[k]) {
+            const histItem = uniqueRecords.find(r => r.isPaid && r.levelNum === k);
+            if (histItem) {
+              merged[k] = histItem;
+            } else if (prev[k]?.isPaid) {
+              merged[k] = prev[k];
+            } else {
+              merged[k] = {
+                id: `confirmed-${cleanMatric}-${k}`,
+                receiptNo: currentUser?.receipt_no || `NACOS/DUES/${cleanMatric || 'FUTO'}-${k}L`,
+                transactionId: currentUser?.receipt_no || 'TX-CONFIRMED',
+                date: 'Confirmed',
+                time: '',
+                paymentDate: 'Confirmed (Database Verified)',
+                amount: duesFee ? `₦${Number(duesFee).toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '—',
+                rawAmount: Number(duesFee || 0),
+                status: 'PAID',
+                isPaid: true,
+                session: currentUser?.academic_session || getActiveAcademicSession(),
+                level: `${k} LEVEL`,
+                levelNum: k,
+                paymentType: 'Departmental Dues (Full Payment)',
+                studentName: (currentUser?.full_name || currentUser?.name || 'Student Member').trim(),
+                matricNo: cleanMatric,
+                department: currentUser?.department || 'Computer Science',
+                created_at: new Date().toISOString()
+              };
+            }
           }
           if (merged[k]?.isPaid) {
             confirmedPaidLevelsRef.current.add(k);
@@ -1120,6 +1176,25 @@ const Dues = () => {
       ? `₦${Number(amountVal).toLocaleString('en-NG')}`
       : (duesFee != null && Number(duesFee) > 0 ? `₦${Number(duesFee).toLocaleString('en-NG')}` : '—');
 
+    const fallbackReceiptNo = user?.receipt_no || `NACOS/DUES/${cleanMatric || 'FUTO'}-${lvl}L`;
+    const fallbackTxId = user?.receipt_no || 'TX-CONFIRMED';
+    const fallbackPayment = paidRow || (isPaid ? {
+      id: `dues-row-${cleanMatric}-${lvl}`,
+      receiptNo: fallbackReceiptNo,
+      transactionId: fallbackTxId,
+      amount: amountFormatted,
+      rawAmount: amountVal || duesFee || 0,
+      session,
+      level: `${lvl} Level`,
+      levelNum: lvl,
+      status: 'PAID',
+      isPaid: true,
+      date: 'Confirmed',
+      studentName: (user?.full_name || user?.name || 'Student Member').trim(),
+      matricNo: cleanMatric,
+      department: user?.department || 'Computer Science'
+    } : null);
+
     return {
       levelCode: lvl,
       level: `${lvl} Level`,
@@ -1129,10 +1204,10 @@ const Dues = () => {
       rawAmount: amountVal || duesFee || 0,
       isPaid,
       status: isPaid ? 'PAID' : 'UNPAID',
-      payment: paidRow || null,
-      receiptNo: paidRow?.receiptNo || null,
-      transactionId: paidRow?.transactionId || null,
-      date: paidRow?.date || null
+      payment: fallbackPayment,
+      receiptNo: paidRow?.receiptNo || (isPaid ? fallbackReceiptNo : null),
+      transactionId: paidRow?.transactionId || (isPaid ? fallbackTxId : null),
+      date: paidRow?.date || (isPaid ? 'Confirmed' : null)
     };
   });
 
@@ -1145,9 +1220,6 @@ const Dues = () => {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
             Departmental Dues &amp; Levies
           </h1>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
-            Official clearance history and electronic POS receipts for Department of Computer Science.
-          </p>
         </div>
 
         {/* Notification Banner */}

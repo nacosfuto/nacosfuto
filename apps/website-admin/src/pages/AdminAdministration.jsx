@@ -25,6 +25,8 @@ import {
   saveDepartmentStaffMember, 
   deleteDepartmentStaffMember 
 } from '@nacos/supabase';
+import AdminSaveButton from '../components/AdminSaveButton';
+import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
 
 const ROLE_CATEGORIES = [
   { id: 'all', label: 'All Staff' },
@@ -72,6 +74,7 @@ const AdminAdministration = () => {
 
   // Delete modal state
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Initial fetch and listener setup
   useEffect(() => {
@@ -97,6 +100,13 @@ const AdminAdministration = () => {
   const showFeedback = (type, message) => {
     setFeedback({ type, message });
     setTimeout(() => setFeedback(null), 4000);
+    if (type === 'error') {
+      adminToast.error(message);
+    } else if (type === 'success') {
+      adminToast.success(message);
+    } else {
+      adminToast.info(message);
+    }
   };
 
   const handleDeriveEmail = () => {
@@ -176,7 +186,7 @@ const AdminAdministration = () => {
         showFeedback('error', 'Could not save staff member. Please check details.');
       }
     } catch (err) {
-      showFeedback('error', err.message || 'An unexpected error occurred while saving.');
+      showFeedback('error', getSafeErrorMessage(err, 'An unexpected error occurred while saving.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -196,12 +206,13 @@ const AdminAdministration = () => {
       });
       showFeedback('success', `${person.name} status updated to ${updated.is_active ? 'Active' : 'Hidden'}.`);
     } catch (err) {
-      showFeedback('error', 'Failed to update visibility.');
+      showFeedback('error', getSafeErrorMessage(err, 'Failed to update visibility.'));
     }
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
       if (deleteTarget.cloudinary_public_id) {
         await deleteMedia(deleteTarget.cloudinary_public_id).catch(() => {});
@@ -215,7 +226,9 @@ const AdminAdministration = () => {
       showFeedback('success', `"${deleteTarget.name}" removed from departmental staff.`);
       setDeleteTarget(null);
     } catch (err) {
-      showFeedback('error', 'Error deleting staff member.');
+      showFeedback('error', getSafeErrorMessage(err, 'Error deleting staff member.'));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -636,17 +649,18 @@ const AdminAdministration = () => {
                   <button
                     type="button"
                     onClick={() => setIsEditorOpen(false)}
+                    disabled={isSubmitting}
                     className="px-4 py-2.5 rounded-xl text-sm font-bold border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-6 py-2.5 rounded-xl text-sm font-bold bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-600/20 transition-all cursor-pointer disabled:opacity-50"
+                  <AdminSaveButton
+                    loading={isSubmitting}
+                    loadingText="Saving Live..."
+                    variant="primary"
                   >
-                    {isSubmitting ? 'Saving Live...' : (editorMode === 'add' ? 'Save Staff Member' : 'Update Profile')}
-                  </button>
+                    {editorMode === 'add' ? 'Save Staff Member' : 'Update Profile'}
+                  </AdminSaveButton>
                 </div>
               </form>
             </div>
@@ -674,17 +688,21 @@ const AdminAdministration = () => {
                 <button
                   type="button"
                   onClick={() => setDeleteTarget(null)}
+                  disabled={isDeleting}
                   className="px-4 py-2 rounded-xl text-xs font-bold border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button
+                <AdminSaveButton
                   type="button"
                   onClick={handleDelete}
-                  className="px-5 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/20 transition-all cursor-pointer"
+                  loading={isDeleting}
+                  loadingText="Deleting..."
+                  variant="danger"
+                  icon={Trash2}
                 >
                   Confirm Delete
-                </button>
+                </AdminSaveButton>
               </div>
             </div>
           </div>

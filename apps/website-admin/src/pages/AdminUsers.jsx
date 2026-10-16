@@ -24,6 +24,8 @@ import {
   getWebsiteAdminSession,
   AVAILABLE_ADMIN_FEATURES 
 } from '@nacos/supabase/adminAuth';
+import AdminSaveButton from '../components/AdminSaveButton';
+import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
 
 const AdminUsers = () => {
   const currentAdmin = getWebsiteAdminSession();
@@ -57,6 +59,13 @@ const AdminUsers = () => {
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
     setTimeout(() => setNotification({ message: '', type: '' }), 5000);
+    if (type === 'error') {
+      adminToast.error(message);
+    } else if (type === 'success') {
+      adminToast.success(message);
+    } else {
+      adminToast.info(message);
+    }
   };
 
   const loadAdmins = async () => {
@@ -580,18 +589,19 @@ const AdminUsers = () => {
                   <button
                     type="button"
                     onClick={() => setIsInviteModalOpen(false)}
+                    disabled={actionLoadingId === 'invite'}
                     className="px-4 py-2 rounded-lg text-gray-600 bg-gray-100 dark:bg-white/10 dark:text-gray-300 cursor-pointer"
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={actionLoadingId === 'invite'}
-                    className="px-5 py-2 rounded-lg text-white bg-[#138601] hover:bg-[#0f6c01] font-semibold cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                  <AdminSaveButton
+                    loading={actionLoadingId === 'invite'}
+                    loadingText="Provisioning..."
+                    variant="primary"
+                    icon={Mail}
                   >
-                    {actionLoadingId === 'invite' ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : null}
-                    <span>Save &amp; Send Invitation Email</span>
-                  </button>
+                    Save &amp; Send Invitation Email
+                  </AdminSaveButton>
                 </div>
               </form>
             </div>
@@ -636,15 +646,17 @@ const AdminUsers = () => {
                 >
                   Cancel
                 </button>
-                <button
+                <AdminSaveButton
                   type="button"
                   disabled={deleteModal.isDeleting}
                   onClick={executeDeleteAdmin}
-                  className="px-5 py-2 rounded-lg text-white bg-red-600 hover:bg-red-700 font-semibold cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                  loading={deleteModal.isDeleting}
+                  loadingText="Deleting..."
+                  variant="danger"
+                  icon={Trash2}
                 >
-                  {deleteModal.isDeleting ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                  <span>{deleteModal.isDeleting ? 'Deleting...' : 'Delete Permanently'}</span>
-                </button>
+                  Delete Permanently
+                </AdminSaveButton>
               </div>
             </div>
           </div>

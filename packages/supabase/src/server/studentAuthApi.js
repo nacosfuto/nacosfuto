@@ -610,12 +610,8 @@ export async function handleVerifyOtp({ stepToken, otpCode, purpose = 'SIGNUP' }
     return { success: false, error: 'Please enter a valid 6-digit verification code.' };
   }
 
-  const cleanReg = verifiedToken.registrationNumber;
+  const cleanReg = (verifiedToken.registrationNumber || '').toString().replace(/[\/\s\-]/g, '').trim().toUpperCase();
   const strippedReg = cleanReg.replace(/[^a-zA-Z0-9]/g, '');
-  let formattedReg = cleanReg;
-  if (cleanReg.length === 11 && !cleanReg.includes('/')) {
-    formattedReg = `${cleanReg.slice(0, 4)}/${cleanReg.slice(4)}`;
-  }
 
   const candidateHash = hashOtpServer(cleanOtp);
   const nowIso = new Date().toISOString();
@@ -625,8 +621,8 @@ export async function handleVerifyOtp({ stepToken, otpCode, purpose = 'SIGNUP' }
   // 1. Look up challenges in Supabase
   if (supabase) {
     try {
-      // Query recent challenges across all variations of registration number / identifier
-      const orFilter = `registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg},registration_number.ilike.${formattedReg}`;
+      // Query recent challenges across registration number / identifier
+      const orFilter = `registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg}`;
       const { data: challenges, error: fetchErr } = await supabase
         .from('otp_verifications')
         .select('*')

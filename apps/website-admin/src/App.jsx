@@ -11,6 +11,7 @@ const AdminGallery = React.lazy(() => import('./pages/AdminGallery'));
 const AdminNews = React.lazy(() => import('./pages/AdminNews'));
 const AdminEvents = React.lazy(() => import('./pages/AdminEvents'));
 const AdminHomepage = React.lazy(() => import('./pages/AdminHomepage'));
+const AdminHeroCarousel = React.lazy(() => import('./pages/AdminHeroCarousel'));
 const AdminAuditLogs = React.lazy(() => import('./pages/AdminAuditLogs'));
 const AdminUsers = React.lazy(() => import('./pages/AdminUsers'));
 const AdminYellowPages = React.lazy(() => import('./pages/AdminYellowPages'));
@@ -135,6 +136,9 @@ function App() {
 
             <Route path="/homepage" element={<AdminProtectedRoute requiredPermission="main_website.homepage"><AdminHomepage /></AdminProtectedRoute>} />
             <Route path="/admin/homepage" element={<AdminProtectedRoute requiredPermission="main_website.homepage"><AdminHomepage /></AdminProtectedRoute>} />
+
+            <Route path="/hero-carousel" element={<AdminProtectedRoute requiredPermission="main_website.homepage"><AdminHeroCarousel /></AdminProtectedRoute>} />
+            <Route path="/admin/hero-carousel" element={<AdminProtectedRoute requiredPermission="main_website.homepage"><AdminHeroCarousel /></AdminProtectedRoute>} />
 
             {/* Yellow Pages, Clubs, Alumni Directories */}
             <Route path="/yellow-pages" element={<AdminProtectedRoute><AdminYellowPages /></AdminProtectedRoute>} />

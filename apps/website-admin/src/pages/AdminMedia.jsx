@@ -39,6 +39,8 @@ import {
 } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
 import { syncMediaAsset, deleteMediaAsset, fetchMediaAssets } from '@nacos/supabase/media';
+import AdminSaveButton from '../components/AdminSaveButton';
+import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
 
 const INITIAL_WEBSITE_MEDIA = [];
 
@@ -89,6 +91,13 @@ const AdminMedia = () => {
   const showFeedback = (text, type = 'success') => {
     setFeedback({ text, type });
     setTimeout(() => setFeedback(null), 4000);
+    if (type === 'error') {
+      adminToast.error(text);
+    } else if (type === 'success') {
+      adminToast.success(text);
+    } else {
+      adminToast.info(text);
+    }
   };
 
   const handleSyncFolders = async () => {
@@ -107,7 +116,7 @@ const AdminMedia = () => {
         showFeedback(`Folder sync notice: ${res.error || 'Folders tracked locally'}`, 'info');
       }
     } catch (err) {
-      showFeedback(`Sync error: ${err.message}`, 'error');
+      showFeedback(getSafeErrorMessage(err, `Sync error: ${err.message}`), 'error');
     } finally {
       setIsSyncingFolders(false);
     }
@@ -138,15 +147,19 @@ const AdminMedia = () => {
   const handleDelete = async (item) => {
     if (!window.confirm(`Delete "${item.cloudinary_public_id}" from storage and database?`)) return;
 
-    await deleteMediaAsset(item.cloudinary_public_id);
-    const updated = mediaList.filter(m => m.cloudinary_public_id !== item.cloudinary_public_id);
-    setMediaList(updated);
+    try {
+      await deleteMediaAsset(item.cloudinary_public_id);
+      const updated = mediaList.filter(m => m.cloudinary_public_id !== item.cloudinary_public_id);
+      setMediaList(updated);
 
-    await recordAdminAction('image_delete', 'media', item.cloudinary_public_id, {
-      category: item.category
-    });
+      await recordAdminAction('image_delete', 'media', item.cloudinary_public_id, {
+        category: item.category
+      });
 
-    showFeedback('Media asset removed from storage and database.');
+      showFeedback('Media asset removed from storage and database.');
+    } catch (err) {
+      showFeedback(getSafeErrorMessage(err, 'Failed to delete media asset.'), 'error');
+    }
   };
 
   const handleUploadSuccess = async ({ url, publicId, format, bytes, width, height }) => {
@@ -249,15 +262,17 @@ const AdminMedia = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <button
+              <AdminSaveButton
                 type="button"
                 onClick={handleSyncFolders}
-                disabled={isSyncingFolders}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                loading={isSyncingFolders}
+                loadingText="Syncing Folders..."
+                variant="primary"
+                icon={FolderSync}
+                className="py-1.5 px-3.5 text-xs"
               >
-                <FolderSync className={`w-3.5 h-3.5 ${isSyncingFolders ? 'animate-spin' : ''}`} />
-                <span>{isSyncingFolders ? 'Syncing...' : 'Sync Asset Folders'}</span>
-              </button>
+                Sync Asset Folders
+              </AdminSaveButton>
 
               <button
                 type="button"

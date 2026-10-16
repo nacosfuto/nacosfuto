@@ -56,7 +56,8 @@ import {
   getLocalPaymentsDatabase,
   getCachedStudentClearance,
   extractCachedIdCardData,
-  invalidateStudentDataCache
+  invalidateStudentDataCache,
+  getStudentClearanceSummary
 } from '@nacos/supabase';
 import { enrichStudentProfile } from '@nacos/supabase/auth';
 import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
@@ -132,6 +133,22 @@ const IdCard = ({ viewMode = false }) => {
     }
     return '100 Level';
   };
+
+  // Persistent confirmed paid levels Set - once a level is confirmed paid, it NEVER reverts during re-fetches
+  const confirmedPaidLevelsRef = useRef(new Set());
+  if (initialCache?.levelClearanceMatrix) {
+    Object.entries(initialCache.levelClearanceMatrix).forEach(([lvl, data]) => {
+      if (data?.idCard) confirmedPaidLevelsRef.current.add(lvl);
+    });
+  }
+  if (initialIdData?.collectedIdCardPays) {
+    initialIdData.collectedIdCardPays.forEach(p => {
+      if (p.isPaid && p.level) {
+        const lvlNum = String(p.level).replace(/\D/g, '');
+        if (lvlNum) confirmedPaidLevelsRef.current.add(lvlNum);
+      }
+    });
+  }
 
   const studentRef = useRef(student);
   const settingsRef = useRef(settings);
@@ -238,6 +255,10 @@ const IdCard = ({ viewMode = false }) => {
       }
     };
 
+    const handleDataUpdated = () => {
+      loadStudentAndApplication(formLevelRef.current);
+    };
+
     const unsubSession = onAcademicSessionChange(({ sessionName }) => {
       if (sessionName && sessionName !== formSessionRef.current) {
         formSessionRef.current = sessionName;
@@ -247,8 +268,24 @@ const IdCard = ({ viewMode = false }) => {
     });
 
     window.addEventListener('nacos_id_card_settings_updated', handleSettingsUpdated);
+    window.addEventListener('nacos_user_updated', handleDataUpdated);
+    window.addEventListener('nacos_payment_sync', handleDataUpdated);
+
+    let bc = null;
+    try {
+      bc = new BroadcastChannel('nacos_payment_sync');
+      bc.onmessage = (e) => {
+        if (e.data?.status === 'successful') {
+          handleDataUpdated();
+        }
+      };
+    } catch (_) {}
+
     return () => {
       window.removeEventListener('nacos_id_card_settings_updated', handleSettingsUpdated);
+      window.removeEventListener('nacos_user_updated', handleDataUpdated);
+      window.removeEventListener('nacos_payment_sync', handleDataUpdated);
+      if (bc) bc.close();
       if (unsubSession) unsubSession();
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
       if (tabWatchIntervalRef.current) clearInterval(tabWatchIntervalRef.current);
@@ -297,8 +334,11 @@ const IdCard = ({ viewMode = false }) => {
       const curOb = pObs.find(o => o.isCurrent) || pObs[pObs.length - 1];
       const defaultStudentLevel = curOb?.level || parsed.level || (parsed.current_level ? `${parsed.current_level} Level` : '100 Level');
 
-      const matric = parsed.matric || parsed.registration_number;
-      const cleanMatric = String(matric || '').trim().toUpperCase();
+      const matric = parsed.matric || parsed.registration_number || parsed.matricNumber || parsed.reg_number || '';
+      const cleanMatric = String(matric || '').replace(/[\/\s\-]/g, '').trim().toUpperCase();
+      const strippedDigits = cleanMatric.replace(/\D/g, '');
+      const userId = parsed?.id;
+      const cleanEmail = parsed?.email ? String(parsed.email).trim().toLowerCase() : null;
 
       const pProg = calculateAcademicProgression(parsed, getActiveAcademicSession());
       const maxLvlNum = (pProg?.numericLevel || 1) * 100;
@@ -306,24 +346,78 @@ const IdCard = ({ viewMode = false }) => {
       const rawLookupNum = parseInt(String(rawLookupLevel).replace(/\D/g, ''), 10);
       const lookupLevel = (!isNaN(rawLookupNum) && rawLookupNum > maxLvlNum) ? defaultStudentLevel : rawLookupLevel;
 
-      // Parallelize settings, profile check, payments ledger, and application queries to eliminate waterfall
-      const [cfg, profRow, dbPays, rawApp] = await Promise.all([
+      // Safe PostgREST filters for payments and profiles
+      const payConds = [];
+      const addPayCond = (col, val) => {
+        if (!val) return;
+        const clean = String(val).trim();
+        if (!clean) return;
+        if (/[\.@,\s]/.test(clean)) {
+          payConds.push(`${col}.eq."${clean}"`);
+        } else {
+          payConds.push(`${col}.eq.${clean}`);
+        }
+      };
+
+      if (cleanMatric) {
+        addPayCond('registration_number', cleanMatric);
+        addPayCond('matric_number', cleanMatric);
+      }
+      if (strippedDigits && strippedDigits !== cleanMatric) {
+        addPayCond('registration_number', strippedDigits);
+        addPayCond('matric_number', strippedDigits);
+      }
+      if (userId && !String(userId).startsWith('student-')) {
+        addPayCond('student_id', userId);
+      }
+      if (cleanEmail) {
+        addPayCond('email', cleanEmail);
+      }
+      const orFilter = payConds.join(',');
+
+      const profConds = [];
+      const addProfCond = (col, val) => {
+        if (!val) return;
+        const clean = String(val).trim();
+        if (!clean) return;
+        if (/[\.@,\s]/.test(clean)) {
+          profConds.push(`${col}.eq."${clean}"`);
+        } else {
+          profConds.push(`${col}.eq.${clean}`);
+        }
+      };
+      if (cleanMatric) {
+        addProfCond('registration_number', cleanMatric);
+        addProfCond('matric_number', cleanMatric);
+      }
+      if (strippedDigits && strippedDigits !== cleanMatric) {
+        addProfCond('registration_number', strippedDigits);
+        addProfCond('matric_number', strippedDigits);
+      }
+      if (cleanEmail) {
+        addProfCond('email', cleanEmail);
+      }
+      const profOrFilter = profConds.join(',');
+
+      // Parallelize settings, profile check, payments ledger, application, and clearance summary queries
+      const [cfg, profRow, dbPays, rawApp, clearanceSummary] = await Promise.all([
         withTimeout(getIdCardSettings(), 6000).catch(() => null),
-        supabase && cleanMatric
+        supabase && profOrFilter
           ? withTimeout(
-              supabase.from('profiles').select('*').or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`).limit(1).maybeSingle(),
+              supabase.from('profiles').select('*').or(profOrFilter).limit(1).maybeSingle(),
               6000
             ).then(res => res.data).catch(() => null)
           : Promise.resolve(null),
-        supabase && cleanMatric
+        supabase && orFilter
           ? withTimeout(
-              supabase.from('payments').select('*').or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`).order('created_at', { ascending: false }),
+              supabase.from('payments').select('*').or(orFilter).order('created_at', { ascending: false }),
               6000
             ).then(res => res.data || []).catch(() => [])
           : Promise.resolve([]),
         cleanMatric
           ? withTimeout(getStudentIdApplication(cleanMatric, lookupLevel), 6000).catch(() => null)
-          : Promise.resolve(null)
+          : Promise.resolve(null),
+        withTimeout(getStudentClearanceSummary(parsed), 6000).catch(() => null)
       ]);
 
       if (cfg) setSettings(cfg);
@@ -380,15 +474,21 @@ const IdCard = ({ viewMode = false }) => {
         const payDate = p.paid_at || p.created_at || new Date().toISOString();
         const dObj = new Date(payDate);
         const amt = Number(p.amount || cfg?.id_card_fee || 0);
+        const normLvl = normalizeLevel(payLevel);
+        const lvlNum = String(normLvl).replace(/\D/g, '');
+
+        if (isPaid && lvlNum) {
+          confirmedPaidLevelsRef.current.add(lvlNum);
+        }
 
         collectedIdCardPays.push({
           id: p.id || p.reference,
-          receiptNo: p.reference || `NACOS/IDCARD/${cleanMatric}`,
+          receiptNo: p.reference || `NACOS/IDCARD/${cleanMatric}-${lvlNum || '100'}L`,
           transactionId: p.provider_payment_id || p.id || p.reference || 'TX-CONFIRMED',
           amount: amt,
-          formattedAmount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+          formattedAmount: amt > 0 ? `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '—',
           session: paySession,
-          level: normalizeLevel(payLevel),
+          level: normLvl,
           paymentType: 'Student ID Card Issuance',
           paymentMethod: p.provider ? `${String(p.provider).replace(/bachs/gi, 'Online Gateway')} (${mappedStatus})` : `Online Gateway (${mappedStatus})`,
           date: !isNaN(dObj.getTime()) ? dObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Current Session',
@@ -403,13 +503,42 @@ const IdCard = ({ viewMode = false }) => {
         dbPays.forEach(processIdPayItem);
       }
 
+      // Check clearance summary for any cleared ID card levels
+      if (clearanceSummary?.levelClearanceMatrix) {
+        ['100', '200', '300', '400', '500'].forEach(lvlNum => {
+          if (clearanceSummary.levelClearanceMatrix[lvlNum]?.idCard) {
+            confirmedPaidLevelsRef.current.add(lvlNum);
+            const alreadyInList = collectedIdCardPays.some(p => p.isPaid && String(p.level).replace(/\D/g, '') === lvlNum);
+            if (!alreadyInList) {
+              const amt = Number(cfg?.id_card_fee || 0);
+              collectedIdCardPays.push({
+                id: `summary-id-${cleanMatric}-${lvlNum}`,
+                receiptNo: `NACOS/IDCARD/${cleanMatric}-${lvlNum}L`,
+                transactionId: 'TX-CONFIRMED',
+                amount: amt,
+                formattedAmount: amt > 0 ? `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '—',
+                session: getActiveAcademicSession(),
+                level: `${lvlNum} Level`,
+                paymentType: 'Student ID Card Issuance',
+                paymentMethod: 'Online Gateway (Verified)',
+                status: 'PAID',
+                isPaid: true,
+                date: 'Verified',
+                time: '',
+                created_at: new Date().toISOString()
+              });
+            }
+          }
+        });
+      }
+
       // Check local storage payments fallback to prevent transient network misses
       try {
         const localDb = getLocalPaymentsDatabase();
         if (Array.isArray(localDb)) {
           localDb.filter(p =>
-            (p.student_matric && p.student_matric.toUpperCase() === cleanMatric) ||
-            (p.registration_number && p.registration_number.toUpperCase() === cleanMatric)
+            (p.student_matric && (p.student_matric.toUpperCase() === cleanMatric || p.student_matric.replace(/\D/g, '') === strippedDigits)) ||
+            (p.registration_number && (p.registration_number.toUpperCase() === cleanMatric || p.registration_number.replace(/\D/g, '') === strippedDigits))
           ).forEach(processIdPayItem);
         }
       } catch (_) {}
@@ -418,15 +547,16 @@ const IdCard = ({ viewMode = false }) => {
       if (rawApp && (rawApp.payment_status === 'paid' || rawApp.payment_status === 'verified' || rawApp.status === 'generated')) {
         const appLvl = rawApp.level || curOb?.level || defaultStudentLevel;
         const appLvlNum = String(appLvl).replace(/\D/g, '');
+        if (appLvlNum) confirmedPaidLevelsRef.current.add(appLvlNum);
         const alreadyInPays = collectedIdCardPays.some(p => p.isPaid && String(p.level).replace(/\D/g, '') === appLvlNum);
         if (!alreadyInPays) {
           const amt = Number(rawApp.amount_paid || rawApp.amount || cfg?.id_card_fee || 0);
           collectedIdCardPays.unshift({
             id: rawApp.id || `idpay-${cleanMatric}`,
-            receiptNo: rawApp.payment_reference || `NACOS/IDCARD/${cleanMatric}`,
+            receiptNo: rawApp.payment_reference || `NACOS/IDCARD/${cleanMatric}-${appLvlNum || '100'}L`,
             transactionId: rawApp.payment_reference || 'TX-CONFIRMED',
             amount: amt,
-            formattedAmount: `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+            formattedAmount: amt > 0 ? `₦${amt.toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : '—',
             session: rawApp.academic_session || curOb?.session || cfg?.academic_session || getActiveAcademicSession(),
             level: normalizeLevel(appLvl),
             paymentType: 'Student ID Card Issuance',
@@ -517,13 +647,16 @@ const IdCard = ({ viewMode = false }) => {
         const map = new Map();
         (prev || []).forEach(p => {
           if (p.isPaid) {
-            const key = p.receiptNo || p.transactionId || normalizeLevel(p.level);
+            const key = normalizeLevel(p.level);
             map.set(key, p);
           }
         });
         (collectedIdCardPays || []).forEach(p => {
-          const key = p.receiptNo || p.transactionId || normalizeLevel(p.level);
-          map.set(key, p);
+          const key = normalizeLevel(p.level);
+          // Never overwrite an existing PAID payment with an UNPAID record for the same level!
+          if (p.isPaid || !map.has(key)) {
+            map.set(key, p);
+          }
         });
         return Array.from(map.values());
       });
@@ -1142,24 +1275,26 @@ const IdCard = ({ viewMode = false }) => {
   };
 
   const handleOpenReceipt = (row) => {
+    const cleanM = student?.matric || student?.registration_number || '';
+    const lvlNum = String(row?.level || '').replace(/\D/g, '') || '100';
     const payload = {
-      receiptNo: row.receiptNo,
-      transactionId: row.transactionId,
-      date: row.date,
-      time: row.time,
+      receiptNo: row.receiptNo || `NACOS/IDCARD/${cleanM || 'STUDENT'}-${lvlNum}L`,
+      transactionId: row.transactionId || 'TX-CONFIRMED',
+      date: row.date || 'Verified',
+      time: row.time || '',
       studentName: student?.full_name || student?.name || 'Student Member',
-      matricNo: student?.matric || student?.registration_number || '',
+      matricNo: cleanM,
       department: student?.department || 'Computer Science',
       level: row.level,
       session: row.session,
       amount: row.amount,
       rawAmount: row.amount,
       paymentType: 'Student ID Card Issuance',
-      paymentMethod: row.paymentMethod,
+      paymentMethod: row.paymentMethod || 'Online Gateway (Confirmed)',
       status: 'APPROVED',
       isInvoice: false
     };
-    navigate(`/receipt?reference=${encodeURIComponent(row.receiptNo || row.id)}&type=id_card`, {
+    navigate(`/receipt?reference=${encodeURIComponent(payload.receiptNo || payload.transactionId)}&type=id_card`, {
       state: { receiptData: payload }
     });
   };
@@ -1449,20 +1584,46 @@ const IdCard = ({ viewMode = false }) => {
     const matchingPayment = matches.find(m => m.isPaid) || matches[0] || null;
 
     const isMatrixIdPaid = Boolean(initialCache?.levelClearanceMatrix?.[obLvlNum]?.idCard);
-    const isObligationPaid = Boolean(matchingPayment?.isPaid || isMatrixIdPaid);
+    const isAppPaid = Boolean(
+      application &&
+      ['paid', 'verified', 'generated'].includes(String(application.payment_status || application.status).toLowerCase()) &&
+      (!application.level || String(application.level).replace(/\D/g, '') === obLvlNum)
+    );
+    const isConfirmedPaid = confirmedPaidLevelsRef.current.has(obLvlNum);
+    const isObligationPaid = Boolean(matchingPayment?.isPaid || isMatrixIdPaid || isAppPaid || isConfirmedPaid);
+    if (isObligationPaid) {
+      confirmedPaidLevelsRef.current.add(obLvlNum);
+    }
+
     const status = isObligationPaid ? 'PAID' : 'UNPAID';
     const liveFee = settings?.id_card_fee != null && !isNaN(Number(settings.id_card_fee)) && Number(settings.id_card_fee) > 0 ? Number(settings.id_card_fee) : null;
     const resolvedAmount = isObligationPaid ? (matchingPayment?.amount ? Number(matchingPayment.amount) : liveFee) : liveFee;
+
+    const cleanM = String(student?.matric || student?.registration_number || '').trim().toUpperCase();
+    const fallbackReceiptNo = application?.payment_reference || `NACOS/IDCARD/${cleanM || 'STUDENT'}-${obLvlNum}L`;
+    const fallbackTxId = application?.payment_reference || 'TX-CONFIRMED';
+    const fallbackDate = application?.paid_at ? new Date(application.paid_at).toLocaleDateString('en-GB') : 'Verified';
+
+    const resolvedPayment = matchingPayment || (isObligationPaid ? {
+      receiptNo: fallbackReceiptNo,
+      transactionId: fallbackTxId,
+      amount: resolvedAmount,
+      session: ob.session,
+      level: ob.level,
+      status: 'PAID',
+      isPaid: true,
+      date: fallbackDate
+    } : null);
 
     return {
       ...ob,
       amount: resolvedAmount,
       status,
       isPaid: isObligationPaid,
-      payment: matchingPayment || null,
-      receiptNo: matchingPayment?.receiptNo || null,
-      transactionId: matchingPayment?.transactionId || null,
-      date: matchingPayment?.date || null
+      payment: resolvedPayment,
+      receiptNo: matchingPayment?.receiptNo || (isObligationPaid ? fallbackReceiptNo : null),
+      transactionId: matchingPayment?.transactionId || (isObligationPaid ? fallbackTxId : null),
+      date: matchingPayment?.date || (isObligationPaid ? fallbackDate : null)
     };
   });
 
@@ -2320,9 +2481,6 @@ const IdCard = ({ viewMode = false }) => {
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
                 Student ID Card Application &amp; Issuance
               </h1>
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-green-200/80 font-normal mt-0.5">
-                Official clearance history and electronic POS receipts for Department of Computer Science.
-              </p>
             </div>
 
 

@@ -7,7 +7,7 @@
  */
 export function sanitizeRegNumber(regNo) {
   if (!regNo) return '';
-  return regNo.toString().trim().toUpperCase();
+  return regNo.toString().replace(/[\/\s\-]/g, '').trim().toUpperCase();
 }
 
 /**

@@ -22,6 +22,8 @@ import {
   toggleGalleryFeatured, 
   fetchGalleryFromSupabase
 } from '@nacos/supabase';
+import AdminSaveButton from '../components/AdminSaveButton';
+import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
 
 const AdminGallery = () => {
   const [items, setItems] = useState([]);
@@ -43,6 +45,7 @@ const AdminGallery = () => {
   const [editFeatured, setEditFeatured] = useState(false);
   const [editImageUrl, setEditImageUrl] = useState('');
   const [editPublicId, setEditPublicId] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const loadGallery = (liveData) => {
     if (Array.isArray(liveData)) {
@@ -71,50 +74,69 @@ const AdminGallery = () => {
   const showFeedback = (text, type = 'success') => {
     setFeedback({ text, type });
     setTimeout(() => setFeedback(null), 3500);
+    if (type === 'error') {
+      adminToast.error(text);
+    } else if (type === 'success') {
+      adminToast.success(text);
+    } else {
+      adminToast.info(text);
+    }
   };
 
   const handleToggleFeatured = async (id) => {
-    await toggleGalleryFeatured(id);
-    showFeedback('Gallery featured status updated in database.');
+    try {
+      await toggleGalleryFeatured(id);
+      showFeedback('Gallery featured status updated in database.');
+    } catch (err) {
+      showFeedback(getSafeErrorMessage(err, 'Failed to update featured status.'), 'error');
+    }
   };
 
   const handleDelete = async (item) => {
     if (!window.confirm(`Delete "${item.caption || item.title}" from the website gallery?`)) return;
 
-    await deleteGalleryItem(item);
+    try {
+      await deleteGalleryItem(item);
 
-    await recordAdminAction('gallery_delete', 'gallery', item.cloudinary_public_id, {
-      title: item.title
-    });
+      await recordAdminAction('gallery_delete', 'gallery', item.cloudinary_public_id, {
+        title: item.title
+      });
 
-    showFeedback('Photo removed from campus gallery and database.');
+      showFeedback('Photo removed from campus gallery and database.');
+    } catch (err) {
+      showFeedback(getSafeErrorMessage(err, 'Failed to remove photo from database.'), 'error');
+    }
   };
 
   const handleUploadSuccess = async (uploadRes) => {
-    const url = uploadRes?.secure_url || uploadRes?.url || '';
-    const publicId = uploadRes?.public_id || uploadRes?.publicId || '';
-    const newItem = {
-      id: `gal-${Date.now()}`,
-      title: newItemTitle || 'Campus Moment',
-      caption: newItemCaption || 'FUTO Computing Community photo',
-      image_url: url,
-      cloudinary_public_id: publicId,
-      category: newItemCategory,
-      is_featured: newItemFeatured,
-      created_at: new Date().toISOString()
-    };
+    try {
+      const url = uploadRes?.secure_url || uploadRes?.url || '';
+      const publicId = uploadRes?.public_id || uploadRes?.publicId || '';
+      const newItem = {
+        id: `gal-${Date.now()}`,
+        title: newItemTitle || 'Campus Moment',
+        caption: newItemCaption || 'FUTO Computing Community photo',
+        image_url: url,
+        cloudinary_public_id: publicId,
+        category: newItemCategory,
+        is_featured: newItemFeatured,
+        created_at: new Date().toISOString()
+      };
 
-    await saveGalleryItem(newItem);
+      await saveGalleryItem(newItem);
 
-    await recordAdminAction('gallery_create', 'gallery', publicId, {
-      caption: newItem.caption,
-      category: newItem.category
-    });
+      await recordAdminAction('gallery_create', 'gallery', publicId, {
+        caption: newItem.caption,
+        category: newItem.category
+      });
 
-    setIsAddOpen(false);
-    setNewItemTitle('');
-    setNewItemCaption('');
-    showFeedback('Photo published & synced with website gallery & Cloudinary!');
+      setIsAddOpen(false);
+      setNewItemTitle('');
+      setNewItemCaption('');
+      showFeedback('Photo published & synced with website gallery & Cloudinary!');
+    } catch (err) {
+      showFeedback(getSafeErrorMessage(err, 'Failed to save photo to gallery database.'), 'error');
+    }
   };
 
   const handleOpenEdit = (item) => {
@@ -132,27 +154,35 @@ const AdminGallery = () => {
     e.preventDefault();
     if (!editItem) return;
 
-    const updatedItem = {
-      ...editItem,
-      title: editTitle || editItem.title,
-      caption: editCaption || editItem.caption,
-      category: editCategory,
-      is_featured: editFeatured,
-      image_url: editImageUrl || editItem.image_url,
-      cloudinary_public_id: editPublicId || editItem.cloudinary_public_id,
-      updated_at: new Date().toISOString()
-    };
+    setIsSavingEdit(true);
+    try {
+      const updatedItem = {
+        ...editItem,
+        title: editTitle || editItem.title,
+        caption: editCaption || editItem.caption,
+        category: editCategory,
+        is_featured: editFeatured,
+        image_url: editImageUrl || editItem.image_url,
+        cloudinary_public_id: editPublicId || editItem.cloudinary_public_id,
+        updated_at: new Date().toISOString()
+      };
 
-    await saveGalleryItem(updatedItem);
+      await saveGalleryItem(updatedItem);
 
-    await recordAdminAction('gallery_update', 'gallery', updatedItem.cloudinary_public_id, {
-      title: updatedItem.title,
-      category: updatedItem.category
-    });
+      await recordAdminAction('gallery_update', 'gallery', updatedItem.cloudinary_public_id, {
+        title: updatedItem.title,
+        category: updatedItem.category
+      });
 
-    setIsEditOpen(false);
-    setEditItem(null);
-    showFeedback('Gallery photo details updated and synced across website!');
+      setIsEditOpen(false);
+      setEditItem(null);
+      showFeedback('Gallery photo details updated and synced across website!');
+    } catch (err) {
+      console.error('Error saving gallery item:', err);
+      showFeedback(getSafeErrorMessage(err, 'Failed to update photo details.'), 'error');
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   return (
@@ -441,12 +471,13 @@ const AdminGallery = () => {
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2 rounded-xl bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold cursor-pointer"
+                  <AdminSaveButton
+                    loading={isSavingEdit}
+                    loadingText="Saving..."
+                    variant="primary"
                   >
                     Save Changes
-                  </button>
+                  </AdminSaveButton>
                 </div>
               </form>
             </div>

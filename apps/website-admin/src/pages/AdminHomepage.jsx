@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import WebsiteAdminLayout from '../components/WebsiteAdminLayout';
-import { Home, Save, CheckCircle, AlertCircle, RefreshCw, Eye, Sparkles } from 'lucide-react';
+import AdminSaveButton from '../components/AdminSaveButton';
+import { Home, Save, CheckCircle, AlertCircle, RefreshCw, Eye, Sparkles, ArrowRight } from 'lucide-react';
 import { supabase } from '@nacos/supabase';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
+import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
 
 const AdminHomepage = () => {
   const [loading, setLoading] = useState(true);
@@ -73,34 +76,44 @@ const AdminHomepage = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
+    setNotification({ message: '', type: '' });
 
-    localStorage.setItem('nacos_homepage_cms_db', JSON.stringify(formData));
-
-    // Authoritative live sync to Supabase store_homepage_content
     try {
-      await supabase
+      localStorage.setItem('nacos_homepage_cms_db', JSON.stringify(formData));
+
+      // 1. Authoritative live sync to Supabase store_homepage_content
+      const { error: storeErr } = await supabase
         .from('id_card_settings')
         .upsert({
           id: 'store_homepage_content',
           academic_session: JSON.stringify(formData),
           updated_at: new Date().toISOString()
         });
-    } catch (e) {}
 
-    try {
-      await supabase
-        .from('website_homepage_content')
-        .upsert({ id: 'default', content: formData, updated_at: new Date().toISOString() });
-    } catch (e) {}
+      if (storeErr) throw storeErr;
 
-    await recordAdminAction('homepage_content_updated', 'homepage', 'default', {
-      headline: formData.hero_headline,
-      announcement_active: formData.announcement_active
-    });
+      try {
+        await supabase
+          .from('website_homepage_content')
+          .upsert({ id: 'default', content: formData, updated_at: new Date().toISOString() });
+      } catch (_) {}
 
-    setSaving(false);
-    setNotification({ message: 'Homepage content updated successfully!', type: 'success' });
-    setTimeout(() => setNotification({ message: '', type: '' }), 4000);
+      await recordAdminAction('homepage_content_updated', 'homepage', 'default', {
+        headline: formData.hero_headline,
+        announcement_active: formData.announcement_active
+      });
+
+      adminToast.success('Homepage content updated & published live!');
+      setNotification({ message: 'Homepage content updated successfully!', type: 'success' });
+      setTimeout(() => setNotification({ message: '', type: '' }), 4000);
+    } catch (err) {
+      console.error('Error saving homepage content:', err);
+      const msg = getSafeErrorMessage(err, 'Failed to save homepage changes. Please try again.');
+      adminToast.error(msg);
+      setNotification({ message: msg, type: 'error' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -123,7 +136,30 @@ const AdminHomepage = () => {
             Loading homepage configuration...
           </div>
         ) : (
-          <form onSubmit={handleSave} className="space-y-6">
+          <div className="space-y-6">
+            {/* Hero Carousel Navigation Banner */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-950/80 to-[#083002] border border-[#138601]/40 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#138601]/25 text-[#4bd043] flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">Homepage Hero Carousel Management</h4>
+                  <p className="text-xs text-green-200/80 mt-0.5">
+                    Upload rotating background slides, configure rotation ordering, focal alignment, and optional CTA buttons.
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/admin/hero-carousel"
+                className="px-4 py-2 rounded-xl bg-[#138601] hover:bg-[#0f6c01] text-white text-xs font-semibold inline-flex items-center gap-1.5 shrink-0 transition-colors shadow-xs"
+              >
+                <span>Manage Hero Slides</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <form onSubmit={handleSave} className="space-y-6">
             
             {/* Hero Section */}
             <div className="p-6 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 space-y-4">
@@ -236,17 +272,17 @@ const AdminHomepage = () => {
             </div>
 
             <div className="flex justify-end pt-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-6 py-2.5 text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-xl shadow-sm transition-colors cursor-pointer inline-flex items-center gap-2"
+              <AdminSaveButton
+                loading={saving}
+                loadingText="Publishing Updates..."
+                icon={Save}
               >
-                {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                <span>{saving ? 'Publishing Updates...' : 'Save & Publish Changes'}</span>
-              </button>
+                Save &amp; Publish Changes
+              </AdminSaveButton>
             </div>
 
-          </form>
+            </form>
+          </div>
         )}
 
       </div>

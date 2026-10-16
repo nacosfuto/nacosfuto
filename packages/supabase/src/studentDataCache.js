@@ -128,17 +128,32 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
           if (!supabase || (!cleanMatric && !userId)) return [];
           try {
             const conds = [];
+            const addCond = (col, val) => {
+              if (!val) return;
+              const clean = String(val).trim();
+              if (!clean) return;
+              if (/[\.@,\s]/.test(clean)) {
+                conds.push(`${col}.eq."${clean}"`);
+              } else {
+                conds.push(`${col}.eq.${clean}`);
+              }
+            };
+
             if (cleanMatric) {
-              conds.push(`registration_number.eq.${cleanMatric}`);
-              conds.push(`matric_number.eq.${cleanMatric}`);
+              addCond('registration_number', cleanMatric);
+              addCond('matric_number', cleanMatric);
             }
             if (strippedDigits && strippedDigits !== cleanMatric) {
-              conds.push(`registration_number.eq.${strippedDigits}`);
-              conds.push(`matric_number.eq.${strippedDigits}`);
+              addCond('registration_number', strippedDigits);
+              addCond('matric_number', strippedDigits);
             }
             if (userId && !String(userId).startsWith('student-')) {
-              conds.push(`student_id.eq.${userId}`);
+              addCond('student_id', userId);
             }
+            if (student?.email) {
+              addCond('email', String(student.email).trim().toLowerCase());
+            }
+
             if (conds.length === 0) return [];
             const { data } = await supabase.from('payments').select('*').or(conds.join(','));
             return data || [];
@@ -154,15 +169,12 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
           try {
             const appConds = [];
             if (cleanMatric) {
-              appConds.push(`matric_number.eq.${cleanMatric}`);
               appConds.push(`registration_number.eq.${cleanMatric}`);
             }
             if (strippedDigits && strippedDigits !== cleanMatric) {
-              appConds.push(`matric_number.eq.${strippedDigits}`);
               appConds.push(`registration_number.eq.${strippedDigits}`);
             }
             if (userId && !String(userId).startsWith('student-')) {
-              appConds.push(`user_id.eq.${userId}`);
               appConds.push(`student_id.eq.${userId}`);
             }
             if (appConds.length === 0) return [];
@@ -205,10 +217,8 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
           try {
             const deptConds = [];
             deptConds.push(`registration_number.eq.${cleanMatric}`);
-            deptConds.push(`matric_number.eq.${cleanMatric}`);
             if (strippedDigits && strippedDigits !== cleanMatric) {
               deptConds.push(`registration_number.eq.${strippedDigits}`);
-              deptConds.push(`matric_number.eq.${strippedDigits}`);
             }
             const { data } = await supabase
               .from('departmental_dues')
@@ -240,13 +250,13 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
             if (pConds.length === 0) return null;
 
             const [{ data: pData }, { data: vData }] = await Promise.all([
-              supabase.from('profiles').select('dues_cleared, has_paid_dues, level, current_level, payment_status').or(pConds.join(',')).maybeSingle(),
-              supabase.from('verified_students').select('dues_cleared, has_paid_dues, level, current_level, payment_status').or(pConds.join(',')).maybeSingle()
+              supabase.from('profiles').select('id, registration_number, level').or(pConds.join(',')).maybeSingle().catch(() => ({ data: null })),
+              supabase.from('verified_students').select('id, registration_number, level').or(pConds.join(',')).maybeSingle().catch(() => ({ data: null }))
             ]);
 
             return {
-              dues_cleared: Boolean(pData?.dues_cleared || pData?.has_paid_dues || vData?.dues_cleared || vData?.has_paid_dues),
-              level: pData?.level || pData?.current_level || vData?.level || vData?.current_level || null
+              dues_cleared: false,
+              level: pData?.level || vData?.level || null
             };
           } catch (e) {
             return null;
