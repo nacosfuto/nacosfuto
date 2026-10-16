@@ -16,8 +16,6 @@ import HeroCarousel from "../components/Home/HeroCarousel";
 
 const alumniHomeImg = getCloudinaryAssetUrl('alumni_home') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569286/nacos/alumni/alumni_home.jpg";
 
-const HERO_IMAGE_URL = getCloudinaryAssetUrl('drilldown') || getCloudinaryAssetUrl('header') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1791346769/drilldown.jpg";
-
 const Home = () => {
   const liveAlumniHomeImg = getCloudinaryAssetUrl('alumni_home') || alumniHomeImg;
   const [cmsContent, setCmsContent] = useState({
@@ -73,7 +71,7 @@ const Home = () => {
       
       <main className="flex-grow">
         {/* Dynamic Database-Driven Hero Carousel */}
-        <HeroCarousel cmsContent={cmsContent} defaultImageUrl={HERO_IMAGE_URL} />
+        <HeroCarousel cmsContent={cmsContent} />
 
         {/* 1. Department at a Glance */}
         <DepartmentStats />

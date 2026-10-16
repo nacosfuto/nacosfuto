@@ -12,6 +12,7 @@ import {
   CheckCircle, 
   AlertCircle, 
   RefreshCw, 
+  Loader,
   ExternalLink,
   Image as ImageIcon,
   Check,
@@ -334,7 +335,7 @@ export const AdminHeroCarousel = () => {
         {/* ─── Slide Collection Grid / List ─── */}
         {loading ? (
           <div className="p-16 text-center text-xs text-gray-500 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30">
-            <RefreshCw className="w-7 h-7 animate-spin text-[#138601] mx-auto mb-3" />
+            <Loader className="w-7 h-7 animate-spin text-[#138601] mx-auto mb-3" />
             <p className="font-semibold text-gray-800 dark:text-white">Connecting to Supabase...</p>
             <p className="text-[11px] text-gray-400 mt-1">Retrieving homepage hero slides and display ordering.</p>
           </div>

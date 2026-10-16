@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getOptimizedImageUrl } from '@nacos/media';
-import { fetchPublishedHeroSlides, HERO_SLIDES_EVENT, supabase } from '@nacos/supabase';
+import { fetchPublishedHeroSlides, getLocalPublishedHeroSlides, HERO_SLIDES_EVENT, supabase } from '@nacos/supabase';
 import ScrollToTopLink from '../ScrollToTopLink';
 
 const AUTOPLAY_INTERVAL_MS = 5500;
@@ -10,10 +10,9 @@ export const HeroCarousel = ({
   cmsContent = {
     hero_headline: 'Empowering the Next Generation of Computer Scientists',
     hero_subtext: "Join FUTO's vibrant CS community. Innovate, learn, and lead the future of global computing technology."
-  },
-  defaultImageUrl = ''
+  }
 }) => {
-  const [slides, setSlides] = useState([]);
+  const [slides, setSlides] = useState(() => getLocalPublishedHeroSlides());
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
@@ -143,42 +142,31 @@ export const HeroCarousel = ({
       tabIndex={0}
     >
       {/* ─── Hero Slide Background Images ─── */}
-      {slideCount === 0 ? (
-        // Graceful fallback when no active slides in database
-        <img
-          src={defaultImageUrl}
-          alt="Department of Computer Science FUTO"
-          className="absolute inset-0 w-full h-full object-cover object-[center_35%]"
-          fetchPriority="high"
-          loading="eager"
-        />
-      ) : (
-        slides.map((slide, idx) => {
-          const isActive = idx === currentIndex;
-          const optimizedUrl = getOptimizedImageUrl(slide.image_url, {
-            width: 1920,
-            quality: 'auto',
-            format: 'auto'
-          });
+      {slides.map((slide, idx) => {
+        const isActive = idx === currentIndex;
+        const optimizedUrl = getOptimizedImageUrl(slide.image_url, {
+          width: 1920,
+          quality: 'auto',
+          format: 'auto'
+        });
 
-          return (
-            <img
-              key={slide.id || idx}
-              src={optimizedUrl}
-              alt={slide.title || `FUTO Computer Science Hero Slide ${idx + 1}`}
-              style={{
-                objectPosition: slide.image_position || 'center 35%'
-              }}
-              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out pointer-events-none select-none ${
-                isActive ? 'opacity-100 z-0' : 'opacity-0 -z-10'
-              }`}
-              fetchPriority={idx === 0 ? 'high' : 'auto'}
-              loading={idx === 0 ? 'eager' : 'lazy'}
-              decoding="async"
-            />
-          );
-        })
-      )}
+        return (
+          <img
+            key={slide.id || idx}
+            src={optimizedUrl}
+            alt={slide.title || `FUTO Computer Science Hero Slide ${idx + 1}`}
+            style={{
+              objectPosition: slide.image_position || 'center 35%'
+            }}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out pointer-events-none select-none ${
+              isActive ? 'opacity-100 z-0' : 'opacity-0 -z-10'
+            }`}
+            fetchPriority={idx === 0 ? 'high' : 'auto'}
+            loading={idx === 0 ? 'eager' : 'lazy'}
+            decoding="async"
+          />
+        );
+      })}
 
       {/* ─── Preserved Visual Identity Overlays ─── */}
       <div className="absolute inset-0 bg-gradient-to-t from-[#041801]/95 via-[#041801]/60 to-black/35 z-1 pointer-events-none" />

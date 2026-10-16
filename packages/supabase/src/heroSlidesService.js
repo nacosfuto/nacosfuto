@@ -12,6 +12,7 @@ import { recordAdminAction } from './adminAuth.js';
 import { CLOUDINARY_FOLDERS, getOptimizedImageUrl } from '@nacos/media';
 
 export const HERO_SLIDES_STORAGE_KEY = 'nacos_website_hero_slides_store';
+export const PUBLISHED_HERO_SLIDES_STORAGE_KEY = 'nacos_published_hero_slides_cache';
 export const HERO_SLIDES_EVENT = 'nacos_website_hero_slides_updated';
 
 /**
@@ -56,6 +57,39 @@ export function getLocalHeroSlides() {
 }
 
 /**
+ * Get published slides from dedicated local cache (instant synchronous load for public website)
+ */
+export function getLocalPublishedHeroSlides() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(PUBLISHED_HERO_SLIDES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map(normalizeSlide).filter(s => s.is_published);
+      }
+    }
+    const all = getLocalHeroSlides();
+    return all.filter(s => s.is_published);
+  } catch (err) {
+    return [];
+  }
+}
+
+/**
+ * Save published slides to local cache for instant public loading
+ */
+export function saveLocalPublishedHeroSlides(slides) {
+  if (typeof window === 'undefined') return;
+  try {
+    const normalized = (slides || []).map(normalizeSlide).filter(s => s.is_published);
+    localStorage.setItem(PUBLISHED_HERO_SLIDES_STORAGE_KEY, JSON.stringify(normalized));
+  } catch (err) {
+    console.warn('Error saving published hero slides to local cache:', err);
+  }
+}
+
+/**
  * Save slides to local cache and notify listeners
  */
 export function saveLocalHeroSlides(slides) {
@@ -63,6 +97,7 @@ export function saveLocalHeroSlides(slides) {
   try {
     const normalized = (slides || []).map(normalizeSlide);
     localStorage.setItem(HERO_SLIDES_STORAGE_KEY, JSON.stringify(normalized));
+    saveLocalPublishedHeroSlides(normalized);
     window.dispatchEvent(new CustomEvent(HERO_SLIDES_EVENT, { detail: normalized }));
   } catch (err) {
     console.warn('Error saving hero slides to local cache:', err);
@@ -134,15 +169,19 @@ export async function fetchHeroSlides(options = {}) {
   if (remoteSlides !== null) {
     if (!publishedOnly) {
       saveLocalHeroSlides(remoteSlides);
+    } else {
+      saveLocalPublishedHeroSlides(remoteSlides);
     }
     return remoteSlides;
   }
 
   // Fallback to local cache
+  if (publishedOnly) {
+    return getLocalPublishedHeroSlides();
+  }
   const local = getLocalHeroSlides();
-  const filtered = publishedOnly ? local.filter(s => s.is_published) : local;
-  filtered.sort((a, b) => (a.display_order - b.display_order) || new Date(a.created_at) - new Date(b.created_at));
-  return filtered;
+  local.sort((a, b) => (a.display_order - b.display_order) || new Date(a.created_at) - new Date(b.created_at));
+  return local;
 }
 
 /**
