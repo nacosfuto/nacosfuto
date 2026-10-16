@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { getCloudinaryAssetUrl } from '@nacos/media';
 import { signInStudent } from '@nacos/supabase/auth';
 import logoDark from '../assets/full-logo-dark.png';
-import { AlertCircle, Eye, EyeOff, RotateCw, ArrowRight } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff, Loader, ArrowRight } from 'lucide-react';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -292,7 +292,7 @@ const Login = () => {
             >
               {isLoading ? (
                 <>
-                  <RotateCw className="w-4 h-4 animate-spin" />
+                  <Loader className="w-4 h-4 animate-spin" />
                   <span>Signing in...</span>
                 </>
               ) : (

@@ -9,7 +9,7 @@ import {
   Lock, 
   Eye, 
   EyeOff, 
-  RotateCw, 
+  Loader, 
   AlertCircle, 
   Mail,
   Phone,
@@ -445,7 +445,7 @@ const ForgotPassword = () => {
               >
                 {isLoading ? (
                   <>
-                    <RotateCw className="w-4 h-4 animate-spin" />
+                    <Loader className="w-4 h-4 animate-spin" />
                     <span>Verifying Account...</span>
                   </>
                 ) : (
@@ -536,7 +536,7 @@ const ForgotPassword = () => {
                 >
                   {isLoading ? (
                     <>
-                      <RotateCw className="w-4 h-4 animate-spin" />
+                      <Loader className="w-4 h-4 animate-spin" />
                       <span>Verifying Identity...</span>
                     </>
                   ) : (
@@ -645,7 +645,7 @@ const ForgotPassword = () => {
                 >
                   {isLoading ? (
                     <>
-                      <RotateCw className="w-4 h-4 animate-spin" />
+                      <Loader className="w-4 h-4 animate-spin" />
                       <span>Verifying Code...</span>
                     </>
                   ) : (
@@ -747,7 +747,7 @@ const ForgotPassword = () => {
               >
                 {isLoading ? (
                   <>
-                    <RotateCw className="w-4 h-4 animate-spin" />
+                    <Loader className="w-4 h-4 animate-spin" />
                     <span>Updating Password...</span>
                   </>
                 ) : (

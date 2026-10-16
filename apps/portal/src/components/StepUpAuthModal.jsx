@@ -4,7 +4,7 @@ import {
   Lock, 
   KeyRound, 
   Mail, 
-  RotateCw, 
+  Loader, 
   AlertCircle, 
   X, 
   CheckCircle2, 
@@ -322,7 +322,7 @@ const StepUpAuthModal = ({
               >
                 {isLoading ? (
                   <>
-                    <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                    <Loader className="w-3.5 h-3.5 animate-spin" />
                     <span>Authorizing...</span>
                   </>
                 ) : (
@@ -377,7 +377,7 @@ const StepUpAuthModal = ({
               </div>
             ) : (
               <div className="text-center py-4">
-                <RotateCw className="w-6 h-6 animate-spin text-[#138601] mx-auto mb-2" />
+                <Loader className="w-6 h-6 animate-spin text-[#138601] mx-auto mb-2" />
                 <p className="text-xs text-gray-600">Dispatching security code to verified contact...</p>
               </div>
             )}
@@ -398,7 +398,7 @@ const StepUpAuthModal = ({
               >
                 {isLoading ? (
                   <>
-                    <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                    <Loader className="w-3.5 h-3.5 animate-spin" />
                     <span>Verifying Code...</span>
                   </>
                 ) : (

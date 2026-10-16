@@ -10,6 +10,7 @@ import {
   Users, 
   Lightbulb, 
   Send, 
+  Loader,
   GraduationCap
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -459,7 +460,7 @@ const HackathonApply = () => {
                       className="inline-flex items-center gap-2 px-8 py-3.5 text-sm font-bold text-white bg-[#138601] hover:bg-[#0f6c01] rounded transition-all shadow-nacos-glow disabled:opacity-50 cursor-pointer"
                     >
                       {isSubmitting ? (
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <Loader className="w-5 h-5 animate-spin" />
                       ) : (
                         <>
                           <Send className="w-4 h-4" />

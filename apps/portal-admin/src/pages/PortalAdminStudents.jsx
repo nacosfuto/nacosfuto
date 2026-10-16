@@ -16,6 +16,7 @@ import {
   Filter, 
   GraduationCap, 
   RefreshCw, 
+  Loader,
   CreditCard, 
   ShieldCheck, 
   FileSpreadsheet, 
@@ -1703,7 +1704,7 @@ const AdminStudents = () => {
                   >
                     {isImporting ? (
                       <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <Loader className="w-3.5 h-3.5 animate-spin" />
                         <span>{importProgressStatus || 'Importing Records...'}</span>
                       </>
                     ) : (
@@ -2157,7 +2158,7 @@ const AdminStudents = () => {
                 >
                   {isDeleting ? (
                     <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <Loader className="w-3.5 h-3.5 animate-spin" />
                       <span>Deleting from Database...</span>
                     </>
                   ) : (

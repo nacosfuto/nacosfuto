@@ -5,7 +5,7 @@ import {
   Check, 
   AlertCircle, 
   Camera, 
-  RefreshCw, 
+  Loader, 
   Trash2, 
   Image as ImageIcon 
 } from 'lucide-react';
@@ -233,7 +233,7 @@ export const MediaUpload = ({
           <div className="text-center py-4 px-2 space-y-2">
             <div className="w-10 h-10 rounded-full bg-[#138601]/15 dark:bg-[#138601]/30 text-[#138601] dark:text-[#4bd043] flex items-center justify-center mx-auto">
               {isUploading ? (
-                <RefreshCw className="w-5 h-5 animate-spin" />
+                <Loader className="w-5 h-5 animate-spin" />
               ) : (
                 <Upload className="w-5 h-5" />
               )}

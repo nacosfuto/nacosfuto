@@ -8,7 +8,7 @@ import {
   AlertCircle,
   Download,
   Printer,
-  RefreshCw,
+  Loader,
   ShieldCheck,
   ShieldAlert,
   Clock,
@@ -1989,7 +1989,7 @@ const IdCard = ({ viewMode = false }) => {
                     <div className="flex justify-between">
                       <span className="text-gray-500 dark:text-green-200/60">Status:</span>
                       <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                        <RefreshCw className="w-3 h-3 animate-spin" /> Awaiting Gateway Confirmation
+                        <Loader className="w-3 h-3 animate-spin" /> Awaiting Gateway Confirmation
                       </span>
                     </div>
                   </div>
@@ -2002,7 +2002,7 @@ const IdCard = ({ viewMode = false }) => {
                       disabled={isPaying}
                       className="w-full sm:w-auto px-6 py-3 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-2 active:scale-95 disabled:opacity-60"
                     >
-                      {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                      {isPaying ? <Loader className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
                       <span>{isPaying ? 'Checking...' : "I've completed payment (Check Now)"}</span>
                     </button>
 
@@ -2139,7 +2139,7 @@ const IdCard = ({ viewMode = false }) => {
                       onClick={handleRetryPayment}
                       className="w-full sm:w-auto px-6 py-3 min-h-[44px] text-xs sm:text-sm font-semibold text-white bg-[#0e8040] hover:bg-[#0b6a34] rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-2"
                     >
-                      <RefreshCw className="w-4 h-4" />
+                      <RotateCcw className="w-4 h-4" />
                       <span>Retry Payment</span>
                     </button>
                     <button
@@ -2523,7 +2523,7 @@ const IdCard = ({ viewMode = false }) => {
                           </span>
                         ) : isInitialLoading ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-500 dark:bg-green-950/40 dark:text-green-300/80">
-                            <RefreshCw className="w-3 h-3 animate-spin text-gray-400" />
+                            <Loader className="w-3 h-3 animate-spin text-gray-400" />
                             <span>Verifying...</span>
                           </span>
                         ) : (

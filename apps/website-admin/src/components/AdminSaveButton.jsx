@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Save } from 'lucide-react';
+import { Loader, Save } from 'lucide-react';
 
 /**
  * Standardized Loading-Aware Action / Save Button for Website Admin Dashboard
@@ -47,7 +47,7 @@ export const AdminSaveButton = ({
     >
       {loading ? (
         <>
-          <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />
+          <Loader className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />
           <span>{loadingText}</span>
         </>
       ) : (

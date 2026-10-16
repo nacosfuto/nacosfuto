@@ -11,8 +11,7 @@ import {
   Filter, 
   CheckCircle2, 
   ArrowRight, 
-  Sparkles,
-  RefreshCw
+  Sparkles
 } from 'lucide-react';
 import { fetchNotices } from '@nacos/supabase';
 

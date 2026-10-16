@@ -8,7 +8,7 @@ import {
   Lock, 
   Mail, 
   KeyRound, 
-  RotateCw, 
+  Loader, 
   AlertCircle,
   Eye, 
   EyeOff,
@@ -566,7 +566,7 @@ const Register = () => {
               >
                 {isLoading ? (
                   <>
-                    <RotateCw className="w-4 h-4 animate-spin" />
+                    <Loader className="w-4 h-4 animate-spin" />
                     <span>Verifying Records...</span>
                   </>
                 ) : (
@@ -702,7 +702,7 @@ const Register = () => {
                 >
                   {isLoading ? (
                     <>
-                      <RotateCw className="w-4 h-4 animate-spin" />
+                      <Loader className="w-4 h-4 animate-spin" />
                       <span>Verifying Legal Identity...</span>
                     </>
                   ) : (
@@ -813,7 +813,7 @@ const Register = () => {
                 >
                   {isLoading ? (
                     <>
-                      <RotateCw className="w-4 h-4 animate-spin" />
+                      <Loader className="w-4 h-4 animate-spin" />
                       <span>Verifying Code...</span>
                     </>
                   ) : (
@@ -916,7 +916,7 @@ const Register = () => {
               >
                 {isLoading ? (
                   <>
-                    <RotateCw className="w-4 h-4 animate-spin" />
+                    <Loader className="w-4 h-4 animate-spin" />
                     <span>Activating Account...</span>
                   </>
                 ) : (

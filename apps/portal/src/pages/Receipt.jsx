@@ -4,7 +4,7 @@ import {
   Printer,
   ArrowLeft,
   CheckCircle,
-  RefreshCw,
+  Loader,
   FileText,
   CreditCard,
   ShieldCheck,
@@ -199,7 +199,7 @@ const Receipt = () => {
     return (
       <PortalLayout>
         <div className="flex flex-col items-center justify-center min-h-[460px] space-y-3">
-          <RefreshCw className="w-8 h-8 text-[#138601] animate-spin" />
+          <Loader className="w-8 h-8 text-[#138601] animate-spin" />
           <div className="text-center space-y-1">
             <p className="text-sm font-semibold text-gray-900 dark:text-white">
               Loading Official Electronic Receipt

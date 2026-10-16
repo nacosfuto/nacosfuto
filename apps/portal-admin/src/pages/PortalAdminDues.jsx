@@ -10,6 +10,7 @@ import {
   ArrowUpDown,
   Download,
   RefreshCw,
+  Loader,
   Edit3,
   Check,
   X,
@@ -851,7 +852,7 @@ export default function PortalAdminDues() {
 
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center text-gray-400">
-              <RefreshCw className="w-8 h-8 animate-spin text-[#138601] mb-3" />
+              <Loader className="w-8 h-8 animate-spin text-[#138601] mb-3" />
               <p className="text-xs font-semibold">Synchronizing departmental dues records from database...</p>
             </div>
           ) : filteredRows.length === 0 ? (
@@ -1118,7 +1119,7 @@ export default function PortalAdminDues() {
                   disabled={isSavingRate}
                   className="px-5 py-2 rounded-xl text-xs font-bold bg-[#138601] hover:bg-[#0f6c01] text-white shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
-                  {isSavingRate ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  {isSavingRate ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   <span>Save Configuration</span>
                 </button>
               </div>
@@ -1275,7 +1276,7 @@ export default function PortalAdminDues() {
                   disabled={isClearing}
                   className="px-5 py-2 rounded-xl text-xs font-bold bg-[#138601] hover:bg-[#0f6c01] text-white shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
-                  {isClearing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  {isClearing ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                   <span>Grant Clearance</span>
                 </button>
               </div>
@@ -1406,7 +1407,7 @@ export default function PortalAdminDues() {
                 onClick={handleRevokeClearance}
                 className="flex-1 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
-                {isRevoking ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                {isRevoking ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                 <span>Revoke</span>
               </button>
             </div>

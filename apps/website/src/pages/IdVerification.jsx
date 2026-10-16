@@ -6,7 +6,7 @@ import {
   AlertCircle, 
   CheckCircle, 
   ExternalLink, 
-  RefreshCw,
+  Loader,
   QrCode,
   User,
   GraduationCap,
@@ -70,7 +70,7 @@ const IdVerification = () => {
           
           {loading ? (
             <div className="p-12 rounded-3xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 text-center space-y-3 shadow-lg">
-              <RefreshCw className="w-8 h-8 text-[#138601] animate-spin mx-auto" />
+              <Loader className="w-8 h-8 text-[#138601] animate-spin mx-auto" />
               <p className="text-xs text-gray-500 font-medium">Validating cryptographic QR hash and identity records...</p>
             </div>
           ) : result?.status === 'valid' ? (
