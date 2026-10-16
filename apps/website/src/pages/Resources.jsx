@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import Navbar from '../components/Nav/Navbar';
 import Footer from '../components/Footer';
+import ScrollToTopLink from '../components/ScrollToTopLink';
 import { 
   FiBook, 
   FiFileText, 
@@ -879,24 +880,30 @@ const Resources = ({ isPreviewPage = false }) => {
           </div>
         )}
 
-        {/* ─── Community Contribution Callout Banner ─── */}
-        <section className="mt-14 sm:mt-20">
-          <div className="relative overflow-hidden bg-[#072b0c] dark:bg-[#051c08] text-white px-6 py-12 sm:px-12 sm:py-16 text-center rounded-tl-2xl rounded-tr-[60px] sm:rounded-tr-[90px] rounded-bl-[60px] sm:rounded-bl-[90px] rounded-br-sm shadow-xl border border-[#138601]/30">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight uppercase text-white mb-3 sm:mb-4">
-              HAVE RESOURCES TO SHARE?
-            </h2>
-            <p className="max-w-2xl mx-auto text-xs sm:text-sm md:text-base text-gray-200 dark:text-emerald-100/90 leading-relaxed font-normal mb-6 sm:mb-8">
-              Contribute to the community. If you have study guides or notes that could help your peers, synchronize them with our repository.
-            </p>
-            <div className="flex justify-center">
-              <Link
-                to="/contact"
-                className="inline-flex items-center gap-2.5 px-6 py-2.5 bg-[#0e6b18] hover:bg-[#138601] text-white text-xs sm:text-sm font-bold uppercase tracking-wider border-2 border-white rounded-tl-md rounded-tr-2xl rounded-bl-2xl rounded-br-md shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5 cursor-pointer"
-              >
-                <FiMessageCircle className="w-4 h-4 text-white" />
-                <span>CONTACT</span>
-                <FiArrowRight className="w-4 h-4 text-white" />
-              </Link>
+        {/* ─── Community Contribution Callout Banner (Before Footer) ─── */}
+        <section className="pt-8 pb-4">
+          <div className="relative overflow-hidden bg-[#062903] dark:bg-[#031902] text-white px-6 py-12 sm:px-14 sm:py-16 text-center rounded-tl-2xl rounded-tr-[70px] sm:rounded-tr-[100px] rounded-bl-[70px] sm:rounded-bl-[100px] rounded-br-sm shadow-2xl border border-[#138601]/40">
+            {/* Ambient Background Glows */}
+            <div className="absolute top-0 right-0 w-80 h-80 bg-[#138601]/20 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+            <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#138601]/15 rounded-full blur-3xl pointer-events-none -ml-20 -mb-20" />
+
+            <div className="relative z-10 max-w-2xl mx-auto space-y-3 sm:space-y-4">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight uppercase text-white drop-shadow-sm">
+                HAVE RESOURCES TO SHARE?
+              </h2>
+              <p className="max-w-xl mx-auto text-xs sm:text-sm md:text-base text-gray-200/95 dark:text-green-100/90 leading-relaxed font-normal">
+                Contribute to the community. If you have study guides or notes that could help your peers, synchronize them with our repository.
+              </p>
+              <div className="pt-2 flex justify-center">
+                <ScrollToTopLink
+                  to="/contact"
+                  className="inline-flex items-center justify-center gap-2.5 px-8 py-3 bg-[#138601] hover:bg-[#0f6c01] text-white text-xs sm:text-sm font-bold uppercase tracking-wider border-2 border-white rounded-tl-md rounded-tr-2xl rounded-bl-2xl rounded-br-md shadow-md hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 cursor-pointer min-h-[44px]"
+                >
+                  <FiMessageCircle className="w-4 h-4 text-white shrink-0" />
+                  <span>CONTACT</span>
+                  <FiArrowRight className="w-4 h-4 text-white shrink-0" />
+                </ScrollToTopLink>
+              </div>
             </div>
           </div>
         </section>
