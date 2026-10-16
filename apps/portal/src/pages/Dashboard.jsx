@@ -7,6 +7,7 @@ import {
   User,
   ArrowUpRight,
   CheckCircle,
+  BadgeCheck,
   TrendingUp,
   Info,
   BarChart3,
@@ -443,14 +444,23 @@ const Dashboard = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">Dues Clearance Receipt</h4>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${
                       statsLoading && totalPayable === null
                         ? 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'
                         : isPaid
                         ? 'bg-green-50 text-[#138601] border-green-200 dark:bg-[#041801] dark:text-[#4bd043] dark:border-[#138601]/30'
                         : 'bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700'
                     }`}>
-                      {statsLoading && totalPayable === null ? 'Verifying...' : isPaid ? 'Cleared' : 'Pending'}
+                      {statsLoading && totalPayable === null ? (
+                        'Verifying...'
+                      ) : isPaid ? (
+                        <>
+                          <BadgeCheck className="w-3 h-3 text-[#138601] dark:text-[#4bd043]" />
+                          <span>Cleared</span>
+                        </>
+                      ) : (
+                        'Pending'
+                      )}
                     </span>
                   </div>
                   <p className="text-[11px] sm:text-xs text-gray-500 dark:text-green-200/80 font-normal mt-0.5">

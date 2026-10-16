@@ -9,6 +9,7 @@ import {
   Download,
   Printer,
   Loader,
+  BadgeCheck,
   ShieldCheck,
   ShieldAlert,
   Clock,
@@ -1914,7 +1915,7 @@ const IdCard = ({ viewMode = false }) => {
                     : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
                 }`}>
                   {paymentStatusOutcome === 'SUCCESS' ? (
-                    <><CheckCircle className="w-3.5 h-3.5" /> Clearance Verified</>
+                    <><BadgeCheck className="w-3.5 h-3.5 text-emerald-500" /> Clearance Verified</>
                   ) : paymentStatusOutcome === 'FAILED' || paymentStatusOutcome === 'CANCELLED' ? (
                     <><AlertCircle className="w-3.5 h-3.5" /> Transaction Incomplete</>
                   ) : (
@@ -2034,12 +2035,12 @@ const IdCard = ({ viewMode = false }) => {
                 <>
                   {/* Success State */}
                   <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800">
-                    <CheckCircle className="w-8 h-8" />
+                    <BadgeCheck className="w-8 h-8" />
                   </div>
 
                   <div className="max-w-md mx-auto space-y-2">
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-[#0e8040] dark:bg-emerald-950/60 dark:text-[#4bd043]">
-                      <CheckCircle className="w-3.5 h-3.5" /> Verified &amp; Cleared
+                      <BadgeCheck className="w-3.5 h-3.5" /> Verified &amp; Cleared
                     </span>
                     <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                       Payment Successful
@@ -2518,7 +2519,7 @@ const IdCard = ({ viewMode = false }) => {
                       <td className="py-4 px-4">
                         {ob.isPaid ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-[#0e8040] dark:bg-emerald-950/60 dark:text-[#4bd043]">
-                            <CheckCircle className="w-3 h-3" />
+                            <BadgeCheck className="w-3.5 h-3.5" />
                             PAID
                           </span>
                         ) : isInitialLoading ? (

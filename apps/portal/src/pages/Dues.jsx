@@ -12,6 +12,7 @@ import {
   Plus,
   Loader,
   RotateCcw,
+  BadgeCheck,
   X,
   FileText,
   ChevronDown,
@@ -1312,7 +1313,7 @@ const Dues = () => {
                     <td className="py-4 px-4 sm:px-6">
                       {row.isPaid ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-emerald-100 text-[#0e8040] dark:bg-emerald-950/60 dark:text-[#4bd043]">
-                          <CheckCircle className="w-3 h-3" />
+                          <BadgeCheck className="w-3.5 h-3.5" />
                           PAID
                         </span>
                       ) : isInitialLoading ? (

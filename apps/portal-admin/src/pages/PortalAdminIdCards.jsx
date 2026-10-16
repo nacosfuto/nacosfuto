@@ -9,6 +9,7 @@ import {
   AlertCircle,
   Clock,
   Loader,
+  BadgeCheck,
   Eye,
   RotateCcw,
   DollarSign,
@@ -390,9 +391,14 @@ const AdminIdCards = () => {
                               ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
                               : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                           }`}>
-                            {app.payment_status === 'verified' || app.payment_status === 'paid'
-                              ? `₦${(app.amount || settings?.id_card_fee || 0).toLocaleString()} Paid`
-                              : 'Pending'}
+                            {app.payment_status === 'verified' || app.payment_status === 'paid' ? (
+                              <>
+                                <BadgeCheck className="w-3 h-3 text-green-700 dark:text-green-300" />
+                                <span>₦{(app.amount || settings?.id_card_fee || 0).toLocaleString()} Paid</span>
+                              </>
+                            ) : (
+                              <span>Pending</span>
+                            )}
                           </span>
                           {app.payment_reference && (
                             <div className="font-mono text-[9px] text-gray-500 truncate max-w-[120px]" title={app.payment_reference}>

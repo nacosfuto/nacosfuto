@@ -9,6 +9,7 @@ import {
   Download, 
   RotateCcw, 
   CheckCircle, 
+  BadgeCheck,
   XCircle, 
   KeyRound, 
   Edit, 
@@ -984,7 +985,7 @@ const AdminStudents = () => {
                       <td className="py-3.5 px-4">
                         {s.has_registered ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold bg-green-100 dark:bg-green-950/50 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800/40">
-                            <CheckCircle className="w-3 h-3 text-green-600" />
+                            <BadgeCheck className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
                             <span>Registered</span>
                           </span>
                         ) : (
@@ -1258,7 +1259,7 @@ const AdminStudents = () => {
                             : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
                         }`}>
                           {r.status === 'pending' && <Clock className="w-3 h-3" />}
-                          {r.status === 'approved' && <CheckCircle className="w-3 h-3" />}
+                          {r.status === 'approved' && <BadgeCheck className="w-3.5 h-3.5 text-green-600" />}
                           {r.status === 'rejected' && <XCircle className="w-3 h-3" />}
                           <span className="capitalize">{r.status}</span>
                         </span>
