@@ -22,7 +22,8 @@ import {
   Sparkles,
   History,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Loader
 } from 'lucide-react';
 import { 
   getIdCardSettings, 
@@ -598,7 +599,7 @@ export const PortalAdminSettings = () => {
               disabled={isSaving}
               className="flex items-center gap-2 py-2.5 px-6 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 hover:to-emerald-500 transition-all shadow-md cursor-pointer disabled:opacity-50"
             >
-              <Save className="w-4 h-4" />
+              {isSaving ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               <span>{isSaving ? 'Syncing to Live Database...' : 'Save Portal Settings'}</span>
             </button>
           </div>
@@ -1097,9 +1098,10 @@ export const PortalAdminSettings = () => {
                   <button
                     type="submit"
                     disabled={isAddingSession}
-                    className="px-5 py-2 rounded-lg font-bold text-white bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                    className="px-5 py-2 rounded-lg font-bold text-white bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 shadow-sm transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
                   >
-                    {isAddingSession ? 'Saving Session...' : 'Create Academic Session'}
+                    {isAddingSession ? <Loader className="w-3.5 h-3.5 animate-spin" /> : null}
+                    <span>{isAddingSession ? 'Saving Session...' : 'Create Academic Session'}</span>
                   </button>
                 </div>
               </form>

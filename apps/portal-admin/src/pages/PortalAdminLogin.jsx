@@ -23,7 +23,7 @@ import {
   ExternalLink,
   CheckCircle2,
   KeyRound,
-  RotateCw
+  Loader
 } from 'lucide-react';
 
 export const PortalAdminLogin = () => {
@@ -307,7 +307,7 @@ export const PortalAdminLogin = () => {
                     >
                       {isResetLoading ? (
                         <>
-                          <RotateCw className="w-4 h-4 animate-spin" />
+                          <Loader className="w-4 h-4 animate-spin" />
                           <span>Sending Verification Code...</span>
                         </>
                       ) : (
@@ -429,7 +429,7 @@ export const PortalAdminLogin = () => {
                     >
                       {isResetLoading ? (
                         <>
-                          <RotateCw className="w-4 h-4 animate-spin" />
+                          <Loader className="w-4 h-4 animate-spin" />
                           <span>Updating Password...</span>
                         </>
                       ) : (

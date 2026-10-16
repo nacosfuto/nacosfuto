@@ -6,7 +6,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Clock,
-  RotateCw,
+  Loader,
   RefreshCw,
   Send,
   Eye,
@@ -289,7 +289,7 @@ export default function PaymentNotificationsMonitor() {
                 <tr>
                   <td colSpan="9" className="py-12 text-center text-gray-400">
                     <div className="flex items-center justify-center gap-2">
-                      <div className="w-5 h-5 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+                      <Loader className="w-5 h-5 text-emerald-500 animate-spin" />
                       <span>Loading payment email notification logs...</span>
                     </div>
                   </td>
@@ -425,7 +425,7 @@ export default function PaymentNotificationsMonitor() {
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer disabled:opacity-50"
                               title="Resend this payment email"
                             >
-                              <RotateCw className={`w-3 h-3 ${retryingId === log.id ? 'animate-spin' : ''}`} />
+                              <Loader className={`w-3 h-3 ${retryingId === log.id ? 'animate-spin' : ''}`} />
                               <span>{retryingId === log.id ? 'Sending...' : 'Retry'}</span>
                             </button>
                           )}

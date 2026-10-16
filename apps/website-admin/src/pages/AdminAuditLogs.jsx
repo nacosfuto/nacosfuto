@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import WebsiteAdminLayout from '../components/WebsiteAdminLayout';
-import { History, Search, Filter, RefreshCw, ShieldCheck, Clock } from 'lucide-react';
+import { History, Search, Filter, RefreshCw, ShieldCheck, Clock, Loader } from 'lucide-react';
 import { getAdminAuditLogs } from '@nacos/supabase/adminAuth';
 
 const AdminAuditLogs = () => {
@@ -82,7 +82,7 @@ const AdminAuditLogs = () => {
         <div className="rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 overflow-hidden shadow-sm">
           {loading ? (
             <div className="p-12 text-center text-xs text-gray-500">
-              <RefreshCw className="w-6 h-6 animate-spin text-[#138601] mx-auto mb-2" />
+              <Loader className="w-6 h-6 animate-spin text-[#138601] mx-auto mb-2" />
               Loading audit entries...
             </div>
           ) : filteredLogs.length === 0 ? (

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import WebsiteAdminLayout from '../components/WebsiteAdminLayout';
 import AdminSaveButton from '../components/AdminSaveButton';
-import { Home, Save, CheckCircle, AlertCircle, RefreshCw, Eye, Sparkles, ArrowRight } from 'lucide-react';
+import { Home, Save, CheckCircle, AlertCircle, RefreshCw, Eye, Sparkles, ArrowRight, Loader } from 'lucide-react';
 import { supabase } from '@nacos/supabase';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
 import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
@@ -132,7 +132,7 @@ const AdminHomepage = () => {
 
         {loading ? (
           <div className="p-12 text-center text-xs text-gray-500">
-            <RefreshCw className="w-6 h-6 animate-spin text-[#138601] mx-auto mb-2" />
+            <Loader className="w-6 h-6 animate-spin text-[#138601] mx-auto mb-2" />
             Loading homepage configuration...
           </div>
         ) : (

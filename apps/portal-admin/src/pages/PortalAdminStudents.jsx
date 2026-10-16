@@ -108,6 +108,8 @@ const AdminStudents = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSavingRoster, setIsSavingRoster] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
 
   // Live Synchronization State
@@ -360,13 +362,15 @@ const AdminStudents = () => {
       email: newRosterStudent.email && newRosterStudent.email.trim() ? newRosterStudent.email.trim() : null
     };
 
-    const res = await adminAddVerifiedStudent(payload);
-    if (res.error) {
-      showNotification(res.error.message, 'error');
-    } else {
-      showNotification(`Student ${payload.fullName || payload.surname} successfully added and synced to Supabase!`);
-      setIsAddRosterModalOpen(false);
-      setNewRosterStudent({
+    try {
+      setIsSavingRoster(true);
+      const res = await adminAddVerifiedStudent(payload);
+      if (res.error) {
+        showNotification(res.error.message, 'error');
+      } else {
+        showNotification(`Student ${payload.fullName || payload.surname} successfully added and synced to Supabase!`);
+        setIsAddRosterModalOpen(false);
+        setNewRosterStudent({
         surname: '',
         firstName: '',
         middleName: '',
@@ -382,7 +386,10 @@ const AdminStudents = () => {
       });
       await loadData(true);
     }
-  };
+  } finally {
+    setIsSavingRoster(false);
+  }
+};
 
   // Revoke student registration (unlinks auth user and resets has_registered so student must register again)
   const handleResetRegistration = async (student) => {
@@ -1892,9 +1899,11 @@ const AdminStudents = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded text-white bg-[#138601] hover:bg-[#0f6c01] font-semibold cursor-pointer"
+                    disabled={isSavingRoster}
+                    className="px-5 py-2 rounded text-white bg-[#138601] hover:bg-[#0f6c01] font-semibold cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    Add Student to Registry
+                    {isSavingRoster ? <Loader className="w-3.5 h-3.5 animate-spin" /> : null}
+                    <span>{isSavingRoster ? 'Adding...' : 'Add Student to Registry'}</span>
                   </button>
                 </div>
               </form>
@@ -1912,12 +1921,17 @@ const AdminStudents = () => {
               <form 
                 onSubmit={async (e) => {
                   e.preventDefault();
-                  const res = await adminUpdateStudent(editStudentData.id, editStudentData);
-                  if (res.error) showNotification(res.error.message, 'error');
-                  else {
-                    showNotification('Student records updated.');
-                    setIsEditModalOpen(false);
-                    loadData();
+                  try {
+                    setIsSavingEdit(true);
+                    const res = await adminUpdateStudent(editStudentData.id, editStudentData);
+                    if (res.error) showNotification(res.error.message, 'error');
+                    else {
+                      showNotification('Student records updated.');
+                      setIsEditModalOpen(false);
+                      loadData();
+                    }
+                  } finally {
+                    setIsSavingEdit(false);
                   }
                 }} 
                 className="space-y-3 text-xs"
@@ -1976,9 +1990,11 @@ const AdminStudents = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded text-white bg-[#138601] hover:bg-[#0f6c01] font-semibold cursor-pointer"
+                    disabled={isSavingEdit}
+                    className="px-5 py-2 rounded text-white bg-[#138601] hover:bg-[#0f6c01] font-semibold cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    Save Changes
+                    {isSavingEdit ? <Loader className="w-3.5 h-3.5 animate-spin" /> : null}
+                    <span>{isSavingEdit ? 'Saving...' : 'Save Changes'}</span>
                   </button>
                 </div>
               </form>

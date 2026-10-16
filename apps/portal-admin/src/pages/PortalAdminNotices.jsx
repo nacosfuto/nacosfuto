@@ -14,7 +14,8 @@ import {
   CheckCircle2, 
   X, 
   Check, 
-  Send
+  Send,
+  Loader
 } from 'lucide-react';
 import { 
   fetchNotices, 
@@ -34,6 +35,7 @@ export default function PortalAdminNotices() {
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingNotice, setEditingNotice] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [previewNotice, setPreviewNotice] = useState(null);
   const [deleteConfirmNotice, setDeleteConfirmNotice] = useState(null);
 
@@ -130,6 +132,7 @@ export default function PortalAdminNotices() {
     }
 
     try {
+      setIsSaving(true);
       if (editingNotice) {
         await adminUpdateNotice(editingNotice.id, {
           title: formData.title.toUpperCase(),
@@ -154,6 +157,8 @@ export default function PortalAdminNotices() {
       loadData();
     } catch (err) {
       showToast(err.message || 'Error saving notice', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -543,9 +548,11 @@ export default function PortalAdminNotices() {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 text-xs font-bold rounded bg-[#138601] hover:bg-[#0f6c01] text-white transition-colors cursor-pointer shadow-xs"
+                    disabled={isSaving}
+                    className="px-5 py-2 text-xs font-bold rounded bg-[#138601] hover:bg-[#0f6c01] text-white transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    {editingNotice ? 'Update Notice' : 'Publish Notice'}
+                    {isSaving ? <Loader className="w-3.5 h-3.5 animate-spin" /> : null}
+                    <span>{isSaving ? 'Publishing...' : editingNotice ? 'Update Notice' : 'Publish Notice'}</span>
                   </button>
                 </div>
               </form>

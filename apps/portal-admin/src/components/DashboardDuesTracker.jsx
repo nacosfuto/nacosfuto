@@ -22,7 +22,8 @@ import {
   Coins,
   ChevronRight,
   Sparkles,
-  Info
+  Info,
+  Loader
 } from 'lucide-react';
 import {
   getDuesSettings,
@@ -601,7 +602,7 @@ export const DashboardDuesTracker = ({ onSettingsUpdated }) => {
       {/* Ledger Table */}
       {loading ? (
         <div className="py-16 text-center text-gray-400">
-          <RefreshCw className="w-7 h-7 animate-spin mx-auto mb-2 text-[#138601]" />
+          <Loader className="w-7 h-7 animate-spin mx-auto mb-2 text-[#138601]" />
           <p className="text-xs">Synchronizing live dues clearance ledger from database...</p>
         </div>
       ) : filteredRoster.length > 0 ? (
@@ -811,7 +812,7 @@ export const DashboardDuesTracker = ({ onSettingsUpdated }) => {
                   disabled={isSavingRate}
                   className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  {isSavingRate ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  {isSavingRate ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   <span>Save Parameters</span>
                 </button>
               </div>
@@ -1051,7 +1052,7 @@ export const DashboardDuesTracker = ({ onSettingsUpdated }) => {
                 disabled={isRevoking}
                 className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-xs cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
               >
-                {isRevoking ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                {isRevoking ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                 <span>Confirm Revocation</span>
               </button>
             </div>

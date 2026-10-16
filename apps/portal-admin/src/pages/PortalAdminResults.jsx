@@ -17,7 +17,8 @@ import {
   BookOpen,
   Calendar,
   Check,
-  Percent
+  Percent,
+  Loader
 } from 'lucide-react';
 import { 
   adminFetchResultsCatalog, 
@@ -48,6 +49,7 @@ export default function PortalAdminResults() {
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [editingResult, setEditingResult] = useState(null);
   const [deleteConfirmResult, setDeleteConfirmResult] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Manual Form State
   const [formData, setFormData] = useState({
@@ -279,12 +281,15 @@ export default function PortalAdminResults() {
     }
 
     try {
+      setIsSaving(true);
       await adminSaveSingleResult(formData);
       showToast(`Grade for ${formData.matric_number} (${formData.course_code}) recorded successfully!`);
       setIsManualModalOpen(false);
       loadData();
     } catch (err) {
       showToast(err.message || 'Error saving result', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -856,9 +861,11 @@ export default function PortalAdminResults() {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 bg-[#138601] hover:bg-[#0f6c01] text-white font-bold rounded shadow-xs cursor-pointer"
+                    disabled={isSaving}
+                    className="px-5 py-2 bg-[#138601] hover:bg-[#0f6c01] text-white font-bold rounded shadow-xs cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    {editingResult ? 'Update Grade' : 'Record Grade'}
+                    {isSaving ? <Loader className="w-3.5 h-3.5 animate-spin" /> : null}
+                    <span>{isSaving ? 'Saving...' : editingResult ? 'Update Grade' : 'Record Grade'}</span>
                   </button>
                 </div>
               </form>

@@ -13,7 +13,7 @@ import {
   X, 
   Check, 
   AlertTriangle,
-  RotateCw
+  Loader
 } from 'lucide-react';
 import { 
   superAdminGetAdmins, 
@@ -316,7 +316,7 @@ const AdminUsers = () => {
         <div className="rounded-2xl border border-gray-200 dark:border-[#138601]/30 bg-white dark:bg-[#083002] overflow-hidden shadow-xs">
           {loading ? (
             <div className="p-12 text-center text-xs text-gray-400 flex flex-col items-center justify-center gap-2">
-              <RotateCw className="w-6 h-6 animate-spin text-[#138601]" />
+              <Loader className="w-6 h-6 animate-spin text-[#138601]" />
               <span>Connecting to database and verifying administrator identities...</span>
             </div>
           ) : admins.length === 0 ? (
