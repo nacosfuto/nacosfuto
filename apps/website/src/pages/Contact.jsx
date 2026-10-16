@@ -10,7 +10,9 @@ import {
 } from "react-icons/fi";
 import { FaPaperPlane } from "react-icons/fa";
 import ScrollToTopLink from "../components/ScrollToTopLink";
-const contactImage = '';
+import { getCloudinaryAssetUrl } from "@nacos/media";
+
+const contactImage = getCloudinaryAssetUrl('gallery_dept_front') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569317/nacos/gallery/gallery_dept_front.jpg";
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -86,11 +88,12 @@ const Contact = () => {
                 </ScrollToTopLink>
               </div>
             </div>
-            <div className="rounded-2xl overflow-hidden shadow-lg border border-[#138601]/20 dark:border-[#138601]/30">
+            <div className="rounded-2xl overflow-hidden shadow-lg border border-[#138601]/20 dark:border-[#138601]/30 bg-gray-100 dark:bg-[#083002]/40">
               <img
                 src={contactImage}
-                alt="FUTO Computer Science Department"
-                className="w-full h-auto object-cover"
+                alt="FUTO Computer Science Department - SICT Complex"
+                className="w-full h-[300px] sm:h-[360px] lg:h-[400px] object-cover hover:scale-105 transition-transform duration-500"
+                loading="eager"
               />
             </div>
           </div>
