@@ -6,6 +6,7 @@ import ScrollToTopLink from "../ScrollToTopLink";
 import logoLight from "../../assets/full-logo-light.png";
 import logoDark from "../../assets/full-logo-dark.png";
 import { getAppUrls } from "@nacos/config/urls";
+import { CirclePower } from "lucide-react";
 
 const MobileNav = ({ isOpen, closeMenu, toggleDarkMode, darkMode, isNacosExec }) => {
   const location = useLocation();
@@ -217,9 +218,10 @@ const MobileNav = ({ isOpen, closeMenu, toggleDarkMode, darkMode, isNacosExec })
               target="_blank"
               rel="noopener noreferrer"
               onClick={closeMenu}
-              className="text-center py-2.5 px-3 bg-[#138601] hover:bg-[#0f6c01] text-white font-bold rounded shadow-md text-xs sm:text-sm transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 py-2.5 px-3 bg-[#138601] hover:bg-[#0f6c01] text-white font-bold rounded shadow-md text-xs sm:text-sm transition-colors"
             >
-              Visit Portal
+              <CirclePower className="w-3.5 h-3.5" />
+              <span>Visit Portal</span>
             </a>
             <a
               href={upskillHub}

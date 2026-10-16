@@ -22,7 +22,8 @@ import {
   ExternalLink,
   CheckCircle2,
   KeyRound,
-  Loader
+  Loader,
+  CirclePower
 } from 'lucide-react';
 
 export const AdminLogin = () => {
@@ -453,7 +454,7 @@ export const AdminLogin = () => {
                     className="w-full px-7 py-3 min-h-[44px] text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2"
                   >
                     <span>Sign In Now</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <CirclePower className="w-4 h-4" />
                   </button>
                 </div>
               )}
@@ -560,7 +561,7 @@ export const AdminLogin = () => {
                   ) : (
                     <>
                       <span>Sign In to Website CMS</span>
-                      <ArrowRight className="w-4 h-4" />
+                      <CirclePower className="w-4 h-4" />
                     </>
                   )}
                 </button>

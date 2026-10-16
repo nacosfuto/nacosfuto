@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { User, Shield, GraduationCap, Award, Check, LogOut, Edit3 } from "lucide-react";
+import { User, Shield, GraduationCap, Award, Check, CirclePower, Edit3 } from "lucide-react";
 import { BrutalCard } from "../components/ui/BrutalCard";
 import { BrutalButton } from "../components/ui/BrutalButton";
 import { useAuthStore } from "../stores/authStore";
@@ -159,7 +159,7 @@ export function ProfilePage() {
             onClick={logout}
             className="px-4 py-2 rounded-md text-xs font-semibold bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer flex items-center gap-1.5"
           >
-            <LogOut size={14} />
+            <CirclePower size={14} />
             <span>Sign Out</span>
           </button>
         </BrutalCard>

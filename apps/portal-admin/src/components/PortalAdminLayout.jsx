@@ -7,7 +7,7 @@ import {
   Image as ImageIcon, 
   BookOpen,
   Settings, 
-  LogOut, 
+  CirclePower, 
   Menu, 
   X, 
   Sun, 
@@ -209,7 +209,7 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
             title="Sign Out"
             className="w-10 h-10 rounded-xl flex items-center justify-center text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all cursor-pointer relative group"
           >
-            <LogOut className="w-5 h-5" />
+            <CirclePower className="w-5 h-5" />
             <span className="absolute left-full ml-2.5 px-2.5 py-1 rounded bg-red-600 text-white text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg">
               Sign Out
             </span>
@@ -296,7 +296,7 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
               className="md:hidden p-2 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
               title="Sign Out"
             >
-              <LogOut className="w-4 h-4" />
+              <CirclePower className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -451,7 +451,7 @@ export const PortalAdminLayout = ({ children, title, subtitle }) => {
               className="p-2 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
               title="Sign Out"
             >
-              <LogOut className="w-4 h-4" />
+              <CirclePower className="w-4 h-4" />
             </button>
           </div>
         </div>

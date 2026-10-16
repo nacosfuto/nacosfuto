@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  LogOut, 
+  CirclePower, 
   Menu,
   X
 } from 'lucide-react';
@@ -89,7 +89,7 @@ export default function ElectraNavbar({ voter, onDisconnect }) {
                 className="p-1.5 rounded-[4px] text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                 title="Disconnect voter session"
               >
-                <LogOut className="w-4 h-4" />
+                <CirclePower className="w-4 h-4" />
               </button>
             </div>
           )}

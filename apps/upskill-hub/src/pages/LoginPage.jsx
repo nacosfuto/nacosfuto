@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Lock, Mail, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, ArrowRight, AlertCircle, ShieldCheck, CirclePower } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { getAppUrls } from '@nacos/config/urls';
 import upskillLogo from '../assets/upskill-full-logo.png';
@@ -148,7 +148,7 @@ const LoginPage = () => {
               ) : (
                 <>
                   <span>Sign In to Learning Dashboard</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <CirclePower className="w-4 h-4" />
                 </>
               )}
             </button>

@@ -4,8 +4,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuthStore } from '../../stores/authStore';
 import { getAppUrls } from '@nacos/config/urls';
 import upskillLogo from '../../assets/upskill-full-logo.png';
-import upskillLogoMark from '../../assets/upskill-logo-mark.png';
-import { FiMenu, FiX, FiSearch, FiUser, FiLogOut, FiRefreshCw, FiPlusCircle, FiBookOpen } from 'react-icons/fi';
+import { FiMenu, FiX, FiSearch, FiUser, FiRefreshCw, FiPlusCircle, FiBookOpen } from 'react-icons/fi';
+import { CirclePower } from 'lucide-react';
 import { BsSun, BsMoon } from 'react-icons/bs';
 
 const Navbar = () => {
@@ -235,7 +235,7 @@ const Navbar = () => {
                       }}
                       className="w-full flex items-center gap-2 px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 text-left transition-colors cursor-pointer"
                     >
-                      <FiLogOut size={14} />
+                      <CirclePower size={14} />
                       <span>Sign Out</span>
                     </button>
                   </div>
@@ -246,9 +246,10 @@ const Navbar = () => {
             <div className="hidden sm:flex items-center gap-2">
               <Link
                 to="/login"
-                className="border-2 border-[#0056D2] text-[#0056D2] hover:bg-[#0056D2] hover:text-white px-4 py-2 rounded font-black text-xs tracking-wider transition-all whitespace-nowrap uppercase shadow-xs"
+                className="inline-flex items-center gap-1.5 border-2 border-[#0056D2] text-[#0056D2] hover:bg-[#0056D2] hover:text-white px-4 py-2 rounded font-black text-xs tracking-wider transition-all whitespace-nowrap uppercase shadow-xs"
               >
-                Sign In
+                <CirclePower size={13} />
+                <span>Sign In</span>
               </Link>
             </div>
           )}
@@ -339,18 +340,20 @@ const Navbar = () => {
                   setMobileNavOpen(false);
                   navigate('/');
                 }}
-                className="w-full text-center py-2 text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 rounded"
+                className="w-full inline-flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 rounded"
               >
-                Sign Out
+                <CirclePower size={13} />
+                <span>Sign Out</span>
               </button>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <Link
                   to="/login"
                   onClick={() => setMobileNavOpen(false)}
-                  className="text-center py-2 text-xs font-bold uppercase tracking-wider text-gray-800 dark:text-white bg-gray-100 dark:bg-[#000000] rounded"
+                  className="inline-flex items-center justify-center gap-1.5 py-2 text-xs font-bold uppercase tracking-wider text-gray-800 dark:text-white bg-gray-100 dark:bg-[#000000] rounded"
                 >
-                  Sign In
+                  <CirclePower size={13} />
+                  <span>Sign In</span>
                 </Link>
                 <Link
                   to="/sign-up"

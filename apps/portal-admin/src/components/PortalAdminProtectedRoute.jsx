@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { getPortalAdminSession, logoutPortalAdmin, verifyLiveAdminSession } from '@nacos/auth';
-import { ShieldAlert, LogOut } from 'lucide-react';
+import { ShieldAlert, CirclePower } from 'lucide-react';
 
 export const PortalAdminProtectedRoute = ({ children, requiredPermission = 'student_portal.view' }) => {
   const location = useLocation();
@@ -72,7 +72,7 @@ export const PortalAdminProtectedRoute = ({ children, requiredPermission = 'stud
               }}
               className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-700 text-white transition-colors cursor-pointer flex items-center gap-2"
             >
-              <LogOut className="w-4 h-4" />
+              <CirclePower className="w-4 h-4" />
               Sign Out & Switch Account
             </button>
           </div>

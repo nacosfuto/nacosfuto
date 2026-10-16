@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FiUser, FiSettings, FiLogOut } from 'react-icons/fi';
+import { FiUser, FiSettings } from 'react-icons/fi';
+import { CirclePower } from 'lucide-react';
 import ScrollToTopLink from '../ScrollToTopLink';
 
 const UserDropdown = ({ user }) => {
@@ -38,7 +38,7 @@ const UserDropdown = ({ user }) => {
             className="flex items-center px-4 py-2 text-red-400 hover:bg-gray-600 hover:text-red-300"
             onClick={() => setIsOpen(false)}
           >
-            <FiLogOut className="mr-2" /> Logout
+            <CirclePower className="mr-2 w-4 h-4" /> Logout
           </ScrollToTopLink>
         </div>
       )}

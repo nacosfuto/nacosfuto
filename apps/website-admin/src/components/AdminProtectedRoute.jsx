@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Navigate, useLocation, Link } from 'react-router-dom';
 import { getWebsiteAdminSession, hasPermission, logoutWebsiteAdmin, verifyLiveAdminSession } from '@nacos/supabase/adminAuth';
-import { ShieldAlert, ArrowLeft, LogOut } from 'lucide-react';
+import { ShieldAlert, ArrowLeft, CirclePower } from 'lucide-react';
 
 let lastVerifiedTimestamp = 0;
 const VERIFY_COOLDOWN_MS = 20000; // 20-second cooldown across tab transitions
@@ -70,9 +70,10 @@ export const AdminProtectedRoute = ({ children, requiredPermission = 'main_websi
                 await logoutWebsiteAdmin();
                 window.location.href = window.location.pathname.startsWith('/admin') ? '/admin/login' : '/login';
               }}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-700 text-white transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-700 text-white transition-colors cursor-pointer flex items-center gap-1.5"
             >
-              Sign Out & Switch Account
+              <CirclePower className="w-3.5 h-3.5" />
+              <span>Sign Out & Switch Account</span>
             </button>
             <a
               href="/"

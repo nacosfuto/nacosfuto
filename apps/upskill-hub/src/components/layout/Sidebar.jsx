@@ -6,7 +6,7 @@ import {
   Video,
   GraduationCap,
   User,
-  LogOut,
+  CirclePower,
   Menu,
   X,
   Plus,
@@ -204,7 +204,7 @@ export function Sidebar({ isOpen, onToggle }) {
             }}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
           >
-            <LogOut size={15} />
+            <CirclePower size={15} />
             <span>Reset / Sign Out</span>
           </button>
         </div>

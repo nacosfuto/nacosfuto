@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Sparkles, ArrowRight, Home } from 'lucide-react';
+import { Sparkles, ArrowRight, Home, CirclePower } from 'lucide-react';
 import { BsSun, BsMoon } from 'react-icons/bs';
 import { useTheme } from '../context/ThemeContext';
 import logoDark from '../assets/full-logo-dark.png';
@@ -90,11 +90,12 @@ const HackathonNavbar = () => {
 
           <Link
             to="/login"
-            className={`hidden sm:inline-flex items-center justify-center px-3.5 py-1.5 text-xs font-semibold rounded border transition-colors ${
+            className={`hidden sm:inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded border transition-colors ${
               isDark ? 'text-green-100 hover:text-white bg-[#041801] hover:bg-[#083002] border-[#138601]/30' : 'text-[#083002] hover:text-[#138601] bg-[#f2fbf1] border-[#138601]/20'
             }`}
           >
-            Sign In
+            <CirclePower className="w-3.5 h-3.5" />
+            <span>Sign In</span>
           </Link>
           <Link
             to="/hackathons/BuildXNACOS/apply"

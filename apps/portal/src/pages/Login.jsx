@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { getCloudinaryAssetUrl } from '@nacos/media';
 import { signInStudent } from '@nacos/supabase/auth';
 import logoDark from '../assets/full-logo-dark.png';
-import { AlertCircle, Eye, EyeOff, Loader, ArrowRight } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff, Loader, ArrowRight, CirclePower } from 'lucide-react';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -296,7 +296,10 @@ const Login = () => {
                   <span>Signing in...</span>
                 </>
               ) : (
-                <span>Continue</span>
+                <>
+                  <CirclePower className="w-4 h-4" />
+                  <span>Sign In to Student Portal</span>
+                </>
               )}
             </button>
           </form>
