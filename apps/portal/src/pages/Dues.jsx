@@ -101,6 +101,8 @@ const Dues = () => {
     return {};
   });
 
+  const cleanMatric = String(user?.registration_number || user?.matric || user?.matricNumber || '').trim().toUpperCase();
+
   // Instant synchronous cache pre-load to eliminate "UNPAID" flashes
   const initialCache = getCachedStudentClearance(user);
   const initialDuesData = extractCachedDuesData(user, initialCache);
@@ -190,6 +192,7 @@ const Dues = () => {
   const [isAwaitingGateway, setIsAwaitingGateway] = useState(false);
   const [gatewayRef, setGatewayRef] = useState('');
   const pollTimerRef = useRef(null);
+  const gatewayWindowRef = useRef(null);
 
   // Real Thermal POS Receipt Modal State
   const [isPosReceiptOpen, setIsPosReceiptOpen] = useState(false);

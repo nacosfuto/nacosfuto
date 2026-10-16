@@ -51,7 +51,7 @@ const PosThermalReceipt = ({
   const status = isInvoice ? 'PENDING' : (data.status || 'APPROVED');
 
   const isPaid = !isInvoice && (status === 'APPROVED' || String(status).toLowerCase().includes('paid') || String(status).toLowerCase().includes('cleared'));
-  const numAmount = typeof rawAmount === 'number' ? rawAmount : (parseFloat(String(amount || 0).replace(/[^0-9.]/g, '')) || 0);
+  const numAmount = typeof rawAmount === 'number' ? rawAmount : (parseFloat(String(rawAmount || 0).replace(/[^0-9.]/g, '')) || 0);
   const formattedAmount = numAmount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const handlePrint = () => {
