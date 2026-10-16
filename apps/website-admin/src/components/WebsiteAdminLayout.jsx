@@ -96,24 +96,24 @@ export const WebsiteAdminLayout = ({ children, title, subtitle }) => {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const rawNavItems = [
-    { label: 'Dashboard', path: '/admin', icon: LayoutDashboard, exact: true },
-    { label: 'Yellow Pages', path: '/admin/yellow-pages', icon: Store, permission: 'main_website.yellow_pages' },
-    { label: 'Campus Clubs', path: '/admin/clubs', icon: Users, permission: 'main_website.clubs' },
-    { label: 'Spiritual Life', path: '/admin/spiritual-life', icon: Heart, permission: 'main_website.clubs' },
-    { label: 'Alumni Network', path: '/admin/alumni', icon: GraduationCap, permission: 'main_website.alumni' },
-    { label: 'NACOS Executives', path: '/admin/executives', icon: Award, permission: 'main_website.homepage' },
-    { label: 'Administration', path: '/admin/administration', icon: Building2, permission: 'main_website.homepage' },
-    { label: 'Media Library', path: '/admin/media', icon: ImageIcon, permission: 'main_website.media' },
-    { label: 'Campus Gallery', path: '/admin/gallery', icon: Camera, permission: 'main_website.gallery' },
-    { label: 'News & Journal', path: '/admin/news', icon: Newspaper, permission: 'main_website.news' },
-    { label: 'Events & Flyers', path: '/admin/events', icon: Calendar, permission: 'main_website.events' },
-    { label: 'Hero Carousel', path: '/admin/hero-carousel', icon: Sparkles, permission: 'main_website.homepage' },
-    { label: 'Homepage Content', path: '/admin/homepage', icon: Home, permission: 'main_website.homepage' },
-    { label: 'Audit Trail', path: '/admin/audit-logs', icon: History, permission: 'main_website.view' },
+    { label: 'Dashboard', path: '/', icon: LayoutDashboard, exact: true },
+    { label: 'Yellow Pages', path: '/yellow-pages', icon: Store, permission: 'main_website.yellow_pages' },
+    { label: 'Campus Clubs', path: '/clubs', icon: Users, permission: 'main_website.clubs' },
+    { label: 'Spiritual Life', path: '/spiritual-life', icon: Heart, permission: 'main_website.clubs' },
+    { label: 'Alumni Network', path: '/alumni', icon: GraduationCap, permission: 'main_website.alumni' },
+    { label: 'NACOS Executives', path: '/executives', icon: Award, permission: 'main_website.homepage' },
+    { label: 'Administration', path: '/administration', icon: Building2, permission: 'main_website.homepage' },
+    { label: 'Media Library', path: '/media', icon: ImageIcon, permission: 'main_website.media' },
+    { label: 'Campus Gallery', path: '/gallery', icon: Camera, permission: 'main_website.gallery' },
+    { label: 'News & Journal', path: '/news', icon: Newspaper, permission: 'main_website.news' },
+    { label: 'Events & Flyers', path: '/events', icon: Calendar, permission: 'main_website.events' },
+    { label: 'Hero Carousel', path: '/hero-carousel', icon: Sparkles, permission: 'main_website.homepage' },
+    { label: 'Homepage Content', path: '/homepage', icon: Home, permission: 'main_website.homepage' },
+    { label: 'Audit Trail', path: '/audit-logs', icon: History, permission: 'main_website.view' },
     ...(admin?.is_super_admin
-      ? [{ label: 'Admin Management', path: '/admin/admins', icon: ShieldCheck }]
+      ? [{ label: 'Admin Management', path: '/admins', icon: ShieldCheck }]
       : []),
-    { label: 'Website Settings', path: '/admin/settings', icon: Settings, permission: 'main_website.settings' }
+    { label: 'Website Settings', path: '/settings', icon: Settings, permission: 'main_website.settings' }
   ];
 
   const navItems = rawNavItems.filter(item => {
@@ -122,10 +122,12 @@ export const WebsiteAdminLayout = ({ children, title, subtitle }) => {
   });
 
   const isActive = (item) => {
-    if (item.exact) {
-      return location.pathname === '/admin' || location.pathname === '/admin/dashboard';
+    const current = (location.pathname || '').replace(/^\/admin/, '') || '/';
+    const target = (item.path || '').replace(/^\/admin/, '') || '/';
+    if (item.exact || target === '/' || target === '/dashboard') {
+      return current === '/' || current === '/dashboard';
     }
-    return location.pathname.startsWith(item.path);
+    return current === target || current.startsWith(target + '/');
   };
 
   return (
@@ -190,7 +192,7 @@ export const WebsiteAdminLayout = ({ children, title, subtitle }) => {
 
           {/* Settings */}
           <Link
-            to="/admin/settings"
+            to="/settings"
             title="Website Settings"
             className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 dark:text-green-200/70 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#041801]/70 transition-all cursor-pointer relative group"
           >
@@ -242,7 +244,7 @@ export const WebsiteAdminLayout = ({ children, title, subtitle }) => {
               </button>
             </div>
 
-            <Link to="/admin/dashboard" className="flex items-center space-x-3 shrink-0 pl-1">
+            <Link to="/" className="flex items-center space-x-3 shrink-0 pl-1">
               <img src={isDark ? logoDark : logoLight} alt="NACOS FUTO Logo" className="h-8 md:h-9 w-auto object-contain" />
               <div className="hidden sm:block border-l border-gray-200 dark:border-[#138601]/30 pl-3">
                 <span className="text-xs font-bold text-[#138601] dark:text-[#4bd043] tracking-wide uppercase block">

@@ -24,16 +24,38 @@ import { AdminProtectedRoute } from './components/AdminProtectedRoute';
 
 const LoadingFallback = () => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#f8fafc] dark:bg-[#041801] w-full min-h-[100dvh] h-full p-4 overflow-hidden">
-    <div className="flex items-center justify-center p-4">
-      <img
-        src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791451674/DICT_Synergy_Logo.png"
-        alt="Loading"
-        className="w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 max-w-[75vw] max-h-[75vh] object-contain animate-spin select-none pointer-events-none"
-        style={{ animationDuration: '3s' }}
-      />
+    <div className="flex flex-col items-center justify-center gap-3 p-4">
+      <div className="w-12 h-12 rounded-full border-4 border-gray-200 dark:border-white/10 border-t-[#138601] animate-spin"></div>
+      <p className="text-xs font-semibold text-gray-500 dark:text-green-300/80 animate-pulse">Loading module...</p>
     </div>
   </div>
 );
+
+// Preload admin modules on idle so tab transitions are instantaneous with zero delay
+if (typeof window !== 'undefined') {
+  const preloadModules = () => {
+    import('./pages/AdminDashboard').catch(() => {});
+    import('./pages/AdminExecutives').catch(() => {});
+    import('./pages/AdminYellowPages').catch(() => {});
+    import('./pages/AdminClubs').catch(() => {});
+    import('./pages/AdminSpiritualLife').catch(() => {});
+    import('./pages/AdminAlumni').catch(() => {});
+    import('./pages/AdminAdministration').catch(() => {});
+    import('./pages/AdminMedia').catch(() => {});
+    import('./pages/AdminGallery').catch(() => {});
+    import('./pages/AdminNews').catch(() => {});
+    import('./pages/AdminEvents').catch(() => {});
+    import('./pages/AdminHeroCarousel').catch(() => {});
+    import('./pages/AdminHomepage').catch(() => {});
+    import('./pages/AdminAuditLogs').catch(() => {});
+    import('./pages/AdminUsers').catch(() => {});
+  };
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(preloadModules);
+  } else {
+    setTimeout(preloadModules, 1000);
+  }
+}
 
 class ErrorBoundary extends React.Component {
   constructor(props) {

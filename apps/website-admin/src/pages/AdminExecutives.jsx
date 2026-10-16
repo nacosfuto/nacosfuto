@@ -38,6 +38,7 @@ import {
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
+import { getAppUrls } from '@nacos/config/urls';
 import AdminSaveButton from '../components/AdminSaveButton';
 import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
 
@@ -50,6 +51,7 @@ const AdminExecutives = () => {
   const [newTenureInput, setNewTenureInput] = useState('');
   const [isQuickAddingTenure, setIsQuickAddingTenure] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedPastSession, setSelectedPastSession] = useState('all');
   const [notification, setNotification] = useState({ message: '', type: '' });
@@ -82,11 +84,53 @@ const AdminExecutives = () => {
   const [headerForm, setHeaderForm] = useState(DEFAULT_EXECUTIVES_PAGE_SETTINGS);
   const [isSavingHeader, setIsSavingHeader] = useState(false);
 
-  useEffect(() => {
-    loadAll();
-    fetchExecutivesFromSupabase().then(() => loadAll()).catch(() => {});
+  const loadAll = (liveData) => {
+    try {
+      const allExecs = (Array.isArray(liveData) && liveData.length > 0)
+        ? liveData
+        : getExecutives('all');
+      setExecutives(allExecs);
+      setTenures(getTenures());
+      const currentSettings = getExecutivesSettings();
+      setSettings(currentSettings);
+      setHeaderForm(currentSettings);
+    } catch (e) {
+      console.warn('Error loading executives in admin:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const handleUpdate = () => loadAll();
+  useEffect(() => {
+    setLoading(true);
+    // 1. Initial fast local load
+    loadAll();
+
+    // 2. Authoritative live fetch from Supabase
+    fetchExecutivesFromSupabase()
+      .then((liveList) => {
+        if (Array.isArray(liveList) && liveList.length > 0) {
+          loadAll(liveList);
+        } else {
+          loadAll();
+        }
+      })
+      .catch((err) => {
+        console.warn('Error fetching live executives:', err);
+        loadAll();
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+
+    const handleUpdate = () => {
+      const cached = getExecutives('all');
+      if (cached && cached.length > 0) {
+        loadAll(cached);
+      } else {
+        fetchExecutivesFromSupabase().then((live) => loadAll(live)).catch(() => loadAll());
+      }
+    };
     const handleTenuresUpdate = () => setTenures(getTenures());
 
     window.addEventListener('nacos_executives_updated', handleUpdate);
@@ -100,19 +144,21 @@ const AdminExecutives = () => {
     };
   }, []);
 
-  const loadAll = () => {
-    setLoading(true);
+  const handleRefreshLive = async () => {
+    setIsRefreshing(true);
     try {
-      const allExecs = getExecutives('all');
-      setExecutives(allExecs);
-      setTenures(getTenures());
-      const currentSettings = getExecutivesSettings();
-      setSettings(currentSettings);
-      setHeaderForm(currentSettings);
-    } catch (e) {
-      console.warn('Error loading executives in admin:', e);
+      const liveList = await fetchExecutivesFromSupabase();
+      if (Array.isArray(liveList) && liveList.length > 0) {
+        loadAll(liveList);
+        showNotice(`Synchronized ${liveList.length} executives directly from Supabase!`);
+      } else {
+        loadAll();
+        showNotice('Executives synchronized from database.');
+      }
+    } catch (err) {
+      showNotice(getSafeErrorMessage(err, 'Failed to sync executives from database.'), 'error');
     } finally {
-      setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -362,8 +408,19 @@ const AdminExecutives = () => {
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              type="button"
+              onClick={handleRefreshLive}
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg border border-gray-300 dark:border-[#138601]/40 bg-white dark:bg-[#041801] hover:bg-gray-50 dark:hover:bg-[#083002] text-gray-800 dark:text-green-300 transition-all cursor-pointer disabled:opacity-60"
+              title="Force reload all live executives directly from Supabase"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#138601] dark:text-[#4bd043]' : ''}`} />
+              <span>{isRefreshing ? 'Syncing...' : 'Sync Supabase'}</span>
+            </button>
+
             <a 
-              href="/about/nacos-executives" 
+              href={`${getAppUrls().website}/about/nacos-executives`} 
               target="_blank" 
               rel="noopener noreferrer" 
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg border border-gray-300 dark:border-[#138601]/30 hover:bg-gray-100 dark:hover:bg-[#083002] transition-colors"

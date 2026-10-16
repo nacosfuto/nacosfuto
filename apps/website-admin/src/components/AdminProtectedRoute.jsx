@@ -1,7 +1,10 @@
 import React, { useEffect } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, Link } from 'react-router-dom';
 import { getWebsiteAdminSession, hasPermission, logoutWebsiteAdmin, verifyLiveAdminSession } from '@nacos/supabase/adminAuth';
 import { ShieldAlert, ArrowLeft, LogOut } from 'lucide-react';
+
+let lastVerifiedTimestamp = 0;
+const VERIFY_COOLDOWN_MS = 20000; // 20-second cooldown across tab transitions
 
 export const AdminProtectedRoute = ({ children, requiredPermission = 'main_website.view' }) => {
   const location = useLocation();
@@ -11,13 +14,21 @@ export const AdminProtectedRoute = ({ children, requiredPermission = 'main_websi
   useEffect(() => {
     if (!admin) return;
 
-    // Check expiration on every render/mount
+    // Check expiration on mount (with cooldown to prevent spam during quick tab switching)
     const checkSession = async () => {
-      const res = await verifyLiveAdminSession('website');
-      if (!res.valid) {
-        await logoutWebsiteAdmin();
-        window.location.href = window.location.pathname.startsWith('/admin') ? '/admin/login?reason=session_expired' : '/login?reason=session_expired';
+      const now = Date.now();
+      if (now - lastVerifiedTimestamp < VERIFY_COOLDOWN_MS) {
+        return;
       }
+      lastVerifiedTimestamp = now;
+
+      try {
+        const res = await verifyLiveAdminSession('website');
+        if (!res.valid) {
+          await logoutWebsiteAdmin();
+          window.location.href = window.location.pathname.startsWith('/admin') ? '/admin/login?reason=session_expired' : '/login?reason=session_expired';
+        }
+      } catch (_) {}
     };
 
     checkSession();
@@ -88,12 +99,12 @@ export const AdminProtectedRoute = ({ children, requiredPermission = 'main_websi
             Your role (<strong className="text-white">{admin.role}</strong>) does not have the required <code className="bg-black/50 px-2 py-0.5 rounded text-amber-300 font-mono">{requiredPermission}</code> permission to access this section.
           </p>
           <div className="pt-2">
-            <a
-              href="/admin"
-              className="px-5 py-2 rounded-xl text-xs font-semibold bg-[#138601] hover:bg-[#0f6c01] text-white transition-colors inline-flex items-center gap-1.5"
+            <Link
+              to="/"
+              className="px-5 py-2 rounded-xl text-xs font-semibold bg-[#138601] hover:bg-[#0f6c01] text-white transition-colors inline-flex items-center gap-1.5 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" /> Return to Dashboard
-            </a>
+            </Link>
           </div>
         </div>
       </div>

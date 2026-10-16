@@ -76,6 +76,8 @@ export async function fetchExecutivesFromSupabase() {
   if (!isSupabaseConfigured || !supabase) return [];
 
   try {
+    let resultList = [];
+
     // 1. Authoritative check on live Supabase store_executives row
     const { data: storeRow } = await supabase
       .from('id_card_settings')
@@ -87,82 +89,141 @@ export async function fetchExecutivesFromSupabase() {
       try {
         const parsed = JSON.parse(storeRow.academic_session);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(parsed));
-            window.dispatchEvent(new Event('nacos_executives_updated'));
-          }
-
-          // Check settings store
-          const { data: setRow } = await supabase
-            .from('id_card_settings')
-            .select('academic_session')
-            .eq('id', 'store_executives_settings')
-            .maybeSingle();
-          if (setRow?.academic_session) {
-            try {
-              const parsedSet = JSON.parse(setRow.academic_session);
-              if (typeof window !== 'undefined') {
-                localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(parsedSet));
-                window.dispatchEvent(new Event('nacos_executives_settings_updated'));
-              }
-            } catch (_) {}
-          }
-
-          return parsed;
+          resultList = parsed.map(e => ({
+            id: e.id,
+            name: e.name || '',
+            role: e.role || e.portfolio || 'Executive',
+            portfolio: e.portfolio || e.role || 'Executive',
+            level: e.level || '400L',
+            bio: e.bio || '',
+            image: e.image || e.photo_url || '',
+            photo_url: e.photo_url || e.image || '',
+            cloudinary_public_id: e.cloudinary_public_id || '',
+            category: e.category || (e.is_active ? 'current' : 'past'),
+            session: e.session || e.academic_session || '2025/2026',
+            academic_session: e.academic_session || e.session || '2025/2026',
+            order_index: e.order_index ?? e.sort_order ?? 0
+          }));
         }
       } catch (e) {}
     }
 
-    // 2. Fallback check on media_assets
-    const { data, error } = await supabase
-      .from('media_assets')
-      .select('*')
-      .eq('category', 'executives')
-      .order('created_at', { ascending: false });
+    // 2. Check nacos_executives table if storeRow had no items
+    if (resultList.length === 0) {
+      const { data: execRows } = await supabase
+        .from('nacos_executives')
+        .select('*')
+        .order('order_index', { ascending: true });
 
-    if (!error && data && Array.isArray(data)) {
-      const execAssets = data.filter(d => d.entity_type === 'executives' || d.entity_type === 'executive');
-      const settingsAsset = data.find(d => d.entity_type === 'executives_settings');
-
-      if (settingsAsset && settingsAsset.image_alt) {
-        try {
-          const parsedSettings = JSON.parse(settingsAsset.image_alt);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(parsedSettings));
-            window.dispatchEvent(new Event('nacos_executives_settings_updated'));
-          }
-        } catch (e) {}
+      if (execRows && execRows.length > 0) {
+        resultList = execRows.map(r => ({
+          id: r.id,
+          name: r.name || '',
+          role: r.role || r.portfolio || 'Executive',
+          portfolio: r.portfolio || r.role || 'Executive',
+          level: r.level || '400L',
+          bio: r.bio || '',
+          image: r.photo_url || r.image || '',
+          photo_url: r.photo_url || r.image || '',
+          cloudinary_public_id: r.cloudinary_public_id || '',
+          category: r.category || (r.is_active ? 'current' : 'past'),
+          session: r.session || r.academic_session || '2025/2026',
+          academic_session: r.academic_session || r.session || '2025/2026',
+          order_index: r.order_index ?? r.sort_order ?? 0
+        }));
       }
+    }
 
-      if (execAssets.length > 0) {
-        const parsedExecs = [];
-        for (const item of execAssets) {
+    // 3. Fallback check on media_assets
+    if (resultList.length === 0) {
+      const { data, error } = await supabase
+        .from('media_assets')
+        .select('*')
+        .eq('category', 'executives')
+        .order('created_at', { ascending: false });
+
+      if (!error && data && Array.isArray(data)) {
+        const execAssets = data.filter(d => d.entity_type === 'executives' || d.entity_type === 'executive');
+        const settingsAsset = data.find(d => d.entity_type === 'executives_settings');
+
+        if (settingsAsset && settingsAsset.image_alt) {
           try {
-            if (item.image_alt && item.image_alt.startsWith('{')) {
-              const obj = JSON.parse(item.image_alt);
-              parsedExecs.push({
-                ...obj,
-                id: obj.id || item.entity_id || item.id,
-                image: item.image_url || obj.image,
-                cloudinary_public_id: item.cloudinary_public_id || obj.cloudinary_public_id
-              });
+            const parsedSettings = JSON.parse(settingsAsset.image_alt);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(parsedSettings));
+              window.dispatchEvent(new Event('nacos_executives_settings_updated'));
             }
           } catch (e) {}
         }
 
-        if (parsedExecs.length > 0) {
-          const remoteIds = new Set(parsedExecs.map(e => e.id));
-          const missingDefaults = getAllInitialExecutives().filter(e => !remoteIds.has(e.id));
-          const merged = [...parsedExecs, ...missingDefaults].filter(e => e.id !== 'test-123');
-          merged.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
-          
-          if (typeof window !== 'undefined') {
-            localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(merged));
-            window.dispatchEvent(new Event('nacos_executives_updated'));
+        if (execAssets.length > 0) {
+          const parsedExecs = [];
+          for (const item of execAssets) {
+            try {
+              if (item.image_alt && item.image_alt.startsWith('{')) {
+                const obj = JSON.parse(item.image_alt);
+                parsedExecs.push({
+                  ...obj,
+                  id: obj.id || item.entity_id || item.id,
+                  image: item.image_url || obj.image,
+                  cloudinary_public_id: item.cloudinary_public_id || obj.cloudinary_public_id
+                });
+              }
+            } catch (e) {}
           }
-          return merged;
+
+          if (parsedExecs.length > 0) {
+            const merged = parsedExecs.filter(e => e.id !== 'test-123');
+            merged.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
+            resultList = merged;
+          }
         }
       }
+    }
+
+    // Update settings cache
+    const { data: setRow } = await supabase
+      .from('id_card_settings')
+      .select('academic_session')
+      .eq('id', 'store_executives_settings')
+      .maybeSingle();
+
+    if (setRow?.academic_session) {
+      try {
+        const parsedSet = JSON.parse(setRow.academic_session);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(parsedSet));
+          window.dispatchEvent(new Event('nacos_executives_settings_updated'));
+        }
+      } catch (_) {}
+    } else {
+      const { data: tblSet } = await supabase
+        .from('nacos_executives_settings')
+        .select('*')
+        .eq('id', 'current_settings')
+        .maybeSingle();
+      if (tblSet) {
+        const parsedSet = {
+          heroImage: tblSet.hero_image || '',
+          heroTitle: tblSet.hero_title || 'NACOS EXECUTIVES',
+          heroYear: tblSet.hero_year || '2026',
+          heroSubtitle: tblSet.hero_subtitle || '',
+          currentSessionTitle: tblSet.current_session_title || 'Current Executives (2025/2026)',
+          pastSessionTitle: tblSet.past_session_title || 'Past Executives (2024/2025)'
+        };
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(parsedSet));
+          window.dispatchEvent(new Event('nacos_executives_settings_updated'));
+        }
+      }
+    }
+
+    if (resultList.length > 0) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(resultList));
+        window.dispatchEvent(new Event('nacos_executives_updated'));
+      }
+      return resultList;
     }
   } catch (err) {
     console.warn('Supabase fetch executives notice:', err);
@@ -353,13 +414,17 @@ export async function saveExecutive(execData) {
         id: savedItem.id,
         name: savedItem.name,
         role: savedItem.role,
-        image: savedItem.image || null,
+        portfolio: savedItem.portfolio || savedItem.role || 'Executive',
+        level: savedItem.level || '400L',
+        bio: savedItem.bio || '',
+        photo_url: savedItem.image || savedItem.photo_url || null,
         cloudinary_public_id: savedItem.cloudinary_public_id || null,
-        category: savedItem.category || 'current',
-        session: savedItem.session || '2025/2026',
+        academic_session: savedItem.session || '2025/2026',
         order_index: savedItem.order_index ?? 0,
+        sort_order: savedItem.order_index ?? 0,
+        is_active: (savedItem.category || 'current') === 'current',
         updated_at: now
-      });
+      }, { onConflict: 'id' });
     } catch (err) {
       console.warn('Supabase nacos_executives save error:', err);
     }
