@@ -25,9 +25,9 @@ import {
   ChevronRight
 } from 'lucide-react';
 import PortalAdminLayout from '../components/PortalAdminLayout';
-import { adminGetAllVerifiedStudents, adminGetVerifiedStudentsCount } from '@nacos/supabase/verifiedStudents';
-import { adminGetAllStudents, adminGetStudentsCount } from '@nacos/supabase/auth';
-import { portalAdminGetApplications } from '@nacos/supabase/idCard';
+import { adminGetVerifiedStudentsCount } from '@nacos/supabase/verifiedStudents';
+import { adminGetStudentsCount, adminGetStudentDemographics } from '@nacos/supabase/auth';
+import { portalAdminGetApplicationStats } from '@nacos/supabase/idCard';
 import { getDuesSettings, getDynamicAcademicSession, adminGetAllDuesPayments, supabase } from '@nacos/supabase';
 import { 
   getActiveAcademicSession, 
@@ -48,16 +48,16 @@ export const PortalAdminDashboard = () => {
   const [dbStatus, setDbStatus] = useState({ online: true, source: 'Supabase Cloud DB' });
 
   // Summary collections from database
-  const [verifiedList, setVerifiedList] = useState([]);
   const [accountsList, setAccountsList] = useState([]);
-  const [idCardsList, setIdCardsList] = useState([]);
 
   const [stats, setStats] = useState({
     whitelistTotal: 0,
     activeAccounts: 0,
+    totalIdCards: 0,
     pendingIdCards: 0,
     approvedIdCards: 0,
-    rejectedIdCards: 0
+    rejectedIdCards: 0,
+    generatedIdCards: 0
   });
 
   const [duesStats, setDuesStats] = useState({
@@ -137,82 +137,50 @@ export const PortalAdminDashboard = () => {
   const loadDashboardData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
+      const activeSession = getActiveAcademicSession();
+
       const [
-        whitelistRes, 
-        accountsRes, 
-        idCardsRes, 
         duesSettingsRes, 
+        idCardStatsRes,
+        demographicsRes,
         duesPaymentsRes,
         vsCountRes,
         profsCountRes
       ] = await Promise.all([
-        adminGetAllVerifiedStudents().catch(() => []),
-        adminGetAllStudents().catch(() => []),
-        portalAdminGetApplications({ status: 'ALL' }).catch(() => []),
-        getDuesSettings().catch(() => ({ dues_amount: 0, academic_session: getActiveAcademicSession() })),
-        adminGetAllDuesPayments().catch(() => []),
+        getDuesSettings().catch(() => ({ dues_amount: 0, academic_session: activeSession })),
+        portalAdminGetApplicationStats().catch(() => ({ total: 0, approved: 0, rejected: 0, generated: 0, pending: 0 })),
+        adminGetStudentDemographics().catch(() => []),
+        adminGetAllDuesPayments(activeSession).catch(() => []),
         adminGetVerifiedStudentsCount().catch(() => 0),
         adminGetStudentsCount().catch(() => 0)
       ]);
 
-      const whitelist = Array.isArray(whitelistRes) 
-        ? whitelistRes 
-        : (whitelistRes?.students || whitelistRes?.data || []);
+      const rawSession = duesSettingsRes?.academic_session || activeSession;
+      const sessionName = typeof rawSession === 'string' ? rawSession : (rawSession?.sessionName || activeSession);
+      const activeDuesRate = Number(duesSettingsRes?.dues_amount || 0);
 
-      const accounts = Array.isArray(accountsRes) 
-        ? accountsRes 
-        : (accountsRes?.students || accountsRes?.data || []);
-
-      const idCards = Array.isArray(idCardsRes) 
-        ? idCardsRes 
-        : (idCardsRes?.applications || idCardsRes?.data || []);
-
+      const accounts = Array.isArray(demographicsRes) ? demographicsRes : [];
       const duesPayments = Array.isArray(duesPaymentsRes) ? duesPaymentsRes : [];
 
-      // Authoritative ID Card status counts matching PortalAdminIdCards
-      const approvedOrGenerated = idCards.filter(c => 
-        ['APPROVED', 'GENERATED'].includes(String(c.status).toUpperCase())
-      ).length;
-
-      const rejected = idCards.filter(c => 
-        ['REJECTED', 'REVOKED'].includes(String(c.status).toUpperCase())
-      ).length;
-
-      const generated = idCards.filter(c => 
-        String(c.status).toUpperCase() === 'GENERATED'
-      ).length;
-
-      const pending = idCards.filter(c => 
-        ['PENDING', 'SUBMITTED', 'PENDING_PAYMENT', 'PHOTO_REQUIRED', 'READY_TO_SUBMIT', 'PROCESSING', 'DRAFT'].includes(String(c.status).toUpperCase())
-      ).length;
-
-      setVerifiedList(whitelist);
       setAccountsList(accounts);
-      setIdCardsList(idCards);
 
-      // Exact database count (surpassing 1000 limit)
-      const exactWhitelistCount = Math.max(vsCountRes || 0, whitelist.length);
+      const exactWhitelistCount = Math.max(vsCountRes || 0, 0);
       const exactAccountsCount = Math.max(accounts.length, profsCountRes || 0);
 
       setStats({
         whitelistTotal: exactWhitelistCount,
         activeAccounts: exactAccountsCount,
-        totalIdCards: idCards.length,
-        pendingIdCards: pending,
-        approvedIdCards: approvedOrGenerated,
-        rejectedIdCards: rejected,
-        generatedIdCards: generated
+        totalIdCards: idCardStatsRes?.total || 0,
+        pendingIdCards: idCardStatsRes?.pending || 0,
+        approvedIdCards: idCardStatsRes?.approved || 0,
+        rejectedIdCards: idCardStatsRes?.rejected || 0,
+        generatedIdCards: idCardStatsRes?.generated || 0
       });
 
-      // Authoritative Dues calculation scoped to active academic session
-      const rawSession = duesSettingsRes?.academic_session || getActiveAcademicSession();
-      const activeSession = typeof rawSession === 'string' ? rawSession : (rawSession?.sessionName || getActiveAcademicSession());
-      const activeDuesRate = Number(duesSettingsRes?.dues_amount || 0);
-
-      // Only count payments belonging to the active academic session
+      // Filter to payments belonging to the active academic session
       const sessionDuesPayments = duesPayments.filter(p => {
         const pSession = p.academic_session || p.metadata?.academic_session;
-        return pSession === activeSession;
+        return pSession === sessionName;
       });
 
       const paymentMapByReg = new Map();
@@ -292,8 +260,8 @@ export const PortalAdminDashboard = () => {
     ? Math.min(100, Math.round((duesStats.clearedCount / stats.activeAccounts) * 100))
     : 0;
 
-  const idCardCompletionRate = idCardsList.length > 0
-    ? Math.round((stats.approvedIdCards / idCardsList.length) * 100)
+  const idCardCompletionRate = stats.totalIdCards > 0
+    ? Math.round((stats.approvedIdCards / stats.totalIdCards) * 100)
     : 0;
 
   const statCards = [
@@ -320,7 +288,7 @@ export const PortalAdminDashboard = () => {
     },
     {
       title: 'ID Card Applications',
-      value: idCardsList.length,
+      value: stats.totalIdCards,
       subtitle: `${stats.approvedIdCards} Approved • ${stats.pendingIdCards} Pending Review`,
       icon: ShieldCheck,
       link: '/id-cards'
@@ -546,7 +514,7 @@ export const PortalAdminDashboard = () => {
                 <div className="flex justify-between text-xs font-bold">
                   <span className="text-gray-700 dark:text-gray-300">Approval Rate</span>
                   <span className="text-purple-600 dark:text-purple-400">
-                    {idCardCompletionRate}% ({stats.approvedIdCards} of {idCardsList.length || 0} submitted)
+                    {idCardCompletionRate}% ({stats.approvedIdCards} of {stats.totalIdCards || 0} submitted)
                   </span>
                 </div>
                 <div className="w-full h-3 rounded-full bg-gray-100 dark:bg-black/40 overflow-hidden p-0.5 border border-gray-200 dark:border-white/10">
@@ -564,7 +532,7 @@ export const PortalAdminDashboard = () => {
                     Submitted
                   </span>
                   <div className="text-base sm:text-lg font-black text-gray-900 dark:text-white">
-                    {idCardsList.length}
+                    {stats.totalIdCards}
                   </div>
                 </div>
 

@@ -1416,20 +1416,7 @@ export async function getElectionAccreditations(electionId = null) {
         .eq('election_id', targetElectionId)
         .order('created_at', { ascending: false });
 
-      if (data && !error && data.length > 0) return data;
-    } catch (_) {}
-
-    try {
-      const { data: row } = await supabase
-        .from('id_card_settings')
-        .select('academic_session')
-        .eq('id', 'store_electra_accreditations_db')
-        .maybeSingle();
-
-      if (row?.academic_session) {
-        const list = JSON.parse(row.academic_session);
-        return list.filter(a => a.election_id === targetElectionId);
-      }
+      if (data && !error) return data;
     } catch (_) {}
   }
 

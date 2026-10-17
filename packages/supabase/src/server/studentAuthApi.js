@@ -130,25 +130,8 @@ async function getOfficialStudentRecord(registrationNumber) {
     }
   }
 
-  // 2. Try Supabase id_card_settings (store_verified_roster)
+  // 2. Try Supabase profiles table
   if (supabase) {
-    try {
-      const { data: storeRow } = await supabase
-        .from('id_card_settings')
-        .select('payload')
-        .eq('id', 'store_verified_roster')
-        .maybeSingle();
-
-      if (storeRow?.payload?.roster && Array.isArray(storeRow.payload.roster)) {
-        const found = storeRow.payload.roster.find(s =>
-          (s.registration_number && s.registration_number.toUpperCase() === cleanReg) ||
-          (s.registration_number && s.registration_number.replace(/[^a-zA-Z0-9]/g, '') === cleanReg.replace(/[^a-zA-Z0-9]/g, ''))
-        );
-        if (found) return found;
-      }
-    } catch (_) {}
-
-    // 3. Try Supabase profiles table
     try {
       const strippedReg = cleanReg.replace(/[^a-zA-Z0-9]/g, '');
       const { data: prof } = await supabase

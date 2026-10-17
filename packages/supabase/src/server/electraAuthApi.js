@@ -27,9 +27,6 @@ const RESEND_COOLDOWN_SECONDS = 60;
 const MAX_CODE_REQUESTS = 4;
 const VOTING_SESSION_TTL_HOURS = 2;
 
-// In-memory atomic store fallback for accreditation & vote records (mirrored to Supabase id_card_settings)
-const ACCREDITATION_STORE_KEY = 'store_electra_accreditations_db';
-const VOTES_STORE_KEY = 'store_electra_votes_db';
 
 // =============================================================================
 // CRYPTOGRAPHIC TOKEN STATE MACHINE
@@ -110,23 +107,6 @@ async function getOfficialStudentRecord(registrationNumber) {
     }
   }
 
-  // 2. Try Supabase id_card_settings (store_verified_roster)
-  if (!found && supabase) {
-    try {
-      const { data: storeRow } = await supabase
-        .from('id_card_settings')
-        .select('payload')
-        .eq('id', 'store_verified_roster')
-        .maybeSingle();
-
-      if (storeRow?.payload?.roster && Array.isArray(storeRow.payload.roster)) {
-        found = storeRow.payload.roster.find(s =>
-          (s.registration_number && s.registration_number.toUpperCase() === cleanReg) ||
-          (s.registration_number && s.registration_number.replace(/[^a-zA-Z0-9]/g, '') === cleanReg.replace(/[^a-zA-Z0-9]/g, ''))
-        );
-      }
-    } catch (_) {}
-  }
 
   // 3. Try Supabase profiles table
   if (!found && supabase) {
@@ -203,21 +183,6 @@ async function getAccreditationRecord(electionId, registrationNumber) {
     } catch (_) {}
   }
 
-  // Fallback to store_electra_accreditations_db in id_card_settings
-  if (supabase) {
-    try {
-      const { data: row } = await supabase
-        .from('id_card_settings')
-        .select('academic_session')
-        .eq('id', ACCREDITATION_STORE_KEY)
-        .maybeSingle();
-
-      if (row?.academic_session) {
-        const list = JSON.parse(row.academic_session);
-        return list.find(a => a.election_id === electionId && a.registration_number === cleanReg) || null;
-      }
-    } catch (_) {}
-  }
 
   return null;
 }
@@ -356,36 +321,6 @@ async function saveAccreditationRecord(record) {
     } catch (_) {}
   }
 
-  // Synchronize snapshot in id_card_settings for resilience
-  if (supabase) {
-    try {
-      const { data: row } = await supabase
-        .from('id_card_settings')
-        .select('academic_session')
-        .eq('id', ACCREDITATION_STORE_KEY)
-        .maybeSingle();
-
-      let list = [];
-      if (row?.academic_session) {
-        try { list = JSON.parse(row.academic_session); } catch (_) {}
-      }
-
-      const idx = list.findIndex(a => a.election_id === record.election_id && a.registration_number === record.registration_number);
-      if (idx >= 0) {
-        list[idx] = fullRecord;
-      } else {
-        list.push(fullRecord);
-      }
-
-      await supabase.from('id_card_settings').upsert({
-        id: ACCREDITATION_STORE_KEY,
-        academic_session: JSON.stringify(list),
-        updated_at: now
-      });
-    } catch (e) {
-      console.warn('[Electra Auth] sync accreditation snapshot warning:', e.message);
-    }
-  }
 
   return fullRecord;
 }
@@ -405,20 +340,6 @@ async function getVoterVotesForElection(electionId, voterReg) {
     } catch (_) {}
   }
 
-  if (supabase) {
-    try {
-      const { data: row } = await supabase
-        .from('id_card_settings')
-        .select('academic_session')
-        .eq('id', VOTES_STORE_KEY)
-        .maybeSingle();
-
-      if (row?.academic_session) {
-        const list = JSON.parse(row.academic_session);
-        return list.filter(v => v.election_id === electionId && v.voter_registration_number === cleanReg);
-      }
-    } catch (_) {}
-  }
 
   return [];
 }
@@ -500,28 +421,6 @@ async function recordElectoralVotesAtomic(voteRecords, candidateIdMap, electionI
     }
   }
 
-  // 2. Synchronize votes archive in id_card_settings
-  if (supabase) {
-    try {
-      const { data: row } = await supabase
-        .from('id_card_settings')
-        .select('academic_session')
-        .eq('id', VOTES_STORE_KEY)
-        .maybeSingle();
-
-      let existing = [];
-      if (row?.academic_session) {
-        try { existing = JSON.parse(row.academic_session); } catch (_) {}
-      }
-      existing.push(...voteRecords);
-
-      await supabase.from('id_card_settings').upsert({
-        id: VOTES_STORE_KEY,
-        academic_session: JSON.stringify(existing),
-        updated_at: now
-      });
-    } catch (_) {}
-  }
 
   // 3. Atomically update official aggregated counts in electra_election_results and store_electra_contestants
   const updates = [];
@@ -1233,22 +1132,7 @@ export async function handleGetAuthoritativeResults({ electionId }) {
         .select('student_level, status')
         .eq('election_id', targetElectionId);
 
-      let list = accList || [];
-      if (list.length === 0) {
-        // Check fallback storage in id_card_settings
-        const { data: row } = await supabase
-          .from('id_card_settings')
-          .select('academic_session')
-          .eq('id', ACCREDITATION_STORE_KEY)
-          .maybeSingle();
-
-        if (row?.academic_session) {
-          try {
-            const parsed = JSON.parse(row.academic_session);
-            list = (parsed || []).filter(a => a.election_id === targetElectionId);
-          } catch (_) {}
-        }
-      }
+      const list = accList || [];
 
       list.forEach(a => {
         const rawLvl = a.student_level || '';

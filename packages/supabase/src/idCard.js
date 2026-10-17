@@ -1207,6 +1207,48 @@ export async function submitIdApplication(applicationId, passportUrlOverride = n
 }
 
 /**
+ * PORTAL ADMIN: Ultra-lightweight status counts for dashboard metrics (zero payload egress)
+ */
+export async function portalAdminGetApplicationStats() {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('id_card_applications')
+        .select('status');
+
+      if (!error && Array.isArray(data)) {
+        const approved = data.filter(c => ['APPROVED', 'GENERATED'].includes(String(c.status).toUpperCase())).length;
+        const rejected = data.filter(c => ['REJECTED', 'REVOKED'].includes(String(c.status).toUpperCase())).length;
+        const generated = data.filter(c => String(c.status).toUpperCase() === 'GENERATED').length;
+        const pending = data.filter(c => ['PENDING', 'SUBMITTED', 'PENDING_PAYMENT', 'PHOTO_REQUIRED', 'READY_TO_SUBMIT', 'PROCESSING', 'DRAFT'].includes(String(c.status).toUpperCase())).length;
+        return {
+          total: data.length,
+          approved,
+          rejected,
+          generated,
+          pending
+        };
+      }
+    } catch (e) {
+      console.warn('portalAdminGetApplicationStats error:', e);
+    }
+  }
+
+  const apps = getLocalIdApplicationsDatabase();
+  const approved = apps.filter(c => ['APPROVED', 'GENERATED'].includes(String(c.status).toUpperCase())).length;
+  const rejected = apps.filter(c => ['REJECTED', 'REVOKED'].includes(String(c.status).toUpperCase())).length;
+  const generated = apps.filter(c => String(c.status).toUpperCase() === 'GENERATED').length;
+  const pending = apps.filter(c => ['PENDING', 'SUBMITTED', 'PENDING_PAYMENT', 'PHOTO_REQUIRED', 'READY_TO_SUBMIT', 'PROCESSING', 'DRAFT'].includes(String(c.status).toUpperCase())).length;
+  return {
+    total: apps.length,
+    approved,
+    rejected,
+    generated,
+    pending
+  };
+}
+
+/**
  * PORTAL ADMIN: Retrieve all ID card applications with student details
  */
 export async function portalAdminGetApplications(options = {}) {
@@ -1222,6 +1264,15 @@ export async function portalAdminGetApplications(options = {}) {
 
     if (status && status !== 'ALL') {
       query = query.eq('status', status);
+    }
+
+    if (search && typeof search === 'string' && search.trim()) {
+      const cleanSearch = search.trim();
+      query = query.or(`matric_number.ilike.%${cleanSearch}%,registration_number.ilike.%${cleanSearch}%,full_name.ilike.%${cleanSearch}%`);
+    }
+
+    if (options?.limit && Number.isInteger(options.limit)) {
+      query = query.limit(options.limit);
     }
 
     const { data, error } = await query;

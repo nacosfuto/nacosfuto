@@ -737,9 +737,8 @@ export async function adminGetAllVerifiedStudents() {
         return allProfs;
       };
 
-      const [vsRecords, idSettingsRes, profsRecords] = await Promise.all([
+      const [vsRecords, profsRecords] = await Promise.all([
         fetchAllVerifiedRecords(),
-        Promise.resolve(supabase.from('id_card_settings').select('payload').eq('id', 'store_verified_roster').maybeSingle()).catch(() => ({ data: null })),
         fetchAllProfileRegs()
       ]);
 
@@ -750,14 +749,24 @@ export async function adminGetAllVerifiedStudents() {
             map.set(s.registration_number.toUpperCase(), { ...s });
           }
         });
-      } else if (idSettingsRes?.data?.payload?.roster && Array.isArray(idSettingsRes.data.payload.roster)) {
+      } else {
         // Fallback only if verified_students query returned no rows
-        idSettingsRes.data.payload.roster.forEach(s => {
-          const reg = s.registration_number?.toUpperCase();
-          if (reg && !map.has(reg)) {
-            map.set(reg, { ...s });
+        try {
+          const { data: idSettingsRow } = await supabase
+            .from('id_card_settings')
+            .select('payload')
+            .eq('id', 'store_verified_roster')
+            .maybeSingle();
+
+          if (idSettingsRow?.payload?.roster && Array.isArray(idSettingsRow.payload.roster)) {
+            idSettingsRow.payload.roster.forEach(s => {
+              const reg = s.registration_number?.toUpperCase();
+              if (reg && !map.has(reg)) {
+                map.set(reg, { ...s });
+              }
+            });
           }
-        });
+        } catch (_) {}
       }
 
       const registeredRegs = new Set(

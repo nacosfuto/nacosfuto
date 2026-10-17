@@ -396,21 +396,29 @@ export async function updatePaymentFee(feeKey, amount, label = '', session = nul
 }
 
 /**
- * Authoritatively fetch all dues payments from Supabase payments ledger
+ * Authoritatively fetch dues payments from Supabase payments ledger (optionally scoped to an academic session)
  */
-export async function adminGetAllDuesPayments() {
+export async function adminGetAllDuesPayments(session = null) {
   if (!supabase) return [];
   try {
     let allDues = [];
     let page = 0;
     const pageSize = 1000;
+    const targetSession = session && typeof session === 'object' ? session.sessionName : session;
+
     while (true) {
-      const { data, error } = await supabase
+      let query = supabase
         .from('payments')
         .select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, updated_at, metadata, academic_session, level')
         .eq('payment_type', 'DEPARTMENTAL_DUES')
-        .order('created_at', { ascending: false })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+        .order('created_at', { ascending: false });
+
+      if (targetSession && typeof targetSession === 'string') {
+        const cleanSession = targetSession.trim();
+        query = query.or(`academic_session.eq.${cleanSession},metadata->>academic_session.eq.${cleanSession}`);
+      }
+
+      const { data, error } = await query.range(page * pageSize, (page + 1) * pageSize - 1);
 
       if (error) {
         console.warn('[Dues Payments Ledger Fetch Warning]:', error.message);

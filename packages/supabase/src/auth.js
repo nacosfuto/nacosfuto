@@ -684,6 +684,41 @@ export async function adminGetStudentsCount() {
 }
 
 /**
+ * Lightweight demographic profile records (id, registration_number, matric_number, level, admission_year)
+ * Used by admin dashboards to compute level distribution without downloading full profiles.
+ */
+export async function adminGetStudentDemographics() {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, registration_number, matric_number, level, admission_year')
+        .order('registration_number', { ascending: true });
+
+      if (!error && Array.isArray(data)) {
+        return data;
+      }
+    } catch (e) {
+      console.warn('adminGetStudentDemographics error:', e);
+    }
+  }
+
+  try {
+    const cached = getLocalStudentsDatabase();
+    if (Array.isArray(cached)) {
+      return cached.filter(s => s.is_active !== false).map(s => ({
+        id: s.id,
+        registration_number: s.registration_number,
+        matric_number: s.matric_number || s.matricNumber,
+        level: s.level,
+        admission_year: s.admission_year || s.entry_year
+      }));
+    }
+  } catch (_) {}
+  return [];
+}
+
+/**
  * Allow a student to update their personal profile info (gender, phone, address, dob, bio, zone).
  * Persists directly to Supabase profiles (and verified_students) as well as the client session.
  */
