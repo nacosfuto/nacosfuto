@@ -79,7 +79,7 @@ const Footer = () => {
               </div>
               <div className="flex items-center gap-3">
                 <FaEnvelope className="text-green-400 flex-shrink-0" />
-                <a href="mailto:support@nacosfuto.com.ng" className="text-white hover:text-[#4bd043] transition-colors">support@nacosfuto.com.ng</a>
+                <a href="mailto:hello@nacosfuto.com.ng" className="text-white hover:text-[#4bd043] transition-colors">hello@nacosfuto.com.ng</a>
               </div>
               <div className="flex items-center gap-3">
                 <FaPhone className="text-green-400 flex-shrink-0" />

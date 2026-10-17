@@ -92,7 +92,7 @@ export function buildBaseEmailLayout({ title, preheader, contentHtml }) {
                 NACOS FUTO &bull; Department of Computer Science
               </p>
               <p style="color: #94a3b8; margin: 0; font-size: 11px; line-height: 1.5;">
-                Federal University of Technology, Owerri &bull; <a href="mailto:support@nacosfuto.com.ng" style="color: #16a34a; text-decoration: underline;">support@nacosfuto.com.ng</a>
+                Federal University of Technology, Owerri &bull; <a href="mailto:hello@nacosfuto.com.ng" style="color: #16a34a; text-decoration: underline;">hello@nacosfuto.com.ng</a>
               </p>
             </td>
           </tr>

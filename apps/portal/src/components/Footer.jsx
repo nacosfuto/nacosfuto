@@ -55,7 +55,7 @@ const Footer = () => {
               <li><a href={getAppUrls().adminHub} className="hover:text-[#4bd043] transition-colors">Admin Command Center</a></li>
               <li><Link to="/hackathons/BuildXNACOS" className="hover:text-[#4bd043] transition-colors">BUILDX Hackathon Hub</Link></li>
               <li><Link to="/hackathons/BuildXNACOS/apply" className="hover:text-[#4bd043] transition-colors">Team Application</Link></li>
-              <li><a href="mailto:support@nacosfuto.com.ng" className="hover:text-[#4bd043] transition-colors">Secretariat Support</a></li>
+              <li><a href="mailto:hello@nacosfuto.com.ng" className="hover:text-[#4bd043] transition-colors">Secretariat Support</a></li>
             </ul>
           </div>
 
@@ -69,7 +69,7 @@ const Footer = () => {
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-[#4bd043] shrink-0" />
-                <span>support@nacosfuto.com.ng</span>
+                <span>hello@nacosfuto.com.ng</span>
               </li>
               <li className="flex items-center gap-2">
                 <Globe className="w-4 h-4 text-[#4bd043] shrink-0" />

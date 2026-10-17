@@ -50,7 +50,7 @@ const Contact = () => {
     {
       icon: <FiMail className="text-[#138601] dark:text-[#4bd043] text-2xl" />,
       title: "Email Inquiries",
-      info: "support@nacosfuto.com.ng",
+      info: "hello@nacosfuto.com.ng",
     },
     {
       icon: <FiPhone className="text-[#138601] dark:text-[#4bd043] text-2xl" />,

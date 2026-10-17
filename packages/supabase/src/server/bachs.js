@@ -473,7 +473,7 @@ export async function createPaymentCheckout({
   const regNo = (student?.registration_number || student?.matric_number || student?.matric || student?.regNo || customer?.registration_number || customer?.regNo || '').trim();
   const studentId = String(student?.id || customer?.id || regNo || `cust_${Date.now()}`);
   const customerName = (student?.full_name || student?.name || customer?.name || customer?.full_name || `${customer?.first_name || ''} ${customer?.last_name || ''}`).trim() || 'Student / Customer';
-  const customerEmail = (student?.email || customer?.email || (regNo ? `${regNo.toLowerCase()}@futo.edu.ng` : 'support@nacosfuto.com.ng')).trim();
+  const customerEmail = (student?.email || customer?.email || (regNo ? `${regNo.toLowerCase()}@futo.edu.ng` : 'hello@nacosfuto.com.ng')).trim();
   const customerPhone = (student?.phone_number || student?.phone || customer?.phone || '').trim();
 
   // 1b. Determine authoritative session and progressive level
