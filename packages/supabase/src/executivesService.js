@@ -194,7 +194,6 @@ export async function fetchExecutivesFromSupabase() {
         const parsedSet = JSON.parse(setRow.academic_session);
         if (typeof window !== 'undefined') {
           localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(parsedSet));
-          window.dispatchEvent(new Event('nacos_executives_settings_updated'));
         }
       } catch (_) {}
     } else {
@@ -214,7 +213,6 @@ export async function fetchExecutivesFromSupabase() {
         };
         if (typeof window !== 'undefined') {
           localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(parsedSet));
-          window.dispatchEvent(new Event('nacos_executives_settings_updated'));
         }
       }
     }
@@ -222,7 +220,6 @@ export async function fetchExecutivesFromSupabase() {
     if (resultList.length > 0) {
       if (typeof window !== 'undefined') {
         localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(resultList));
-        window.dispatchEvent(new Event('nacos_executives_updated'));
       }
       return resultList;
     }

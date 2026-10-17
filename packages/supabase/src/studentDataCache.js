@@ -21,8 +21,10 @@ import {
   getStudentApplicableLevelSessions 
 } from '@nacos/config/academic';
 
-const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes fresh cache window
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes fresh cache window
 const SESSION_CACHE_PREFIX = 'nacos_cache_student_clearance_';
+
+const isUuid = (val) => typeof val === 'string' && /^[0-9a-fA-F-]{36}$/.test(val.trim());
 
 // In-memory cache map
 const memoryCache = new Map();
@@ -147,7 +149,7 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
               addCond('registration_number', strippedDigits);
               addCond('matric_number', strippedDigits);
             }
-            if (userId && !String(userId).startsWith('student-')) {
+            if (userId && isUuid(userId)) {
               addCond('student_id', userId);
             }
             if (student?.email) {
@@ -174,7 +176,7 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
             if (strippedDigits && strippedDigits !== cleanMatric) {
               appConds.push(`registration_number.eq.${strippedDigits}`);
             }
-            if (userId && !String(userId).startsWith('student-')) {
+            if (userId && isUuid(userId)) {
               appConds.push(`student_id.eq.${userId}`);
             }
             if (appConds.length === 0) return [];
@@ -197,12 +199,12 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
             const duesConds = [];
             if (cleanMatric) duesConds.push(`registration_number.eq.${cleanMatric}`);
             if (strippedDigits && strippedDigits !== cleanMatric) duesConds.push(`registration_number.eq.${strippedDigits}`);
-            if (userId && !String(userId).startsWith('student-')) duesConds.push(`student_id.eq.${userId}`);
+            if (userId && isUuid(userId)) duesConds.push(`student_id.eq.${userId}`);
             if (duesConds.length === 0) return [];
 
             const { data } = await supabase
               .from('dues_payments')
-              .select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, payment_date, created_at')
+              .select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, paid_at, created_at')
               .or(duesConds.join(','))
               .in('status', ['successful', 'verified', 'cleared', 'paid']);
             return data || [];
@@ -222,7 +224,7 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
             }
             const { data } = await supabase
               .from('departmental_dues')
-              .select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, payment_date, created_at')
+              .select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, paid_at, created_at')
               .or(deptConds.join(','))
               .in('status', ['paid', 'verified', 'cleared', 'successful']);
             return data || [];
@@ -244,7 +246,7 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
               pConds.push(`registration_number.eq.${strippedDigits}`);
               pConds.push(`matric_number.eq.${strippedDigits}`);
             }
-            if (userId && !String(userId).startsWith('student-')) {
+            if (userId && isUuid(userId)) {
               pConds.push(`id.eq.${userId}`);
             }
             if (pConds.length === 0) return null;

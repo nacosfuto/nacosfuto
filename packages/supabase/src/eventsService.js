@@ -54,11 +54,13 @@ export function getEvents({ category = 'all', publishedOnly = false } = {}) {
 /**
  * Save updated events array locally and dispatch event
  */
-export function saveLocalEvents(events) {
+export function saveLocalEvents(events, { notify = true } = {}) {
   if (typeof window === 'undefined') return;
   const normalized = events.map(normalizeEvent);
   localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(normalized));
-  window.dispatchEvent(new Event('nacos_website_events_updated'));
+  if (notify) {
+    window.dispatchEvent(new Event('nacos_website_events_updated'));
+  }
 }
 
 /**
@@ -78,7 +80,7 @@ export async function fetchEventsFromSupabase() {
         try {
           const parsed = JSON.parse(storeRow.academic_session);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            saveLocalEvents(parsed);
+            saveLocalEvents(parsed, { notify: false });
             return parsed;
           }
         } catch (e) {}
@@ -113,7 +115,7 @@ export async function fetchEventsFromSupabase() {
           const localInitials = INITIAL_EVENTS.map(normalizeEvent).filter(e => !remoteSlugs.has(e.slug || e.id));
           const merged = [...parsedEvents, ...localInitials];
 
-          saveLocalEvents(merged);
+          saveLocalEvents(merged, { notify: false });
           return merged;
         }
       }
@@ -146,7 +148,7 @@ export async function fetchEventsFromSupabase() {
         const remoteSlugs = new Set(mapped.map(m => m.slug || m.id));
         const merged = [...mapped, ...local.filter(l => !remoteSlugs.has(l.slug || l.id))];
 
-        saveLocalEvents(merged);
+        saveLocalEvents(merged, { notify: false });
         return merged;
       }
     }

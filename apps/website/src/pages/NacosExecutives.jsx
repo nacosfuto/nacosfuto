@@ -64,7 +64,7 @@ const NacosExecutives = () => {
     fetchExecutivesFromSupabase().then((live) => loadData(live)).catch(() => {});
 
     const handleExecutivesUpdate = () => {
-      fetchExecutivesFromSupabase().then((live) => loadData(live)).catch(() => loadData());
+      loadData();
     };
 
     const handleSettingsUpdate = () => {

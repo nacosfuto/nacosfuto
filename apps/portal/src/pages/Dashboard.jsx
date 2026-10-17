@@ -137,7 +137,7 @@ const Dashboard = () => {
       let query = supabase.from('profiles').select('id, full_name, first_name, middle_name, last_name, surname, email, phone_number, registration_number, matric_number, department, faculty, programme, programme_duration, admission_year, role, is_active, status, gender, date_of_birth, residential_address, bio, zone, cloudinary_public_id, photo_url, photo_alt, created_at, updated_at').limit(1);
 
       const filterConditions = [];
-      if (userId && !String(userId).startsWith('student-')) {
+      if (userId && /^[0-9a-fA-F-]{36}$/.test(userId)) {
         filterConditions.push(`id.eq.${userId}`);
       }
       if (cleanReg) {

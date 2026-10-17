@@ -61,11 +61,13 @@ export function getLocalNewsArticles({ publishedOnly = false, category = 'all' }
   }
 }
 
-export function saveLocalNewsArticles(articles) {
+export function saveLocalNewsArticles(articles, { notify = true } = {}) {
   if (typeof window === 'undefined') return;
   const normalized = articles.map(normalizeArticle);
   localStorage.setItem(NEWS_STORAGE_KEY, JSON.stringify(normalized));
-  window.dispatchEvent(new Event('nacos_website_articles_updated'));
+  if (notify) {
+    window.dispatchEvent(new Event('nacos_website_articles_updated'));
+  }
 }
 
 export async function fetchNewsArticles({ publishedOnly = true, category = 'all' } = {}) {
@@ -83,7 +85,7 @@ export async function fetchNewsArticles({ publishedOnly = true, category = 'all'
         try {
           const parsed = JSON.parse(storeRow.academic_session);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            saveLocalNewsArticles(parsed);
+            saveLocalNewsArticles(parsed, { notify: false });
             let result = parsed;
             if (publishedOnly) result = result.filter(a => a.is_published);
             if (category !== 'all') result = result.filter(a => a.category === category);
@@ -121,7 +123,7 @@ export async function fetchNewsArticles({ publishedOnly = true, category = 'all'
           const localInitials = INITIAL_NEWS_ARTICLES.map(normalizeArticle).filter(a => !remoteKeys.has(a.slug || a.id));
           const merged = [...parsedArticles, ...localInitials];
 
-          saveLocalNewsArticles(merged);
+          saveLocalNewsArticles(merged, { notify: false });
 
           let result = merged;
           if (publishedOnly) result = result.filter(a => a.is_published);
@@ -145,7 +147,7 @@ export async function fetchNewsArticles({ publishedOnly = true, category = 'all'
         const remoteSlugs = new Set(mapped.map(m => m.slug || m.id));
         const merged = [...mapped, ...local.filter(l => !remoteSlugs.has(l.slug || l.id))];
 
-        saveLocalNewsArticles(merged);
+        saveLocalNewsArticles(merged, { notify: false });
         
         let result = merged;
         if (publishedOnly) result = result.filter(a => a.is_published);

@@ -154,8 +154,11 @@ export default function LiveResultsPage() {
     }, 1200);
 
     // 3. Tab Visibility Reconciliation (handles devices waking up or background tabs returning)
+    let lastVisibilityCheck = Date.now();
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      const now = Date.now();
+      if (document.visibilityState === 'visible' && now - lastVisibilityCheck > 15000) {
+        lastVisibilityCheck = now;
         fetchAuthoritative();
       }
     };

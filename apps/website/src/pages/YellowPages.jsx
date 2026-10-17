@@ -85,24 +85,33 @@ const YellowPages = () => {
 
   const loadBusinesses = async () => {
     try {
+      const local = getYellowPagesBusinesses('approved');
+      if (local && local.length > 0) {
+        setBusinesses(local);
+      }
       const remote = await fetchYellowPagesFromSupabase('approved');
       if (Array.isArray(remote)) {
         setBusinesses(remote);
       } else {
-        const local = getYellowPagesBusinesses('approved');
-        setBusinesses(local || []);
+        setBusinesses(getYellowPagesBusinesses('approved') || []);
       }
     } catch (e) {
-      const local = getYellowPagesBusinesses('approved');
-      setBusinesses(local || []);
+      setBusinesses(getYellowPagesBusinesses('approved') || []);
     }
   };
 
   useEffect(() => {
     loadBusinesses();
-    const handleUpdate = () => loadBusinesses();
+    const handleUpdate = () => {
+      const local = getYellowPagesBusinesses('approved');
+      setBusinesses(local || []);
+    };
     window.addEventListener('nacos_yellow_pages_updated', handleUpdate);
-    return () => window.removeEventListener('nacos_yellow_pages_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('nacos_yellow_pages_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, []);
 
   // New Business Form State

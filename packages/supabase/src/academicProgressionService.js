@@ -187,16 +187,19 @@ export function initAcademicSessionSync() {
     } catch (_) {}
   }
 
-  // 4. Re-sync on focus/visibility change
-  window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      fetchAcademicSessionsFromDatabase();
+  // 4. Re-sync on focus/visibility change (with 60-second cooldown guard)
+  let lastSessionSync = Date.now();
+  const handleThrottledSync = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      if (Date.now() - lastSessionSync > 60000) {
+        lastSessionSync = Date.now();
+        fetchAcademicSessionsFromDatabase();
+      }
     }
-  });
+  };
 
-  window.addEventListener('focus', () => {
-    fetchAcademicSessionsFromDatabase();
-  });
+  window.addEventListener('visibilitychange', handleThrottledSync);
+  window.addEventListener('focus', handleThrottledSync);
 
   // 5. Automatically re-enrich local user profile when active academic session changes
   onAcademicSessionChange(({ sessionName }) => {

@@ -17,6 +17,8 @@ export const AUTH_PROFILE_FIELDS = 'id, first_name, middle_name, last_name, full
 
 export const AUTH_VERIFIED_FIELDS = 'id, registration_number, full_name, email, phone_number, department, faculty, level, admission_year, programme, programme_duration, academic_session, status, has_registered, is_registered, auth_user_id, registered_at, created_at, updated_at, first_name, last_name, surname, middle_name, cloudinary_public_id, photo_url';
 
+const isUuid = (val) => typeof val === 'string' && /^[0-9a-fA-F-]{36}$/.test(val.trim());
+
 /**
  * Cryptographic password hasher (SHA-256 with project salt)
  * Ensures passwords are never stored or transmitted in plain text.
@@ -688,6 +690,10 @@ export async function adminGetStudentsCount() {
 export async function updateStudentProfile(identifier, updates = {}) {
   if (!identifier) return { data: null, error: { message: 'Missing identifier' } };
   const cleanId = String(identifier).trim().toUpperCase();
+  const isIdentifierUuid = isUuid(identifier);
+  const profileOrConds = [`registration_number.eq.${cleanId}`, `matric_number.eq.${cleanId}`];
+  if (isIdentifierUuid) profileOrConds.push(`id.eq.${identifier}`);
+  const profileOrFilter = profileOrConds.join(',');
 
   let currentRecord = null;
   if (supabase) {
@@ -695,7 +701,7 @@ export async function updateStudentProfile(identifier, updates = {}) {
       const { data } = await supabase
         .from('profiles')
         .select(AUTH_PROFILE_FIELDS)
-        .or(`registration_number.eq.${cleanId},matric_number.eq.${cleanId},id.eq.${identifier}`)
+        .or(profileOrFilter)
         .maybeSingle();
       if (data) currentRecord = data;
     } catch (_) {}
@@ -742,14 +748,14 @@ export async function updateStudentProfile(identifier, updates = {}) {
       const { error: directErr } = await supabase
         .from('profiles')
         .update(fullPayload)
-        .or(`registration_number.eq.${cleanId},matric_number.eq.${cleanId},id.eq.${identifier}`);
+        .or(profileOrFilter);
 
       if (directErr && directErr.message?.includes('gender')) {
         // Fallback without direct gender column, safely persisted in photo_alt metadata
         await supabase
           .from('profiles')
           .update(payload)
-          .or(`registration_number.eq.${cleanId},matric_number.eq.${cleanId},id.eq.${identifier}`);
+          .or(profileOrFilter);
       }
 
       // Also sync to verified_students if possible
@@ -1313,44 +1319,55 @@ export async function adminRevokeStudentDues(identifier, reason = 'Administrativ
   const cleanId = String(identifier).trim().toUpperCase();
 
   // 1. Update Supabase profiles table
+  const isCleanIdUuid = isUuid(cleanId);
   try {
-    await supabase
-      .from('profiles')
-      .update({
-        dues_cleared: false,
-        has_paid_dues: false,
-        payment_status: 'revoked',
-        dues_revoked_at: new Date().toISOString(),
-        dues_revocation_reason: reason,
-        updated_at: new Date().toISOString()
-      })
-      .or(`registration_number.eq.${cleanId},id.eq.${cleanId}`);
+    let pUpdate = supabase.from('profiles').update({
+      dues_cleared: false,
+      has_paid_dues: false,
+      payment_status: 'revoked',
+      dues_revoked_at: new Date().toISOString(),
+      dues_revocation_reason: reason,
+      updated_at: new Date().toISOString()
+    });
+    if (isCleanIdUuid) {
+      await pUpdate.or(`registration_number.eq.${cleanId},id.eq.${cleanId}`);
+    } else {
+      await pUpdate.eq('registration_number', cleanId);
+    }
   } catch (err) {
     console.warn('Supabase profiles dues revoke error:', err);
   }
 
   // 2. Mark corresponding dues payments as revoked
   try {
-    await supabase
+    let payUpdate = supabase
       .from('payments')
       .update({
         status: 'revoked',
         updated_at: new Date().toISOString()
       })
-      .eq('payment_type', 'DEPARTMENTAL_DUES')
-      .or(`registration_number.eq.${cleanId},student_id.eq.${cleanId}`);
+      .eq('payment_type', 'DEPARTMENTAL_DUES');
+    if (isCleanIdUuid) {
+      await payUpdate.or(`registration_number.eq.${cleanId},student_id.eq.${cleanId}`);
+    } else {
+      await payUpdate.eq('registration_number', cleanId);
+    }
   } catch (err) {
     console.warn('Supabase payments dues revoke error:', err);
   }
 
   try {
-    await supabase
+    let duesUpdate = supabase
       .from('dues_payments')
       .update({
         status: 'revoked',
         updated_at: new Date().toISOString()
-      })
-      .or(`student_id.eq.${cleanId},matric_number.eq.${cleanId}`);
+      });
+    if (isCleanIdUuid) {
+      await duesUpdate.or(`student_id.eq.${cleanId},registration_number.eq.${cleanId}`);
+    } else {
+      await duesUpdate.eq('registration_number', cleanId);
+    }
   } catch (err) {
     console.warn('Supabase dues_payments revoke error:', err);
   }
@@ -1406,7 +1423,7 @@ export async function adminRevokeStudentIdCard(identifier, reason = 'Administrat
 
   // 1. Update Supabase id_card_applications
   try {
-    await supabase
+    let idAppUpdate = supabase
       .from('id_card_applications')
       .update({
         status: 'revoked',
@@ -1415,22 +1432,28 @@ export async function adminRevokeStudentIdCard(identifier, reason = 'Administrat
         revoked_at: new Date().toISOString(),
         reviewed_by: adminUser?.id || 'admin-portal',
         updated_at: new Date().toISOString()
-      })
-      .or(`matric_number.eq.${cleanId},user_id.eq.${cleanId},id.eq.${cleanId}`);
+      });
+    const idAppOrs = [`registration_number.eq.${cleanId}`, `matric_number.eq.${cleanId}`];
+    if (isCleanIdUuid) idAppOrs.push(`id.eq.${cleanId}`, `student_id.eq.${cleanId}`);
+    await idAppUpdate.or(idAppOrs.join(','));
   } catch (err) {
     console.warn('Supabase id_card_applications revoke error:', err);
   }
 
   // 2. Mark payments for ID card as revoked
   try {
-    await supabase
+    let payIdUpdate = supabase
       .from('payments')
       .update({
         status: 'revoked',
         updated_at: new Date().toISOString()
       })
-      .eq('payment_type', 'ID_CARD')
-      .or(`registration_number.eq.${cleanId},student_id.eq.${cleanId}`);
+      .eq('payment_type', 'ID_CARD');
+    if (isCleanIdUuid) {
+      await payIdUpdate.or(`registration_number.eq.${cleanId},student_id.eq.${cleanId}`);
+    } else {
+      await payIdUpdate.eq('registration_number', cleanId);
+    }
   } catch (err) {
     console.warn('Supabase payments id card revoke error:', err);
   }
@@ -1478,10 +1501,12 @@ export async function adminResetStudentRegistration(identifier, adminUser = null
 
   // 2. Remove from profiles table so they can re-register without unique constraint collision
   try {
-    await supabase
-      .from('profiles')
-      .delete()
-      .or(`registration_number.eq.${cleanId},id.eq.${cleanId}`);
+    let delProf = supabase.from('profiles').delete();
+    if (isCleanIdUuid) {
+      await delProf.or(`registration_number.eq.${cleanId},id.eq.${cleanId}`);
+    } else {
+      await delProf.eq('registration_number', cleanId);
+    }
   } catch (err) {
     console.warn('Supabase delete profile error:', err);
   }
@@ -1707,10 +1732,12 @@ export async function adminMarkStudentGraduation(identifier, graduationYear = ne
 
   // 1. Supabase profiles
   try {
-    await supabase
-      .from('profiles')
-      .update(updates)
-      .or(`registration_number.eq.${cleanId},id.eq.${cleanId}`);
+    let gradProf = supabase.from('profiles').update(updates);
+    if (isCleanIdUuid) {
+      await gradProf.or(`registration_number.eq.${cleanId},id.eq.${cleanId}`);
+    } else {
+      await gradProf.eq('registration_number', cleanId);
+    }
   } catch (err) {
     console.warn('Supabase graduation update error:', err);
   }

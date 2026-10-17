@@ -353,7 +353,7 @@ const Dues = () => {
         addFilter('registration_number', strippedDigits);
         addFilter('matric_number', strippedDigits);
       }
-      if (userId && !String(userId).startsWith('student-')) {
+      if (userId && /^[0-9a-fA-F-]{36}$/.test(userId)) {
         addFilter('student_id', userId);
       }
       if (currentUser?.email) {
@@ -363,7 +363,7 @@ const Dues = () => {
       const duesFilters = [];
       if (cleanMatric) duesFilters.push(`registration_number.eq.${cleanMatric}`);
       if (strippedDigits && strippedDigits !== cleanMatric) duesFilters.push(`registration_number.eq.${strippedDigits}`);
-      if (userId && !String(userId).startsWith('student-')) duesFilters.push(`student_id.eq.${userId}`);
+      if (userId && /^[0-9a-fA-F-]{36}$/.test(userId)) duesFilters.push(`student_id.eq.${userId}`);
 
       // Departmental dues table only has registration_number column (not matric_number)
       const deptFilters = [];
@@ -389,14 +389,14 @@ const Dues = () => {
 
         supabase && duesFilters.length > 0
           ? withTimeout(
-              supabase.from('dues_payments').select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, payment_date, created_at').or(duesFilters.join(',')),
+              supabase.from('dues_payments').select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, paid_at, created_at').or(duesFilters.join(',')),
               6000
             ).catch(err => { console.warn('Legacy dues check notice:', err); return { data: [] }; })
           : Promise.resolve({ data: [] }),
 
         supabase && deptFilters.length > 0
           ? withTimeout(
-              supabase.from('departmental_dues').select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, payment_date, created_at').or(deptFilters.join(',')),
+              supabase.from('departmental_dues').select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, paid_at, created_at').or(deptFilters.join(',')),
               6000
             ).catch(err => { console.warn('Dept dues check notice:', err); return { data: [] }; })
           : Promise.resolve({ data: [] })
@@ -633,13 +633,13 @@ const Dues = () => {
         console.warn('Cross-tab sync poll error:', err);
       }
 
-      if (attempts > 60) {
+      if (attempts >= 20) {
         clearInterval(pollTimerRef.current);
         setIsAwaitingGateway(false);
       }
     };
 
-    pollTimerRef.current = setInterval(checkPayment, 2500);
+    pollTimerRef.current = setInterval(checkPayment, 5000);
   };
 
   useEffect(() => {

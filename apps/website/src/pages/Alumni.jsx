@@ -54,22 +54,27 @@ const Alumni = () => {
 
   const loadAlumni = async () => {
     try {
+      const local = getAlumniDirectory('approved');
+      if (local && local.length > 0) {
+        setAlumniList(local);
+      }
       const remote = await fetchAlumniFromSupabase('approved');
       if (Array.isArray(remote)) {
         setAlumniList(remote);
       } else {
-        const local = getAlumniDirectory('approved');
-        setAlumniList(local || []);
+        setAlumniList(getAlumniDirectory('approved') || []);
       }
     } catch (e) {
-      const local = getAlumniDirectory('approved');
-      setAlumniList(local || []);
+      setAlumniList(getAlumniDirectory('approved') || []);
     }
   };
 
   useEffect(() => {
     loadAlumni();
-    const handleUpdate = () => loadAlumni();
+    const handleUpdate = () => {
+      const local = getAlumniDirectory('approved');
+      setAlumniList(local || []);
+    };
     window.addEventListener('nacos_alumni_directory_updated', handleUpdate);
     window.addEventListener('nacos_alumni_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);

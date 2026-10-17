@@ -52,7 +52,9 @@ const AdminAlumni = () => {
 
   useEffect(() => {
     loadAlumni();
-    const handleUpdate = () => loadAlumni();
+    const handleUpdate = () => {
+      setAlumni(getAlumni('all'));
+    };
     window.addEventListener('nacos_alumni_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {

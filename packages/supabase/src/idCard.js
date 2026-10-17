@@ -378,10 +378,11 @@ export async function checkStudentPaymentStatus(matricNumber, currentLevel = nul
       .eq('payment_type', 'ID_CARD')
       .eq('status', 'successful');
 
-    if (studentUuid) {
-      pQuery = pQuery.or(`registration_number.eq.${cleanMatric},student_id.eq.${studentUuid},student_id.eq.${cleanMatric}`);
+    const isStudentUuid = studentUuid && /^[0-9a-fA-F-]{36}$/.test(studentUuid);
+    if (isStudentUuid) {
+      pQuery = pQuery.or(`registration_number.eq.${cleanMatric},student_id.eq.${studentUuid}`);
     } else {
-      pQuery = pQuery.or(`registration_number.eq.${cleanMatric},student_id.eq.${cleanMatric}`);
+      pQuery = pQuery.eq('registration_number', cleanMatric);
     }
 
     const { data: allBachsPayments } = await pQuery
@@ -678,7 +679,7 @@ export async function getStudentIdApplication(matricOrId, targetLevel = null) {
     if (cleanDigits && cleanDigits !== cleanMatric) {
       conds.push(`registration_number.eq.${cleanDigits}`);
     }
-    if (studentUuid) {
+    if (studentUuid && /^[0-9a-fA-F-]{36}$/.test(studentUuid)) {
       conds.push(`student_id.eq.${studentUuid}`);
     }
     const orFilter = conds.join(',');
@@ -1011,11 +1012,17 @@ export async function savePassportToApplication(applicationId, file, student) {
       }).eq('id', updatedApp.id);
     }
 
-    await supabase.from('profiles').update({
+    const isStudentIdUuid = student?.id && /^[0-9a-fA-F-]{36}$/.test(student.id);
+    const profUpdates = {
       profile_photo_url: photoUrl,
       avatar_url: photoUrl,
       cloudinary_public_id: publicId
-    }).or(`id.eq.${student.id},registration_number.eq.${matric}`);
+    };
+    if (isStudentIdUuid) {
+      await supabase.from('profiles').update(profUpdates).or(`id.eq.${student.id},registration_number.eq.${matric}`);
+    } else {
+      await supabase.from('profiles').update(profUpdates).eq('registration_number', matric);
+    }
   } catch (e) {
     // Offline
   }

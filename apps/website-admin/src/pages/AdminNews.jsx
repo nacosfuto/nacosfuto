@@ -68,15 +68,7 @@ const AdminNews = () => {
     });
 
     const handleSync = () => {
-      fetchNewsArticles({ publishedOnly: false }).then(fetched => {
-        if (Array.isArray(fetched)) {
-          setArticles(fetched);
-        } else {
-          setArticles(getLocalNewsArticles({ publishedOnly: false }));
-        }
-      }).catch(() => {
-        setArticles(getLocalNewsArticles({ publishedOnly: false }));
-      });
+      setArticles(getLocalNewsArticles({ publishedOnly: false }));
     };
 
     window.addEventListener('nacos_website_articles_updated', handleSync);

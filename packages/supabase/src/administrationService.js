@@ -77,10 +77,12 @@ export function getLocalDepartmentStaff() {
   return INITIAL_STAFF;
 }
 
-export function saveLocalDepartmentStaff(staff) {
+export function saveLocalDepartmentStaff(staff, { notify = true } = {}) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(ADMIN_STAFF_STORAGE_KEY, JSON.stringify(staff));
-  window.dispatchEvent(new Event('nacos_department_staff_updated'));
+  if (notify) {
+    window.dispatchEvent(new Event('nacos_department_staff_updated'));
+  }
 }
 
 export async function fetchDepartmentStaff({ activeOnly = true } = {}) {
@@ -97,7 +99,7 @@ export async function fetchDepartmentStaff({ activeOnly = true } = {}) {
         try {
           const parsed = JSON.parse(storeRow.academic_session);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            saveLocalDepartmentStaff(parsed);
+            saveLocalDepartmentStaff(parsed, { notify: false });
             return activeOnly ? parsed.filter(s => s.is_active) : parsed;
           }
         } catch (e) {}
@@ -134,7 +136,7 @@ export async function fetchDepartmentStaff({ activeOnly = true } = {}) {
           const merged = [...parsedStaff, ...localInitials];
           merged.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
 
-          saveLocalDepartmentStaff(merged);
+          saveLocalDepartmentStaff(merged, { notify: false });
           return activeOnly ? merged.filter(s => s.is_active) : merged;
         }
       }
@@ -150,7 +152,7 @@ export async function fetchDepartmentStaff({ activeOnly = true } = {}) {
       }
       const { data, error } = await query;
       if (!error && data && data.length > 0) {
-        saveLocalDepartmentStaff(data);
+        saveLocalDepartmentStaff(data, { notify: false });
         return data;
       }
     }

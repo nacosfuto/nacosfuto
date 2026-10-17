@@ -57,7 +57,6 @@ export async function fetchYellowPagesFromSupabase(statusFilter = 'all') {
           if (Array.isArray(parsed) && parsed.length > 0) {
             if (typeof window !== 'undefined') {
               localStorage.setItem(YELLOW_PAGES_STORAGE_KEY, JSON.stringify(parsed));
-              window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
             }
             if (statusFilter === 'all') return parsed;
             return parsed.filter(b => b.status === statusFilter);
@@ -96,7 +95,6 @@ export async function fetchYellowPagesFromSupabase(statusFilter = 'all') {
 
           if (typeof window !== 'undefined') {
             localStorage.setItem(YELLOW_PAGES_STORAGE_KEY, JSON.stringify(merged));
-            window.dispatchEvent(new Event('nacos_yellow_pages_updated'));
           }
 
           if (statusFilter === 'all') return merged;
@@ -390,7 +388,6 @@ export async function fetchCampusClubsFromSupabase(statusFilter = 'all') {
           if (Array.isArray(parsed) && parsed.length > 0) {
             if (typeof window !== 'undefined') {
               localStorage.setItem(CAMPUS_CLUBS_STORAGE_KEY, JSON.stringify(parsed));
-              window.dispatchEvent(new Event('nacos_campus_clubs_updated'));
             }
             if (statusFilter === 'all') return parsed;
             return parsed.filter(c => c.status === statusFilter);
@@ -426,7 +423,6 @@ export async function fetchCampusClubsFromSupabase(statusFilter = 'all') {
           const merged = [...parsedClubs, ...localInitials];
           if (typeof window !== 'undefined') {
             localStorage.setItem(CAMPUS_CLUBS_STORAGE_KEY, JSON.stringify(merged));
-            window.dispatchEvent(new Event('nacos_campus_clubs_updated'));
           }
           if (statusFilter === 'all') return merged;
           return merged.filter(c => c.status === statusFilter);
@@ -625,8 +621,6 @@ export async function fetchAlumniFromSupabase(statusFilter = 'all') {
 
           if (typeof window !== 'undefined') {
             localStorage.setItem(ALUMNI_STORAGE_KEY, JSON.stringify(merged));
-            window.dispatchEvent(new Event('nacos_alumni_updated'));
-            window.dispatchEvent(new Event('nacos_alumni_directory_updated'));
           }
 
           if (statusFilter === 'all') return merged;

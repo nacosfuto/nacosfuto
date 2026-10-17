@@ -50,7 +50,9 @@ const AdminClubs = () => {
 
   useEffect(() => {
     loadClubs();
-    const handleUpdate = () => loadClubs();
+    const handleUpdate = () => {
+      setClubs(getCampusClubs('all'));
+    };
     window.addEventListener('nacos_campus_clubs_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {

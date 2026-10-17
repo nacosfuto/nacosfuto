@@ -71,7 +71,9 @@ const AdminYellowPages = () => {
 
   useEffect(() => {
     loadBusinesses();
-    const handleUpdate = () => loadBusinesses();
+    const handleUpdate = () => {
+      setBusinesses(getYellowPages('all'));
+    };
     window.addEventListener('nacos_yellow_pages_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {

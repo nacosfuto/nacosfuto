@@ -25,7 +25,7 @@ export async function fetchSpiritualFellowshipsFromSupabase(statusFilter = 'all'
         try {
           const parsed = JSON.parse(storeRow.academic_session);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            saveLocalSpiritualFellowships(parsed);
+            saveLocalSpiritualFellowships(parsed, { notify: false });
             if (statusFilter === 'all') return parsed;
             return parsed.filter(f => f.status === statusFilter);
           }
@@ -58,7 +58,7 @@ export async function fetchSpiritualFellowshipsFromSupabase(statusFilter = 'all'
           const remoteIds = new Set(parsedFel.map(f => f.id));
           const localInitials = INITIAL_FELLOWSHIPS.filter(f => !remoteIds.has(f.id));
           const merged = [...parsedFel, ...localInitials];
-          saveLocalSpiritualFellowships(merged);
+          saveLocalSpiritualFellowships(merged, { notify: false });
           if (statusFilter === 'all') return merged;
           return merged.filter(f => f.status === statusFilter);
         }
@@ -91,10 +91,12 @@ export function getSpiritualFellowships(statusFilter = 'all') {
   }
 }
 
-export function saveLocalSpiritualFellowships(list) {
+export function saveLocalSpiritualFellowships(list, { notify = true } = {}) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(SPIRITUAL_LIFE_STORAGE_KEY, JSON.stringify(list));
-  window.dispatchEvent(new Event('nacos_spiritual_life_updated'));
+  if (notify) {
+    window.dispatchEvent(new Event('nacos_spiritual_life_updated'));
+  }
 }
 
 async function getRemoteStoreFellowships() {

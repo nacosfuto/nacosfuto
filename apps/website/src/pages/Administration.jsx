@@ -3,7 +3,7 @@ import Navbar from '../components/Nav/Navbar';
 import Footer from '../components/Footer';
 import { useTheme } from '../context/ThemeContext';
 import { FiUser, FiMail } from 'react-icons/fi';
-import { fetchDepartmentStaff, INITIAL_STAFF } from '@nacos/supabase';
+import { fetchDepartmentStaff, getLocalDepartmentStaff, INITIAL_STAFF } from '@nacos/supabase';
 import { getCloudinaryAssetUrl } from '@nacos/media';
 const hodStanleyImg = '';
 const staffAdviserImg = '';
@@ -14,30 +14,41 @@ const Administration = () => {
 
     useEffect(() => {
         let isMounted = true;
+
+        const applyStaff = (data) => {
+            if (!isMounted || !data || data.length === 0) return;
+            const enhanced = data.map(p => {
+                let img = p.image;
+                if (!img) {
+                    if (p.id === 'staff-hod' || p.role?.includes('Head of Department')) {
+                        img = getCloudinaryAssetUrl('hod_stanley') || hodStanleyImg;
+                    } else if (p.id === 'staff-adviser' || p.role?.includes('Staff Adviser')) {
+                        img = getCloudinaryAssetUrl('staff_adviser_nwokorie') || staffAdviserImg;
+                    }
+                }
+                return { ...p, image: img };
+            });
+            setStaff(enhanced);
+        };
+
         const loadStaff = async () => {
             const data = await fetchDepartmentStaff({ activeOnly: true });
-            if (isMounted && data && data.length > 0) {
-                // Ensure HOD & Staff adviser images are resolved with Cloudinary / local fallback
-                const enhanced = data.map(p => {
-                    let img = p.image;
-                    if (!img) {
-                        if (p.id === 'staff-hod' || p.role?.includes('Head of Department')) {
-                            img = getCloudinaryAssetUrl('hod_stanley') || hodStanleyImg;
-                        } else if (p.id === 'staff-adviser' || p.role?.includes('Staff Adviser')) {
-                            img = getCloudinaryAssetUrl('staff_adviser_nwokorie') || staffAdviserImg;
-                        }
-                    }
-                    return { ...p, image: img };
-                });
-                setStaff(enhanced);
-            }
+            applyStaff(data);
         };
 
         loadStaff();
-        window.addEventListener('nacos_department_staff_updated', loadStaff);
+
+        const handleStaffUpdate = () => {
+            const local = getLocalDepartmentStaff();
+            applyStaff(local ? local.filter(s => s.is_active) : []);
+        };
+
+        window.addEventListener('nacos_department_staff_updated', handleStaffUpdate);
+        window.addEventListener('storage', handleStaffUpdate);
         return () => {
             isMounted = false;
-            window.removeEventListener('nacos_department_staff_updated', loadStaff);
+            window.removeEventListener('nacos_department_staff_updated', handleStaffUpdate);
+            window.removeEventListener('storage', handleStaffUpdate);
         };
     }, []);
 

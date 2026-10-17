@@ -69,15 +69,7 @@ const AdminEvents = () => {
     });
 
     const handleSync = () => {
-      fetchEventsFromSupabase().then(fetched => {
-        if (Array.isArray(fetched)) {
-          setEvents(fetched);
-        } else {
-          setEvents(getEvents({ category: 'all' }));
-        }
-      }).catch(() => {
-        setEvents(getEvents({ category: 'all' }));
-      });
+      setEvents(getEvents({ category: 'all' }));
     };
 
     window.addEventListener('nacos_website_events_updated', handleSync);

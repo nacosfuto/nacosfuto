@@ -72,23 +72,31 @@ export const PortalAdminDashboard = () => {
   useEffect(() => {
     loadDashboardData();
 
-    // 1. Supabase Real-time Subscriptions for Live Admin Updates
+    // 1. Supabase Real-time Subscriptions with Debounced Reloading
     let channel = null;
+    let debounceTimer = null;
+    const triggerDebouncedReload = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadDashboardData(true);
+      }, 2000);
+    };
+
     if (supabase) {
       try {
         channel = supabase
           .channel('portal-admin-summary-feed')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
-            loadDashboardData(true);
+            triggerDebouncedReload();
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-            loadDashboardData(true);
+            triggerDebouncedReload();
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_applications' }, () => {
-            loadDashboardData(true);
+            triggerDebouncedReload();
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'verified_students' }, () => {
-            loadDashboardData(true);
+            triggerDebouncedReload();
           })
           .subscribe();
       } catch (err) {
@@ -98,7 +106,7 @@ export const PortalAdminDashboard = () => {
 
     // 2. Academic session live change listener
     const unsubscribeSession = onAcademicSessionChange(() => {
-      loadDashboardData(true);
+      triggerDebouncedReload();
     });
 
     // 3. Passive 5-minute refresh heartbeat
@@ -110,7 +118,7 @@ export const PortalAdminDashboard = () => {
 
     let lastDashboardSync = Date.now();
     const handleFocus = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && Date.now() - lastDashboardSync > 30000) {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && Date.now() - lastDashboardSync > 60000) {
         lastDashboardSync = Date.now();
         loadDashboardData(true);
       }
@@ -120,6 +128,7 @@ export const PortalAdminDashboard = () => {
     return () => {
       if (channel && supabase) supabase.removeChannel(channel);
       if (typeof unsubscribeSession === 'function') unsubscribeSession();
+      if (debounceTimer) clearTimeout(debounceTimer);
       clearInterval(pollInterval);
       window.removeEventListener('focus', handleFocus);
     };

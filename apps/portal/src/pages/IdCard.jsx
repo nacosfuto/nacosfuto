@@ -879,7 +879,7 @@ const IdCard = ({ viewMode = false }) => {
       }
     };
 
-    pollIntervalRef.current = setInterval(checkStatus, 4000);
+    pollIntervalRef.current = setInterval(checkStatus, 5000);
   };
 
   const handleManualCheckStatus = async () => {

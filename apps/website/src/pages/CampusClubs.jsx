@@ -58,22 +58,27 @@ const CampusClubs = () => {
 
   const loadClubs = async () => {
     try {
+      const local = getCampusClubs('approved');
+      if (local && local.length > 0) {
+        setClubs(local);
+      }
       const remote = await fetchCampusClubsFromSupabase('approved');
       if (Array.isArray(remote)) {
         setClubs(remote);
       } else {
-        const local = getCampusClubs('approved');
-        setClubs(local || []);
+        setClubs(getCampusClubs('approved') || []);
       }
     } catch (e) {
-      const local = getCampusClubs('approved');
-      setClubs(local || []);
+      setClubs(getCampusClubs('approved') || []);
     }
   };
 
   useEffect(() => {
     loadClubs();
-    const handleUpdate = () => loadClubs();
+    const handleUpdate = () => {
+      const local = getCampusClubs('approved');
+      setClubs(local || []);
+    };
     window.addEventListener('nacos_campus_clubs_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {

@@ -248,7 +248,7 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
           profQuery = profQuery.or(`registration_number.eq.${regNo},matric_number.eq.${regNo},id.eq.${studentId}`);
         } else if (regNo) {
           profQuery = profQuery.or(`registration_number.eq.${regNo},matric_number.eq.${regNo}`);
-        } else if (studentId) {
+        } else if (studentId && studentId.length === 36) {
           profQuery = profQuery.eq('id', studentId);
         }
         const { data: profData } = await profQuery.maybeSingle();
@@ -271,7 +271,7 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
         appQuery = appQuery.or(`registration_number.eq.${regNo},matric_number.eq.${regNo},student_id.eq.${studentId}`);
       } else if (regNo) {
         appQuery = appQuery.or(`registration_number.eq.${regNo},matric_number.eq.${regNo}`);
-      } else if (studentId) {
+      } else if (studentId && studentId.length === 36) {
         appQuery = appQuery.eq('student_id', studentId);
       }
       const { data: existingApp } = await appQuery.maybeSingle();
@@ -527,7 +527,7 @@ export async function createPaymentCheckout({
       if (metadata?.eventId) {
         dupQuery = dupQuery.eq('metadata->>event_id', String(metadata.eventId));
       }
-      if (regNo && studentId) {
+      if (regNo && studentId && String(studentId).length === 36) {
         dupQuery = dupQuery.or(`registration_number.eq.${regNo},student_id.eq.${studentId}`);
       } else if (regNo) {
         dupQuery = dupQuery.eq('registration_number', regNo);
@@ -1514,7 +1514,7 @@ export async function verifyIdCardAccess({ registrationNumber, studentId, reques
         profQuery = profQuery.or(`registration_number.eq.${cleanReg},matric_number.eq.${cleanReg},id.eq.${cleanStudentId}`);
       } else if (cleanReg) {
         profQuery = profQuery.or(`registration_number.eq.${cleanReg},matric_number.eq.${cleanReg}`);
-      } else if (cleanStudentId) {
+      } else if (cleanStudentId && cleanStudentId.length === 36) {
         profQuery = profQuery.eq('id', cleanStudentId);
       }
       const { data } = await profQuery.maybeSingle();

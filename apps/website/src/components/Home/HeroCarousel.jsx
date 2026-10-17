@@ -74,29 +74,8 @@ export const HeroCarousel = ({
     const handleSync = () => loadSlides();
     window.addEventListener(HERO_SLIDES_EVENT, handleSync);
 
-    // Supabase Realtime channel subscription if configured
-    let channel = null;
-    if (supabase && typeof supabase.channel === 'function') {
-      try {
-        channel = supabase
-          .channel('public:website_hero_slides')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'website_hero_slides' }, () => {
-            loadSlides();
-          })
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_settings', filter: 'id=eq.store_hero_slides' }, () => {
-            loadSlides();
-          })
-          .subscribe();
-      } catch (err) {
-        console.debug('Realtime subscribe notice:', err);
-      }
-    }
-
     return () => {
       window.removeEventListener(HERO_SLIDES_EVENT, handleSync);
-      if (channel && typeof supabase.removeChannel === 'function') {
-        supabase.removeChannel(channel);
-      }
     };
   }, [loadSlides]);
 

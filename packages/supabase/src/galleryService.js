@@ -53,11 +53,13 @@ export function getGalleryItems() {
   }
 }
 
-export function saveLocalGalleryItems(items) {
+export function saveLocalGalleryItems(items, { notify = true } = {}) {
   if (typeof window === 'undefined') return;
   const normalized = items.map(normalizeItem);
   localStorage.setItem(GALLERY_STORAGE_KEY, JSON.stringify(normalized));
-  window.dispatchEvent(new Event('nacos_website_gallery_updated'));
+  if (notify) {
+    window.dispatchEvent(new Event('nacos_website_gallery_updated'));
+  }
 }
 
 /**
@@ -79,7 +81,7 @@ export async function fetchGalleryFromSupabase() {
           const parsed = JSON.parse(storeRow.academic_session);
           if (Array.isArray(parsed) && parsed.length > 0) {
             const sanitized = parsed.map(normalizeItem).filter(i => !i.image_url.startsWith('data:'));
-            saveLocalGalleryItems(sanitized);
+            saveLocalGalleryItems(sanitized, { notify: false });
             return sanitized;
           }
         } catch (e) {}
@@ -125,7 +127,7 @@ export async function fetchGalleryFromSupabase() {
           const localInitials = INITIAL_GALLERY.map(normalizeItem).filter(l => !remoteIds.has(l.cloudinary_public_id || l.id));
           const merged = [...parsedItems, ...localInitials];
 
-          saveLocalGalleryItems(merged);
+          saveLocalGalleryItems(merged, { notify: false });
           return merged;
         }
       }
@@ -154,7 +156,7 @@ export async function fetchGalleryFromSupabase() {
         const remoteIds = new Set(mapped.map(m => m.cloudinary_public_id || m.id));
         const merged = [...mapped, ...local.filter(l => !remoteIds.has(l.cloudinary_public_id || l.id))];
 
-        saveLocalGalleryItems(merged);
+        saveLocalGalleryItems(merged, { notify: false });
         return merged;
       }
     }

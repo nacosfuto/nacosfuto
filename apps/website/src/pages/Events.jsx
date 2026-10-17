@@ -23,15 +23,7 @@ const Events = () => {
     });
 
     const handleSync = () => {
-      fetchEventsFromSupabase().then((data) => {
-        if (Array.isArray(data)) {
-          setAllEvents(data.filter(e => e.is_published));
-        } else {
-          setAllEvents(getEvents({ category: 'all', publishedOnly: true }));
-        }
-      }).catch(() => {
-        setAllEvents(getEvents({ category: 'all', publishedOnly: true }));
-      });
+      setAllEvents(getEvents({ category: 'all', publishedOnly: true }));
     };
 
     window.addEventListener('nacos_website_events_updated', handleSync);

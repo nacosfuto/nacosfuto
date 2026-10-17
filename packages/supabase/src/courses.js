@@ -611,7 +611,12 @@ export async function adminDeleteCourse(id) {
 
   try {
     if (supabase) {
-      await supabase.from('courses').delete().or(`id.eq.${id},code.eq.${id}`);
+      const isUuid = /^[0-9a-fA-F-]{36}$/.test(String(id || '').trim());
+      if (isUuid) {
+        await supabase.from('courses').delete().or(`id.eq.${id},code.eq.${id}`);
+      } else {
+        await supabase.from('courses').delete().eq('code', id);
+      }
     }
   } catch (e) {}
 

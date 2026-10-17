@@ -55,7 +55,9 @@ const AdminSpiritualLife = () => {
 
   useEffect(() => {
     loadFellowships();
-    const handleUpdate = () => loadFellowships();
+    const handleUpdate = () => {
+      setFellowships(getSpiritualFellowships('all'));
+    };
     window.addEventListener('nacos_spiritual_life_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {

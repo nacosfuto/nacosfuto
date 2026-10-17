@@ -37,7 +37,7 @@ const NacosSection = () => {
     fetchExecutivesFromSupabase().then((live) => loadCurrentExecutives(live)).catch(() => {});
 
     const handleUpdate = () => {
-      fetchExecutivesFromSupabase().then((live) => loadCurrentExecutives(live)).catch(() => loadCurrentExecutives());
+      loadCurrentExecutives();
     };
     window.addEventListener('nacos_executives_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);

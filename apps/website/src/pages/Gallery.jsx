@@ -26,7 +26,7 @@ const Gallery = () => {
         fetchGalleryFromSupabase().then((data) => loadGallery(data)).catch(() => {});
 
         const handleUpdate = () => {
-            fetchGalleryFromSupabase().then((data) => loadGallery(data)).catch(() => loadGallery());
+            loadGallery();
         };
         window.addEventListener('nacos_website_gallery_updated', handleUpdate);
         window.addEventListener('storage', handleUpdate);

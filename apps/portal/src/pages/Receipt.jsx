@@ -75,7 +75,10 @@ const Receipt = () => {
         if (supabase && (referenceParam || cleanMatric)) {
           let query = supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, provider_payment_id, paid_at, created_at, metadata, academic_session, level');
           if (referenceParam) {
-            query = query.or(`reference.eq.${referenceParam},provider_payment_id.eq.${referenceParam},id.eq.${referenceParam}`);
+            const isRefUuid = /^[0-9a-fA-F-]{36}$/.test(referenceParam);
+            const orList = [`reference.eq.${referenceParam}`, `provider_payment_id.eq.${referenceParam}`];
+            if (isRefUuid) orList.push(`id.eq.${referenceParam}`);
+            query = query.or(orList.join(','));
           } else if (cleanMatric) {
             query = query.eq('registration_number', cleanMatric);
             if (isIdCardType) query = query.eq('payment_type', 'ID_CARD');
@@ -90,8 +93,8 @@ const Receipt = () => {
         if (!dbPayment && supabase && cleanMatric && isDuesType) {
           const { data: dRow } = await supabase
             .from('departmental_dues')
-            .select('id, student_id, registration_number, matric_number, session, academic_session, level, amount, status, reference, payment_date, created_at')
-            .eq('matric_number', cleanMatric)
+            .select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, paid_at, created_at')
+            .eq('registration_number', cleanMatric)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -102,7 +105,7 @@ const Receipt = () => {
               duesFee = Number(liveDuesSettings?.dues_amount) || 0;
             }
             dbPayment = {
-              reference: dRow.payment_reference,
+              reference: dRow.reference || dRow.payment_reference,
               amount: duesFee,
               payment_type: 'Departmental Dues',
               provider: 'Online Gateway',
