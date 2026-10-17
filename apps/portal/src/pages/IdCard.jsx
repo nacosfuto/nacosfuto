@@ -62,7 +62,7 @@ import {
 } from '@nacos/supabase';
 import { enrichStudentProfile } from '@nacos/supabase/auth';
 import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
-import { MediaUpload, CLOUDINARY_FOLDERS, getOptimizedImageUrl, idTemplateMaster, idTemplateBack, idTemplateFrame } from '@nacos/media';
+import { MediaUpload, uploadMedia, CLOUDINARY_FOLDERS, getOptimizedImageUrl, idTemplateMaster, idTemplateBack, idTemplateFrame } from '@nacos/media';
 import StepUpAuthModal from '../components/StepUpAuthModal';
 import PosThermalReceipt from '../components/PosThermalReceipt';
 
@@ -405,13 +405,13 @@ const IdCard = ({ viewMode = false }) => {
         withTimeout(getIdCardSettings(), 6000).catch(() => null),
         supabase && profOrFilter
           ? withTimeout(
-              supabase.from('profiles').select('*').or(profOrFilter).limit(1).maybeSingle(),
+              supabase.from('profiles').select('id, full_name, first_name, last_name, surname, email, phone_number, registration_number, matric_number, department, faculty, programme, programme_duration, admission_year, role, is_active, status, gender, date_of_birth, residential_address, bio, zone, cloudinary_public_id, photo_url, profile_photo_url, avatar_url, photo_alt, created_at, updated_at').or(profOrFilter).limit(1).maybeSingle(),
               6000
             ).then(res => res.data).catch(() => null)
           : Promise.resolve(null),
         supabase && orFilter
           ? withTimeout(
-              supabase.from('payments').select('*').or(orFilter).order('created_at', { ascending: false }),
+              supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata, academic_session, level').or(orFilter).order('created_at', { ascending: false }),
               6000
             ).then(res => res.data || []).catch(() => [])
           : Promise.resolve([]),
@@ -1317,9 +1317,10 @@ const IdCard = ({ viewMode = false }) => {
 
     setIsUploadingPhoto(true);
 
-    // 1. Sync photo to student profile & verified_students in Supabase
+    // 1. Sync photo to student profile & verified_students in Supabase (Strict CDN URLs only, never raw base64)
     try {
-      if (supabase && matric) {
+      const isRemoteUrl = rawPhotoUrl.startsWith('http://') || rawPhotoUrl.startsWith('https://');
+      if (supabase && matric && isRemoteUrl) {
         const cleanMatricUpper = String(matric).trim().toUpperCase();
         const matricConds = [`registration_number.eq.${cleanMatricUpper}`, `matric_number.eq.${cleanMatricUpper}`];
         if (cleanDigits && cleanDigits !== cleanMatricUpper) {
@@ -2256,14 +2257,28 @@ const IdCard = ({ viewMode = false }) => {
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (evt) => {
-                              handlePhotoUploaded({ url: evt.target.result });
-                            };
-                            reader.readAsDataURL(file);
+                            setIsUploadingPhoto(true);
+                            setUploadError('');
+                            const matric = student?.matric || student?.registration_number || 'student';
+                            const cleanMatric = String(matric).replace(/[^a-zA-Z0-9]/g, '_');
+                            try {
+                              const res = await uploadMedia(file, {
+                                folder: CLOUDINARY_FOLDERS.STUDENTS,
+                                customPublicId: `${CLOUDINARY_FOLDERS.STUDENTS}/${cleanMatric}_passport`
+                              });
+                              setIsUploadingPhoto(false);
+                              if (res?.success && (res.secureUrl || res.url)) {
+                                handlePhotoUploaded(res);
+                              } else {
+                                setUploadError(res?.error || 'Failed to upload photo to media CDN.');
+                              }
+                            } catch (uploadErr) {
+                              setIsUploadingPhoto(false);
+                              setUploadError('Failed to process image upload.');
+                            }
                           }
                         }}
                       />

@@ -66,7 +66,7 @@ export async function fetchResourceCategories(options = { includeInactive: false
   try {
     let query = supabase
       .from('resource_categories')
-      .select('*')
+      .select('id, name, slug, description, icon, display_order, is_active')
       .order('display_order', { ascending: true })
       .order('name', { ascending: true });
 
@@ -131,7 +131,7 @@ export async function fetchResources({
     let query = supabase
       .from('resources')
       .select(`
-        *,
+        id, title, slug, description, course_code, course_title, level, semester, resource_type, file_url, storage_key, file_size, file_format, file_type, file_extension, file_name, download_count, view_count, is_featured, is_active, is_published, created_at, updated_at,
         category:resource_categories(id, name, slug, icon, description)
       `, { count: 'exact' });
 
@@ -344,7 +344,10 @@ export async function adminCreateResource(resourceData) {
     const { data, error } = await supabase
       .from('resources')
       .insert([payload])
-      .select(`*, category:resource_categories(*)`)
+      .select(`
+        id, title, slug, description, course_code, course_title, level, semester, resource_type, file_url, storage_key, file_size, file_format, file_type, file_extension, file_name, download_count, view_count, is_featured, is_active, is_published, created_at, updated_at,
+        category:resource_categories(id, name, slug, icon, description)
+      `)
       .single();
 
     if (error) throw error;
@@ -397,7 +400,10 @@ export async function adminUpdateResource(id, updateData) {
       .from('resources')
       .update(payload)
       .eq('id', id)
-      .select(`*, category:resource_categories(*)`)
+      .select(`
+        id, title, slug, description, course_code, course_title, level, semester, resource_type, file_url, storage_key, file_size, file_format, file_type, file_extension, file_name, download_count, view_count, is_featured, is_active, is_published, created_at, updated_at,
+        category:resource_categories(id, name, slug, icon, description)
+      `)
       .single();
 
     if (error) throw error;
@@ -472,14 +478,14 @@ export async function adminGetResourceAnalytics() {
     // Total count
     const { count: totalResources, error: cErr } = await supabase
       .from('resources')
-      .select('*', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true });
 
     if (cErr) throw cErr;
 
     // Total active / published
     const { count: activeResources } = await supabase
       .from('resources')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('is_active', true);
 
     // Top 5 most downloaded
@@ -500,7 +506,7 @@ export async function adminGetResourceAnalytics() {
     // Recent uploads
     const { data: recentUploads } = await supabase
       .from('resources')
-      .select('*, category:resource_categories(name)')
+      .select('id, title, course_code, level, resource_type, file_size, file_format, download_count, created_at, category:resource_categories(name)')
       .order('created_at', { ascending: false })
       .limit(6);
 

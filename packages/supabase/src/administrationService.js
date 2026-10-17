@@ -106,9 +106,10 @@ export async function fetchDepartmentStaff({ activeOnly = true } = {}) {
       // 2. Live query from media_assets where category = 'general' and entity_type = 'staff'
       const { data: mediaStaff, error: mediaErr } = await supabase
         .from('media_assets')
-        .select('*')
+        .select('id, entity_type, entity_id, category, image_url, image_alt, cloudinary_public_id, created_at')
         .eq('category', 'general')
         .eq('entity_type', 'staff')
+        .not('image_url', 'like', 'data:%')
         .order('created_at', { ascending: false });
 
       if (!mediaErr && mediaStaff && mediaStaff.length > 0) {
@@ -139,7 +140,11 @@ export async function fetchDepartmentStaff({ activeOnly = true } = {}) {
       }
 
       // 3. Fallback to department_administration table
-      let query = supabase.from('department_administration').select('*').order('order_index', { ascending: true });
+      let query = supabase
+        .from('department_administration')
+        .select('id, name, title, role, bio, qualifications, email, phone, office, image_url, cloudinary_public_id, order_index, is_active, created_at, updated_at')
+        .not('image_url', 'like', 'data:%')
+        .order('order_index', { ascending: true });
       if (activeOnly) {
         query = query.eq('is_active', true);
       }

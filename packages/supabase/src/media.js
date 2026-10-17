@@ -66,6 +66,11 @@ export async function syncMediaAsset(params) {
     return { success: false, error: 'Both publicId and imageUrl are required to sync media.' };
   }
 
+  // Strict Egress Guard: Never persist Base64 data URLs to Supabase media_assets
+  if (typeof imageUrl === 'string' && (imageUrl.startsWith('data:') || imageUrl.startsWith('blob:'))) {
+    return { success: false, error: 'Base64 data or blob URLs cannot be synced to media_assets. Upload to Cloudinary CDN first.' };
+  }
+
   // Derive folder and category if not provided
   let folder = params.folder;
   let category = params.category;
@@ -116,7 +121,7 @@ export async function syncMediaAsset(params) {
     const { data, error } = await supabase
       .from('media_assets')
       .upsert([assetRecord], { onConflict: 'cloudinary_public_id' })
-      .select()
+      .select('id, cloudinary_public_id, image_url, resource_type, format, width, height, bytes, folder, created_at')
       .maybeSingle();
 
     if (error) {
@@ -140,7 +145,8 @@ export async function fetchMediaAssets(options = {}) {
   try {
     let query = supabase
       .from('media_assets')
-      .select('*')
+      .select('id, cloudinary_public_id, image_url, image_alt, media_type, folder, category, entity_type, entity_id, format, bytes, width, height, created_at, updated_at')
+      .not('image_url', 'like', 'data:%')
       .order('created_at', { ascending: false });
 
     if (category && category !== 'all') {
@@ -275,7 +281,7 @@ export async function syncWebsiteEvent(eventData) {
     const { data, error } = await supabase
       .from('website_events')
       .upsert([eventPayload], { onConflict: 'slug' })
-      .select()
+      .select('id, slug, title')
       .maybeSingle();
 
     if (error) {
@@ -320,7 +326,7 @@ export async function syncWebsiteGalleryItem(itemData) {
     const { data, error } = await supabase
       .from('website_gallery')
       .insert([galleryPayload])
-      .select()
+      .select('id, title, image_url')
       .maybeSingle();
 
     if (error) {

@@ -48,7 +48,7 @@ export async function fetchPortalAdminsFromSupabase() {
     if (supabase) {
       const { data: dbAdmins, error } = await supabase
         .from('admin_scopes')
-        .select('*')
+        .select('id, email, full_name, name, role, scope, is_active, created_at, updated_at, last_login_at, assigned_level')
         .or('scope.eq.student_portal,scope.eq.super_admin,role.eq.portal_admin,role.eq.course_adviser,role.eq.super_admin')
         .order('created_at', { ascending: false });
 

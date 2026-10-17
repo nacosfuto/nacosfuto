@@ -155,7 +155,7 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
             }
 
             if (conds.length === 0) return [];
-            const { data } = await supabase.from('payments').select('*').or(conds.join(','));
+            const { data } = await supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata, academic_session, level').or(conds.join(','));
             return data || [];
           } catch (e) {
             console.warn('[Cache Service] Payments fetch notice:', e);
@@ -180,7 +180,7 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
             if (appConds.length === 0) return [];
             const { data } = await supabase
               .from('id_card_applications')
-              .select('*')
+              .select('id, student_id, registration_number, academic_session, payment_status, id_card_status, card_status, is_cleared, created_at, updated_at')
               .in('payment_status', ['paid', 'verified'])
               .or(appConds.join(','));
             return data || [];
@@ -202,7 +202,7 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
 
             const { data } = await supabase
               .from('dues_payments')
-              .select('*')
+              .select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, payment_date, created_at')
               .or(duesConds.join(','))
               .in('status', ['successful', 'verified', 'cleared', 'paid']);
             return data || [];
@@ -222,7 +222,7 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
             }
             const { data } = await supabase
               .from('departmental_dues')
-              .select('*')
+              .select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, payment_date, created_at')
               .or(deptConds.join(','))
               .in('status', ['paid', 'verified', 'cleared', 'successful']);
             return data || [];

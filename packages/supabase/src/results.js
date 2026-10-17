@@ -295,7 +295,7 @@ export async function fetchResultsForStudent(matricOrRegNo) {
     if (supabase) {
       const { data, error } = await supabase
         .from('student_results')
-        .select('*')
+        .select('id, matric_number, student_name, course_code, course_title, credit_units, score, grade, grade_point, semester, level, session, created_at')
         .ilike('matric_number', cleanId);
       if (!error && Array.isArray(data) && data.length > 0) {
         return { data, error: null };
@@ -328,7 +328,7 @@ export async function adminFetchResultsCatalog(options = {}) {
   // 1. Authoritative query from Supabase
   try {
     if (supabase) {
-      let query = supabase.from('student_results').select('*').order('created_at', { ascending: false });
+      let query = supabase.from('student_results').select('id, matric_number, student_name, course_code, course_title, credit_units, score, grade, grade_point, semester, level, session, created_at').order('created_at', { ascending: false });
 
       if (level) {
         const cleanLevel = parseInt(String(level).replace(/[^0-9]/g, ''), 10);

@@ -119,7 +119,7 @@ async function getOfficialStudentRecord(registrationNumber) {
     try {
       const { data, error } = await supabase
         .from('verified_students')
-        .select('*')
+        .select('id, registration_number, full_name, email, phone_number, department, faculty, level, admission_year, programme, programme_duration, academic_session, status, has_registered, is_registered, auth_user_id, registered_at, created_at, updated_at, first_name, last_name, surname, middle_name, cloudinary_public_id, photo_url')
         .or(`registration_number.eq.${cleanReg},registration_number.ilike.${cleanReg}`)
         .limit(1)
         .maybeSingle();
@@ -153,7 +153,7 @@ async function getOfficialStudentRecord(registrationNumber) {
       const strippedReg = cleanReg.replace(/[^a-zA-Z0-9]/g, '');
       const { data: prof } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, registration_number, matric_number, full_name, first_name, last_name, surname, department, faculty, programme, programme_duration, admission_year, email, phone_number, role, is_active, status, gender, date_of_birth, residential_address, bio, zone, cloudinary_public_id, photo_url, photo_alt, created_at, updated_at')
         .or(`registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg},matric_number.ilike.${cleanReg},matric_number.ilike.${strippedReg}`)
         .limit(1)
         .maybeSingle();
@@ -198,7 +198,7 @@ async function getStudentProfile(registrationNumber) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, registration_number, matric_number, full_name, first_name, last_name, surname, department, faculty, programme, programme_duration, admission_year, email, phone_number, role, is_active, status, gender, date_of_birth, residential_address, bio, zone, cloudinary_public_id, photo_url, photo_alt, created_at, updated_at, password_hash')
         .or(`registration_number.eq.${cleanReg},registration_number.ilike.${cleanReg}`)
         .limit(1)
         .maybeSingle();
@@ -439,7 +439,7 @@ export async function handleSendOtp({ stepToken, channel = 'email', purpose = 'S
     try {
       const { count } = await supabase
         .from('otp_verifications')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('registration_number', cleanReg)
         .gte('created_at', windowStart);
 
@@ -625,7 +625,7 @@ export async function handleVerifyOtp({ stepToken, otpCode, purpose = 'SIGNUP' }
       const orFilter = `registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg}`;
       const { data: challenges, error: fetchErr } = await supabase
         .from('otp_verifications')
-        .select('*')
+        .select('id, registration_number, otp_hash, code, expires_at, is_used, created_at')
         .or(orFilter)
         .order('created_at', { ascending: false })
         .limit(20);

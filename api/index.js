@@ -263,7 +263,10 @@ export default async function handler(req, res) {
         // Fetch all active fees from Supabase id_card_settings
         let fees = [];
         if (supabase) {
-          const { data } = await supabase.from('id_card_settings').select('*');
+          const { data } = await supabase
+            .from('id_card_settings')
+            .select('id, id_card_fee, academic_session, is_application_open')
+            .in('id', ['default', 'dues']);
           if (data) {
             fees = data.map(r => ({
               fee_key: r.id === 'default' ? 'id_card' : r.id,

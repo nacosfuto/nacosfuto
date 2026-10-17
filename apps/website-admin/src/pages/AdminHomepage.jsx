@@ -58,7 +58,7 @@ const AdminHomepage = () => {
         // 2. Fallback to website_homepage_content if available
         const { data, error } = await supabase
           .from('website_homepage_content')
-          .select('*')
+          .select('content')
           .eq('id', 'default')
           .maybeSingle();
 

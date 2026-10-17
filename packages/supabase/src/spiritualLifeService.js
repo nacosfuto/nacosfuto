@@ -35,8 +35,9 @@ export async function fetchSpiritualFellowshipsFromSupabase(statusFilter = 'all'
       // Check media_assets fallback
       const { data: mediaFel, error: mediaErr } = await supabase
         .from('media_assets')
-        .select('*')
+        .select('id, entity_id, category, image_url, image_alt, cloudinary_public_id, created_at')
         .eq('category', 'spiritual_life')
+        .not('image_url', 'like', 'data:%')
         .order('created_at', { ascending: false });
 
       if (!mediaErr && mediaFel && mediaFel.length > 0) {

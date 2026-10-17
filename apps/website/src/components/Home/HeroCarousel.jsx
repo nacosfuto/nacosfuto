@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getOptimizedImageUrl } from '@nacos/media';
-import { fetchPublishedHeroSlides, getLocalPublishedHeroSlides, HERO_SLIDES_EVENT, supabase } from '@nacos/supabase';
+import { 
+  fetchPublishedHeroSlides, 
+  getLocalPublishedHeroSlides, 
+  CANONICAL_DEFAULT_HERO_SLIDES, 
+  HERO_SLIDES_EVENT, 
+  supabase 
+} from '@nacos/supabase';
 import ScrollToTopLink from '../ScrollToTopLink';
 
 const AUTOPLAY_INTERVAL_MS = 5500;
@@ -18,6 +24,9 @@ export const HeroCarousel = ({
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const timerRef = useRef(null);
 
+  // Guarantee instant non-empty carousel on initial load
+  const activeSlides = (slides && slides.length > 0) ? slides : CANONICAL_DEFAULT_HERO_SLIDES;
+
   // Check reduced-motion preference
   useEffect(() => {
     if (typeof window !== 'undefined' && window.matchMedia) {
@@ -29,14 +38,29 @@ export const HeroCarousel = ({
     }
   }, []);
 
+  // Preload all active slide images into browser cache for zero-lag transitions
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    activeSlides.forEach((slide) => {
+      if (slide?.image_url) {
+        const url = getOptimizedImageUrl(slide.image_url, {
+          width: 1920,
+          quality: 'auto',
+          format: 'auto'
+        });
+        const img = new Image();
+        img.src = url;
+      }
+    });
+  }, [activeSlides]);
+
   // Load published slides from Supabase & synchronize
   const loadSlides = useCallback(async () => {
     try {
       const published = await fetchPublishedHeroSlides();
-      if (Array.isArray(published)) {
+      if (Array.isArray(published) && published.length > 0) {
         setSlides(published);
-        // Ensure currentIndex does not exceed new slide count
-        setCurrentIndex((prev) => (published.length > 0 ? prev % published.length : 0));
+        setCurrentIndex((prev) => prev % published.length);
       }
     } catch (err) {
       console.warn('Hero carousel slide fetch error:', err);
@@ -76,7 +100,7 @@ export const HeroCarousel = ({
     };
   }, [loadSlides]);
 
-  const slideCount = slides.length;
+  const slideCount = activeSlides.length;
 
   const goToNext = useCallback(() => {
     if (slideCount <= 1) return;
@@ -122,7 +146,7 @@ export const HeroCarousel = ({
     }
   };
 
-  const currentSlide = slides[currentIndex] || null;
+  const currentSlide = activeSlides[currentIndex] || activeSlides[0];
 
   // Active text content: slide override or global CMS fallback
   const headline = (currentSlide && currentSlide.heading && currentSlide.heading.trim()) || cmsContent.hero_headline;
@@ -142,7 +166,7 @@ export const HeroCarousel = ({
       tabIndex={0}
     >
       {/* ─── Hero Slide Background Images ─── */}
-      {slides.map((slide, idx) => {
+      {activeSlides.map((slide, idx) => {
         const isActive = idx === currentIndex;
         const optimizedUrl = getOptimizedImageUrl(slide.image_url, {
           width: 1920,
@@ -161,9 +185,9 @@ export const HeroCarousel = ({
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out pointer-events-none select-none ${
               isActive ? 'opacity-100 z-0' : 'opacity-0 -z-10'
             }`}
-            fetchPriority={idx === 0 ? 'high' : 'auto'}
-            loading={idx === 0 ? 'eager' : 'lazy'}
-            decoding="async"
+            fetchPriority={isActive || idx === 0 ? 'high' : 'auto'}
+            loading={isActive || idx === 0 ? 'eager' : 'lazy'}
+            decoding={isActive || idx === 0 ? 'sync' : 'async'}
           />
         );
       })}
@@ -224,7 +248,7 @@ export const HeroCarousel = ({
           role="tablist"
           aria-label="Hero slide indicators"
         >
-          {slides.map((slide, idx) => {
+          {activeSlides.map((slide, idx) => {
             const isActive = idx === currentIndex;
             return (
               <button

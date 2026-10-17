@@ -382,21 +382,21 @@ const Dues = () => {
       ] = await Promise.all([
         supabase && filters.length > 0
           ? withTimeout(
-              supabase.from('payments').select('*').or(filters.join(',')).order('created_at', { ascending: false }),
+              supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata, academic_session, level').or(filters.join(',')).order('created_at', { ascending: false }),
               6000
             ).catch(err => { console.warn('Bachs payments check notice:', err); return { data: [] }; })
           : Promise.resolve({ data: [] }),
 
         supabase && duesFilters.length > 0
           ? withTimeout(
-              supabase.from('dues_payments').select('*').or(duesFilters.join(',')),
+              supabase.from('dues_payments').select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, payment_date, created_at').or(duesFilters.join(',')),
               6000
             ).catch(err => { console.warn('Legacy dues check notice:', err); return { data: [] }; })
           : Promise.resolve({ data: [] }),
 
         supabase && deptFilters.length > 0
           ? withTimeout(
-              supabase.from('departmental_dues').select('*').or(deptFilters.join(',')),
+              supabase.from('departmental_dues').select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, payment_date, created_at').or(deptFilters.join(',')),
               6000
             ).catch(err => { console.warn('Dept dues check notice:', err); return { data: [] }; })
           : Promise.resolve({ data: [] })
@@ -768,7 +768,7 @@ const Dues = () => {
     if (supabase && cleanMatric) {
       try {
         liveChannel = supabase
-          .channel(`dues-live-${cleanMatric}-${Date.now()}`)
+          .channel(`dues-live-${cleanMatric}`)
           .on(
             'postgres_changes',
             {

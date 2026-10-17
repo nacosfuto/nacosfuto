@@ -82,7 +82,7 @@ export default function PortalAdminNotices() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
           loadData();
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_settings' }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_settings', filter: 'id=eq.store_portal_notices' }, () => {
           loadData();
         })
         .subscribe();

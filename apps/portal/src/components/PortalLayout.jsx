@@ -129,7 +129,7 @@ const PortalLayout = ({ children }) => {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
           checkPopup();
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_settings' }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_settings', filter: 'id=eq.store_portal_notices' }, () => {
           checkPopup();
         })
         .subscribe();

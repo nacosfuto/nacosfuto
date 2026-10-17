@@ -208,9 +208,9 @@ const AdminStudents = () => {
         )
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'id_card_settings' },
+          { event: '*', schema: 'public', table: 'id_card_settings', filter: 'id=eq.store_verified_roster' },
           (payload) => {
-            console.log('[Live Registry Sync] id_card_settings changed:', payload.eventType);
+            console.log('[Live Registry Sync] store_verified_roster changed:', payload.eventType);
             loadData(true);
           }
         )
@@ -219,14 +219,18 @@ const AdminStudents = () => {
         });
     }
 
-    // 2. Active Polling Heartbeat (every 15 seconds) as resilient fallback
+    // 2. Passive Polling Heartbeat (relaxed 5-minute fallback)
     const pollingInterval = setInterval(() => {
-      loadData(true);
-    }, 15000);
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadData(true);
+      }
+    }, 300000);
 
-    // 3. Re-sync on window focus / tab visibility change
+    // 3. Re-sync on window focus / tab visibility change (with debounce guard)
+    let lastVisibilitySync = Date.now();
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && Date.now() - lastVisibilitySync > 30000) {
+        lastVisibilitySync = Date.now();
         loadData(true);
       }
     };

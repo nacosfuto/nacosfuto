@@ -109,18 +109,22 @@ export default function PortalAdminDues() {
   useEffect(() => {
     loadDuesData();
 
-    // Supabase Live Subscriptions for real-time payments & profiles updates
+    // Supabase Live Subscriptions for real-time payments & profiles updates (debounced to avoid thrashing)
     let channel = null;
+    let debounceTimer = null;
+    const debouncedReload = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadDuesData(true);
+      }, 1500);
+    };
+
     if (supabase) {
       try {
         channel = supabase
           .channel('portal-admin-dues-realtime')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
-            loadDuesData(true);
-          })
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-            loadDuesData(true);
-          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, debouncedReload)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, debouncedReload)
           .subscribe();
       } catch (err) {
         console.warn('[Dues Realtime Notice]:', err);
@@ -137,6 +141,7 @@ export default function PortalAdminDues() {
     });
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       if (channel && supabase) supabase.removeChannel(channel);
       if (typeof unsubscribeSession === 'function') unsubscribeSession();
     };

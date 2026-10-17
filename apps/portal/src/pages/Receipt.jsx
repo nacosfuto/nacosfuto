@@ -73,7 +73,7 @@ const Receipt = () => {
 
         // 1. Try finding payment record in Supabase
         if (supabase && (referenceParam || cleanMatric)) {
-          let query = supabase.from('payments').select('*');
+          let query = supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, provider_payment_id, paid_at, created_at, metadata, academic_session, level');
           if (referenceParam) {
             query = query.or(`reference.eq.${referenceParam},provider_payment_id.eq.${referenceParam},id.eq.${referenceParam}`);
           } else if (cleanMatric) {
@@ -90,7 +90,7 @@ const Receipt = () => {
         if (!dbPayment && supabase && cleanMatric && isDuesType) {
           const { data: dRow } = await supabase
             .from('departmental_dues')
-            .select('*')
+            .select('id, student_id, registration_number, matric_number, session, academic_session, level, amount, status, reference, payment_date, created_at')
             .eq('matric_number', cleanMatric)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -116,7 +116,7 @@ const Receipt = () => {
         if (!dbPayment && supabase && cleanMatric && isIdCardType) {
           const { data: appRow } = await supabase
             .from('id_card_applications')
-            .select('*')
+            .select('amount, payment_reference, created_at, payment_status')
             .or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`)
             .order('created_at', { ascending: false })
             .limit(1)

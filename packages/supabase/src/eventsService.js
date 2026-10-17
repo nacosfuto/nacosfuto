@@ -87,8 +87,9 @@ export async function fetchEventsFromSupabase() {
       // 2. Fetch live events from media_assets where category = 'events'
       const { data: mediaEvents, error: mediaError } = await supabase
         .from('media_assets')
-        .select('*')
+        .select('id, entity_id, category, image_url, image_alt, cloudinary_public_id, created_at')
         .eq('category', 'events')
+        .not('image_url', 'like', 'data:%')
         .order('created_at', { ascending: false });
 
       if (!mediaError && mediaEvents && mediaEvents.length > 0) {
@@ -120,7 +121,7 @@ export async function fetchEventsFromSupabase() {
       // 3. Fallback to website_events table
       const { data, error } = await supabase
         .from('website_events')
-        .select('*')
+        .select('id, title, slug, event_date, event_time, location, description, image_url, cloudinary_public_id, category, registration_link, is_published, is_featured, created_at')
         .order('created_at', { ascending: false });
 
       if (!error && data && data.length > 0) {
@@ -185,9 +186,12 @@ export async function saveEvent(eventData) {
   const now = new Date().toISOString();
   const slug = eventData.slug || eventData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
+  const cleanImg = String(eventData.image_url || eventData.image || '').startsWith('data:') ? '' : (eventData.image_url || eventData.image || '');
   const normalized = normalizeEvent({
     ...eventData,
     id,
+    image: cleanImg,
+    image_url: cleanImg,
     slug,
     created_at: eventData.created_at || now,
     updated_at: now

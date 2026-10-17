@@ -277,7 +277,7 @@ export async function fetchLiveElectraData() {
       // 1. Elections Table
       const { data: dbElections, error: elErr } = await supabase
         .from('electra_elections')
-        .select('*')
+        .select('id, title, year, academic_session, start_date, end_date, status, is_published, voter_guide, created_at, updated_at')
         .order('year', { ascending: false });
 
       if (!elErr && Array.isArray(dbElections) && dbElections.length > 0) {
@@ -306,7 +306,7 @@ export async function fetchLiveElectraData() {
       // 2. Positions Table
       const { data: dbPosts, error: postErr } = await supabase
         .from('electra_positions')
-        .select('*')
+        .select('id, title, slug, election_id, order_index, max_votes, is_active, created_at')
         .order('order_index', { ascending: true });
 
       if (!postErr && Array.isArray(dbPosts) && dbPosts.length > 0) {
@@ -329,7 +329,7 @@ export async function fetchLiveElectraData() {
       // 3. Candidates Table
       const { data: dbCandidates, error: cndErr } = await supabase
         .from('electra_candidates')
-        .select('*');
+        .select('id, election_id, position_id, name, registration_number, photo_url, manifesto, manifesto_summary, ballot_number, status, votes_count, created_at');
 
       if (!cndErr && Array.isArray(dbCandidates) && dbCandidates.length > 0) {
         contestants = dbCandidates.map(normalizeCandidate);
@@ -351,7 +351,7 @@ export async function fetchLiveElectraData() {
       // 4. News & Press Releases Table
       const { data: dbNews, error: newsErr } = await supabase
         .from('electra_news')
-        .select('*')
+        .select('id, title, slug, category, summary, content, image_url, is_pinned, published_date, created_at')
         .order('is_pinned', { ascending: false })
         .order('published_date', { ascending: false });
 
@@ -1003,7 +1003,7 @@ export async function adminSaveContestant(contestantData, candidateId = null) {
         level: item.level || calculateAcademicProgression(item.matricNumber).levelString || '100 Level',
         running_post: item.runningPost || '',
         slogan: item.slogan || '',
-        photo_url: item.photoUrl || '',
+        photo_url: String(item.photoUrl || '').startsWith('data:') ? '' : (item.photoUrl || ''),
         cloudinary_public_id: item.photoPublicId || item.cloudinaryPublicId || '',
         status: item.status,
         is_published: item.isPublished,
@@ -1412,7 +1412,7 @@ export async function getElectionAccreditations(electionId = null) {
     try {
       const { data, error } = await supabase
         .from('electra_accreditations')
-        .select('*')
+        .select('id, election_id, registration_number, student_level, status, accredited_at, voted_at, created_at')
         .eq('election_id', targetElectionId)
         .order('created_at', { ascending: false });
 

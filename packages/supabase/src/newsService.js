@@ -95,8 +95,9 @@ export async function fetchNewsArticles({ publishedOnly = true, category = 'all'
       // 2. Fetch from media_assets where category = 'news' (Universal multi-device real-time sync)
       const { data: mediaNews, error: mediaError } = await supabase
         .from('media_assets')
-        .select('*')
+        .select('id, entity_id, category, image_url, image_alt, cloudinary_public_id, created_at')
         .eq('category', 'news')
+        .not('image_url', 'like', 'data:%')
         .order('created_at', { ascending: false });
 
       if (!mediaError && mediaNews && mediaNews.length > 0) {
@@ -130,7 +131,10 @@ export async function fetchNewsArticles({ publishedOnly = true, category = 'all'
       }
 
       // 2. Fallback to news_articles table if available
-      let query = supabase.from('news_articles').select('*').order('published_at', { ascending: false });
+      let query = supabase
+        .from('news_articles')
+        .select('id, title, slug, summary, content, cover_image_url, cloudinary_public_id, author, category, read_time_minutes, is_published, is_featured, published_at, created_at')
+        .order('published_at', { ascending: false });
       if (publishedOnly) {
         query = query.eq('is_published', true);
       }
@@ -186,6 +190,8 @@ export async function saveNewsArticle(articleData) {
   const record = normalizeArticle({
     ...articleData,
     id,
+    cover_image_url: String(articleData.cover_image_url || articleData.image || '').startsWith('data:') ? '' : (articleData.cover_image_url || articleData.image || ''),
+    image: String(articleData.cover_image_url || articleData.image || '').startsWith('data:') ? '' : (articleData.cover_image_url || articleData.image || ''),
     slug: articleData.slug || articleData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
     updated_at: now,
     created_at: articleData.created_at || now,

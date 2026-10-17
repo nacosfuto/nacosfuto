@@ -28,6 +28,8 @@ const OTP_EXPIRY_MINUTES = 15;
 const RATE_LIMIT_WINDOW_MINUTES = 15;
 const RATE_LIMIT_MAX_ATTEMPTS = 5;
 
+const ADMIN_SCOPE_FIELDS = 'id, email, password_hash, full_name, name, role, scope, is_active, created_at, updated_at, last_login_at';
+
 /**
  * Authoritatively determines if an administrator record or session holds Super Admin privileges.
  */
@@ -160,7 +162,7 @@ export async function handleAdminLogin({ email, password, targetPlatform = 'webs
   // 1. Fetch live admin record directly from Supabase
   const { data: adminRecord, error: dbErr } = await supabase
     .from('admin_scopes')
-    .select('*')
+    .select(ADMIN_SCOPE_FIELDS)
     .ilike('email', cleanEmail)
     .maybeSingle();
 
@@ -380,7 +382,7 @@ export async function handleAdminForgotPassword({ email, ipAddress = null }) {
   try {
     const { count } = await supabase
       .from('otp_verifications')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('destination_full', cleanEmail)
       .gte('created_at', windowStart);
 
@@ -460,7 +462,7 @@ export async function handleAdminResetPassword({ email, otp, newPassword }) {
 
   const { data: challenge } = await supabase
     .from('otp_verifications')
-    .select('*')
+    .select('id, destination_full, otp_hash, is_used, expires_at, created_at')
     .eq('destination_full', cleanEmail)
     .eq('otp_hash', otpHash)
     .eq('is_used', false)
@@ -520,7 +522,7 @@ export async function requireSuperAdmin(token, requesterEmail = null) {
   // 2. Authoritative check against live database admin_scopes
   if (supabase && (token || requesterEmail)) {
     try {
-      let query = supabase.from('admin_scopes').select('*');
+      let query = supabase.from('admin_scopes').select(ADMIN_SCOPE_FIELDS);
       if (token && typeof token === 'string' && !token.includes('.')) {
         query = query.or(`id.eq.${token},email.eq.${token}`);
       } else if (requesterEmail) {
@@ -752,7 +754,7 @@ export async function handleDeleteAdminUser({ token, requesterEmail = null, admi
   // 1. Fetch target administrator
   const { data: targetAdmin, error: findErr } = await supabase
     .from('admin_scopes')
-    .select('*')
+    .select(ADMIN_SCOPE_FIELDS)
     .eq('id', adminId)
     .maybeSingle();
 
@@ -772,7 +774,7 @@ export async function handleDeleteAdminUser({ token, requesterEmail = null, admi
   if (targetAdmin.scope === 'super_admin' || targetAdmin.role === 'super_admin') {
     const { count } = await supabase
       .from('admin_scopes')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .or('scope.eq.super_admin,role.eq.super_admin')
       .eq('is_active', true);
 
@@ -815,7 +817,7 @@ export async function handleResendAdminInvite({ token, requesterEmail = null, ad
 
   const { data: admin } = await supabase
     .from('admin_scopes')
-    .select('*')
+    .select(ADMIN_SCOPE_FIELDS)
     .eq('id', adminId)
     .maybeSingle();
 

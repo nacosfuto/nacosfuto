@@ -254,7 +254,7 @@ const Profile = () => {
       // 1. Query Supabase 'profiles' table (authoritative live database)
       if (supabase && (identifier || userId)) {
         try {
-          let query = supabase.from('profiles').select('*');
+          let query = supabase.from('profiles').select('id, full_name, first_name, middle_name, last_name, surname, email, phone_number, registration_number, matric_number, department, faculty, programme, programme_duration, admission_year, role, is_active, status, gender, date_of_birth, residential_address, bio, zone, cloudinary_public_id, photo_url, profile_photo_url, avatar_url, photo_alt, created_at, updated_at');
           if (userId && /^[0-9a-fA-F-]{36}$/.test(userId)) {
             query = query.or(`id.eq.${userId},registration_number.eq.${identifier}`);
           } else if (identifier) {
@@ -274,7 +274,7 @@ const Profile = () => {
         try {
           const { data, error } = await supabase
             .from('verified_students')
-            .select('*')
+            .select('id, registration_number, full_name, email, phone_number, department, faculty, level, admission_year, programme, programme_duration, academic_session, status, has_registered, is_registered, auth_user_id, registered_at, created_at, updated_at, first_name, last_name, surname, middle_name, cloudinary_public_id, photo_url')
             .eq('registration_number', identifier)
             .maybeSingle();
           if (!error && data) {

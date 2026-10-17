@@ -90,7 +90,7 @@ export async function fetchAcademicSessionsFromDatabase() {
       // 1. Authoritative check: id_card_settings table (where Admin Dashboard saves settings)
       const { data: idSettingsRows, error: idErr } = await supabase
         .from('id_card_settings')
-        .select('*')
+        .select('id, academic_session, payload')
         .in('id', ['default', 'dues', 'store_academic_session_config']);
 
       if (!idErr && Array.isArray(idSettingsRows) && idSettingsRows.length > 0) {
@@ -120,7 +120,7 @@ export async function fetchAcademicSessionsFromDatabase() {
       // 2. Fallback check: academic_settings table
       const { data: settingsRow } = await supabase
         .from('academic_settings')
-        .select('*')
+        .select('current_session, is_promotion_active')
         .eq('id', 'default')
         .maybeSingle();
 
@@ -164,7 +164,10 @@ export function initAcademicSessionSync() {
     try {
       supabase
         .channel('academic-session-live-sync-global')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_settings' }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_settings', filter: 'id=eq.store_academic_session_config' }, () => {
+          fetchAcademicSessionsFromDatabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_settings', filter: 'id=eq.default' }, () => {
           fetchAcademicSessionsFromDatabase();
         })
         .subscribe();

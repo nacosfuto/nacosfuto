@@ -196,7 +196,7 @@ export async function dispatchPaymentNotification({
     try {
       const { data } = await supabase
         .from('payment_notifications')
-        .select('*')
+        .select('id, payment_reference, notification_type, status, attempts')
         .eq('payment_reference', reference)
         .eq('notification_type', notifType)
         .maybeSingle();
@@ -525,7 +525,7 @@ export async function retryPaymentNotification({ notificationId, overrideEnv = {
       try {
         const { data } = await supabase
           .from('payment_notifications')
-          .select('*')
+          .select('id, payment_reference, notification_type, recipient_email, recipient_name, status, attempts, error_message, sent_at, created_at, updated_at')
           .eq('id', notificationId)
           .maybeSingle();
         notifRow = data;
@@ -543,7 +543,7 @@ export async function retryPaymentNotification({ notificationId, overrideEnv = {
     // Lookup original payment record
     const { data: paymentRecord } = await supabase
       .from('payments')
-      .select('*')
+      .select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata, academic_session, level')
       .eq('reference', notifRow.payment_reference)
       .maybeSingle();
 
@@ -590,7 +590,7 @@ export async function getPaymentNotificationLogs({
   try {
     let query = supabase
       .from('payment_notifications')
-      .select('*', { count: 'exact' });
+      .select('id, notification_type, payment_id, payment_reference, registration_number, student_name, recipient_email, recipient_phone, email_status, sms_status, status, failure_reason, retry_count, sent_at, created_at, updated_at', { count: 'exact' });
 
     if (status && status !== 'ALL') {
       query = query.eq('status', status.toLowerCase());

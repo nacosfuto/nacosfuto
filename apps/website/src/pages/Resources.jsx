@@ -161,7 +161,7 @@ const Resources = ({ isPreviewPage = false }) => {
       if (supabase) {
         supabase
           .from('academic_resources')
-          .select('*')
+          .select('id, title, slug, description, course_code, level, semester, resource_type, file_type, file_extension, file_name, file_size, storage_key, download_count, view_count, is_featured, is_active, created_at')
           .or(`id.eq.${routeResourceId},slug.eq.${routeResourceId}`)
           .maybeSingle()
           .then(({ data, error }) => {

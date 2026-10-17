@@ -26,6 +26,8 @@ import {
   parseSessionYears 
 } from '@nacos/config/academic';
 
+const PAYMENT_RECORD_FIELDS = 'id, reference, provider_checkout_id, student_id, registration_number, payment_type, amount, currency, status, level, academic_session, metadata, provider, paid_at, created_at, updated_at';
+
 // In-memory 30s cache for authoritative admin settings to eliminate repetitive database latency
 let cachedIdCardSettings = null;
 let cachedIdCardSettingsExpiry = 0;
@@ -36,10 +38,13 @@ export async function getCachedAuthoritativeSettings() {
   }
   try {
     if (supabase) {
-      const { data } = await supabase.from('id_card_settings').select('*');
+      const { data } = await supabase
+        .from('id_card_settings')
+        .select('id, academic_session, id_card_fee, is_application_open, allow_reapplication_on_revoke, card_template_version, updated_at')
+        .in('id', ['default', 'dues']);
       if (Array.isArray(data) && data.length > 0) {
         cachedIdCardSettings = data;
-        cachedIdCardSettingsExpiry = Date.now() + 30000;
+        cachedIdCardSettingsExpiry = Date.now() + 60000;
         return data;
       }
     }
@@ -238,7 +243,7 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
       let studentLevel = '100';
 
       try {
-        let profQuery = supabase.from('profiles').select('*');
+        let profQuery = supabase.from('profiles').select('id, full_name, level, current_level, profile_photo_url, avatar_url, photo_url, registration_number, matric_number');
         if (regNo && studentId && studentId.length === 36) {
           profQuery = profQuery.or(`registration_number.eq.${regNo},matric_number.eq.${regNo},id.eq.${studentId}`);
         } else if (regNo) {
@@ -261,7 +266,7 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
       }
 
       // 2. Check for existing ID Card Application
-      let appQuery = supabase.from('id_card_applications').select('*');
+      let appQuery = supabase.from('id_card_applications').select('id, student_id, registration_number, matric_number, academic_session, payment_status, id_card_status, card_status, is_cleared, created_at, updated_at');
       if (regNo && studentId && studentId.length === 36) {
         appQuery = appQuery.or(`registration_number.eq.${regNo},matric_number.eq.${regNo},student_id.eq.${studentId}`);
       } else if (regNo) {
@@ -515,7 +520,7 @@ export async function createPaymentCheckout({
     if (supabase && (regNo || studentId)) {
       let dupQuery = supabase
         .from('payments')
-        .select('*')
+        .select('id, reference, amount, payment_type, status, level, academic_session, metadata, provider, paid_at, created_at')
         .eq('payment_type', normalizedType)
         .in('status', ['successful']);
 
@@ -554,7 +559,7 @@ export async function createPaymentCheckout({
         try {
           const { data: deptDuesRecord } = await supabase
             .from('departmental_dues')
-            .select('*')
+            .select('id, registration_number, session, level, amount, status, reference')
             .eq('registration_number', regNo)
             .eq('session', targetSession)
             .in('status', ['paid', 'verified', 'cleared'])
@@ -597,7 +602,7 @@ export async function createPaymentCheckout({
         try {
           const { data: existingApp } = await supabase
             .from('id_card_applications')
-            .select('*')
+            .select('id, registration_number, level, payment_status')
             .eq('registration_number', regNo)
             .in('payment_status', ['paid', 'verified'])
             .maybeSingle();
@@ -1054,7 +1059,7 @@ export async function processBachsWebhook(event) {
     if (supabase) {
       const { data: existingEvent } = await supabase
         .from('webhook_events')
-        .select('*')
+        .select('id, provider, event_id, processed')
         .eq('provider', 'BACHS')
         .eq('event_id', eventId)
         .maybeSingle();
@@ -1122,7 +1127,7 @@ export async function processBachsWebhook(event) {
     let paymentRecord = null;
     if (supabase) {
       try {
-        let q = supabase.from('payments').select('*');
+        let q = supabase.from('payments').select(PAYMENT_RECORD_FIELDS);
         if (reference) q = q.eq('reference', reference);
         else if (providerCheckoutId) q = q.eq('provider_checkout_id', providerCheckoutId);
         const { data } = await q.maybeSingle();
@@ -1159,7 +1164,7 @@ export async function processBachsWebhook(event) {
     let paymentRecord = null;
     if (supabase) {
       try {
-        let q = supabase.from('payments').select('*');
+        let q = supabase.from('payments').select(PAYMENT_RECORD_FIELDS);
         if (reference) q = q.eq('reference', reference);
         else if (providerCheckoutId) q = q.eq('provider_checkout_id', providerCheckoutId);
         const { data } = await q.maybeSingle();
@@ -1204,7 +1209,7 @@ export async function processBachsWebhook(event) {
   let paymentRecord = null;
   try {
     if (supabase) {
-      let query = supabase.from('payments').select('*');
+      let query = supabase.from('payments').select(PAYMENT_RECORD_FIELDS);
       if (reference) {
         query = query.eq('reference', reference);
       } else if (providerCheckoutId) {
@@ -1336,7 +1341,7 @@ export async function getPaymentStatus({ reference, checkoutId, paymentType, reg
 
   try {
     if (supabase) {
-      let query = supabase.from('payments').select('*');
+      let query = supabase.from('payments').select(PAYMENT_RECORD_FIELDS);
       if (cleanRef) {
         query = query.eq('reference', cleanRef);
       } else if (cleanCheckoutId) {
@@ -1504,7 +1509,7 @@ export async function verifyIdCardAccess({ registrationNumber, studentId, reques
     // 2. Fetch student profile from database
     let profile = null;
     if (supabase) {
-      let profQuery = supabase.from('profiles').select('*');
+      let profQuery = supabase.from('profiles').select('id, registration_number, matric_number, admission_year, level, current_level, programme_duration, full_name, email');
       if (cleanReg && cleanStudentId && cleanStudentId.length === 36) {
         profQuery = profQuery.or(`registration_number.eq.${cleanReg},matric_number.eq.${cleanReg},id.eq.${cleanStudentId}`);
       } else if (cleanReg) {
@@ -1560,7 +1565,7 @@ export async function verifyIdCardAccess({ registrationNumber, studentId, reques
       // 5a. Check id_card_applications table strictly for current active level
       let appQuery = supabase
         .from('id_card_applications')
-        .select('*');
+        .select('id, student_id, registration_number, matric_number, level, academic_session, status, payment_status, payment_reference, created_at, updated_at');
 
       if (idMatchTerms.length > 0) {
         const orClauses = idMatchTerms.flatMap(term => [
@@ -1597,7 +1602,7 @@ export async function verifyIdCardAccess({ registrationNumber, studentId, reques
       // 5b. Check payments table for confirmed ID Card payment strictly for current active level
       let payQuery = supabase
         .from('payments')
-        .select('*');
+        .select(PAYMENT_RECORD_FIELDS);
 
       if (idMatchTerms.length > 0) {
         const orClauses = idMatchTerms.flatMap(term => [

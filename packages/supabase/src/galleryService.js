@@ -14,12 +14,17 @@ export const GALLERY_STORAGE_KEY = 'nacos_website_gallery_store';
 export const INITIAL_GALLERY = [];
 
 function normalizeItem(item) {
+  let url = item.image_url || item.src || '';
+  const pubId = item.cloudinary_public_id || item.publicId || '';
+  if (url.startsWith('data:') && pubId) {
+    url = `https://res.cloudinary.com/a2mmcttn/image/upload/${pubId}`;
+  }
   return {
     ...item,
-    src: item.image_url || item.src,
-    image_url: item.image_url || item.src,
-    publicId: item.cloudinary_public_id || item.publicId,
-    cloudinary_public_id: item.cloudinary_public_id || item.publicId,
+    src: url,
+    image_url: url,
+    publicId: pubId,
+    cloudinary_public_id: pubId,
     title: item.title || item.caption?.slice(0, 50) || 'Campus Moment',
     caption: item.caption || item.title || 'Campus Moment'
   };
@@ -73,17 +78,19 @@ export async function fetchGalleryFromSupabase() {
         try {
           const parsed = JSON.parse(storeRow.academic_session);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            saveLocalGalleryItems(parsed);
-            return parsed;
+            const sanitized = parsed.map(normalizeItem).filter(i => !i.image_url.startsWith('data:'));
+            saveLocalGalleryItems(sanitized);
+            return sanitized;
           }
         } catch (e) {}
       }
 
-      // 2. Fetch from media_assets where category = 'gallery' (universal multi-device sync)
+      // 2. Fetch from media_assets where category = 'gallery' (universal multi-device sync, excluding raw Base64 blobs)
       const { data: mediaItems, error: mediaError } = await supabase
         .from('media_assets')
-        .select('*')
+        .select('id, entity_id, image_url, cloudinary_public_id, image_alt, created_at, category, asset_type, title, caption')
         .eq('category', 'gallery')
+        .not('image_url', 'like', 'data:%')
         .order('created_at', { ascending: false });
 
       if (!mediaError && mediaItems && mediaItems.length > 0) {
@@ -126,7 +133,8 @@ export async function fetchGalleryFromSupabase() {
       // 3. Fallback to website_gallery table
       const { data, error } = await supabase
         .from('website_gallery')
-        .select('*')
+        .select('id, title, caption, image_url, cloudinary_public_id, category, is_featured, sort_order, created_at')
+        .not('image_url', 'like', 'data:%')
         .order('created_at', { ascending: false });
 
       if (!error && data && data.length > 0) {
@@ -217,12 +225,13 @@ export async function saveGalleryItem(itemData) {
     }
   }
 
-  // 2. Fallback key-value sync for multi-device compatibility
+  // 2. Fallback key-value sync for multi-device compatibility (Sanitize Base64 to prevent storage and egress bloat)
   if (supabase) {
     try {
+      const sanitized = updated.map(normalizeItem).filter(i => !i.image_url.startsWith('data:'));
       await supabase.from('id_card_settings').upsert({
         id: 'store_gallery',
-        academic_session: JSON.stringify(updated),
+        academic_session: JSON.stringify(sanitized),
         updated_at: now
       });
     } catch (_) {}

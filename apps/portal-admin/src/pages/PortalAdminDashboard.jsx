@@ -101,12 +101,20 @@ export const PortalAdminDashboard = () => {
       loadDashboardData(true);
     });
 
-    // 3. Continuous 12-second refresh
+    // 3. Passive 5-minute refresh heartbeat
     const pollInterval = setInterval(() => {
-      loadDashboardData(true);
-    }, 12000);
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadDashboardData(true);
+      }
+    }, 300000);
 
-    const handleFocus = () => loadDashboardData(true);
+    let lastDashboardSync = Date.now();
+    const handleFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && Date.now() - lastDashboardSync > 30000) {
+        lastDashboardSync = Date.now();
+        loadDashboardData(true);
+      }
+    };
     window.addEventListener('focus', handleFocus);
 
     return () => {

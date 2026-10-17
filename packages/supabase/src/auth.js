@@ -13,6 +13,10 @@ import {
 import { createOTPVerification, verifyOTP, maskEmail, maskPhone } from './otpService.js';
 import { sendPasswordResetEmail } from './emailService.js';
 
+export const AUTH_PROFILE_FIELDS = 'id, first_name, middle_name, last_name, full_name, registration_number, matric_number, admission_year, email, phone_number, programme, department, faculty, programme_duration, institution, role, is_active, status, gender, date_of_birth, residential_address, bio, zone, created_at, updated_at, surname, cloudinary_public_id, photo_url, photo_alt, password_hash';
+
+export const AUTH_VERIFIED_FIELDS = 'id, registration_number, full_name, email, phone_number, department, faculty, level, admission_year, programme, programme_duration, academic_session, status, has_registered, is_registered, auth_user_id, registered_at, created_at, updated_at, first_name, last_name, surname, middle_name, cloudinary_public_id, photo_url';
+
 /**
  * Cryptographic password hasher (SHA-256 with project salt)
  * Ensures passwords are never stored or transmitted in plain text.
@@ -247,7 +251,7 @@ export async function signInStudent(identifier, password) {
     const { data: dbProfile, error: dbError } = await withTimeout(
       supabase
         .from('profiles')
-        .select('*')
+        .select(AUTH_PROFILE_FIELDS)
         .or(orFilters.join(','))
         .limit(1)
         .maybeSingle(),
@@ -340,7 +344,7 @@ export async function signInStudent(identifier, password) {
     const { data: vsRecord } = await withTimeout(
       supabase
         .from('verified_students')
-        .select('*')
+        .select(AUTH_VERIFIED_FIELDS)
         .or(vsOrFilters.join(','))
         .limit(1)
         .maybeSingle(),
@@ -366,7 +370,7 @@ export async function signInStudent(identifier, password) {
           const canonicalReg = vsRecord.registration_number;
           const { data: linkedProfile } = await supabase
             .from('profiles')
-            .select('*')
+            .select(AUTH_PROFILE_FIELDS)
             .or(`registration_number.eq.${canonicalReg},matric_number.eq.${canonicalReg},id.eq.${vsRecord.id || ''}`)
             .limit(1)
             .maybeSingle();
@@ -512,7 +516,7 @@ export async function signInStudent(identifier, password) {
     if (!authError && authData?.user) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('*')
+        .select(AUTH_PROFILE_FIELDS)
         .eq('id', authData.user.id)
         .single();
 
@@ -651,7 +655,7 @@ export async function adminGetStudentsCount() {
     try {
       const { count, error } = await supabase
         .from('profiles')
-        .select('*', { count: 'exact', head: true });
+        .select('id', { count: 'exact', head: true });
       if (!error && typeof count === 'number') {
         return count;
       }
@@ -690,7 +694,7 @@ export async function updateStudentProfile(identifier, updates = {}) {
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('*')
+        .select(AUTH_PROFILE_FIELDS)
         .or(`registration_number.eq.${cleanId},matric_number.eq.${cleanId},id.eq.${identifier}`)
         .maybeSingle();
       if (data) currentRecord = data;
@@ -800,10 +804,13 @@ export async function adminGetAllStudents() {
     let allProfiles = [];
     let page = 0;
     const pageSize = 1000;
+    const PROFILE_BULK_FIELDS = 'id, first_name, middle_name, last_name, full_name, registration_number, matric_number, admission_year, email, phone_number, programme, department, faculty, programme_duration, institution, role, is_active, status, gender, date_of_birth, residential_address, bio, zone, created_at, updated_at, surname, cloudinary_public_id, photo_url, photo_alt';
+    const VERIFIED_BULK_FIELDS = 'id, registration_number, full_name, email, phone_number, department, faculty, level, admission_year, programme, programme_duration, academic_session, status, has_registered, is_registered, auth_user_id, registered_at, created_at, updated_at, first_name, last_name, surname, middle_name, cloudinary_public_id, photo_url';
+
     while (true) {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(PROFILE_BULK_FIELDS)
         .order('created_at', { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
@@ -825,7 +832,7 @@ export async function adminGetAllStudents() {
     try {
       const { data: vsRegistered } = await supabase
         .from('verified_students')
-        .select('*')
+        .select(VERIFIED_BULK_FIELDS)
         .or('has_registered.eq.true,is_registered.eq.true');
 
       if (Array.isArray(vsRegistered)) {
@@ -1113,7 +1120,7 @@ export async function requestStudentPasswordReset(identifier) {
   try {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('*')
+      .select(AUTH_PROFILE_FIELDS)
       .or(`registration_number.eq.${cleanId},email.eq.${cleanId},registration_number.ilike.${cleanId},email.ilike.${cleanId}`)
       .limit(1)
       .maybeSingle();
@@ -1127,7 +1134,7 @@ export async function requestStudentPasswordReset(identifier) {
     try {
       const { data: vs } = await supabase
         .from('verified_students')
-        .select('*')
+        .select(AUTH_VERIFIED_FIELDS)
         .or(`registration_number.eq.${cleanId},email.eq.${cleanId},registration_number.ilike.${cleanId},email.ilike.${cleanId}`)
         .limit(1)
         .maybeSingle();
@@ -1229,7 +1236,7 @@ export async function confirmStudentPasswordReset(regNumber, otpCode, newPasswor
       // If student is in verified_students but not yet in profiles, provision them into profiles with the new password hash
       const { data: vsRecord } = await supabase
         .from('verified_students')
-        .select('*')
+        .select(AUTH_VERIFIED_FIELDS)
         .or(`registration_number.ilike.${cleanReg},email.ilike.${cleanReg.toLowerCase()}`)
         .limit(1)
         .maybeSingle();

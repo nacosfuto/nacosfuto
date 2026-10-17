@@ -109,7 +109,7 @@ export async function verifyPaymentStatus({ reference, paymentType, registration
   // Fallback direct check against Supabase
   try {
     if (supabase) {
-      let query = supabase.from('payments').select('*');
+      let query = supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata, academic_session, level');
       if (reference) query = query.eq('reference', reference);
       else if (registrationNumber) {
         const cleanReg = String(registrationNumber).replace(/[\/\s\-]/g, '').trim().toUpperCase();
@@ -170,7 +170,7 @@ export async function getDuesSettings() {
       // 1. Primary check: id_card_settings for dues row
       const { data: duesRow, error } = await supabase
         .from('id_card_settings')
-        .select('*')
+        .select('id, id_card_fee, academic_session, is_application_open, updated_at')
         .eq('id', 'dues')
         .maybeSingle();
 
@@ -199,7 +199,7 @@ export async function getDuesSettings() {
       // 2. Secondary check: public.payment_fees table
       const { data: feeRow } = await supabase
         .from('payment_fees')
-        .select('*')
+        .select('id, fee_key, amount, currency, is_active, updated_at')
         .or('fee_key.eq.departmental_dues,fee_key.eq.dues')
         .eq('is_active', true)
         .order('updated_at', { ascending: false })
@@ -339,7 +339,7 @@ export async function getPaymentFee(feeKey, session = null) {
       const rowId = (key === 'id_card' || key === 'idcard') ? 'default' : key;
       const { data } = await supabase
         .from('id_card_settings')
-        .select('*')
+        .select('id, id_card_fee')
         .eq('id', rowId)
         .maybeSingle();
 
@@ -407,7 +407,7 @@ export async function adminGetAllDuesPayments() {
     while (true) {
       const { data, error } = await supabase
         .from('payments')
-        .select('*')
+        .select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, updated_at, metadata, academic_session, level')
         .eq('payment_type', 'DEPARTMENTAL_DUES')
         .order('created_at', { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1);
@@ -604,7 +604,7 @@ export async function fetchPaymentNotificationLogs({
   // Fallback direct check against Supabase
   if (supabase) {
     try {
-      let query = supabase.from('payment_notifications').select('*', { count: 'exact' });
+      let query = supabase.from('payment_notifications').select('id, notification_type, payment_id, payment_reference, registration_number, student_name, recipient_email, recipient_phone, email_status, sms_status, status, failure_reason, retry_count, sent_at, created_at, updated_at', { count: 'exact' });
       if (status && status !== 'ALL') query = query.eq('status', status.toLowerCase());
       if (paymentType && paymentType !== 'ALL') query = query.eq('payment_type', paymentType.toUpperCase());
       if (search) {

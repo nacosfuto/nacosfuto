@@ -207,7 +207,7 @@ export async function lookupVerifiedStudentRecord(regNo) {
   try {
     const { data, error } = await supabase
       .from('verified_students')
-      .select('*')
+      .select('id, registration_number, full_name, email, phone_number, department, faculty, level, admission_year, programme, programme_duration, academic_session, status, has_registered, is_registered, auth_user_id, registered_at, created_at, updated_at, first_name, last_name, surname, middle_name, cloudinary_public_id, photo_url')
       .eq('registration_number', cleanReg)
       .maybeSingle();
 
@@ -507,7 +507,7 @@ export async function completeSecureRegistration(sessionToken, regNo, password, 
   try {
     const { data } = await supabase
       .from('verified_students')
-      .select('*')
+      .select('id, registration_number, full_name, email, phone_number, department, faculty, level, admission_year, programme, programme_duration, academic_session, status, has_registered, is_registered, auth_user_id, registered_at, created_at, updated_at, first_name, last_name, surname, middle_name, cloudinary_public_id, photo_url')
       .eq('registration_number', cleanReg)
       .maybeSingle();
     if (data) verifiedRecord = data;
@@ -679,7 +679,7 @@ export async function adminGetVerifiedStudentsCount() {
   try {
     const { count, error } = await supabase
       .from('verified_students')
-      .select('*', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true });
     if (!error && typeof count === 'number') {
       return count;
     }
@@ -700,10 +700,11 @@ export async function adminGetAllVerifiedStudents() {
         let allRecords = [];
         let page = 0;
         const pageSize = 1000;
+        const VERIFIED_BULK_FIELDS = 'id, registration_number, full_name, email, phone_number, department, faculty, level, admission_year, programme, programme_duration, academic_session, status, has_registered, is_registered, auth_user_id, registered_at, created_at, updated_at, first_name, last_name, surname, middle_name, cloudinary_public_id, photo_url';
         while (true) {
           const { data, error } = await supabase
             .from('verified_students')
-            .select('*')
+            .select(VERIFIED_BULK_FIELDS)
             .order('registration_number', { ascending: true })
             .range(page * pageSize, (page + 1) * pageSize - 1);
           if (error) {
@@ -1221,7 +1222,7 @@ export async function adminAddVerifiedStudent(studentData) {
     try {
       const { data } = await supabase
         .from('verified_students')
-        .select('*')
+        .select('id, registration_number, full_name, email, phone_number, department, faculty, level, admission_year, programme, programme_duration, academic_session, status, has_registered, is_registered, auth_user_id, registered_at, created_at, updated_at, first_name, last_name, surname, middle_name, cloudinary_public_id, photo_url')
         .eq('registration_number', cleanReg)
         .maybeSingle();
       if (data) existingStudent = data;

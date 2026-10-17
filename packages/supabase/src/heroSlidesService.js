@@ -56,11 +56,40 @@ export function getLocalHeroSlides() {
   }
 }
 
+export const CANONICAL_DEFAULT_HERO_SLIDES = [
+  normalizeSlide({
+    id: 'cd1db2ae-71e5-4b7f-bffe-64bc45398d02',
+    image_url: 'https://res.cloudinary.com/a2mmcttn/image/upload/v1791346769/drilldown.jpg',
+    cloudinary_public_id: 'drilldown',
+    title: 'Department of Computer Science Complex',
+    heading: 'Empowering the Next Generation of Computer Scientists',
+    subtext: "Join FUTO's vibrant CS community. Innovate, learn, and lead the future of global computing technology.",
+    cta_text: 'Student Portal',
+    cta_link: 'https://www.nacosfuto.com.ng/portal',
+    display_order: 0,
+    is_published: true,
+    image_position: 'center 35%'
+  }),
+  normalizeSlide({
+    id: 'a6cea5cb-67b8-49af-970a-805cc1112d6f',
+    image_url: 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569317/nacos/gallery/gallery_dept_front.jpg',
+    cloudinary_public_id: 'nacos/gallery/gallery_dept_front',
+    title: 'FUTO CS Department Front View',
+    heading: 'Excellence in Computing, Research & Technology',
+    subtext: 'Pioneering world-class computing education, software engineering, and technological leadership at FUTO.',
+    cta_text: 'Explore Academics',
+    cta_link: '/academics',
+    display_order: 1,
+    is_published: true,
+    image_position: 'center 35%'
+  })
+];
+
 /**
  * Get published slides from dedicated local cache (instant synchronous load for public website)
  */
 export function getLocalPublishedHeroSlides() {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === 'undefined') return CANONICAL_DEFAULT_HERO_SLIDES;
   try {
     const raw = localStorage.getItem(PUBLISHED_HERO_SLIDES_STORAGE_KEY);
     if (raw) {
@@ -70,9 +99,11 @@ export function getLocalPublishedHeroSlides() {
       }
     }
     const all = getLocalHeroSlides();
-    return all.filter(s => s.is_published);
+    const published = all.filter(s => s.is_published);
+    if (published.length > 0) return published;
+    return CANONICAL_DEFAULT_HERO_SLIDES;
   } catch (err) {
-    return [];
+    return CANONICAL_DEFAULT_HERO_SLIDES;
   }
 }
 
@@ -119,7 +150,7 @@ export async function fetchHeroSlides(options = {}) {
       // 1. Direct query on public.website_hero_slides table
       let query = supabase
         .from('website_hero_slides')
-        .select('*')
+        .select('id, image_url, cloudinary_public_id, title, heading, subtext, cta_text, cta_link, display_order, is_published, image_position, created_by, created_at, updated_at')
         .order('display_order', { ascending: true })
         .order('created_at', { ascending: true });
 

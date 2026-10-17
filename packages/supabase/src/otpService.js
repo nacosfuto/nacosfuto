@@ -300,7 +300,7 @@ export async function verifyOTP(regNumber, channel, submittedCode) {
     const orFilter = `registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg}`;
     const { data: activeList } = await supabase
       .from('otp_verifications')
-      .select('*')
+      .select('id, registration_number, otp_hash, code, expires_at, attempts, max_attempts, is_used, created_at')
       .or(orFilter)
       .order('created_at', { ascending: false })
       .limit(20);
@@ -467,7 +467,7 @@ export async function validateVerificationSession(sessionToken, regNumber) {
   try {
     const { data } = await supabase
       .from('verification_sessions')
-      .select('*')
+      .select('id, session_token, registration_number, expires_at, is_consumed, created_at')
       .eq('session_token', sessionToken)
       .eq('registration_number', cleanReg)
       .eq('is_consumed', false)
@@ -583,7 +583,7 @@ export async function getRecoveryRequests(regNumber) {
 
   let data = null;
   try {
-    let query = supabase.from('account_recovery_requests').select('*').order('created_at', { ascending: false });
+    let query = supabase.from('account_recovery_requests').select('id, registration_number, student_name, email, phone, status, reason, created_at, updated_at').order('created_at', { ascending: false });
     if (cleanReg) query = query.eq('registration_number', cleanReg);
     const result = await query;
     if (!result.error && result.data && result.data.length > 0) {

@@ -469,7 +469,7 @@ export async function fetchCourses(options = {}) {
   // 1. Try Supabase if available
   try {
     if (supabase) {
-      let query = supabase.from('courses').select('*').order('code', { ascending: true });
+      let query = supabase.from('courses').select('id, code, title, units, level, semester, type, lecturer, office, prerequisites, description, syllabus').order('code', { ascending: true });
       if (level) {
         const cleanLevel = parseInt(String(level).replace(/[^0-9]/g, ''), 10);
         if (!isNaN(cleanLevel)) query = query.eq('level', cleanLevel);

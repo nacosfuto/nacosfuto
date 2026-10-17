@@ -55,7 +55,7 @@ export async function getIdCardSettings() {
       // 1. Primary check: id_card_settings for default row
       const { data, error } = await supabase
         .from('id_card_settings')
-        .select('*')
+        .select('id, id_card_fee, academic_session, is_application_open, updated_at')
         .eq('id', 'default')
         .maybeSingle();
 
@@ -82,7 +82,7 @@ export async function getIdCardSettings() {
       // 2. Secondary check: public.payment_fees table
       const { data: feeRow } = await supabase
         .from('payment_fees')
-        .select('*')
+        .select('id, fee_key, amount, academic_session, is_active, updated_at')
         .or('fee_key.eq.id_card,fee_key.eq.idcard')
         .eq('is_active', true)
         .order('updated_at', { ascending: false })
@@ -374,7 +374,7 @@ export async function checkStudentPaymentStatus(matricNumber, currentLevel = nul
 
     let pQuery = supabase
       .from('payments')
-      .select('*')
+      .select('id, reference, amount, payment_type, status, level, academic_session, metadata, provider, paid_at, created_at')
       .eq('payment_type', 'ID_CARD')
       .eq('status', 'successful');
 
@@ -465,7 +465,7 @@ export async function checkStudentPaymentStatus(matricNumber, currentLevel = nul
   try {
     const { data, error } = await supabase
       .from('departmental_dues')
-      .select('*')
+      .select('id, matric_number, academic_session, level, amount, status, reference, created_at')
       .eq('matric_number', cleanMatric)
       .in('status', ['verified', 'successful'])
       .maybeSingle();
@@ -624,7 +624,7 @@ export async function recordStudentPayment(matricNumber, amount = null) {
     // Check if there's an existing application for this student
     const { data: existingApp } = await supabase
       .from('id_card_applications')
-      .select('*')
+      .select('id')
       .or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`)
       .maybeSingle();
 
@@ -683,9 +683,11 @@ export async function getStudentIdApplication(matricOrId, targetLevel = null) {
     }
     const orFilter = conds.join(',');
 
+    const idAppColumns = 'id, student_id, matric_number, registration_number, full_name, level, department, faculty, card_expiry_date, issue_date, status, payment_status, passport_url, passport_photo_url, signature_url, id_card_image_url, qr_code_url, created_at, updated_at, submitted_at, approved_at, rejected_at, rejection_reason, amount, payment_reference';
+
     let query = supabase
       .from('id_card_applications')
-      .select('*')
+      .select(idAppColumns)
       .or(orFilter);
 
     if (cleanTargetLevel) {
@@ -701,7 +703,7 @@ export async function getStudentIdApplication(matricOrId, targetLevel = null) {
     if (!data && cleanTargetLevel) {
       const fallbackRes = await supabase
         .from('id_card_applications')
-        .select('*')
+        .select(idAppColumns)
         .or(orFilter)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -1137,7 +1139,11 @@ export async function submitIdApplication(applicationId, passportUrlOverride = n
   if (index === -1) {
     // Remote check
     try {
-      const { data } = await supabase.from('id_card_applications').select('*').eq('id', applicationId).maybeSingle();
+      const { data } = await supabase
+        .from('id_card_applications')
+        .select('id, student_id, matric_number, registration_number, full_name, level, department, faculty, card_expiry_date, issue_date, status, payment_status, passport_url, passport_photo_url, signature_url, id_card_image_url, qr_code_url, created_at, updated_at, submitted_at, approved_at, rejected_at, rejection_reason, amount, payment_reference')
+        .eq('id', applicationId)
+        .maybeSingle();
       if (data) {
         apps.push(data);
         index = apps.length - 1;
@@ -1204,7 +1210,7 @@ export async function portalAdminGetApplications(options = {}) {
   try {
     let query = supabase
       .from('id_card_applications')
-      .select('*')
+      .select('id, student_id, matric_number, registration_number, full_name, level, department, faculty, card_expiry_date, issue_date, status, payment_status, passport_url, passport_photo_url, signature_url, id_card_image_url, qr_code_url, created_at, updated_at, submitted_at, approved_at, rejected_at, rejection_reason, amount, payment_reference')
       .order('created_at', { ascending: false });
 
     if (status && status !== 'ALL') {
@@ -1511,7 +1517,10 @@ export async function verifyIdCardPublic(idCardNumber) {
   try {
     const { data, error } = await supabase
       .from('id_card_applications')
-      .select('*, profiles:student_id(*)')
+      .select(`
+        id, student_id, matric_number, registration_number, id_card_number, application_number, full_name, level, department, faculty, card_expiry_date, issue_date, status, payment_status, passport_url, passport_photo_url, signature_url, id_card_image_url, qr_code_url, revocation_reason, created_at,
+        profiles:student_id(id, full_name, registration_number, matric_number, department, faculty, level, admission_year)
+      `)
       .or(`id_card_number.eq.${cleanNum},application_number.eq.${cleanNum}`)
       .maybeSingle();
 
@@ -2158,7 +2167,7 @@ export function subscribeToIdCardUpdates(matricOrId, callback) {
   try {
     if (supabase && typeof supabase.channel === 'function') {
       channel = supabase
-        .channel(`id_card_updates_${cleanMatric || 'all'}_${Date.now()}`)
+        .channel(`id_card_updates_${cleanMatric || 'all'}`)
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'id_card_applications' },
@@ -2199,10 +2208,12 @@ export function subscribeToIdCardUpdates(matricOrId, callback) {
   };
   document.addEventListener('visibilitychange', handleVisibility);
 
-  // 4. Polling fallback (every 5 seconds)
+  // 4. Polling fallback (relaxed 60s passive heartbeat only when tab is visible)
   const intervalId = setInterval(() => {
-    callback({ type: 'poll' });
-  }, 5000);
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      callback({ type: 'poll' });
+    }
+  }, 60000);
 
   return () => {
     if (channel && typeof supabase.removeChannel === 'function') {

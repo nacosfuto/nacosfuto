@@ -112,7 +112,7 @@ export async function fetchExecutivesFromSupabase() {
     if (resultList.length === 0) {
       const { data: execRows } = await supabase
         .from('nacos_executives')
-        .select('*')
+        .select('id, name, role, portfolio, level, bio, photo_url, image, cloudinary_public_id, category, is_active, session, academic_session, order_index')
         .order('order_index', { ascending: true });
 
       if (execRows && execRows.length > 0) {
@@ -138,8 +138,9 @@ export async function fetchExecutivesFromSupabase() {
     if (resultList.length === 0) {
       const { data, error } = await supabase
         .from('media_assets')
-        .select('*')
+        .select('id, entity_type, entity_id, category, image_url, image_alt, cloudinary_public_id, created_at')
         .eq('category', 'executives')
+        .not('image_url', 'like', 'data:%')
         .order('created_at', { ascending: false });
 
       if (!error && data && Array.isArray(data)) {
@@ -199,7 +200,7 @@ export async function fetchExecutivesFromSupabase() {
     } else {
       const { data: tblSet } = await supabase
         .from('nacos_executives_settings')
-        .select('*')
+        .select('hero_image, hero_title, hero_year, hero_subtitle, current_session_title, past_session_title')
         .eq('id', 'current_settings')
         .maybeSingle();
       if (tblSet) {

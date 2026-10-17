@@ -68,8 +68,9 @@ export async function fetchYellowPagesFromSupabase(statusFilter = 'all') {
       // 2. Live query from media_assets for universal multi-device sync
       const { data: mediaYP, error: mediaErr } = await supabase
         .from('media_assets')
-        .select('*')
+        .select('id, entity_id, category, image_url, image_alt, cloudinary_public_id, created_at')
         .eq('category', 'yellow_pages')
+        .not('image_url', 'like', 'data:%')
         .order('created_at', { ascending: false });
 
       if (!mediaErr && mediaYP && mediaYP.length > 0) {
@@ -104,7 +105,11 @@ export async function fetchYellowPagesFromSupabase(statusFilter = 'all') {
       }
 
       // 3. Fallback to yellow_pages table
-      let query = supabase.from('yellow_pages').select('*').order('created_at', { ascending: false });
+      let query = supabase
+        .from('yellow_pages')
+        .select('id, name, category, secondary_categories, owner_name, owner_level, description, location, phone, whatsapp, email, rating, reviews_count, image, cloudinary_public_id, image_position, status, created_at')
+        .not('image', 'like', 'data:%')
+        .order('created_at', { ascending: false });
       if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
       }
@@ -163,7 +168,11 @@ async function getRemoteStoreList(storeId, fallbackList) {
 
       // If store_yellow_pages row is empty, fallback to yellow_pages table
       if (storeId === 'store_yellow_pages') {
-        const { data: ypRows } = await supabase.from('yellow_pages').select('*').order('created_at', { ascending: false });
+        const { data: ypRows } = await supabase
+          .from('yellow_pages')
+          .select('id, name, category, secondary_categories, owner_name, owner_level, description, location, phone, whatsapp, email, rating, reviews_count, image, cloudinary_public_id, image_position, status, created_at')
+          .not('image', 'like', 'data:%')
+          .order('created_at', { ascending: false });
         if (ypRows && ypRows.length > 0) {
           const mapped = ypRows.map(b => ({
             id: b.id,
@@ -392,8 +401,9 @@ export async function fetchCampusClubsFromSupabase(statusFilter = 'all') {
       // Check media_assets fallback
       const { data: mediaClubs, error: mediaErr } = await supabase
         .from('media_assets')
-        .select('*')
+        .select('id, entity_id, category, image_url, image_alt, cloudinary_public_id, created_at')
         .eq('category', 'campus_clubs')
+        .not('image_url', 'like', 'data:%')
         .order('created_at', { ascending: false });
 
       if (!mediaErr && mediaClubs && mediaClubs.length > 0) {
@@ -587,8 +597,9 @@ export async function fetchAlumniFromSupabase(statusFilter = 'all') {
       // 2. Real-time media_assets fallback
       const { data: mediaAlumni, error: mediaErr } = await supabase
         .from('media_assets')
-        .select('*')
+        .select('id, entity_id, category, image_url, image_alt, cloudinary_public_id, created_at')
         .eq('category', 'alumni')
+        .not('image_url', 'like', 'data:%')
         .order('created_at', { ascending: false });
 
       if (!mediaErr && mediaAlumni && mediaAlumni.length > 0) {

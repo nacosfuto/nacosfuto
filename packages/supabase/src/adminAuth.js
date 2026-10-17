@@ -80,7 +80,7 @@ export async function getAdminAuditLogs(scope = 'main_website', limit = 50) {
     if (supabase) {
       const { data, error } = await supabase
         .from('admin_audit_logs')
-        .select('*')
+        .select('id, admin_id, admin_email, action, details, ip_address, created_at')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -304,7 +304,7 @@ export async function loginWebsiteAdmin(email, password) {
   try {
     const { data: dbAdmin, error: dbErr } = await supabase
       .from('admin_scopes')
-      .select('*')
+      .select('id, email, password_hash, full_name, name, role, scope, is_active, created_at, updated_at')
       .ilike('email', cleanEmail)
       .maybeSingle();
 
@@ -422,7 +422,7 @@ export async function loginPortalAdmin(email, password) {
   try {
     const { data: dbAdmin, error: dbErr } = await supabase
       .from('admin_scopes')
-      .select('*')
+      .select('id, email, password_hash, full_name, name, role, scope, is_active, created_at, updated_at')
       .ilike('email', cleanEmail)
       .maybeSingle();
 
@@ -596,7 +596,7 @@ export async function superAdminGetAdmins() {
     try {
       const { data, error } = await supabase
         .from('admin_scopes')
-        .select('*')
+        .select('id, email, full_name, name, role, scope, is_active, created_at, updated_at, last_login_at')
         .order('created_at', { ascending: false });
 
       if (!error && Array.isArray(data)) {

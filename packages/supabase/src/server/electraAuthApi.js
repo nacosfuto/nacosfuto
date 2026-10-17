@@ -99,7 +99,7 @@ async function getOfficialStudentRecord(registrationNumber) {
     try {
       const { data, error } = await supabase
         .from('verified_students')
-        .select('*')
+        .select('id, registration_number, full_name, first_name, last_name, surname, middle_name, department, email, phone_number, level, admission_year')
         .or(`registration_number.eq.${cleanReg},registration_number.ilike.${cleanReg}`)
         .limit(1)
         .maybeSingle();
@@ -134,7 +134,7 @@ async function getOfficialStudentRecord(registrationNumber) {
       const strippedReg = cleanReg.replace(/[^a-zA-Z0-9]/g, '');
       const { data: prof } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, registration_number, matric_number, full_name, first_name, last_name, surname, department, email, phone_number, admission_year')
         .or(`registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg},matric_number.ilike.${cleanReg},matric_number.ilike.${strippedReg}`)
         .limit(1)
         .maybeSingle();
@@ -194,7 +194,7 @@ async function getAccreditationRecord(electionId, registrationNumber) {
     try {
       const { data, error } = await supabase
         .from('electra_accreditations')
-        .select('*')
+        .select('id, election_id, registration_number, student_level, status, passcode, accredited_at, voted_at, created_at')
         .eq('election_id', electionId)
         .eq('registration_number', cleanReg)
         .maybeSingle();
@@ -225,10 +225,12 @@ async function getAccreditationRecord(electionId, registrationNumber) {
 export async function getServerElection(electionId) {
   if (supabase) {
     try {
+      const electionColumns = 'id, title, year, academic_session, start_date, end_date, status, is_published, voter_guide, created_at, updated_at';
+
       if (electionId) {
         const { data: dbEl, error: elErr } = await supabase
           .from('electra_elections')
-          .select('*')
+          .select(electionColumns)
           .eq('id', electionId)
           .maybeSingle();
         if (dbEl && !elErr) return dbEl;
@@ -236,14 +238,14 @@ export async function getServerElection(electionId) {
 
       const { data: activeEl, error: actErr } = await supabase
         .from('electra_elections')
-        .select('*')
+        .select(electionColumns)
         .eq('status', 'active')
         .maybeSingle();
       if (activeEl && !actErr) return activeEl;
 
       const { data: anyEl, error: anyErr } = await supabase
         .from('electra_elections')
-        .select('*')
+        .select(electionColumns)
         .order('year', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -280,7 +282,7 @@ export async function getServerPostsAndContestants(electionId) {
       // 1. Fetch positions from electra_positions
       const { data: dbPosts, error: postErr } = await supabase
         .from('electra_positions')
-        .select('*')
+        .select('id, title, code, order_index, description')
         .order('order_index', { ascending: true });
 
       if (!postErr && Array.isArray(dbPosts) && dbPosts.length > 0) {
@@ -294,7 +296,7 @@ export async function getServerPostsAndContestants(electionId) {
       }
 
       // 2. Fetch candidates from electra_candidates
-      let cndQuery = supabase.from('electra_candidates').select('*');
+      let cndQuery = supabase.from('electra_candidates').select('id, election_id, position_id, name, matric_number, level, running_post, slogan, photo_url, votes_count');
       if (electionId) {
         cndQuery = cndQuery.eq('election_id', electionId);
       }
@@ -395,7 +397,7 @@ async function getVoterVotesForElection(electionId, voterReg) {
     try {
       const { data, error } = await supabase
         .from('electra_votes')
-        .select('*')
+        .select('id, election_id, position_id, candidate_id, voter_registration_number, created_at')
         .eq('election_id', electionId)
         .eq('voter_registration_number', cleanReg);
 

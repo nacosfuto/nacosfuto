@@ -125,7 +125,7 @@ export async function fetchNotices(options = {}) {
     if (supabase) {
       let query = supabase
         .from('announcements')
-        .select('*')
+        .select('id, title, slug, target_audience, category, author_unit, author, published_date, published_at, created_at, updated_at, content, excerpt, is_popup, is_urgent, priority, is_published')
         .order('created_at', { ascending: false });
 
       if (activeOnly) {
