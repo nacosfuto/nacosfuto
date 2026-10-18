@@ -14,6 +14,7 @@ const PortalAdminMedia = React.lazy(() => import('./pages/PortalAdminMedia'));
 const PortalAdminNotices = React.lazy(() => import('./pages/PortalAdminNotices'));
 const PortalAdminSettings = React.lazy(() => import('./pages/PortalAdminSettings'));
 import PortalAdminProtectedRoute from './components/PortalAdminProtectedRoute';
+import { initAcademicSessionSync } from '@nacos/supabase';
 
 const LoadingFallback = () => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#f8fafc] dark:bg-[#041801] w-full min-h-[100dvh] h-full p-4 overflow-hidden">
@@ -85,6 +86,10 @@ class ErrorBoundary extends React.Component {
 
 function App() {
   const isNestedUnderPortalAdmin = typeof window !== 'undefined' && window.location.pathname.startsWith('/portal-admin');
+
+  React.useEffect(() => {
+    initAcademicSessionSync();
+  }, []);
 
   return (
     <ErrorBoundary>

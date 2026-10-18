@@ -10,7 +10,9 @@ import {
   calculateAcademicProgression,
   parseSessionYears,
   getActiveAcademicYearStart,
-  setActiveAcademicSession
+  setActiveAcademicSession,
+  getActiveAcademicSemester,
+  setActiveAcademicSemester
 } from '@nacos/config/academic';
 
 const PAYMENTS_STORAGE_KEY = 'nacos_payments_db';
@@ -40,6 +42,7 @@ function getLocalIdSettingsDatabase() {
     id_card_fee: null,
     is_application_open: true,
     academic_session: getDynamicAcademicSession(),
+    academic_semester: getActiveAcademicSemester(),
     allow_reapplication_on_revoke: true,
     card_template_version: '2026.1',
     updated_at: new Date().toISOString()
@@ -55,7 +58,7 @@ export async function getIdCardSettings() {
       // 1. Primary check: id_card_settings for default row
       const { data, error } = await supabase
         .from('id_card_settings')
-        .select('id, id_card_fee, academic_session, is_application_open, updated_at')
+        .select('id, id_card_fee, academic_session, academic_semester, is_application_open, updated_at')
         .eq('id', 'default')
         .maybeSingle();
 
@@ -66,10 +69,17 @@ export async function getIdCardSettings() {
             setActiveAcademicSession(p.startYear);
           }
         }
+        if (data.academic_semester) {
+          const sem = String(data.academic_semester).toLowerCase().includes('second')
+            ? 'Second Semester'
+            : 'First Semester';
+          setActiveAcademicSemester(sem);
+        }
         const resolvedSettings = {
           id: 'default',
           id_card_fee: Number(data.id_card_fee),
           academic_session: data.academic_session || getDynamicAcademicSession(),
+          academic_semester: data.academic_semester || getActiveAcademicSemester(),
           is_application_open: data.is_application_open ?? true,
           updated_at: data.updated_at
         };
@@ -94,6 +104,7 @@ export async function getIdCardSettings() {
           id: 'default',
           id_card_fee: Number(feeRow.amount),
           academic_session: feeRow.academic_session || getDynamicAcademicSession(),
+          academic_semester: getActiveAcademicSemester(),
           is_application_open: true,
           updated_at: feeRow.updated_at
         };
@@ -114,6 +125,7 @@ export async function getIdCardSettings() {
             id: 'default',
             id_card_fee: Number(json.amount),
             academic_session: getDynamicAcademicSession(),
+            academic_semester: getActiveAcademicSemester(),
             is_application_open: true,
             updated_at: new Date().toISOString()
           };
@@ -125,10 +137,12 @@ export async function getIdCardSettings() {
   return getLocalIdSettingsDatabase();
 }
 
-export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicSession, allowRegistration }) {
+export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicSession, activeSemester, allowRegistration }) {
   const feeNum = Number(idCardFee);
   const duesNum = Number(duesFee);
   const session = String(academicSession || getDynamicAcademicSession()).trim();
+  const rawSem = activeSemester || getActiveAcademicSemester();
+  const semester = String(rawSem).toLowerCase().includes('second') ? 'Second Semester' : 'First Semester';
   const isOpen = Boolean(allowRegistration);
   const now = new Date().toISOString();
 
@@ -148,6 +162,7 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
             id: 'default',
             id_card_fee: feeNum,
             academic_session: session,
+            academic_semester: semester,
             is_application_open: isOpen,
             updated_at: now
           },
@@ -155,12 +170,14 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
             id: 'dues',
             id_card_fee: duesNum,
             academic_session: session,
+            academic_semester: semester,
             is_application_open: true,
             updated_at: now
           },
           {
             id: 'store_academic_session_config',
             academic_session: session,
+            academic_semester: semester,
             updated_at: now
           }
         ], { onConflict: 'id' });
@@ -169,6 +186,18 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
         console.error('[Portal Settings Database Save Error]:', error);
         return { error: `Database error: ${error.message}` };
       }
+
+      // Synchronize public.academic_settings
+      try {
+        await supabase
+          .from('academic_settings')
+          .upsert({
+            id: 'default',
+            current_session: session,
+            current_semester: semester,
+            updated_at: now
+          }, { onConflict: 'id' });
+      } catch (_) {}
 
       // Synchronize public.payment_fees table as well
       try {
@@ -194,14 +223,19 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
     const localSettings = getLocalIdSettingsDatabase();
     localSettings.id_card_fee = feeNum;
     localSettings.academic_session = session;
+    localSettings.academic_semester = semester;
     localSettings.is_application_open = isOpen;
     localSettings.updated_at = now;
     localStorage.setItem(ID_SETTINGS_STORAGE_KEY, JSON.stringify(localSettings));
+
+    // Update in-memory active semester and broadcast
+    setActiveAcademicSemester(semester);
 
     const duesSettings = {
       id: 'dues',
       dues_amount: duesNum,
       academic_session: session,
+      academic_semester: semester,
       is_open: true,
       updated_at: now
     };

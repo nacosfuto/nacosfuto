@@ -9,13 +9,18 @@ import { supabase } from './client.js';
 import { 
   DEFAULT_ACADEMIC_YEAR_START,
   SUPPORTED_ACADEMIC_SESSIONS,
+  DEFAULT_ACADEMIC_SEMESTER,
+  SUPPORTED_ACADEMIC_SEMESTERS,
   parseSessionYears, 
   getAcademicSession, 
   setActiveAcademicSession, 
   getActiveAcademicSession, 
   getActiveAcademicYearStart,
+  setActiveAcademicSemester,
+  getActiveAcademicSemester,
   calculateAcademicProgression,
-  onAcademicSessionChange
+  onAcademicSessionChange,
+  onAcademicSemesterChange
 } from '@nacos/config/academic';
 
 const LOCAL_SESSIONS_KEY = 'nacos_academic_sessions_db';
@@ -80,9 +85,9 @@ function buildSessionsListWithCurrent(baseSessions, targetStartYear) {
 }
 
 /**
- * Fetch all academic sessions from Supabase database
+ * Fetch all academic sessions and global active semester from Supabase database
  * Returns ordered by start_year descending
- * Authoritative Single Source of Truth: public.id_card_settings
+ * Authoritative Sources: public.id_card_settings and public.academic_settings
  */
 export async function fetchAcademicSessionsFromDatabase() {
   if (supabase) {
@@ -90,19 +95,30 @@ export async function fetchAcademicSessionsFromDatabase() {
       // 1. Authoritative check: id_card_settings table (where Admin Dashboard saves settings)
       const { data: idSettingsRows, error: idErr } = await supabase
         .from('id_card_settings')
-        .select('id, academic_session, payload')
+        .select('id, academic_session, academic_semester, payload')
         .in('id', ['default', 'dues', 'store_academic_session_config']);
 
       if (!idErr && Array.isArray(idSettingsRows) && idSettingsRows.length > 0) {
         const defaultRow = idSettingsRows.find(r => r.id === 'default');
         const configRow = idSettingsRows.find(r => r.id === 'store_academic_session_config');
 
+        // Check active semester
+        const activeSemesterRaw = configRow?.academic_semester || 
+                                  configRow?.payload?.active_semester || 
+                                  defaultRow?.academic_semester;
+        if (activeSemesterRaw) {
+          const semNormalized = String(activeSemesterRaw).toLowerCase().includes('second')
+            ? 'Second Semester'
+            : 'First Semester';
+          setActiveAcademicSemester(semNormalized);
+        }
+
         const activeSessionRaw = configRow?.academic_session || defaultRow?.academic_session;
         if (activeSessionRaw && typeof activeSessionRaw === 'string' && activeSessionRaw.includes('/')) {
           const parsed = parseSessionYears(activeSessionRaw);
           const activeStartYear = parsed.startYear;
 
-          // Sync in-memory state
+          // Sync in-memory session state
           setActiveAcademicSession(activeStartYear);
 
           // Get sessions list
@@ -117,19 +133,28 @@ export async function fetchAcademicSessionsFromDatabase() {
         }
       }
 
-      // 2. Fallback check: academic_settings table
+      // 2. Secondary check: academic_settings table
       const { data: settingsRow } = await supabase
         .from('academic_settings')
-        .select('current_session, is_promotion_active')
+        .select('current_session, current_semester, current_academic_year_start')
         .eq('id', 'default')
         .maybeSingle();
 
-      if (settingsRow?.current_session) {
-        const parsed = parseSessionYears(settingsRow.current_session);
-        setActiveAcademicSession(parsed.startYear);
-        const finalizedSessions = buildSessionsListWithCurrent(getLocalSessions(), parsed.startYear);
-        saveLocalSessions(finalizedSessions);
-        return finalizedSessions;
+      if (settingsRow) {
+        if (settingsRow.current_semester) {
+          const semNorm = String(settingsRow.current_semester).toLowerCase().includes('second')
+            ? 'Second Semester'
+            : 'First Semester';
+          setActiveAcademicSemester(semNorm);
+        }
+
+        if (settingsRow.current_session) {
+          const parsed = parseSessionYears(settingsRow.current_session);
+          setActiveAcademicSession(parsed.startYear);
+          const finalizedSessions = buildSessionsListWithCurrent(getLocalSessions(), parsed.startYear);
+          saveLocalSessions(finalizedSessions);
+          return finalizedSessions;
+        }
       }
     } catch (e) {
       console.warn('[Academic Service] Supabase sessions query notice:', e.message);
@@ -143,10 +168,22 @@ export async function fetchAcademicSessionsFromDatabase() {
   return localList;
 }
 
+/**
+ * Fetch unified global academic settings (Session + Active Semester) directly from Supabase
+ */
+export async function fetchAcademicSettingsFromDatabase() {
+  await fetchAcademicSessionsFromDatabase();
+  return {
+    academicSession: getActiveAcademicSession(),
+    activeSemester: getActiveAcademicSemester(),
+    startYear: getActiveAcademicYearStart()
+  };
+}
+
 let _academicSyncInitialized = false;
 
 /**
- * Global Real-time Academic Session Synchronization Engine
+ * Global Real-time Academic Session & Semester Synchronization Engine
  * Automatically aligns the student portal, payment gateways, and admin dashboards in real time.
  */
 export function initAcademicSessionSync() {
@@ -170,18 +207,29 @@ export function initAcademicSessionSync() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_settings', filter: 'id=eq.default' }, () => {
           fetchAcademicSessionsFromDatabase();
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'academic_settings', filter: 'id=eq.default' }, () => {
+          fetchAcademicSessionsFromDatabase();
+        })
         .subscribe();
     } catch (_) {}
   }
 
-  // 3. Setup Cross-Tab BroadcastChannel listener
+  // 3. Setup Cross-Tab BroadcastChannel listener for Session and Semester
   if (typeof BroadcastChannel !== 'undefined') {
     try {
-      const channel = new BroadcastChannel('nacos_academic_session_sync');
-      channel.onmessage = (event) => {
+      const sessionChannel = new BroadcastChannel('nacos_academic_session_sync');
+      sessionChannel.onmessage = (event) => {
         const { startYear } = event?.data || {};
         if (startYear) {
           fetchAcademicSessionsFromDatabase();
+        }
+      };
+
+      const semesterChannel = new BroadcastChannel('nacos_academic_semester_sync');
+      semesterChannel.onmessage = (event) => {
+        const { semester } = event?.data || {};
+        if (semester) {
+          setActiveAcademicSemester(semester);
         }
       };
     } catch (_) {}
@@ -287,17 +335,20 @@ export async function setActiveAcademicSessionInDatabase(sessionIdentifier) {
   // 1. Update Supabase Database Single Source of Truth: public.id_card_settings
   if (supabase) {
     try {
+      const activeSem = getActiveAcademicSemester();
       // Primary: id_card_settings (accessible, reliable, and verified)
       const { error: idSaveErr } = await supabase
         .from('id_card_settings')
         .upsert([
-          { id: 'default', academic_session: targetSessionName, updated_at: now },
-          { id: 'dues', academic_session: targetSessionName, updated_at: now },
+          { id: 'default', academic_session: targetSessionName, academic_semester: activeSem, updated_at: now },
+          { id: 'dues', academic_session: targetSessionName, academic_semester: activeSem, updated_at: now },
           { 
             id: 'store_academic_session_config', 
             academic_session: targetSessionName, 
+            academic_semester: activeSem,
             payload: { 
               active_session: targetSessionName, 
+              active_semester: activeSem,
               start_year: targetStartYear, 
               end_year: targetEndYear,
               sessions: updatedSessionsList 
@@ -362,6 +413,7 @@ export async function setActiveAcademicSessionInDatabase(sessionIdentifier) {
             id: 'default',
             current_academic_year_start: targetStartYear,
             current_session: targetSessionName,
+            current_semester: activeSem,
             updated_at: now
           }, { onConflict: 'id' });
       } catch (_) {}
@@ -466,3 +518,105 @@ export async function createAcademicSessionInDatabase({ sessionName, startDate =
 
   return { success: true, session: newSessionRecord };
 }
+
+/**
+ * Switch active academic semester system-wide (First Semester or Second Semester)
+ * Saves persistently to Supabase id_card_settings and academic_settings,
+ * updates in-memory state, and broadcasts real-time synchronization across all tabs and components.
+ */
+export async function setActiveAcademicSemesterInDatabase(semesterIdentifier) {
+  const normalized = String(semesterIdentifier || '').toLowerCase().includes('second')
+    ? 'Second Semester'
+    : 'First Semester';
+  const now = new Date().toISOString();
+  const currentSession = getActiveAcademicSession();
+  const currentStartYear = getActiveAcademicYearStart();
+
+  if (supabase) {
+    try {
+      // 1. Update id_card_settings table
+      const { error: idErr } = await supabase
+        .from('id_card_settings')
+        .upsert([
+          { id: 'default', academic_semester: normalized, updated_at: now },
+          { id: 'dues', academic_semester: normalized, updated_at: now }
+        ], { onConflict: 'id' });
+
+      if (idErr) {
+        console.warn('[Academic Service] id_card_settings semester notice:', idErr.message);
+      }
+
+      // Also update store_academic_session_config payload
+      try {
+        const { data: configRow } = await supabase
+          .from('id_card_settings')
+          .select('payload')
+          .eq('id', 'store_academic_session_config')
+          .maybeSingle();
+
+        const currentPayload = configRow?.payload || {};
+        await supabase
+          .from('id_card_settings')
+          .upsert({
+            id: 'store_academic_session_config',
+            academic_session: currentSession,
+            academic_semester: normalized,
+            payload: {
+              ...currentPayload,
+              active_semester: normalized
+            },
+            updated_at: now
+          }, { onConflict: 'id' });
+      } catch (_) {}
+
+      // 2. Update academic_settings table
+      try {
+        await supabase
+          .from('academic_settings')
+          .upsert({
+            id: 'default',
+            current_session: currentSession,
+            current_semester: normalized,
+            current_academic_year_start: currentStartYear,
+            updated_at: now
+          }, { onConflict: 'id' });
+      } catch (_) {}
+
+      // 3. Optional: Call stored procedure if available
+      try {
+        await supabase.rpc('set_active_academic_semester', { p_semester: normalized });
+      } catch (_) {}
+    } catch (dbErr) {
+      console.error('[Academic Service] Database semester update error:', dbErr);
+    }
+  }
+
+  // Update in-memory state and broadcast system-wide
+  setActiveAcademicSemester(normalized);
+
+  return {
+    success: true,
+    semester: normalized,
+    academicSession: currentSession
+  };
+}
+
+/**
+ * Switch both active academic session and semester atomically
+ */
+export async function setGlobalAcademicContextInDatabase({ sessionIdentifier, semesterIdentifier }) {
+  let sessionRes = null;
+  if (sessionIdentifier) {
+    sessionRes = await setActiveAcademicSessionInDatabase(sessionIdentifier);
+  }
+  let semesterRes = null;
+  if (semesterIdentifier) {
+    semesterRes = await setActiveAcademicSemesterInDatabase(semesterIdentifier);
+  }
+  return {
+    success: true,
+    session: sessionRes?.sessionName || getActiveAcademicSession(),
+    semester: semesterRes?.semester || getActiveAcademicSemester()
+  };
+}
+

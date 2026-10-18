@@ -31,17 +31,24 @@ import {
   savePortalSettingsDirectly,
   fetchAcademicSessionsFromDatabase,
   setActiveAcademicSessionInDatabase,
+  setActiveAcademicSemesterInDatabase,
+  fetchAcademicSettingsFromDatabase,
   createAcademicSessionInDatabase
 } from '@nacos/supabase';
 import { 
   DEFAULT_ACADEMIC_YEAR_START,
   CURRENT_ACADEMIC_YEAR_START, 
+  DEFAULT_ACADEMIC_SEMESTER,
+  SUPPORTED_ACADEMIC_SEMESTERS,
   getAcademicSession,
   getActiveAcademicSession,
   getActiveAcademicYearStart,
+  getActiveAcademicSemester,
+  setActiveAcademicSemester,
   parseSessionYears,
   previewProgression,
-  onAcademicSessionChange
+  onAcademicSessionChange,
+  onAcademicSemesterChange
 } from '@nacos/config/academic';
 import { useTheme } from '../context/ThemeContext';
 import { 
@@ -60,6 +67,9 @@ export const PortalAdminSettings = () => {
   const [idCardFee, setIdCardFee] = useState('');
   const [duesFee, setDuesFee] = useState('');
   const [academicSession, setAcademicSession] = useState('2026/2027');
+  const [activeSemester, setActiveSemester] = useState(getActiveAcademicSemester);
+  const [isSwitchingSemester, setIsSwitchingSemester] = useState(false);
+  const [semesterActionMsg, setSemesterActionMsg] = useState('');
   const [allowRegistration, setAllowRegistration] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -100,6 +110,9 @@ export const PortalAdminSettings = () => {
         setAcademicSession(s.academic_session);
         setPreviewTargetSession(s.academic_session);
       }
+      if (s?.academic_semester) {
+        setActiveSemester(s.academic_semester);
+      }
       if (s?.is_application_open !== undefined) setAllowRegistration(Boolean(s.is_application_open));
     }).catch(e => console.warn('Supabase ID settings load warning:', e));
 
@@ -116,9 +129,23 @@ export const PortalAdminSettings = () => {
       }
     });
 
+    fetchAcademicSettingsFromDatabase().then(settings => {
+      if (settings?.activeSemester) {
+        setActiveSemester(settings.activeSemester);
+      }
+      if (settings?.academicSession) {
+        setAcademicSession(settings.academicSession);
+        setPreviewTargetSession(settings.academicSession);
+      }
+    }).catch(e => console.warn('Supabase Academic settings load warning:', e));
+
     const unsubSession = onAcademicSessionChange(({ sessionName }) => {
       setAcademicSession(sessionName);
       setPreviewTargetSession(sessionName);
+    });
+
+    const unsubSemester = onAcademicSemesterChange((sem) => {
+      if (sem) setActiveSemester(sem);
     });
 
     const session = getPortalAdminSession();
@@ -130,6 +157,7 @@ export const PortalAdminSettings = () => {
 
     return () => {
       if (unsubSession) unsubSession();
+      if (unsubSemester) unsubSemester();
     };
   }, []);
 
@@ -170,6 +198,25 @@ export const PortalAdminSettings = () => {
       setSaveError(`Failed to switch session: ${e.message}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSwitchSemester = async (targetSem) => {
+    if (targetSem === activeSemester || isSwitchingSemester) return;
+    try {
+      setIsSwitchingSemester(true);
+      setSaveError('');
+      const res = await setActiveAcademicSemesterInDatabase(targetSem);
+      if (res?.success) {
+        setActiveSemester(res.semester);
+        setSemesterActionMsg(`Active semester switched to ${res.semester}. Course eligibility synchronized across portal!`);
+        setTimeout(() => setSemesterActionMsg(''), 4500);
+      }
+    } catch (err) {
+      console.error('Failed to switch semester:', err);
+      setSaveError(`Failed to update active semester: ${err.message}`);
+    } finally {
+      setIsSwitchingSemester(false);
     }
   };
 
@@ -310,11 +357,16 @@ export const PortalAdminSettings = () => {
         await setActiveAcademicSessionInDatabase(academicSession);
       }
 
+      if (activeSemester) {
+        await setActiveAcademicSemesterInDatabase(activeSemester);
+      }
+
       // Single fast atomic database write directly to Supabase
       const res = await savePortalSettingsDirectly({
         idCardFee: parsedIdCard,
         duesFee: parsedDues,
         academicSession: academicSession || getActiveAcademicSession(),
+        activeSemester: activeSemester || getActiveAcademicSemester(),
         allowRegistration
       });
 
@@ -398,35 +450,91 @@ export const PortalAdminSettings = () => {
               </div>
             )}
 
-            {/* Current Active Session Spotlight */}
-            <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-800/40 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Current Authoritative Session</span>
-                <div className="flex items-center gap-2.5">
-                  <span className="text-xl font-mono font-bold text-gray-900 dark:text-white">
-                    {academicSession || getActiveAcademicSession()}
-                  </span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                    Active System-Wide
-                  </span>
+            {semesterActionMsg && (
+              <div className="mb-4 p-3 rounded-xl bg-emerald-950/40 border border-emerald-800/60 flex items-center gap-2 text-emerald-300 text-xs font-semibold">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{semesterActionMsg}</span>
+              </div>
+            )}
+
+            {/* Current Active Session & Semester Global Spotlight */}
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-emerald-950/20 to-black/40 border border-emerald-800/50 mb-5 shadow-lg space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-emerald-900/40">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Portal Global Academic Context</span>
+                  <p className="text-[11px] text-slate-300">
+                    Active academic parameters synchronized in real time with the Student Portal and Registered Courses.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-400">
-                  Progression rule: <code className="font-mono text-emerald-300">Level = {parseSessionYears(academicSession).startYear} - EntryYear + 1</code>.
-                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewTargetSession(academicSession || getActiveAcademicSession());
+                      setIsPreviewModalOpen(true);
+                    }}
+                    className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <span>Inspect cohort progression</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 self-start sm:self-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPreviewTargetSession(academicSession || getActiveAcademicSession());
-                    setIsPreviewModalOpen(true);
-                  }}
-                  className="text-xs font-semibold text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <span>Inspect cohort progression</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Active Session Display */}
+                <div className="p-3.5 rounded-xl bg-black/30 border border-emerald-800/40 space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Academic Session</span>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl font-mono font-bold text-gray-900 dark:text-white">
+                      {academicSession || getActiveAcademicSession()}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                      Active Session
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Progression rule: <code className="font-mono text-emerald-300">Level = {parseSessionYears(academicSession).startYear} - EntryYear + 1</code>.
+                  </p>
+                </div>
+
+                {/* Active Semester Selector */}
+                <div className="p-3.5 rounded-xl bg-black/30 border border-emerald-800/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Semester</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                      {isSwitchingSemester ? 'Saving...' : 'Synchronized'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['First Semester', 'Second Semester'].map((sem) => {
+                      const isSelected = activeSemester === sem;
+                      return (
+                        <button
+                          key={sem}
+                          type="button"
+                          onClick={() => handleSwitchSemester(sem)}
+                          disabled={isSwitchingSemester}
+                          className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow-md shadow-emerald-950 border border-emerald-500 ring-2 ring-emerald-500/30'
+                              : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 hover:border-emerald-600/50'
+                          } ${isSwitchingSemester ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        >
+                          {isSelected ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-white shrink-0" />
+                          ) : (
+                            <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          )}
+                          <span>{sem}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Controls which semester is actively in progress without altering historical courses.
+                  </p>
+                </div>
               </div>
             </div>
 

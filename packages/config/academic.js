@@ -787,18 +787,25 @@ export function getEligibleAcademicRecords(student, options = {}) {
     ? 5 
     : Math.min(5, Math.max(startLevelNum, progression.numericLevel || startLevelNum));
 
-  // Determine active semester: prefer options, then student profile override if valid, then global configuration
-  let activeSemester = options.currentSemester;
-  if (!activeSemester && student && typeof student === 'object') {
-    const studentSem = student.current_semester || student.semester;
-    if (studentSem && (studentSem === 'First Semester' || studentSem === 'Second Semester')) {
-      activeSemester = studentSem;
+  // Global active semester configuration
+  const globalActiveSemester = options.currentSemester || getActiveAcademicSemester();
+  const isGlobalSecondSemester = String(globalActiveSemester).toLowerCase().includes('second');
+
+  // Individual student semester override or progression tracking
+  let studentSemesterProgression = null;
+  if (student && typeof student === 'object') {
+    const rawSem = student.current_semester || student.semester || student.active_semester || student.semester_progression;
+    if (rawSem) {
+      studentSemesterProgression = String(rawSem).toLowerCase().includes('second') ? 'Second Semester' : 'First Semester';
     }
   }
-  if (!activeSemester) {
-    activeSemester = getActiveAcademicSemester();
-  }
-  const isSecondSemesterActive = String(activeSemester).toLowerCase().includes('second');
+
+  // A student on current level can reach Second Semester IF BOTH:
+  // 1. The global active semester is Second Semester (or student is graduated)
+  // 2. The student's individual record is NOT explicitly restricted/locked to First Semester
+  const isSecondSemesterActiveForStudent = isGraduated || (
+    isGlobalSecondSemester && studentSemesterProgression !== 'First Semester'
+  );
 
   const eligibleRecords = [];
 
@@ -811,7 +818,7 @@ export function getEligibleAcademicRecords(student, options = {}) {
 
     // 1. First Semester
     // Eligible for all reached levels (previous completed levels AND current active level)
-    const isFirstSemCurrent = isCurrentLevel && !isSecondSemesterActive;
+    const isFirstSemCurrent = isCurrentLevel && !isSecondSemesterActiveForStudent;
     eligibleRecords.push({
       level: lvlString,
       levelString: lvlString,
@@ -826,12 +833,13 @@ export function getEligibleAcademicRecords(student, options = {}) {
 
     // 2. Second Semester
     // - For historical completed levels (i < currentLevelNum) or graduated students: ALWAYS eligible!
-    // - For current level (i === currentLevelNum): eligible ONLY IF active semester is Second Semester!
+    // - For current active level (i === currentLevelNum): eligible ONLY IF:
+    //   global semester is Second Semester AND student's progression permits it!
     // - Future semesters are NOT included.
-    const isSecondSemEligible = (i < currentLevelNum) || isGraduated || isSecondSemesterActive;
+    const isSecondSemEligible = (i < currentLevelNum) || isGraduated || isSecondSemesterActiveForStudent;
 
     if (isSecondSemEligible) {
-      const isSecondSemCurrent = isCurrentLevel && isSecondSemesterActive;
+      const isSecondSemCurrent = isCurrentLevel && isSecondSemesterActiveForStudent;
       eligibleRecords.push({
         level: lvlString,
         levelString: lvlString,

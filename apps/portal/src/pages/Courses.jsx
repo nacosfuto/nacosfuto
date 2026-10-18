@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import PortalLayout from '../components/PortalLayout';
 import { getAppUrls } from '@nacos/config/urls';
-import { fetchCourses } from '@nacos/supabase';
+import { fetchCourses, fetchAcademicSettingsFromDatabase } from '@nacos/supabase';
 import { 
   calculateAcademicProgression, 
   getActiveAcademicSession, 
@@ -50,8 +50,14 @@ const Courses = () => {
   const [activeSession, setActiveSession] = useState(getActiveAcademicSession);
   const [activeSemester, setActiveSemester] = useState(getActiveAcademicSemester);
 
-  // Sync user and session changes
+  // Sync user, authoritative database settings, and real-time session/semester changes
   useEffect(() => {
+    // 1. Fetch authoritative database settings on mount
+    fetchAcademicSettingsFromDatabase().then((settings) => {
+      if (settings?.academicSession) setActiveSession(settings.academicSession);
+      if (settings?.activeSemester) setActiveSemester(settings.activeSemester);
+    }).catch(() => {});
+
     const handleUserUpdate = () => {
       const stored = localStorage.getItem('nacos_user');
       if (stored) {
