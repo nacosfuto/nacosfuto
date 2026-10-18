@@ -150,9 +150,11 @@ export default defineConfig({
       '@nacos/supabase/storageService': path.resolve(__dirname, '../../packages/supabase/src/storageService.js'),
       '@nacos/supabase/studentCsvEngine': path.resolve(__dirname, '../../packages/supabase/src/studentCsvEngine.js'),
       '@nacos/supabase/verifiedStudents': path.resolve(__dirname, '../../packages/supabase/src/verifiedStudents.js'),
+      '@nacos/supabase/results': path.resolve(__dirname, '../../packages/supabase/src/results.js'),
       '@nacos/supabase': path.resolve(__dirname, '../../packages/supabase/src/index.js'),
       '@nacos/database': path.resolve(__dirname, '../../packages/database/src/index.js'),
       '@nacos/config/academic': path.resolve(__dirname, '../../packages/config/academic.js'),
+      '@nacos/config/grading': path.resolve(__dirname, '../../packages/config/grading.js'),
       '@nacos/config/idCardTemplate': path.resolve(__dirname, '../../packages/config/idCardTemplate.js'),
       '@nacos/config/urls': path.resolve(__dirname, '../../packages/config/urls.js'),
       '@nacos/config': path.resolve(__dirname, '../../packages/config/tailwind.preset.js')

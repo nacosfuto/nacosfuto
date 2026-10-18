@@ -619,10 +619,12 @@ export default defineConfig({
       '@nacos/supabase/idCard': path.resolve(__dirname, '../../packages/supabase/src/idCard.js'),
       '@nacos/supabase/media': path.resolve(__dirname, '../../packages/supabase/src/media.js'),
       '@nacos/supabase/academicProgressionService': path.resolve(__dirname, '../../packages/supabase/src/academicProgressionService.js'),
+      '@nacos/supabase/results': path.resolve(__dirname, '../../packages/supabase/src/results.js'),
       '@nacos/supabase': path.resolve(__dirname, '../../packages/supabase/src/index.js'),
       '@nacos/ui': path.resolve(__dirname, '../../packages/ui/src/index.js'),
       '@nacos/types': path.resolve(__dirname, '../../packages/types/src/index.js'),
       '@nacos/config/academic': path.resolve(__dirname, '../../packages/config/academic.js'),
+      '@nacos/config/grading': path.resolve(__dirname, '../../packages/config/grading.js'),
       '@nacos/config/idCardTemplate': path.resolve(__dirname, '../../packages/config/idCardTemplate.js'),
       '@nacos/config/urls': path.resolve(__dirname, '../../packages/config/urls.js'),
       '@nacos/config': path.resolve(__dirname, '../../packages/config/tailwind.preset.js')

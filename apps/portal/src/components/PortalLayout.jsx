@@ -320,7 +320,7 @@ const PortalLayout = ({ children }) => {
     { label: 'Dues & Clearance', path: '/dues', icon: CreditCard },
     { label: 'ID Card Application', path: '/id-card', icon: ShieldCheck },
     { label: 'Registered Courses', path: '/courses', icon: BookOpen },
-    { label: 'Academic Results', path: '/results', icon: GraduationCap },
+    { label: 'My Academic Results', path: '/results', icon: GraduationCap },
     { label: 'Notices & Bulletin', path: '/notices', icon: Bell },
     { label: 'Student Profile', path: '/profile', icon: User }
   ];

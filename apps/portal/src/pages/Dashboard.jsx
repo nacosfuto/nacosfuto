@@ -406,7 +406,7 @@ const Dashboard = () => {
           >
             <div className="space-y-1">
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-green-200/70 block">
-                Academic Results
+                My Academic Results
               </span>
               <div className="text-base sm:text-lg font-bold text-gray-900 dark:text-white tracking-tight">
                 {statsLoading && resultsPublishedCount === null ? (

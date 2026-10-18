@@ -136,7 +136,7 @@ function PortalSEOHandler() {
       '/dashboard': 'Student Dashboard | NACOS FUTO Portal',
       '/notices': 'Departmental Bulletins & Notices | NACOS FUTO Portal',
       '/bulletin': 'Departmental Bulletins | NACOS FUTO Portal',
-      '/results': 'Semester Results & CGPA | NACOS FUTO Portal',
+      '/results': 'My Academic Results & CGPA | NACOS FUTO Portal',
       '/dues': 'Departmental Dues & Clearance | NACOS FUTO Portal',
       '/courses': 'Course Registration & Syllabi | NACOS FUTO Portal',
       '/profile': 'Student Academic Profile | NACOS FUTO Portal',

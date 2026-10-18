@@ -5,8 +5,38 @@
  */
 
 import { supabase } from './client.js';
+import {
+  scoreToGrade,
+  letterGradeToPoint,
+  calculateQualityPoints,
+  calculateSemesterGPA,
+  calculateCumulativeCGPA,
+  validateScore,
+  validateGrade,
+  DEFAULT_SCORE_BOUNDARIES,
+  GRADE_POINTS_MAP,
+  SUPPORTED_LETTER_GRADES,
+  DEGREE_CLASSIFICATIONS,
+  GRADING_SCALE_VERSION
+} from '@nacos/config/grading';
+
+export {
+  scoreToGrade,
+  letterGradeToPoint,
+  calculateQualityPoints,
+  calculateSemesterGPA,
+  calculateCumulativeCGPA,
+  validateScore,
+  validateGrade,
+  DEFAULT_SCORE_BOUNDARIES,
+  GRADE_POINTS_MAP,
+  SUPPORTED_LETTER_GRADES,
+  DEGREE_CLASSIFICATIONS,
+  GRADING_SCALE_VERSION
+};
 
 const STORAGE_KEY_RESULTS = 'nacos_results_db';
+const STORAGE_KEY_STUDENT_RESULTS = 'nacos_student_maintained_results_db';
 
 /**
  * FUTO Standard Grading Scale:
@@ -529,3 +559,282 @@ export async function adminDeleteResult(id) {
 
   return { success: true };
 }
+
+/**
+ * Broadcast student result update across tabs
+ */
+function broadcastStudentResultUpdate(action, payload) {
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('nacos_results_updated', { detail: { action, payload } }));
+    } catch (_) {}
+
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        const channel = new BroadcastChannel('nacos_results_sync');
+        channel.postMessage({ action, payload, timestamp: Date.now() });
+        channel.close();
+      } catch (_) {}
+    }
+  }
+}
+
+let _memoryStudentResults = [];
+
+/**
+ * Get locally cached student results
+ */
+function getLocalStudentResults() {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_STUDENT_RESULTS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (_) {}
+  }
+  return _memoryStudentResults;
+}
+
+/**
+ * Save locally cached student results
+ */
+function saveLocalStudentResults(results) {
+  _memoryStudentResults = Array.isArray(results) ? results : [];
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      localStorage.setItem(STORAGE_KEY_STUDENT_RESULTS, JSON.stringify(results));
+    } catch (_) {}
+  }
+}
+
+/**
+ * Fetch all student-entered course results for an authenticated student
+ * Authoritative source: public.student_results in Supabase
+ */
+export async function fetchStudentSavedResults(studentIdentifier) {
+  if (!studentIdentifier) {
+    return { data: [], mapByCourseId: {}, mapByKey: {}, error: null };
+  }
+
+  const cleanId = String(studentIdentifier).trim().toLowerCase();
+  let resultsList = [];
+
+  // 1. Authoritative Supabase query
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('student_results')
+        .select('*')
+        .or(`registration_number.ilike.${cleanId},student_id.eq.${cleanId}`)
+        .order('created_at', { ascending: true });
+
+      if (!error && Array.isArray(data)) {
+        resultsList = data;
+        // Merge into local cache
+        const local = getLocalStudentResults().filter(
+          r => (r.registration_number && r.registration_number.toLowerCase() !== cleanId)
+        );
+        saveLocalStudentResults([...local, ...data]);
+      }
+    } catch (dbErr) {
+      console.warn('[Results] Supabase query notice:', dbErr.message);
+    }
+  }
+
+  // 2. Fallback to local cache if offline or database check returned empty
+  if (resultsList.length === 0) {
+    const allLocal = getLocalStudentResults();
+    resultsList = allLocal.filter(
+      r => (r.registration_number && r.registration_number.toLowerCase() === cleanId) ||
+           (r.student_id && String(r.student_id).toLowerCase() === cleanId)
+    );
+  }
+
+  // Build lookup maps
+  const mapByCourseId = {};
+  const mapByKey = {};
+
+  for (const r of resultsList) {
+    if (r.course_id) {
+      mapByCourseId[r.course_id] = r;
+    }
+    const key = `${r.course_code}__${r.academic_session}__${r.semester}`;
+    mapByKey[key] = r;
+  }
+
+  return {
+    data: resultsList,
+    mapByCourseId,
+    mapByKey,
+    error: null
+  };
+}
+
+/**
+ * Persist or update a student's course result
+ * Strictly enforces:
+ * - 0-100 numerical score validation
+ * - A-F letter grade validation
+ * - 5-point Grade Point and Quality Points derivation
+ * - Uniqueness per student registration number and course_id
+ */
+export async function saveStudentCourseResult(payload) {
+  const regNo = String(payload.registrationNumber || payload.registration_number || '').trim().toUpperCase();
+  const courseId = payload.courseId || payload.course_id;
+
+  if (!regNo) {
+    return { success: false, error: 'Student registration number is required.' };
+  }
+  if (!courseId) {
+    return { success: false, error: 'Valid course offering ID is required.' };
+  }
+
+  const entryMode = payload.entryMode === 'grade' || payload.entry_mode === 'grade' ? 'grade' : 'score';
+  let scoreVal = null;
+  let gradeVal = null;
+  let gradePointVal = null;
+
+  if (entryMode === 'score') {
+    const rawScore = payload.score;
+    if (!validateScore(rawScore)) {
+      return { success: false, error: 'Please enter a valid score between 0 and 100.' };
+    }
+    scoreVal = Number(Number(rawScore).toFixed(2));
+    const converted = scoreToGrade(scoreVal);
+    gradeVal = converted.grade;
+    gradePointVal = converted.point;
+  } else {
+    // Direct letter grade entry
+    const rawGrade = String(payload.grade || '').trim().toUpperCase();
+    if (!validateGrade(rawGrade)) {
+      return { success: false, error: 'Please select a valid grade (A, B, C, D, E, or F).' };
+    }
+    gradeVal = rawGrade;
+    gradePointVal = letterGradeToPoint(gradeVal);
+    scoreVal = null; // Do not invent numerical score
+  }
+
+  const units = Math.max(1, parseInt(payload.creditUnits ?? payload.credit_units ?? payload.units, 10) || 3);
+  const qualityPointsVal = calculateQualityPoints(units, gradePointVal);
+  const now = new Date().toISOString();
+
+  const recordToPersist = {
+    student_id: payload.userId || payload.studentId || regNo,
+    user_id: payload.userId || null,
+    registration_number: regNo,
+    student_name: payload.studentName || payload.student_name || 'Student',
+    course_id: courseId,
+    course_code: String(payload.courseCode || payload.course_code || '').trim().toUpperCase(),
+    course_title: String(payload.courseTitle || payload.course_title || '').trim(),
+    credit_units: units,
+    level: String(payload.level || '100 Level').trim(),
+    semester: String(payload.semester || 'First Semester').trim(),
+    academic_session: String(payload.academicSession || payload.academic_session || '2026/2027').trim(),
+    entry_mode: entryMode,
+    score: scoreVal,
+    grade: gradeVal,
+    grade_point: gradePointVal,
+    quality_points: qualityPointsVal,
+    grading_scale_version: GRADING_SCALE_VERSION,
+    updated_at: now
+  };
+
+  // 1. Authoritative Supabase save
+  let savedRecord = { ...recordToPersist, id: payload.id || `res-${Date.now()}` };
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('student_results')
+        .upsert([recordToPersist], { onConflict: 'registration_number,course_id' })
+        .select()
+        .single();
+
+      if (error) {
+        console.warn('[Results] Supabase upsert notice:', error.message);
+      } else if (data) {
+        savedRecord = data;
+      }
+    } catch (e) {
+      console.error('[Results] Database save exception:', e);
+    }
+  }
+
+  // 2. Update local storage cache
+  const localList = getLocalStudentResults();
+  const existingIdx = localList.findIndex(
+    r => r.registration_number === regNo && (r.course_id === courseId || r.id === savedRecord.id)
+  );
+
+  if (existingIdx !== -1) {
+    localList[existingIdx] = { ...localList[existingIdx], ...savedRecord };
+  } else {
+    localList.unshift(savedRecord);
+  }
+  saveLocalStudentResults(localList);
+
+  // 3. Broadcast real-time update
+  broadcastStudentResultUpdate('save', savedRecord);
+
+  return {
+    success: true,
+    data: savedRecord
+  };
+}
+
+/**
+ * Batch save an array of student course results
+ */
+export async function batchSaveStudentCourseResults(resultsArray = []) {
+  if (!Array.isArray(resultsArray) || resultsArray.length === 0) {
+    return { success: true, count: 0 };
+  }
+
+  const savedList = [];
+  for (const item of resultsArray) {
+    const res = await saveStudentCourseResult(item);
+    if (res.success && res.data) {
+      savedList.push(res.data);
+    }
+  }
+
+  return {
+    success: true,
+    count: savedList.length,
+    data: savedList
+  };
+}
+
+/**
+ * Delete a student's course result
+ */
+export async function deleteStudentCourseResult({ registrationNumber, courseId, resultId }) {
+  const regNo = String(registrationNumber || '').trim().toUpperCase();
+
+  if (supabase) {
+    try {
+      let query = supabase.from('student_results').delete();
+      if (resultId) {
+        query = query.eq('id', resultId);
+      } else if (regNo && courseId) {
+        query = query.eq('registration_number', regNo).eq('course_id', courseId);
+      }
+      await query;
+    } catch (_) {}
+  }
+
+  // Update local cache
+  const localList = getLocalStudentResults();
+  const filtered = localList.filter(r => {
+    if (resultId && r.id === resultId) return false;
+    if (regNo && courseId && r.registration_number === regNo && r.course_id === courseId) return false;
+    return true;
+  });
+  saveLocalStudentResults(filtered);
+
+  broadcastStudentResultUpdate('delete', { registrationNumber: regNo, courseId, resultId });
+  return { success: true };
+}
+

@@ -144,8 +144,10 @@ export default defineConfig({
       '@nacos/supabase/auth': path.resolve(__dirname, '../../packages/supabase/src/auth.js'),
       '@nacos/supabase/adminAuth': path.resolve(__dirname, '../../packages/supabase/src/adminAuth.js'),
       '@nacos/supabase/electraService': path.resolve(__dirname, '../../packages/supabase/src/electraService.js'),
+      '@nacos/supabase/results': path.resolve(__dirname, '../../packages/supabase/src/results.js'),
       '@nacos/supabase': path.resolve(__dirname, '../../packages/supabase/src/index.js'),
       '@nacos/config/academic': path.resolve(__dirname, '../../packages/config/academic.js'),
+      '@nacos/config/grading': path.resolve(__dirname, '../../packages/config/grading.js'),
       '@nacos/config/idCardTemplate': path.resolve(__dirname, '../../packages/config/idCardTemplate.js'),
       '@nacos/config/urls': path.resolve(__dirname, '../../packages/config/urls.js'),
       '@nacos/config': path.resolve(__dirname, '../../packages/config/tailwind.preset.js')

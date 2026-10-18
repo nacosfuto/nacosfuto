@@ -6,6 +6,7 @@
   "exports": {
     ".": "./tailwind.preset.js",
     "./academic": "./academic.js",
+    "./grading": "./grading.js",
     "./idCardTemplate": "./idCardTemplate.js",
     "./urls": "./urls.js"
   }
