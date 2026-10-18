@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS public.academic_settings (
   id VARCHAR(50) PRIMARY KEY DEFAULT 'default',
   current_academic_year_start INTEGER NOT NULL DEFAULT 2026,
   current_session TEXT NOT NULL DEFAULT '2026/2027',
+  current_semester TEXT NOT NULL DEFAULT 'First Semester',
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -451,16 +452,22 @@ CREATE INDEX IF NOT EXISTS idx_idcard_status ON public.id_card_applications(stat
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS public.courses (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  code VARCHAR(20) UNIQUE,
-  title TEXT,
-  credit_units INTEGER DEFAULT 3,
-  level TEXT,
-  semester TEXT,
+  code VARCHAR(20) NOT NULL,
+  title TEXT NOT NULL,
+  credit_units INTEGER NOT NULL DEFAULT 3,
+  level TEXT NOT NULL,
+  semester TEXT NOT NULL,
+  academic_session VARCHAR(50) NOT NULL DEFAULT '2026/2027',
+  course_type VARCHAR(50) DEFAULT 'Core / Compulsory',
   lecturer_name TEXT,
+  office TEXT,
+  prerequisites TEXT DEFAULT 'None',
   description TEXT,
   syllabus TEXT,
   is_elective BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+  created_by TEXT,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS code VARCHAR(20);
@@ -468,11 +475,17 @@ ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS title TEXT;
 ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS credit_units INTEGER DEFAULT 3;
 ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS level TEXT;
 ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS semester TEXT;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS academic_session VARCHAR(50) DEFAULT '2026/2027';
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS course_type VARCHAR(50) DEFAULT 'Core / Compulsory';
 ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS lecturer_name TEXT;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS office TEXT;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS prerequisites TEXT DEFAULT 'None';
 ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS syllabus TEXT;
 ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS is_elective BOOLEAN DEFAULT false;
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS created_by TEXT;
 ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW());
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW());
 
 -- =========================================================================
 -- 8. STUDENT ACADEMIC RESULTS
@@ -815,9 +828,9 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'courses_code_key'
+    SELECT 1 FROM pg_constraint WHERE conname = 'uq_courses_code_session_semester_level'
   ) THEN
-    ALTER TABLE public.courses ADD CONSTRAINT courses_code_key UNIQUE (code);
+    ALTER TABLE public.courses ADD CONSTRAINT uq_courses_code_session_semester_level UNIQUE (code, academic_session, semester, level);
   END IF;
 
   IF NOT EXISTS (

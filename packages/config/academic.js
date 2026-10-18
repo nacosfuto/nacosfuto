@@ -20,11 +20,21 @@ export const SUPPORTED_ACADEMIC_SESSIONS = [
   '2030/2031'
 ];
 
+export const DEFAULT_ACADEMIC_SEMESTER = 'First Semester';
+export const SUPPORTED_ACADEMIC_SEMESTERS = [
+  'First Semester',
+  'Second Semester'
+];
+export const SUPPORTED_SEMESTERS = SUPPORTED_ACADEMIC_SEMESTERS;
+
 const SESSION_STORAGE_KEY = 'nacos_active_academic_session';
 const SESSION_EVENT_NAME = 'nacos_academic_session_changed';
+const SEMESTER_STORAGE_KEY = 'nacos_active_academic_semester';
+const SEMESTER_EVENT_NAME = 'nacos_academic_semester_changed';
 
 // In-memory active session state (initialized from localStorage in browser environments if available)
 let _activeAcademicYearStart = DEFAULT_ACADEMIC_YEAR_START;
+let _activeAcademicSemester = DEFAULT_ACADEMIC_SEMESTER;
 
 if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
   try {
@@ -34,6 +44,13 @@ if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
       if (!isNaN(parsed) && parsed >= 2000 && parsed <= 2100) {
         _activeAcademicYearStart = parsed;
       }
+    }
+  } catch (_) {}
+
+  try {
+    const savedSem = localStorage.getItem(SEMESTER_STORAGE_KEY);
+    if (savedSem && (savedSem === 'First Semester' || savedSem === 'Second Semester')) {
+      _activeAcademicSemester = savedSem;
     }
   } catch (_) {}
 }
@@ -228,6 +245,96 @@ export function onAcademicSessionChange(callback) {
   _sessionSubscribers.add(callback);
   return () => {
     _sessionSubscribers.delete(callback);
+  };
+}
+
+/**
+ * Get currently active academic semester ('First Semester' or 'Second Semester')
+ */
+export function getActiveAcademicSemester() {
+  return _activeAcademicSemester;
+}
+
+const _semesterSubscribers = new Set();
+
+if (typeof window !== 'undefined') {
+  window.addEventListener(SEMESTER_EVENT_NAME, (e) => {
+    const sem = e?.detail?.semester || e?.detail;
+    if (sem && sem !== _activeAcademicSemester) {
+      _activeAcademicSemester = sem;
+      _semesterSubscribers.forEach((cb) => {
+        try { cb(sem); } catch (_) {}
+      });
+    }
+  });
+
+  if (typeof BroadcastChannel !== 'undefined') {
+    try {
+      const channel = new BroadcastChannel('nacos_academic_semester_sync');
+      channel.onmessage = (event) => {
+        const { semester } = event?.data || {};
+        if (semester && semester !== _activeAcademicSemester) {
+          _activeAcademicSemester = semester;
+          if (typeof localStorage !== 'undefined') {
+            try { localStorage.setItem(SEMESTER_STORAGE_KEY, semester); } catch (_) {}
+          }
+          _semesterSubscribers.forEach((cb) => {
+            try { cb(semester); } catch (_) {}
+          });
+          window.dispatchEvent(new CustomEvent(SEMESTER_EVENT_NAME, { detail: { semester } }));
+        }
+      };
+    } catch (_) {}
+  }
+}
+
+/**
+ * Set the active academic semester system-wide ('First Semester' or 'Second Semester')
+ */
+export function setActiveAcademicSemester(semester) {
+  const clean = String(semester || '').trim();
+  const validSemester = clean.toLowerCase().includes('second') ? 'Second Semester' : 'First Semester';
+  _activeAcademicSemester = validSemester;
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(SEMESTER_STORAGE_KEY, validSemester);
+    } catch (_) {}
+  }
+
+  _semesterSubscribers.forEach((cb) => {
+    try {
+      cb(validSemester);
+    } catch (e) {
+      console.warn('[AcademicSemester] Subscriber callback error:', e);
+    }
+  });
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent(SEMESTER_EVENT_NAME, { detail: { semester: validSemester } }));
+    } catch (_) {}
+
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        const channel = new BroadcastChannel('nacos_academic_semester_sync');
+        channel.postMessage({ semester: validSemester });
+        channel.close();
+      } catch (_) {}
+    }
+  }
+
+  return validSemester;
+}
+
+/**
+ * Subscribe to active academic semester changes across the app
+ */
+export function onAcademicSemesterChange(callback) {
+  if (typeof callback !== 'function') return () => {};
+  _semesterSubscribers.add(callback);
+  return () => {
+    _semesterSubscribers.delete(callback);
   };
 }
 
@@ -644,5 +751,101 @@ export function getStudentApplicableLevelSessions(student, currentYearStart = ge
     });
   }
   return items;
+}
+
+/**
+ * Authoritative Cohort Course Progression & Eligibility Resolver
+ * 
+ * Determines the exact list of academic records ({ level, academicSession, semester })
+ * that a student is eligible to see in the Registered Courses page, strictly adhering
+ * to academic progression rules:
+ * - A student sees only their reached levels and completed semesters, plus their current level and semester.
+ * - Future semesters and levels that the student has not yet reached are never displayed.
+ * - Historical course records remain permanently bound to their original academic sessions.
+ * 
+ * @param {object|string|number} student - Student profile or registration identifier
+ * @param {object} [options] - Optional overrides: { currentYearStart, currentSemester, programmeDuration }
+ * @returns {Array<{ level: string, levelString: string, levelNumber: number, numericLevel: number, academicSession: string, session: string, semester: string, isCurrent: boolean, isCompleted: boolean }>}
+ */
+export function getEligibleAcademicRecords(student, options = {}) {
+  const resolvedYearStart = options.currentYearStart 
+    ? (typeof options.currentYearStart === 'string' ? parseSessionYears(options.currentYearStart).startYear : options.currentYearStart)
+    : getActiveAcademicYearStart();
+  
+  const progression = calculateAcademicProgression(student, { currentYearStart: resolvedYearStart });
+  
+  // Extract admission year
+  const admissionYear = progression.admissionYear || extractEntryYearFromRegNumber(student?.registration_number || student?.matricNumber || student?.matric) || resolvedYearStart;
+  
+  // Direct entry support (e.g. 200 Level entry)
+  const entryLevelRaw = student?.entry_level || student?.entryLevel || student?.admission_level || 100;
+  const startLevelNum = Math.max(1, Math.floor(parseInt(entryLevelRaw, 10) / 100) || 1);
+  
+  // Current student level number (1 to 5)
+  const isGraduated = progression.isGraduated === true;
+  const currentLevelNum = isGraduated 
+    ? 5 
+    : Math.min(5, Math.max(startLevelNum, progression.numericLevel || startLevelNum));
+
+  // Determine active semester: prefer options, then student profile override if valid, then global configuration
+  let activeSemester = options.currentSemester;
+  if (!activeSemester && student && typeof student === 'object') {
+    const studentSem = student.current_semester || student.semester;
+    if (studentSem && (studentSem === 'First Semester' || studentSem === 'Second Semester')) {
+      activeSemester = studentSem;
+    }
+  }
+  if (!activeSemester) {
+    activeSemester = getActiveAcademicSemester();
+  }
+  const isSecondSemesterActive = String(activeSemester).toLowerCase().includes('second');
+
+  const eligibleRecords = [];
+
+  for (let i = startLevelNum; i <= currentLevelNum; i++) {
+    const startYear = admissionYear + (i - startLevelNum);
+    const sessionName = getAcademicSession(startYear);
+    const lvlNum = i * 100;
+    const lvlString = `${lvlNum} Level`;
+    const isCurrentLevel = (i === currentLevelNum) && !isGraduated;
+
+    // 1. First Semester
+    // Eligible for all reached levels (previous completed levels AND current active level)
+    const isFirstSemCurrent = isCurrentLevel && !isSecondSemesterActive;
+    eligibleRecords.push({
+      level: lvlString,
+      levelString: lvlString,
+      levelNumber: i,
+      numericLevel: lvlNum,
+      academicSession: sessionName,
+      session: sessionName,
+      semester: 'First Semester',
+      isCurrent: isFirstSemCurrent,
+      isCompleted: !isFirstSemCurrent
+    });
+
+    // 2. Second Semester
+    // - For historical completed levels (i < currentLevelNum) or graduated students: ALWAYS eligible!
+    // - For current level (i === currentLevelNum): eligible ONLY IF active semester is Second Semester!
+    // - Future semesters are NOT included.
+    const isSecondSemEligible = (i < currentLevelNum) || isGraduated || isSecondSemesterActive;
+
+    if (isSecondSemEligible) {
+      const isSecondSemCurrent = isCurrentLevel && isSecondSemesterActive;
+      eligibleRecords.push({
+        level: lvlString,
+        levelString: lvlString,
+        levelNumber: i,
+        numericLevel: lvlNum,
+        academicSession: sessionName,
+        session: sessionName,
+        semester: 'Second Semester',
+        isCurrent: isSecondSemCurrent,
+        isCompleted: !isSecondSemCurrent
+      });
+    }
+  }
+
+  return eligibleRecords;
 }
 
