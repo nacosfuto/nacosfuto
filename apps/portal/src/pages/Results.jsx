@@ -52,7 +52,7 @@ import {
   onAcademicSemesterChange,
   getEligibleAcademicRecords
 } from '@nacos/config/academic';
-import { generateAcademicRecordPdf } from '../utils/generateAcademicRecordPdf';
+import { generateAcademicRecordPdf, formatLevelName } from '../utils/generateAcademicRecordPdf';
 
 const Results = () => {
   // Current Student Context
@@ -150,6 +150,7 @@ const Results = () => {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [saveToast, setSaveToast] = useState(null); // { type: 'success'|'error', message: string }
   const [modeConfirmModal, setModeConfirmModal] = useState(null); // { course, targetMode }
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
 
   // Load courses catalogue and student's saved results from Supabase
   const loadData = useCallback(async () => {
@@ -286,6 +287,16 @@ const Results = () => {
   const degreeClassification = useMemo(() => {
     return getDegreeClass(overallCumulativeStats.cgpa);
   }, [overallCumulativeStats.cgpa]);
+
+  // Available Reached Levels for Level Record Download (Requirement 11)
+  const availableLevels = useMemo(() => {
+    const set = new Set();
+    enrichedSemesters.forEach((s) => {
+      const lvl = s.numericLevel || (s.level ? parseInt(String(s.level).replace(/\D/g, ''), 10) : null);
+      if (lvl) set.add(lvl);
+    });
+    return Array.from(set).sort((a, b) => a - b);
+  }, [enrichedSemesters]);
 
   // Active Semester Offering for Detailed Result Entry View
   const activeSemesterDetail = useMemo(() => {
@@ -564,32 +575,46 @@ const Results = () => {
     }
   };
 
-  // PDF Generator Trigger
-  const handleDownloadPdf = async (semesterFilter = null) => {
+  // PDF Generator Trigger (Full Academic Record or Level Record - Requirement 11)
+  const handleDownloadPdf = async (filter = null) => {
     setIsDownloadingPdf(true);
     try {
+      let levelFilter = null;
       let targetSemesters = enrichedSemesters;
-      if (semesterFilter) {
-        targetSemesters = enrichedSemesters.filter((s) => s.key === semesterFilter.key);
+
+      if (filter && typeof filter === 'object') {
+        if (filter.level !== undefined) {
+          levelFilter = filter.level;
+        } else if (filter.key) {
+          // Single semester object passed
+          targetSemesters = enrichedSemesters.filter((s) => s.key === filter.key);
+        }
+      } else if (typeof filter === 'number' || (typeof filter === 'string' && filter.toLowerCase().includes('level'))) {
+        levelFilter = filter;
       }
 
       await generateAcademicRecordPdf({
         user,
         semesters: targetSemesters,
         options: {
-          singleSemester: !!semesterFilter
+          levelFilter,
+          singleSemester: !!(filter && filter.key)
         }
       });
 
+      const label = levelFilter 
+        ? `${formatLevelName(levelFilter)} Academic Record` 
+        : 'Full Academic Transcript';
+
       setSaveToast({
         type: 'success',
-        message: 'Academic record PDF downloaded successfully.'
+        message: `${label} (PDF) downloaded successfully.`
       });
     } catch (e) {
       console.error('PDF download error:', e);
       setSaveToast({
         type: 'error',
-        message: 'Could not generate PDF. Please try again.'
+        message: 'Could not generate PDF transcript. Please try again.'
       });
     } finally {
       setIsDownloadingPdf(false);
@@ -673,24 +698,78 @@ const Results = () => {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => handleDownloadPdf()}
-            disabled={isDownloadingPdf || isLoading}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all cursor-pointer shrink-0 shadow-xs disabled:opacity-50"
-          >
-            {isDownloadingPdf ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Preparing PDF...</span>
-              </>
-            ) : (
-              <>
-                <Download className="w-3.5 h-3.5" />
-                <span>Download Academic Record (PDF)</span>
-              </>
+          <div className="relative flex items-center gap-2 shrink-0 flex-wrap">
+            {/* Primary Action: Download Full Academic Transcript */}
+            <button
+              type="button"
+              onClick={() => handleDownloadPdf()}
+              disabled={isDownloadingPdf || isLoading}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all cursor-pointer shadow-xs disabled:opacity-50"
+              title="Download complete academic transcript across all reached levels"
+            >
+              {isDownloadingPdf ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Preparing PDF...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Full Transcript (PDF)</span>
+                </>
+              )}
+            </button>
+
+            {/* Secondary Action: Level-Specific Record Download Dropdown (Requirement 11) */}
+            {availableLevels.length > 0 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setDownloadMenuOpen(!downloadMenuOpen)}
+                  disabled={isDownloadingPdf || isLoading}
+                  className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-gray-700 dark:text-green-100 bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/40 hover:bg-gray-50 dark:hover:bg-white/10 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                  title="Download transcript for a specific academic level"
+                >
+                  <Layers className="w-3.5 h-3.5 text-[#138601] dark:text-[#4bd043]" />
+                  <span>Level Record</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                </button>
+
+                {downloadMenuOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-48 bg-white dark:bg-[#083002] rounded-xl border border-gray-200 dark:border-[#138601]/40 shadow-xl py-1.5 z-40">
+                    <div className="px-3 py-1 text-[10px] font-bold text-gray-400 dark:text-green-300 uppercase tracking-wider">
+                      Select Academic Level
+                    </div>
+                    {availableLevels.map((lvl) => (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => {
+                          setDownloadMenuOpen(false);
+                          handleDownloadPdf({ level: lvl });
+                        }}
+                        className="w-full text-left px-3.5 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-between transition-colors cursor-pointer"
+                      >
+                        <span>{lvl} Level Record</span>
+                        <ChevronRight className="w-3 h-3 text-gray-400" />
+                      </button>
+                    ))}
+                    <div className="border-t border-gray-100 dark:border-[#138601]/20 my-1" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDownloadMenuOpen(false);
+                        handleDownloadPdf();
+                      }}
+                      className="w-full text-left px-3.5 py-2 text-xs font-semibold text-[#138601] dark:text-[#4bd043] hover:bg-green-50 dark:hover:bg-[#138601]/20 transition-colors cursor-pointer"
+                    >
+                      All Reached Levels (Full)
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
-          </button>
+          </div>
         </div>
 
         {/* VIEW 1: OVERVIEW & SEMESTER LIST */}
@@ -984,12 +1063,24 @@ const Results = () => {
               <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
                 <button
                   type="button"
-                  onClick={() => handleDownloadPdf(activeSemesterDetail)}
+                  onClick={() => handleDownloadPdf({ level: activeSemesterDetail.level })}
                   disabled={isDownloadingPdf}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-gray-700 dark:text-green-100 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/15 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-gray-700 dark:text-green-100 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/15 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                  title={`Download complete academic transcript for ${activeSemesterDetail.level}`}
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Semester PDF</span>
+                  <span>{activeSemesterDetail.level} Record (PDF)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownloadPdf()}
+                  disabled={isDownloadingPdf}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#138601] dark:text-[#4bd043] bg-green-50 dark:bg-[#138601]/20 border border-green-200 dark:border-[#138601]/30 hover:bg-green-100 dark:hover:bg-[#138601]/30 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                  title="Download complete academic transcript across all levels"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Full Transcript</span>
                 </button>
 
                 <button

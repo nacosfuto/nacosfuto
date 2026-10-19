@@ -266,3 +266,38 @@ export function getDegreeClass(cgpa) {
   return 'Not calculated';
 }
 
+/**
+ * Normalizes semester name to standard FUTO conventions:
+ * Harmattan Semester (First) or Rain Semester (Second)
+ */
+export function formatSemesterName(sem) {
+  if (!sem) return 'Harmattan Semester';
+  const s = String(sem).toLowerCase();
+  if (s.includes('rain') || s.includes('second') || s.includes('2nd') || s === '2') {
+    return 'Rain Semester';
+  }
+  return 'Harmattan Semester';
+}
+
+/**
+ * Normalizes level string to "100 LEVEL", "200 LEVEL", etc.
+ */
+export function formatLevelName(level) {
+  if (!level) return '100 LEVEL';
+  const match = String(level).match(/(\d{3})/);
+  if (match) return `${match[1]} LEVEL`;
+  return String(level).toUpperCase();
+}
+
+/**
+ * Extracts integer level (100, 200, 300, 400, 500)
+ */
+export function getNumericLevel(item) {
+  if (!item) return 100;
+  if (typeof item === 'number') return item;
+  if (item.numericLevel) return Number(item.numericLevel);
+  const str = String(item.level || item.levelString || item || '');
+  const match = str.match(/(\d{3})/);
+  return match ? parseInt(match[1], 10) : 100;
+}
+
