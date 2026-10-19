@@ -11,6 +11,7 @@ import {
   Edit3, 
   CheckCircle2, 
   AlertCircle, 
+  AlertTriangle,
   ExternalLink, 
   FileText, 
   Check, 
@@ -163,12 +164,19 @@ export default function App() {
     makeActiveNow: false
   });
 
+  // Election Delete Modal state
+  const [isDeleteElectionModalOpen, setIsDeleteElectionModalOpen] = useState(false);
+  const [electionToDelete, setElectionToDelete] = useState(null);
+  const [deleteConfirmationInput, setDeleteConfirmationInput] = useState('');
+  const [isDeletingElection, setIsDeletingElection] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
   const reloadData = () => {
     const freshAll = getAllElections();
     const freshActive = getActiveElection();
     setAllElections(freshAll);
     setActiveElection(freshActive);
-    setPosts(getElectraPosts());
+    setPosts(getElectraPosts(selectedElectionId));
     setContestants(getContestants(null, selectedElectionId));
     setResults(getLiveElectionResults(selectedElectionId));
     setNewsList(getElectraNews());
@@ -183,6 +191,7 @@ export default function App() {
     window.addEventListener('nacos_electra_ballot_cast', onCast);
     window.addEventListener('nacos_electra_contestants_updated', onCast);
     window.addEventListener('nacos_electra_election_updated', onCast);
+    window.addEventListener('nacos_electra_election_deleted', onCast);
     window.addEventListener('nacos_electra_posts_updated', onCast);
     window.addEventListener('nacos_electra_news_updated', onCast);
 
@@ -190,6 +199,7 @@ export default function App() {
       window.removeEventListener('nacos_electra_ballot_cast', onCast);
       window.removeEventListener('nacos_electra_contestants_updated', onCast);
       window.removeEventListener('nacos_electra_election_updated', onCast);
+      window.removeEventListener('nacos_electra_election_deleted', onCast);
       window.removeEventListener('nacos_electra_posts_updated', onCast);
       window.removeEventListener('nacos_electra_news_updated', onCast);
     };
@@ -564,18 +574,64 @@ export default function App() {
     }
   };
 
-  // Delete election
-  const handleDeleteElection = async (id, title) => {
-    if (window.confirm(`Are you sure you want to delete the election "${title}"? This cannot be undone.`)) {
-      try {
-        await adminDeleteElection(id);
-        const fresh = getAllElections();
-        setSelectedElectionId(fresh[0]?.id || '');
-        reloadData();
-        showToast('Election deleted successfully');
-      } catch (e) {
-        showToast(e.message, 'error');
+  // Open modal to permanently delete election
+  const handleOpenDeleteElection = (el) => {
+    setElectionToDelete(el);
+    setDeleteConfirmationInput('');
+    setDeleteError(null);
+    setIsDeleteElectionModalOpen(true);
+  };
+
+  const handleDeleteElection = (id, title) => {
+    const el = allElections.find(e => e.id === id) || { id, title, session: title };
+    handleOpenDeleteElection(el);
+  };
+
+  // Perform authoritative atomic deletion of election and dependent database records
+  const handleConfirmDeleteElection = async () => {
+    if (!electionToDelete) return;
+
+    const targetSession = String(electionToDelete.session || '').trim();
+    const inputSession = deleteConfirmationInput.trim();
+
+    if (inputSession !== targetSession) {
+      setDeleteError(`Please type "${targetSession}" exactly to confirm deletion.`);
+      return;
+    }
+
+    try {
+      setIsDeletingElection(true);
+      setDeleteError(null);
+
+      const targetId = electionToDelete.id;
+      const adminToken = adminSession?.token || null;
+
+      await adminDeleteElection(targetId, {
+        session: targetSession,
+        adminToken
+      });
+
+      const freshAll = getAllElections();
+      setAllElections(freshAll);
+
+      // If the currently selected election was deleted, select next available or clear
+      if (selectedElectionId === targetId) {
+        setSelectedElectionId(freshAll[0]?.id || '');
       }
+
+      setIsDeleteElectionModalOpen(false);
+      setElectionToDelete(null);
+      setDeleteConfirmationInput('');
+
+      reloadData();
+      showToast(`Election ${targetSession} and all associated records permanently purged.`, 'success');
+    } catch (err) {
+      console.error('[Electra Admin] Delete election error:', err);
+      const errMsg = err.message || 'Failed to delete election. Database transaction rolled back.';
+      setDeleteError(errMsg);
+      showToast(errMsg, 'error');
+    } finally {
+      setIsDeletingElection(false);
     }
   };
 
@@ -1293,7 +1349,7 @@ export default function App() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDeleteElection(el.id, el.title)}
+                          onClick={() => handleOpenDeleteElection(el)}
                           className="px-2.5 py-1.5 rounded-[4px] text-xs font-bold text-rose-700 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 border border-rose-200 dark:border-rose-800/40 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5 inline mr-1" />
@@ -2437,6 +2493,158 @@ export default function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL: PERMANENT ELECTION YEAR DELETION & PURGE
+         ======================================================== */}
+      {isDeleteElectionModalOpen && electionToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-[#072403] border border-rose-300 dark:border-rose-900/60 rounded-xl shadow-2xl max-w-lg w-full p-6 text-gray-900 dark:text-gray-100 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white leading-tight">
+                    Delete Election Year
+                  </h3>
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold">
+                    Permanent Database Cascade & Purge
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isDeletingElection}
+                onClick={() => setIsDeleteElectionModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-lg cursor-pointer disabled:opacity-40"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Target Election Summary Card */}
+            <div className="p-3.5 rounded-lg bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/40 space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-rose-900 dark:text-rose-200">
+                  Academic Session: {electionToDelete.session}
+                </span>
+                <span className={`px-2 py-0.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider ${
+                  electionToDelete.status === 'active'
+                    ? 'bg-red-600 text-white animate-pulse'
+                    : 'bg-rose-200 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200'
+                }`}>
+                  {electionToDelete.status === 'active' ? 'LIVE VOTING ACTIVE' : electionToDelete.status}
+                </span>
+              </div>
+              <div className="text-xs font-semibold text-rose-800 dark:text-rose-300">
+                {electionToDelete.title}
+              </div>
+            </div>
+
+            {/* Critical Warning if Election is Active */}
+            {electionToDelete.status === 'active' && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-xs text-red-700 dark:text-red-400 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  CRITICAL: Active Voting Currently In Progress
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  Deleting this election while active will immediately terminate balloting, revoke active voter credentials, and permanently purge all votes cast.
+                </p>
+              </div>
+            )}
+
+            {/* Warning Scope & Itemized Database Cascade List */}
+            <div className="space-y-2 text-xs text-gray-600 dark:text-gray-300">
+              <p className="font-semibold text-gray-800 dark:text-gray-200">
+                The following records exclusively belonging to <span className="font-bold text-rose-600 dark:text-rose-400">{electionToDelete.session}</span> will be permanently deleted:
+              </p>
+              <ul className="space-y-1 text-[11px] list-disc list-inside text-gray-600 dark:text-gray-400 pl-1">
+                <li>All student ballots & cryptographic receipts (<span className="font-mono">electra_votes</span>)</li>
+                <li>All voter accreditation & verification records (<span className="font-mono">electra_accreditations</span>)</li>
+                <li>All aggregated tally results (<span className="font-mono">electra_election_results</span>)</li>
+                <li>All candidate profiles, manifestos & B2 documents (<span className="font-mono">electra_candidates</span>)</li>
+                <li>All contested executive offices (<span className="font-mono">electra_positions</span>)</li>
+                <li>All official notices for this session (<span className="font-mono">electra_news</span>)</li>
+                <li>The election session configuration (<span className="font-mono">electra_elections</span>)</li>
+              </ul>
+            </div>
+
+            {/* Safeguard Assurance Notice */}
+            <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>
+                <strong>Institutional Safeguard:</strong> General student profiles (<span className="font-mono">verified_students</span>), user portal accounts, and other election years (e.g. past or future sessions) will <strong>NOT</strong> be affected.
+              </span>
+            </div>
+
+            {/* Confirmation Input Field */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                To confirm, type <span className="font-mono font-black text-rose-600 dark:text-rose-400 select-all">{electionToDelete.session}</span> below:
+              </label>
+              <input
+                type="text"
+                disabled={isDeletingElection}
+                value={deleteConfirmationInput}
+                onChange={(e) => {
+                  setDeleteConfirmationInput(e.target.value);
+                  if (deleteError) setDeleteError(null);
+                }}
+                placeholder={`Type "${electionToDelete.session}" here`}
+                className="w-full px-3.5 py-2 rounded-lg bg-gray-50 dark:bg-[#041801] border border-rose-300 dark:border-rose-900/60 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 disabled:opacity-50"
+              />
+            </div>
+
+            {/* Error Message if Deletion Failed */}
+            {deleteError && (
+              <div className="p-2.5 rounded-lg bg-rose-100 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-200 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="pt-2 flex items-center justify-end gap-3 border-t border-gray-200 dark:border-white/10">
+              <button
+                type="button"
+                disabled={isDeletingElection}
+                onClick={() => setIsDeleteElectionModalOpen(false)}
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/15 cursor-pointer disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingElection || deleteConfirmationInput.trim() !== String(electionToDelete.session || '').trim()}
+                onClick={handleConfirmDeleteElection}
+                className={`px-5 py-2 rounded-lg text-xs font-bold text-white transition-all flex items-center gap-1.5 ${
+                  isDeletingElection || deleteConfirmationInput.trim() !== String(electionToDelete.session || '').trim()
+                    ? 'bg-gray-400 dark:bg-gray-700 opacity-50 cursor-not-allowed'
+                    : 'bg-rose-600 hover:bg-rose-700 active:scale-95 cursor-pointer shadow-md shadow-rose-600/30'
+                }`}
+              >
+                {isDeletingElection ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Purging Database...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Permanently Delete Election</span>
+                  </>
+                )}
+              </button>
+            </div>
+
           </div>
         </div>
       )}

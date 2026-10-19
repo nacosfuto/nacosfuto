@@ -9,7 +9,8 @@ import {
   handleAdminLogin,
   handleVerifyAdminSession,
   handleAdminForgotPassword,
-  handleAdminResetPassword
+  handleAdminResetPassword,
+  handleAdminDeleteElection
 } from '../../packages/supabase/src/server/adminAuthApi.js';
 
 function electraAdminDevPlugin() {
@@ -113,6 +114,16 @@ function electraAdminDevPlugin() {
               } else if (pathname === '/api/admin/auth/reset-password' && req.method === 'POST') {
                 result = await handleAdminResetPassword(data);
                 status = result.success ? 200 : 400;
+              } else if (pathname === '/api/admin/electra/delete-election' && req.method === 'POST') {
+                const authHeader = req.headers['authorization'] || '';
+                const bearer = authHeader.replace(/^Bearer\s+/i, '').trim();
+                const token = bearer || data.token;
+                result = await handleAdminDeleteElection({
+                  token,
+                  electionId: data.electionId || data.id,
+                  sessionName: data.sessionName || data.session
+                });
+                status = result.success ? 200 : (result.error?.includes('Unauthorized') ? 403 : 400);
               }
 
               res.statusCode = status;

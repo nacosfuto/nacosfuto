@@ -483,73 +483,7 @@ export const storageService = {
     });
   },
 
-  /**
-   * Delete object from Backblaze B2 / Storage Provider
-   */
-  async delete(storageKey) {
-    if (!storageKey) return { success: false, error: 'No storage key provided.' };
 
-    // 1. Try Supabase Edge Function
-    try {
-      if (supabase && typeof supabase.functions?.invoke === 'function') {
-        const { data, error } = await supabase.functions.invoke('resource-storage', {
-          body: { action: 'delete', storageKey }
-        });
-        if (!error && data?.success) {
-          return { success: true };
-        }
-      }
-    } catch (e) {}
-
-    // 2. Direct B2 deletion
-    try {
-      const auth = await getB2Auth();
-      if (auth) {
-        const listRes = await fetch(`${auth.apiUrl}/b2api/v3/b2_list_file_names`, {
-          method: 'POST',
-          headers: {
-            Authorization: auth.authorizationToken,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            bucketId: auth.bucketId,
-            startFileName: storageKey,
-            maxFileCount: 1
-          })
-        });
-
-        if (listRes.ok) {
-          const listData = await listRes.json();
-          const match = (listData.files || []).find(f => f.fileName === storageKey);
-          if (match?.fileId) {
-            await fetch(`${auth.apiUrl}/b2api/v3/b2_delete_file_version`, {
-              method: 'POST',
-              headers: {
-                Authorization: auth.authorizationToken,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                fileId: match.fileId,
-                fileName: match.fileName
-              })
-            });
-            return { success: true };
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Direct B2 deletion notice:', e);
-    }
-
-    // 3. Supabase storage cleanup fallback
-    try {
-      if (supabase) {
-        await supabase.storage.from('resources').remove([storageKey]);
-      }
-    } catch (e) {}
-
-    return { success: true };
-  },
 
   /**
    * Get secure download URL (Serverless download proxy endpoint that streams attachment directly)
@@ -679,9 +613,9 @@ export const storageService = {
 
     // 2. Direct B2 deletion (Node.js environment or backend scripts)
     try {
-      const keyId = getB2Env('VITE_B2_KEY_ID', '00504e4d4912f750000000001');
-      const appKey = getB2Env('VITE_B2_APPLICATION_KEY', 'K005IgcedfJWsbGIXMn6tQlFhUchfNo');
-      const bucketId = getB2Env('VITE_B2_BUCKET_ID', '50149e04ad14c911a20f0715');
+      const keyId = B2_KEY_ID || '00504e4d4912f750000000001';
+      const appKey = B2_APP_KEY || 'K005IgcedfJWsbGIXMn6tQlFhUchfNo';
+      const bucketId = B2_BUCKET_ID || '50149e04ad14c911a20f0715';
 
       const creds = (typeof btoa !== 'undefined') 
         ? btoa(`${keyId}:${appKey}`) 

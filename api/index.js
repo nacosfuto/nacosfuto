@@ -64,6 +64,7 @@ import {
   handleUpdateAdminStatus,
   handleDeleteAdminUser,
   handleResendAdminInvite,
+  handleAdminDeleteElection,
   verifyAdminToken
 } from '../packages/supabase/src/server/adminAuthApi.js';
 import {
@@ -985,6 +986,18 @@ export default async function handler(req, res) {
           originUrl
         });
         return res.status(result.success ? 200 : 400).json(result);
+      }
+
+      // 9h. Delete Election Year & Cascade Purge (Super Admin & Electoral Admin)
+      if (route === '/api/admin/electra/delete-election' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const token = bearerToken || body.token;
+        const result = await handleAdminDeleteElection({
+          token,
+          electionId: body.electionId || body.id,
+          sessionName: body.sessionName || body.session
+        });
+        return res.status(result.success ? 200 : (result.error?.includes('Unauthorized') ? 403 : 400)).json(result);
       }
     }
 

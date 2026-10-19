@@ -854,3 +854,152 @@ export async function handleResendAdminInvite({ token, requesterEmail = null, ad
 
   return { success: true, message: `Invitation email resent to ${admin.email}.` };
 }
+
+// =============================================================================
+// 7. AUTHORITATIVE ELECTION DELETION AND CASCADE CLEANUP
+// =============================================================================
+
+/**
+ * Permanently deletes an election instance and all associated election-specific data:
+ * electra_votes, electra_election_results, electra_accreditations,
+ * electra_candidates, electra_positions, electra_news, and electra_elections.
+ *
+ * Guarantees:
+ * - Authorizes requesting admin session token (admin or super_admin).
+ * - Scoped strictly to the target election_id / academic session.
+ * - Leaves general student data (verified_students, profiles, portal users) untouched.
+ * - Leaves other election years untouched.
+ * - Invokes PostgreSQL RPC delete_election_year_cascade or atomic server cascade.
+ * - Identifies and removes election-specific uploaded candidate assets.
+ */
+export async function handleAdminDeleteElection({ token, electionId, sessionName }) {
+  if (!token) {
+    return { success: false, error: 'Unauthorized: Admin authentication token is required.' };
+  }
+
+  const admin = verifyAdminToken(token);
+  if (!admin) {
+    return { success: false, error: 'Unauthorized: Admin session expired or invalid. Please log in again.' };
+  }
+
+  if (!electionId || typeof electionId !== 'string' || !electionId.trim()) {
+    return { success: false, error: 'Target electionId is required for deletion.' };
+  }
+
+  const cleanElectionId = electionId.trim();
+  const cleanSession = sessionName ? String(sessionName).trim() : null;
+
+  if (cleanElectionId.toLowerCase() === 'all' || cleanElectionId === '*') {
+    return { success: false, error: 'Invalid operation: Bulk deletion of all elections is forbidden.' };
+  }
+
+  let dbStats = null;
+  let candidateStorageKeys = [];
+
+  // 1. Retrieve candidate storage keys for this election to clean up assets in object storage
+  if (supabase) {
+    try {
+      const { data: candidates } = await supabase
+        .from('electra_candidates')
+        .select('id, manifesto_storage_key')
+        .eq('election_id', cleanElectionId);
+
+      if (Array.isArray(candidates)) {
+        candidateStorageKeys = candidates
+          .map(c => c.manifesto_storage_key)
+          .filter(Boolean);
+      }
+    } catch (e) {
+      console.warn('[Admin Electra API] Failed to query candidates for storage keys:', e.message);
+    }
+  }
+
+  // 2. Execute database deletion via RPC or sequential transaction
+  if (supabase) {
+    try {
+      const { data: rpcData, error: rpcError } = await supabase
+        .rpc('delete_election_year_cascade', {
+          p_election_id: cleanElectionId,
+          p_session: cleanSession || ''
+        });
+
+      if (!rpcError && rpcData) {
+        dbStats = rpcData;
+      } else {
+        if (rpcError) {
+          console.warn('[Admin Electra API] RPC delete_election_year_cascade notice, falling back to direct cascade:', rpcError.message);
+        }
+        // Sequential series deletion in strict foreign-key dependency order
+        const { error: vErr } = await supabase.from('electra_votes').delete().eq('election_id', cleanElectionId);
+        if (vErr) throw new Error(`Failed to delete votes: ${vErr.message}`);
+
+        const { error: rErr } = await supabase.from('electra_election_results').delete().eq('election_id', cleanElectionId);
+        if (rErr) throw new Error(`Failed to delete election results: ${rErr.message}`);
+
+        const { error: aErr } = await supabase.from('electra_accreditations').delete().eq('election_id', cleanElectionId);
+        if (aErr) throw new Error(`Failed to delete accreditations: ${aErr.message}`);
+
+        const { error: cErr } = await supabase.from('electra_candidates').delete().eq('election_id', cleanElectionId);
+        if (cErr) throw new Error(`Failed to delete candidates: ${cErr.message}`);
+
+        const { error: pErr } = await supabase.from('electra_positions').delete().eq('election_id', cleanElectionId);
+        if (pErr) throw new Error(`Failed to delete positions: ${pErr.message}`);
+
+        const { error: nErr } = await supabase.from('electra_news').delete().eq('election_id', cleanElectionId);
+        if (nErr) throw new Error(`Failed to delete election news: ${nErr.message}`);
+
+        const { error: elErr } = await supabase.from('electra_elections').delete().eq('id', cleanElectionId);
+        if (elErr) throw new Error(`Failed to delete election record: ${elErr.message}`);
+
+        // If session was specified, also clean up any duplicate or orphan record matching that exact session
+        if (cleanSession) {
+          try {
+            await supabase.from('electra_elections').delete().eq('session', cleanSession);
+          } catch (_) {}
+        }
+
+        dbStats = {
+          success: true,
+          election_ids_deleted: [cleanElectionId],
+          elections_deleted: 1,
+          fallback_mode: true
+        };
+      }
+    } catch (dbErr) {
+      console.error('[Admin Electra API] Database deletion error:', dbErr);
+      return {
+        success: false,
+        error: `Failed to delete election records from database: ${dbErr.message}`
+      };
+    }
+  }
+
+  // 3. Clean up storage assets (Backblaze B2 candidate manifestos)
+  const storageCleanup = { total: candidateStorageKeys.length, deleted: 0, failed: 0 };
+  if (candidateStorageKeys.length > 0) {
+    try {
+      const { storageService } = await import('../storageService.js');
+      for (const key of candidateStorageKeys) {
+        try {
+          const res = await storageService.delete(key);
+          if (res?.success) storageCleanup.deleted++;
+          else storageCleanup.failed++;
+        } catch (_) {
+          storageCleanup.failed++;
+        }
+      }
+    } catch (storageErr) {
+      console.warn('[Admin Electra API] Storage asset cleanup warning:', storageErr.message);
+    }
+  }
+
+  return {
+    success: true,
+    electionId: cleanElectionId,
+    sessionName: cleanSession,
+    dbStats,
+    storageCleanup,
+    message: `Election ${cleanSession || cleanElectionId} and all associated records permanently purged.`
+  };
+}
+

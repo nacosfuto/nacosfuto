@@ -181,21 +181,22 @@ export function getActiveElection() {
   return null;
 }
 
-export function getElectraPosts() {
-  if (memoryState.posts.length > 0) return memoryState.posts;
-  if (typeof window !== 'undefined') {
+export function getElectraPosts(electionId = null) {
+  let list = memoryState.posts;
+  if (list.length === 0 && typeof window !== 'undefined') {
     try {
       const raw = localStorage.getItem(POSTS_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
           memoryState.posts = parsed;
-          return parsed;
+          list = parsed;
         }
       }
     } catch (_) {}
   }
-  return [];
+  if (!electionId || electionId === 'all') return list;
+  return list.filter(p => !p.electionId || p.electionId === electionId);
 }
 export const getVotingPosts = getElectraPosts;
 
@@ -560,7 +561,9 @@ export async function setElectionCardVisibility(visible) {
 // =============================================================================
 
 export async function adminCreateElection(electionData) {
-  const id = electionData.id || `election-${electionData.year || new Date().getFullYear()}-general`;
+  // Generate safe unique instance identifier to allow recreating the same year/session cleanly
+  const uniqueInstanceSuffix = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+  const id = electionData.id || `election-${electionData.year || new Date().getFullYear()}-${uniqueInstanceSuffix}`;
   const isSetToActive = electionData.status === 'active';
   const now = new Date().toISOString();
 
@@ -815,38 +818,261 @@ export async function adminUpdateElection(electionIdOrUpdates, updates = null) {
   return updatedRecord;
 }
 
-export async function adminDeleteElection(electionId) {
-  if (supabase) {
+export async function adminDeleteElection(electionId, optionsOrSession = null) {
+  if (!electionId) {
+    throw new Error('Election ID is required for deletion');
+  }
+
+  let sessionName = null;
+  let adminToken = null;
+
+  if (typeof optionsOrSession === 'string') {
+    sessionName = optionsOrSession;
+  } else if (optionsOrSession && typeof optionsOrSession === 'object') {
+    sessionName = optionsOrSession.session || optionsOrSession.sessionName || null;
+    adminToken = optionsOrSession.token || optionsOrSession.adminToken || null;
+  }
+
+  // 1. Identify target election before deletion to determine session and title
+  const allCurrent = getAllElections();
+  const targetElection = allCurrent.find(e => e.id === electionId || (sessionName && e.session === sessionName));
+  const resolvedSession = sessionName || targetElection?.session || '';
+
+  // Retrieve admin token from local session if available
+  if (!adminToken && typeof window !== 'undefined') {
     try {
-      await supabase.from('electra_elections').delete().eq('id', electionId);
+      const rawSession = localStorage.getItem('nacos_portal_admin_session');
+      if (rawSession) {
+        const parsed = JSON.parse(rawSession);
+        adminToken = parsed?.token || null;
+      }
     } catch (_) {}
   }
 
-  const all = getAllElections();
-  const filtered = all.filter(e => e.id !== electionId);
-  memoryState.allElections = filtered;
-  if (memoryState.activeElection?.id === electionId) {
+  let deletionSucceeded = false;
+  let dbStats = null;
+  let lastError = null;
+
+  // 2. Collect candidate storage keys for this election to delete their documents in object storage
+  let candidateStorageKeys = [];
+  const electionCandidates = getContestants(null, electionId);
+  if (Array.isArray(electionCandidates)) {
+    candidateStorageKeys = electionCandidates
+      .map(c => c.manifestoStorageKey || c.manifesto_storage_key)
+      .filter(Boolean);
+  }
+
+  // 3. Attempt Server-Side API deletion first (if server endpoint is reachable)
+  if (adminToken && typeof fetch !== 'undefined') {
+    try {
+      const apiRes = await fetch('/api/admin/electra/delete-election', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({
+          electionId,
+          sessionName: resolvedSession
+        })
+      });
+
+      if (apiRes.ok) {
+        const json = await apiRes.json();
+        if (json.success) {
+          deletionSucceeded = true;
+          dbStats = json.dbStats;
+        }
+      } else {
+        const errJson = await apiRes.json().catch(() => ({}));
+        if (errJson.error) {
+          lastError = new Error(errJson.error);
+        }
+      }
+    } catch (apiErr) {
+      // If server route is unreachable (e.g. offline dev or static deploy), fall back to direct Supabase client
+      console.warn('[Electra Service] Admin delete API call note, falling back to direct DB execution:', apiErr.message);
+    }
+  }
+
+  // 4. Direct Supabase Execution fallback: RPC delete_election_year_cascade or sequential cascade
+  if (!deletionSucceeded && supabase) {
+    try {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('delete_election_year_cascade', {
+        p_election_id: electionId,
+        p_session: resolvedSession
+      });
+
+      if (!rpcErr && rpcData) {
+        deletionSucceeded = true;
+        dbStats = rpcData;
+      } else {
+        if (rpcErr) {
+          console.warn('[Electra Service] RPC notice, executing direct sequential cascade:', rpcErr.message);
+        }
+
+        // Sequential database deletion in strict foreign-key order:
+        // 1. electra_votes
+        const { error: vErr } = await supabase.from('electra_votes').delete().eq('election_id', electionId);
+        if (vErr) throw new Error(`Failed to delete votes: ${vErr.message}`);
+
+        // 2. electra_election_results
+        const { error: rErr } = await supabase.from('electra_election_results').delete().eq('election_id', electionId);
+        if (rErr) throw new Error(`Failed to delete election results: ${rErr.message}`);
+
+        // 3. electra_accreditations
+        const { error: aErr } = await supabase.from('electra_accreditations').delete().eq('election_id', electionId);
+        if (aErr) throw new Error(`Failed to delete accreditations: ${aErr.message}`);
+
+        // 4. electra_candidates
+        const { error: cErr } = await supabase.from('electra_candidates').delete().eq('election_id', electionId);
+        if (cErr) throw new Error(`Failed to delete candidates: ${cErr.message}`);
+
+        // 5. electra_positions
+        const { error: pErr } = await supabase.from('electra_positions').delete().eq('election_id', electionId);
+        if (pErr) throw new Error(`Failed to delete positions: ${pErr.message}`);
+
+        // 6. electra_news
+        const { error: nErr } = await supabase.from('electra_news').delete().eq('election_id', electionId);
+        if (nErr) throw new Error(`Failed to delete news: ${nErr.message}`);
+
+        // 7. electra_elections
+        const { error: elErr } = await supabase.from('electra_elections').delete().eq('id', electionId);
+        if (elErr) throw new Error(`Failed to delete election: ${elErr.message}`);
+
+        if (resolvedSession) {
+          try {
+            await supabase.from('electra_elections').delete().eq('session', resolvedSession);
+          } catch (_) {}
+        }
+
+        deletionSucceeded = true;
+      }
+    } catch (dbErr) {
+      console.error('[Electra Service] Direct database deletion failed:', dbErr);
+      throw new Error(`Election deletion failed: ${dbErr.message}`);
+    }
+  }
+
+  if (lastError && !deletionSucceeded) {
+    throw lastError;
+  }
+
+  // 5. Clean up storage assets (Backblaze B2 candidate manifestos)
+  if (candidateStorageKeys.length > 0) {
+    try {
+      const { storageService } = await import('./storageService.js');
+      for (const key of candidateStorageKeys) {
+        try {
+          await storageService.delete(key);
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
+  // 6. Synchronize in-memory runtime collections
+  const filteredElections = memoryState.allElections.filter(
+    e => e.id !== electionId && (!resolvedSession || e.session !== resolvedSession)
+  );
+  memoryState.allElections = filteredElections;
+
+  if (memoryState.activeElection?.id === electionId || (resolvedSession && memoryState.activeElection?.session === resolvedSession)) {
     memoryState.activeElection = null;
   }
 
+  // Filter posts, contestants, news exclusively belonging to this election
+  memoryState.posts = memoryState.posts.filter(p => p.electionId !== electionId);
+  memoryState.contestants = memoryState.contestants.filter(c => c.electionId !== electionId);
+  memoryState.news = memoryState.news.filter(n => n.electionId !== electionId);
+
+  const now = new Date().toISOString();
+
+  // 7. Synchronize client localStorage caches
   if (typeof window !== 'undefined') {
     try {
-      localStorage.setItem(ELECTIONS_LIST_STORAGE_KEY, JSON.stringify(filtered));
-      window.dispatchEvent(new Event('nacos_electra_election_updated'));
+      localStorage.setItem(ELECTIONS_LIST_STORAGE_KEY, JSON.stringify(filteredElections));
+      if (!memoryState.activeElection) {
+        localStorage.removeItem(ELECTIONS_STORAGE_KEY);
+      }
+      localStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(memoryState.posts));
+      localStorage.setItem(CONTESTANTS_STORAGE_KEY, JSON.stringify(memoryState.contestants));
+      localStorage.setItem(NEWS_STORAGE_KEY, JSON.stringify(memoryState.news));
+      
+      // Clear any session-specific vote / accreditation caches
+      localStorage.removeItem(`nacos_electra_acc_${electionId}`);
+      localStorage.removeItem(`nacos_electra_voted_${electionId}`);
+      if (resolvedSession) {
+        localStorage.removeItem(`nacos_electra_acc_${resolvedSession}`);
+        localStorage.removeItem(`nacos_electra_voted_${resolvedSession}`);
+      }
     } catch (_) {}
   }
 
+  // 8. Synchronize all 5 snapshot rows in id_card_settings
   if (supabase) {
     try {
-      await supabase.from('id_card_settings').upsert({
-        id: 'store_electra_all_elections',
-        academic_session: JSON.stringify(filtered),
-        updated_at: new Date().toISOString()
-      });
+      await Promise.all([
+        supabase.from('id_card_settings').upsert({
+          id: 'store_electra_all_elections',
+          academic_session: JSON.stringify(filteredElections),
+          updated_at: now
+        }),
+        !memoryState.activeElection
+          ? supabase.from('id_card_settings').delete().eq('id', 'store_electra_election')
+          : Promise.resolve(),
+        supabase.from('id_card_settings').upsert({
+          id: 'store_electra_posts',
+          academic_session: JSON.stringify(memoryState.posts),
+          updated_at: now
+        }),
+        supabase.from('id_card_settings').upsert({
+          id: 'store_electra_contestants',
+          academic_session: JSON.stringify(memoryState.contestants),
+          updated_at: now
+        }),
+        supabase.from('id_card_settings').upsert({
+          id: 'store_electra_news',
+          academic_session: JSON.stringify(memoryState.news),
+          updated_at: now
+        })
+      ]);
+    } catch (snapErr) {
+      console.warn('[Electra Service] Snapshot synchronization notice:', snapErr.message);
+    }
+  }
+
+  // 9. Dispatch custom events and BroadcastChannel to sync all views and open tabs
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('nacos_electra_election_deleted', {
+        detail: { electionId, session: resolvedSession }
+      }));
+      window.dispatchEvent(new Event('nacos_electra_election_updated'));
+      window.dispatchEvent(new Event('nacos_electra_elections_updated'));
+      window.dispatchEvent(new Event('nacos_electra_posts_updated'));
+      window.dispatchEvent(new Event('nacos_electra_contestants_updated'));
+      window.dispatchEvent(new Event('nacos_electra_news_updated'));
+
+      if ('BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('nacos_election_channel');
+        bc.postMessage({
+          type: 'ELECTION_DELETED',
+          electionId,
+          session: resolvedSession,
+          timestamp: Date.now()
+        });
+        bc.close();
+      }
     } catch (_) {}
   }
 
-  return filtered;
+  return {
+    success: true,
+    deletedElectionId: electionId,
+    session: resolvedSession,
+    remainingElections: filteredElections,
+    dbStats
+  };
 }
 
 // =============================================================================
@@ -958,7 +1184,7 @@ export async function adminDeletePost(postId) {
 export async function adminSaveContestant(contestantData, candidateId = null) {
   const all = getContestants(null, 'all');
   const now = new Date().toISOString();
-  const id = candidateId || contestantData.id || `cnd-${Date.now()}`;
+  const id = candidateId || contestantData.id || `cnd-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const targetElectionId = contestantData.electionId || getActiveElection()?.id || null;
   const existing = all.find(c => c.id === id);
 

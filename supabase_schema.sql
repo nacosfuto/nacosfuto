@@ -1808,3 +1808,114 @@ BEGIN
   END IF;
 END $$;
 
+-- =========================================================================
+-- 22. ELECTRA ELECTION YEAR COMPLETE DELETION AND CASCADE CLEANUP
+-- =========================================================================
+CREATE OR REPLACE FUNCTION public.delete_election_year_cascade(
+  p_election_id TEXT,
+  p_session TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_votes_count INTEGER := 0;
+  v_results_count INTEGER := 0;
+  v_accreditations_count INTEGER := 0;
+  v_candidates_count INTEGER := 0;
+  v_positions_count INTEGER := 0;
+  v_news_count INTEGER := 0;
+  v_elections_count INTEGER := 0;
+  v_matched_election_ids TEXT[];
+BEGIN
+  IF p_election_id IS NULL OR TRIM(p_election_id) = '' THEN
+    RAISE EXCEPTION 'p_election_id is required for deletion';
+  END IF;
+
+  SELECT ARRAY_AGG(id) INTO v_matched_election_ids
+  FROM public.electra_elections
+  WHERE id = p_election_id
+     OR (p_session IS NOT NULL AND TRIM(p_session) <> '' AND session = TRIM(p_session));
+
+  IF v_matched_election_ids IS NULL OR array_length(v_matched_election_ids, 1) = 0 THEN
+    v_matched_election_ids := ARRAY[p_election_id];
+  END IF;
+
+  -- Delete votes for the target election(s)
+  WITH deleted_votes AS (
+    DELETE FROM public.electra_votes
+    WHERE election_id = ANY(v_matched_election_ids)
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_votes_count FROM deleted_votes;
+
+  -- Delete election results
+  WITH deleted_results AS (
+    DELETE FROM public.electra_election_results
+    WHERE election_id = ANY(v_matched_election_ids)
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_results_count FROM deleted_results;
+
+  -- Delete accreditations (only for this election, NOT verified_students!)
+  WITH deleted_accreditations AS (
+    DELETE FROM public.electra_accreditations
+    WHERE election_id = ANY(v_matched_election_ids)
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_accreditations_count FROM deleted_accreditations;
+
+  -- Delete candidates
+  WITH deleted_candidates AS (
+    DELETE FROM public.electra_candidates
+    WHERE election_id = ANY(v_matched_election_ids)
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_candidates_count FROM deleted_candidates;
+
+  -- Delete positions
+  WITH deleted_positions AS (
+    DELETE FROM public.electra_positions
+    WHERE election_id = ANY(v_matched_election_ids)
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_positions_count FROM deleted_positions;
+
+  -- Delete news items linked to this election
+  WITH deleted_news AS (
+    DELETE FROM public.electra_news
+    WHERE election_id = ANY(v_matched_election_ids)
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_news_count FROM deleted_news;
+
+  -- Delete the election record(s)
+  WITH deleted_elections AS (
+    DELETE FROM public.electra_elections
+    WHERE id = ANY(v_matched_election_ids)
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_elections_count FROM deleted_elections;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'election_ids_deleted', v_matched_election_ids,
+    'elections_deleted', v_elections_count,
+    'positions_deleted', v_positions_count,
+    'candidates_deleted', v_candidates_count,
+    'accreditations_deleted', v_accreditations_count,
+    'votes_deleted', v_votes_count,
+    'results_deleted', v_results_count,
+    'news_deleted', v_news_count,
+    'timestamp', TIMEZONE('utc'::text, NOW())
+  );
+EXCEPTION WHEN OTHERS THEN
+  RAISE EXCEPTION 'delete_election_year_cascade failed: %', SQLERRM;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.delete_election_year_cascade(TEXT, TEXT) TO authenticated, service_role, anon;
+
+
