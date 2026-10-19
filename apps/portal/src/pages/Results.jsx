@@ -41,7 +41,8 @@ import {
   validateScore,
   validateGrade,
   DEFAULT_SCORE_BOUNDARIES,
-  SUPPORTED_LETTER_GRADES
+  SUPPORTED_LETTER_GRADES,
+  DEGREE_CLASSIFICATIONS
 } from '@nacos/config/grading';
 import {
   calculateAcademicProgression,
@@ -727,10 +728,12 @@ const Results = () => {
                 </div>
                 <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
                   {overallCumulativeStats.cgpaDisplay}{' '}
-                  <span className="text-xs text-gray-400 dark:text-green-300 font-normal">/ 5.00</span>
+                  {overallCumulativeStats.isCalculated && (
+                    <span className="text-xs text-gray-400 dark:text-green-300 font-normal">/ 5.00</span>
+                  )}
                 </div>
-                <div className="text-xs text-[#138601] dark:text-[#4bd043] font-semibold">
-                  {overallCumulativeStats.isCalculated ? degreeClassification : 'Enter grades to compute CGPA'}
+                <div className="text-xs text-[#138601] dark:text-[#4bd043] font-semibold truncate" title={degreeClassification}>
+                  {overallCumulativeStats.isCalculated ? `Estimated: ${degreeClassification}*` : 'Classification: Not calculated'}
                 </div>
               </div>
 
@@ -900,30 +903,59 @@ const Results = () => {
               )}
             </div>
 
-            {/* Grading System Guide Footer */}
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 shadow-xs space-y-3">
-              <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
-                <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
-                  5-Point Grading Scale & Score Boundaries
-                </h3>
+            {/* FUTO Grading System & Degree Classification Guide Footer */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Info className="w-4 h-4 text-[#138601] dark:text-[#4bd043]" />
+                  <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                    Official FUTO Five-Point Grading Scale & Score Boundaries
+                  </h3>
+                </div>
+                <span className="text-[11px] text-gray-400 dark:text-green-200/60 font-medium">
+                  Standard 5.00 Academic Regulation Scale
+                </span>
               </div>
+
+              {/* Score Boundaries Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
-                {SUPPORTED_LETTER_GRADES.map((g) => {
-                  const b = DEFAULT_SCORE_BOUNDARIES[g] || {};
-                  return (
+                {DEFAULT_SCORE_BOUNDARIES.map((b) => (
+                  <div
+                    key={b.grade}
+                    className="p-3 rounded-xl bg-gray-50 dark:bg-[#041801]/60 border border-gray-200/80 dark:border-[#138601]/20 flex flex-col items-center justify-center text-center space-y-0.5"
+                  >
+                    <span className="font-extrabold text-sm text-[#138601] dark:text-[#4bd043]">{b.grade}</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{b.point.toFixed(1)} GP</span>
+                    <span className="text-[10px] text-gray-500 dark:text-green-200/70">
+                      {b.displayRange || `${b.min}–${b.max}`}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Degree Classification Thresholds */}
+              <div className="pt-3 border-t border-gray-100 dark:border-[#138601]/20 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-700 dark:text-green-200">
+                    FUTO Degree Classification Thresholds (5.00 Scale)
+                  </span>
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium italic">
+                    *Indicative projection based on self-entered results; not an official graduation award.
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+                  {DEGREE_CLASSIFICATIONS.map((d) => (
                     <div
-                      key={g}
-                      className="p-3 rounded-xl bg-gray-50 dark:bg-[#041801]/60 border border-gray-200/80 dark:border-[#138601]/20 flex flex-col items-center justify-center text-center space-y-0.5"
+                      key={d.title}
+                      className="p-2.5 rounded-lg bg-gray-50/70 dark:bg-[#041801]/40 border border-gray-200/60 dark:border-[#138601]/15 text-center space-y-0.5"
                     >
-                      <span className="font-extrabold text-sm text-[#138601] dark:text-[#4bd043]">{g}</span>
-                      <span className="font-semibold text-gray-900 dark:text-white">{b.gradePoint?.toFixed(1)} GP</span>
-                      <span className="text-[10px] text-gray-500 dark:text-green-200/70">
-                        {b.minScore} – {b.maxScore}%
-                      </span>
+                      <div className="text-[11px] font-bold text-gray-900 dark:text-white truncate" title={d.title}>
+                        {d.title}
+                      </div>
+                      <div className="text-[10px] text-gray-500 dark:text-green-200/70">{d.rangeDisplay}</div>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
             </div>
           </>
@@ -981,58 +1013,74 @@ const Results = () => {
               </div>
             </div>
 
-            {/* Semester Summary Metrics Row (Phase 6 requirement) */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {/* Total Courses */}
-              <div className="p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 text-center space-y-0.5 shadow-2xs">
+            {/* Semester & Cumulative Summary Metrics Row (Phase 6 & Requirement 7) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+              {/* 1. Total Courses */}
+              <div className="p-3.5 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 text-center space-y-0.5 shadow-2xs">
                 <span className="text-[10px] font-semibold text-gray-500 dark:text-green-200/70 uppercase">Total Courses</span>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">
+                <div className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
                   {activeSemesterDetail?.semStats.totalCourses}
                 </div>
               </div>
 
-              {/* Graded Courses */}
-              <div className="p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 text-center space-y-0.5 shadow-2xs">
+              {/* 2. Graded Courses */}
+              <div className="p-3.5 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 text-center space-y-0.5 shadow-2xs">
                 <span className="text-[10px] font-semibold text-gray-500 dark:text-green-200/70 uppercase">Graded</span>
-                <div className="text-lg font-bold text-[#138601] dark:text-[#4bd043]">
+                <div className="text-base sm:text-lg font-bold text-[#138601] dark:text-[#4bd043]">
                   {activeSemesterDetail?.semStats.gradedCourses}
                 </div>
               </div>
 
-              {/* Unentered */}
-              <div className="p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 text-center space-y-0.5 shadow-2xs">
-                <span className="text-[10px] font-semibold text-gray-500 dark:text-green-200/70 uppercase">Unentered</span>
-                <div className="text-lg font-bold text-amber-600 dark:text-amber-400">
+              {/* 3. Courses with no entered result */}
+              <div className="p-3.5 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 text-center space-y-0.5 shadow-2xs">
+                <span className="text-[10px] font-semibold text-gray-500 dark:text-green-200/70 uppercase">No Result</span>
+                <div className="text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400">
                   {activeSemesterDetail?.semStats.unenteredCourses}
                 </div>
               </div>
 
-              {/* Graded Units */}
-              <div className="p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 text-center space-y-0.5 shadow-2xs">
+              {/* 4. Total Graded Credit Units */}
+              <div className="p-3.5 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 text-center space-y-0.5 shadow-2xs">
                 <span className="text-[10px] font-semibold text-gray-500 dark:text-green-200/70 uppercase">Graded Units</span>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">
+                <div className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
                   {activeSemesterDetail?.semStats.totalGradedUnits}{' '}
-                  <span className="text-[10px] text-gray-400 font-normal">Units</span>
+                  <span className="text-[9px] text-gray-400 font-normal">Units</span>
                 </div>
               </div>
 
-              {/* Quality Points */}
-              <div className="p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 text-center space-y-0.5 shadow-2xs">
+              {/* 5. Total Quality Points */}
+              <div className="p-3.5 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 text-center space-y-0.5 shadow-2xs">
                 <span className="text-[10px] font-semibold text-gray-500 dark:text-green-200/70 uppercase">Quality Points</span>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">
+                <div className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
                   {activeSemesterDetail?.semStats.totalQualityPoints.toFixed(1)}
                 </div>
               </div>
 
-              {/* Semester GPA */}
-              <div className="p-4 rounded-xl bg-green-50/70 dark:bg-[#041801] border border-green-200 dark:border-[#138601]/50 text-center space-y-0.5 shadow-2xs">
+              {/* 6. Semester GPA */}
+              <div className="p-3.5 rounded-xl bg-green-50/70 dark:bg-[#041801] border border-green-200 dark:border-[#138601]/50 text-center space-y-0.5 shadow-2xs">
                 <span className="text-[10px] font-bold text-[#138601] dark:text-[#4bd043] uppercase">Semester GPA</span>
-                <div className="text-lg font-extrabold text-gray-900 dark:text-white">
+                <div className="text-base sm:text-lg font-extrabold text-gray-900 dark:text-white">
                   {activeSemesterDetail?.semStats.isCalculated ? (
                     activeSemesterDetail?.semStats.gpaDisplay
                   ) : (
-                    <span className="text-xs text-gray-400 font-medium italic">Not calculated</span>
+                    <span className="text-[11px] text-gray-400 font-medium italic">Not calculated</span>
                   )}
+                </div>
+              </div>
+
+              {/* 7. Cumulative CGPA */}
+              <div className="p-3.5 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 text-center space-y-0.5 shadow-2xs">
+                <span className="text-[10px] font-semibold text-gray-500 dark:text-green-200/70 uppercase">Cumulative CGPA</span>
+                <div className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+                  {overallCumulativeStats.cgpaDisplay}
+                </div>
+              </div>
+
+              {/* 8. Estimated Degree Classification */}
+              <div className="p-3.5 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 text-center space-y-0.5 shadow-2xs">
+                <span className="text-[10px] font-semibold text-gray-500 dark:text-green-200/70 uppercase">Estimated Class*</span>
+                <div className="text-xs sm:text-sm font-extrabold text-[#138601] dark:text-[#4bd043] truncate" title={degreeClassification}>
+                  {degreeClassification}
                 </div>
               </div>
             </div>

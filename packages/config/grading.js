@@ -31,24 +31,31 @@ export const SUPPORTED_LETTER_GRADES = ['A', 'B', 'C', 'D', 'E', 'F'];
  * 0  - 39:  F (0.0 GP) - Fail / Carry Over
  */
 export const DEFAULT_SCORE_BOUNDARIES = [
-  { min: 70, max: 100, grade: 'A', point: 5.0, description: 'Excellent' },
-  { min: 60, max: 69.99, grade: 'B', point: 4.0, description: 'Very Good' },
-  { min: 50, max: 59.99, grade: 'C', point: 3.0, description: 'Good' },
-  { min: 45, max: 49.99, grade: 'D', point: 2.0, description: 'Fair' },
-  { min: 40, max: 44.99, grade: 'E', point: 1.0, description: 'Pass' },
-  { min: 0,  max: 39.99, grade: 'F', point: 0.0, description: 'Fail' }
+  { min: 70, max: 100, grade: 'A', point: 5.0, description: 'Excellent', displayRange: '70–100' },
+  { min: 60, max: 69, grade: 'B', point: 4.0, description: 'Very Good', displayRange: '60–69' },
+  { min: 50, max: 59, grade: 'C', point: 3.0, description: 'Good', displayRange: '50–59' },
+  { min: 45, max: 49, grade: 'D', point: 2.0, description: 'Fair', displayRange: '45–49' },
+  { min: 40, max: 44, grade: 'E', point: 1.0, description: 'Pass', displayRange: '40–44' },
+  { min: 0,  max: 39, grade: 'F', point: 0.0, description: 'Fail', displayRange: '0–39' }
 ];
 
 /**
  * Degree Classifications (5.00 Scale)
+ * Exact FUTO thresholds:
+ * 4.50–5.00: First Class
+ * 3.50–4.49: Second Class Upper
+ * 2.40–3.49: Second Class Lower
+ * 1.50–2.39: Third Class
+ * 1.00–1.49: Pass
+ * 0.00–0.99: Fail
  */
 export const DEGREE_CLASSIFICATIONS = [
-  { min: 4.50, max: 5.00, title: 'First Class Honours', badge: 'First Class' },
-  { min: 3.50, max: 4.49, title: 'Second Class Honours (Upper Division)', badge: '2nd Class Upper' },
-  { min: 2.40, max: 3.49, title: 'Second Class Honours (Lower Division)', badge: '2nd Class Lower' },
-  { min: 1.50, max: 2.39, title: 'Third Class Honours', badge: 'Third Class' },
-  { min: 1.00, max: 1.49, title: 'Pass', badge: 'Pass' },
-  { min: 0.00, max: 0.99, title: 'Fail / Academic Probation', badge: 'Probation' }
+  { min: 4.50, max: 5.00, title: 'First Class', badge: 'First Class', rangeDisplay: '4.50 – 5.00' },
+  { min: 3.50, max: 4.499999, title: 'Second Class Upper', badge: '2nd Class Upper', rangeDisplay: '3.50 – 4.49' },
+  { min: 2.40, max: 3.499999, title: 'Second Class Lower', badge: '2nd Class Lower', rangeDisplay: '2.40 – 3.49' },
+  { min: 1.50, max: 2.399999, title: 'Third Class', badge: 'Third Class', rangeDisplay: '1.50 – 2.39' },
+  { min: 1.00, max: 1.499999, title: 'Pass', badge: 'Pass', rangeDisplay: '1.00 – 1.49' },
+  { min: 0.00, max: 0.999999, title: 'Fail', badge: 'Fail', rangeDisplay: '0.00 – 0.99' }
 ];
 
 /**
@@ -70,27 +77,27 @@ export function validateGrade(grade) {
 
 /**
  * Converts a numerical score (0 - 100) to its corresponding Letter Grade and Grade Point
+ * Strictly enforces inclusive FUTO score ranges:
+ * 70–100: A (5)
+ * 60–69:  B (4)
+ * 50–59:  C (3)
+ * 45–49:  D (2)
+ * 40–44:  E (1)
+ * 0–39:   F (0)
+ * 
  * @param {number|string} score 
- * @param {Array} [boundaries] Custom score boundaries if configured
  * @returns {{ grade: string, point: number, description: string }|null}
  */
-export function scoreToGrade(score, boundaries = DEFAULT_SCORE_BOUNDARIES) {
+export function scoreToGrade(score) {
   if (!validateScore(score)) return null;
   const num = Number(score);
 
-  for (const b of boundaries) {
-    if (num >= b.min && num <= b.max) {
-      return {
-        grade: b.grade,
-        point: b.point,
-        description: b.description
-      };
-    }
-  }
-
-  // Fallback boundary handling
-  if (num >= 70) return { grade: 'A', point: 5.0, description: 'Excellent' };
-  return { grade: 'F', point: 0.0, description: 'Fail' };
+  if (num >= 70) return { grade: 'A', point: 5.0, points: 5.0, grade_point: 5.0, description: 'Excellent' };
+  if (num >= 60) return { grade: 'B', point: 4.0, points: 4.0, grade_point: 4.0, description: 'Very Good' };
+  if (num >= 50) return { grade: 'C', point: 3.0, points: 3.0, grade_point: 3.0, description: 'Good' };
+  if (num >= 45) return { grade: 'D', point: 2.0, points: 2.0, grade_point: 2.0, description: 'Fair' };
+  if (num >= 40) return { grade: 'E', point: 1.0, points: 1.0, grade_point: 1.0, description: 'Pass' };
+  return { grade: 'F', point: 0.0, points: 0.0, grade_point: 0.0, description: 'Fail' };
 }
 
 /**
@@ -180,12 +187,17 @@ export function calculateCumulativeCGPA(inputList = []) {
   let totalCourses = 0;
   let totalGradedCourses = 0;
 
-  // Extract all courses whether passed as an array of semesters or a flat array of courses
+  // Extract all courses whether passed as an array of semesters, pre-aggregated summaries, or flat courses
   const allCourses = [];
   for (const item of inputList) {
     if (!item) continue;
     if (Array.isArray(item.courses)) {
       allCourses.push(...item.courses);
+    } else if (item.totalGradedUnits !== undefined && item.totalQualityPoints !== undefined && item.units === undefined && item.credit_units === undefined) {
+      aggregateQualityPoints += Number(item.totalQualityPoints) || 0;
+      aggregateGradedUnits += Number(item.totalGradedUnits) || 0;
+      totalCourses += (item.totalCourses || 0);
+      totalGradedCourses += (item.gradedCourses || item.gradedCoursesCount || 0);
     } else {
       allCourses.push(item);
     }
@@ -214,12 +226,7 @@ export function calculateCumulativeCGPA(inputList = []) {
 
   const cgpa = aggregateGradedUnits > 0 ? (aggregateQualityPoints / aggregateGradedUnits) : null;
   const formattedCgpa = cgpa !== null ? cgpa.toFixed(2) : 'Not calculated';
-
-  let degreeClass = 'No Graded Results';
-  if (cgpa !== null) {
-    const matched = DEGREE_CLASSIFICATIONS.find(d => cgpa >= d.min && cgpa <= d.max);
-    degreeClass = matched ? matched.title : 'Under Evaluation';
-  }
+  const degreeClass = cgpa !== null ? getDegreeClass(cgpa) : 'Not calculated';
 
   return {
     cgpa,
@@ -238,11 +245,24 @@ export function calculateCumulativeCGPA(inputList = []) {
 
 /**
  * Returns Degree Classification title for a given CGPA
+ * Strictly enforces unrounded CGPA thresholds:
+ * 4.50–5.00: First Class
+ * 3.50–4.49: Second Class Upper
+ * 2.40–3.49: Second Class Lower
+ * 1.50–2.39: Third Class
+ * 1.00–1.49: Pass
+ * 0.00–0.99: Fail
+ * If no graded results: returns 'Not calculated'
  */
 export function getDegreeClass(cgpa) {
-  if (cgpa === null || cgpa === undefined || isNaN(cgpa)) return 'No Graded Results';
+  if (cgpa === null || cgpa === undefined || isNaN(cgpa)) return 'Not calculated';
   const val = Number(cgpa);
-  const matched = DEGREE_CLASSIFICATIONS.find(d => val >= d.min && val <= d.max);
-  return matched ? matched.title : 'Under Evaluation';
+  if (val >= 4.50) return 'First Class';
+  if (val >= 3.50) return 'Second Class Upper';
+  if (val >= 2.40) return 'Second Class Lower';
+  if (val >= 1.50) return 'Third Class';
+  if (val >= 1.00) return 'Pass';
+  if (val >= 0.00) return 'Fail';
+  return 'Not calculated';
 }
 

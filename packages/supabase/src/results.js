@@ -11,6 +11,7 @@ import {
   calculateQualityPoints,
   calculateSemesterGPA,
   calculateCumulativeCGPA,
+  getDegreeClass,
   validateScore,
   validateGrade,
   DEFAULT_SCORE_BOUNDARIES,
@@ -26,6 +27,7 @@ export {
   calculateQualityPoints,
   calculateSemesterGPA,
   calculateCumulativeCGPA,
+  getDegreeClass,
   validateScore,
   validateGrade,
   DEFAULT_SCORE_BOUNDARIES,
@@ -44,7 +46,8 @@ const STORAGE_KEY_STUDENT_RESULTS = 'nacos_student_maintained_results_db';
  * 60 - 69:  B (4.0 GP)
  * 50 - 59:  C (3.0 GP)
  * 45 - 49:  D (2.0 GP)
- * 0  - 44:  F (0.0 GP - Fail / Carry Over)
+ * 40 - 44:  E (1.0 GP)
+ * 0  - 39:  F (0.0 GP - Fail / Carry Over)
  */
 export function calculateFutoGrade(testScore = 0, examScore = 0, units = 3) {
   const test = Math.min(40, Math.max(0, Number(testScore) || 0));
@@ -70,6 +73,10 @@ export function calculateFutoGrade(testScore = 0, examScore = 0, units = 3) {
   } else if (score >= 45) {
     grade = 'D';
     point = 2.0;
+    status = 'Passed';
+  } else if (score >= 40) {
+    grade = 'E';
+    point = 1.0;
     status = 'Passed';
   } else {
     grade = 'F';

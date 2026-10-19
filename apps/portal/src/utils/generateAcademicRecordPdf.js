@@ -406,13 +406,20 @@ export async function generateAcademicRecordPdf({ user = {}, semesters = [], opt
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(100, 100, 100);
-  doc.text('CLASS OF DEGREE', margin + 4 + blockW * 3, metricY);
+  doc.text('ESTIMATED DEGREE CLASS*', margin + 4 + blockW * 3, metricY);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(15, 80, 1);
   doc.text(degreeClassification, margin + 4 + blockW * 3, metricY + 5);
 
-  currentY += 26;
+  currentY += 24;
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(6);
+  doc.setTextColor(120, 120, 120);
+  doc.text('*Indicative projection based on self-entered results; not an official graduation degree award.', margin + 2, currentY);
+
+  currentY += 5;
 
   // Add Footers and Page Numbers across all generated pages
   const totalPages = doc.internal.getNumberOfPages();
