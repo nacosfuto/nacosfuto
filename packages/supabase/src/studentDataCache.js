@@ -232,13 +232,14 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
             if (pConds.length === 0) return null;
 
             const [{ data: pData }, { data: vData }] = await Promise.all([
-              supabase.from('profiles').select('id, registration_number, level').or(pConds.join(',')).maybeSingle().catch(() => ({ data: null })),
+              supabase.from('profiles').select('id, registration_number, admission_year, programme_duration').or(pConds.join(',')).maybeSingle().catch(() => ({ data: null })),
               supabase.from('verified_students').select('id, registration_number, level').or(pConds.join(',')).maybeSingle().catch(() => ({ data: null }))
             ]);
 
+            const pProg = pData ? calculateAcademicProgression(pData) : null;
             return {
               dues_cleared: false,
-              level: pData?.level || vData?.level || null
+              level: pProg?.levelString || vData?.level || null
             };
           } catch (e) {
             return null;

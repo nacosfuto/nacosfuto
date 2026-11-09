@@ -13,9 +13,9 @@ import {
 import { createOTPVerification, verifyOTP, maskEmail, maskPhone } from './otpService.js';
 import { sendPasswordResetEmail } from './emailService.js';
 
-export const AUTH_PROFILE_FIELDS = 'id, first_name, middle_name, last_name, full_name, registration_number, matric_number, admission_year, email, phone_number, programme, department, faculty, programme_duration, institution, role, is_active, status, gender, date_of_birth, residential_address, bio, zone, created_at, updated_at, surname, cloudinary_public_id, photo_url, photo_alt, password_hash';
+export const AUTH_PROFILE_FIELDS = 'id, first_name, middle_name, last_name, full_name, registration_number, matric_number, admission_year, email, phone_number, programme, department, faculty, programme_duration, institution, role, is_active, gender, date_of_birth, residential_address, bio, campus_zone, created_at, updated_at, surname, cloudinary_public_id, profile_photo_url, avatar_url, photo_alt, password_hash';
 
-export const AUTH_VERIFIED_FIELDS = 'id, registration_number, full_name, email, phone_number, department, faculty, level, admission_year, programme, programme_duration, academic_session, status, has_registered, is_registered, auth_user_id, registered_at, created_at, updated_at, first_name, last_name, surname, middle_name, cloudinary_public_id, photo_url';
+export const AUTH_VERIFIED_FIELDS = 'id, registration_number, full_name, first_name, last_name, surname, middle_name, email, phone_number, masked_email, masked_phone, admission_year, level, programme, department, faculty, is_registered, has_registered, status, registered_at, auth_user_id, programme_duration, academic_session, gender, created_at, updated_at';
 
 const isUuid = (val) => typeof val === 'string' && /^[0-9a-fA-F-]{36}$/.test(val.trim());
 
@@ -692,11 +692,20 @@ export async function adminGetStudentDemographics() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, registration_number, matric_number, level, admission_year')
+        .select('id, registration_number, matric_number, admission_year, programme_duration')
         .order('registration_number', { ascending: true });
 
       if (!error && Array.isArray(data)) {
-        return data;
+        return data.map(r => {
+          const prog = calculateAcademicProgression(r);
+          return {
+            id: r.id,
+            registration_number: r.registration_number,
+            matric_number: r.matric_number,
+            level: prog.levelString,
+            admission_year: prog.admissionYear || r.admission_year
+          };
+        });
       }
     } catch (e) {
       console.warn('adminGetStudentDemographics error:', e);

@@ -58,7 +58,7 @@ export const authService = {
       if (supabase) {
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, full_name, email, registration_number, level, department, password_hash')
+          .select('id, full_name, email, registration_number, admission_year, programme_duration, department, password_hash')
           .ilike('registration_number', cleanId)
           .maybeSingle();
 
@@ -92,7 +92,7 @@ export const authService = {
       if (supabase) {
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, full_name, email, registration_number, level')
+          .select('id, full_name, email, registration_number, admission_year, programme_duration')
           .ilike('email', cleanEmail)
           .maybeSingle();
 

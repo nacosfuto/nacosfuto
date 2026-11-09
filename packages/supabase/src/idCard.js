@@ -390,7 +390,7 @@ export async function checkStudentPaymentStatus(matricNumber, currentLevel = nul
     } else if (supabase) {
       const { data: prof } = await supabase
         .from('profiles')
-        .select('id, level, current_level, admission_year, registration_number')
+        .select('id, admission_year, programme_duration, registration_number')
         .or(`registration_number.eq.${cleanMatric},matric_number.eq.${cleanMatric}`)
         .maybeSingle();
       if (prof?.id) studentUuid = prof.id;

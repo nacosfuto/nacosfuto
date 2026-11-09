@@ -405,7 +405,7 @@ const IdCard = ({ viewMode = false }) => {
         withTimeout(getIdCardSettings(), 6000).catch(() => null),
         supabase && profOrFilter
           ? withTimeout(
-              supabase.from('profiles').select('id, full_name, first_name, last_name, surname, email, phone_number, registration_number, matric_number, department, faculty, programme, programme_duration, admission_year, role, is_active, status, gender, date_of_birth, residential_address, bio, zone, cloudinary_public_id, photo_url, profile_photo_url, avatar_url, photo_alt, created_at, updated_at').or(profOrFilter).limit(1).maybeSingle(),
+              supabase.from('profiles').select('id, full_name, first_name, last_name, surname, email, phone_number, registration_number, matric_number, department, faculty, programme, programme_duration, admission_year, role, is_active, gender, date_of_birth, residential_address, bio, campus_zone, cloudinary_public_id, profile_photo_url, avatar_url, photo_alt, created_at, updated_at').or(profOrFilter).limit(1).maybeSingle(),
               6000
             ).then(res => res.data).catch(() => null)
           : Promise.resolve(null),

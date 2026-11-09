@@ -119,7 +119,7 @@ async function getOfficialStudentRecord(registrationNumber) {
     try {
       const { data, error } = await supabase
         .from('verified_students')
-        .select('id, registration_number, full_name, email, phone_number, department, faculty, level, admission_year, programme, programme_duration, academic_session, status, has_registered, is_registered, auth_user_id, registered_at, created_at, updated_at, first_name, last_name, surname, middle_name, cloudinary_public_id, photo_url')
+        .select('id, registration_number, full_name, email, phone_number, department, faculty, level, admission_year, programme, programme_duration, academic_session, status, has_registered, is_registered, auth_user_id, registered_at, created_at, updated_at, first_name, last_name, surname, middle_name')
         .or(`registration_number.eq.${cleanReg},registration_number.ilike.${cleanReg}`)
         .limit(1)
         .maybeSingle();
@@ -136,7 +136,7 @@ async function getOfficialStudentRecord(registrationNumber) {
       const strippedReg = cleanReg.replace(/[^a-zA-Z0-9]/g, '');
       const { data: prof } = await supabase
         .from('profiles')
-        .select('id, registration_number, matric_number, full_name, first_name, last_name, surname, department, faculty, programme, programme_duration, admission_year, email, phone_number, role, is_active, status, gender, date_of_birth, residential_address, bio, zone, cloudinary_public_id, photo_url, photo_alt, created_at, updated_at')
+        .select('id, registration_number, matric_number, full_name, first_name, last_name, surname, department, faculty, programme, programme_duration, admission_year, email, phone_number, role, is_active, gender, date_of_birth, residential_address, bio, campus_zone, cloudinary_public_id, profile_photo_url, avatar_url, photo_alt, created_at, updated_at')
         .or(`registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg},matric_number.ilike.${cleanReg},matric_number.ilike.${strippedReg}`)
         .limit(1)
         .maybeSingle();
@@ -181,7 +181,7 @@ async function getStudentProfile(registrationNumber) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, registration_number, matric_number, full_name, first_name, last_name, surname, department, faculty, programme, programme_duration, admission_year, email, phone_number, role, is_active, status, gender, date_of_birth, residential_address, bio, zone, cloudinary_public_id, photo_url, photo_alt, created_at, updated_at, password_hash')
+        .select('id, registration_number, matric_number, full_name, first_name, last_name, surname, department, faculty, programme, programme_duration, admission_year, email, phone_number, role, is_active, gender, date_of_birth, residential_address, bio, campus_zone, cloudinary_public_id, profile_photo_url, avatar_url, photo_alt, created_at, updated_at, password_hash')
         .or(`registration_number.eq.${cleanReg},registration_number.ilike.${cleanReg}`)
         .limit(1)
         .maybeSingle();

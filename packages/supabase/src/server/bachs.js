@@ -243,7 +243,7 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
       let studentLevel = '100';
 
       try {
-        let profQuery = supabase.from('profiles').select('id, full_name, level, current_level, profile_photo_url, avatar_url, photo_url, registration_number, matric_number');
+        let profQuery = supabase.from('profiles').select('id, full_name, admission_year, programme_duration, profile_photo_url, avatar_url, registration_number, matric_number');
         if (regNo && studentId && studentId.length === 36) {
           profQuery = profQuery.or(`registration_number.eq.${regNo},matric_number.eq.${regNo},id.eq.${studentId}`);
         } else if (regNo) {
@@ -253,9 +253,10 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
         }
         const { data: profData } = await profQuery.maybeSingle();
         if (profData) {
-          existingPhoto = profData.profile_photo_url || profData.avatar_url || profData.photo_url || null;
+          existingPhoto = profData.profile_photo_url || profData.avatar_url || null;
           studentName = profData.full_name || studentName;
-          studentLevel = String(profData.level || profData.current_level || '100').replace(/[^0-9]/g, '') || '100';
+          const prog = calculateAcademicProgression(profData);
+          studentLevel = String(prog?.numericLevel ? prog.numericLevel * 100 : (prog?.levelString || '100')).replace(/[^0-9]/g, '') || '100';
         }
       } catch (profErr) {
         console.warn('[Bachs Fulfillment] Profile lookup notice:', profErr.message);
@@ -1496,7 +1497,7 @@ export async function verifyIdCardAccess({ registrationNumber, studentId, reques
     // 2. Fetch student profile from database
     let profile = null;
     if (supabase) {
-      let profQuery = supabase.from('profiles').select('id, registration_number, matric_number, admission_year, level, current_level, programme_duration, full_name, email');
+      let profQuery = supabase.from('profiles').select('id, registration_number, matric_number, admission_year, programme_duration, full_name, email');
       if (cleanReg && cleanStudentId && cleanStudentId.length === 36) {
         profQuery = profQuery.or(`registration_number.eq.${cleanReg},matric_number.eq.${cleanReg},id.eq.${cleanStudentId}`);
       } else if (cleanReg) {
