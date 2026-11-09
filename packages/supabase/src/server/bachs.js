@@ -345,21 +345,6 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
       const activeSession = paymentRecord.metadata?.academic_session || paymentRecord.academic_session || getDynamicAcademicSession(now);
       const duesLevel = paymentRecord.metadata?.level || paymentRecord.level || 'All';
       
-      await supabase
-        .from('dues_payments')
-        .upsert({
-          registration_number: regNo,
-          student_id: studentId,
-          amount: paymentRecord.amount,
-          payment_reference: paymentRecord.reference,
-          payment_method: paymentRecord.provider || 'ONLINE_GATEWAY',
-          status: 'cleared',
-          session: activeSession,
-          level: duesLevel,
-          created_at: now,
-          updated_at: now
-        }, { onConflict: 'payment_reference' });
-
       try {
         await supabase
           .from('departmental_dues')
@@ -373,7 +358,7 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
             created_at: now
           }, { onConflict: 'reference' });
       } catch (dErr) {
-        console.warn('[Dues Fulfillment] departmental_dues sync notice:', dErr.message);
+        console.warn('[Dues Fulfillment] departmental_dues notice:', dErr.message);
       }
 
       const cleanDigits = String(regNo || '').replace(/\D/g, '');
@@ -426,15 +411,17 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
       }
     } else if (pType === 'EVENT' || pType === 'EVENT_TICKET') {
       if (paymentRecord.metadata?.event_id) {
-        await supabase
-          .from('event_registrations')
-          .update({
-            payment_status: 'paid',
-            payment_reference: paymentRecord.reference,
-            confirmed_at: now
-          })
-          .eq('event_id', paymentRecord.metadata.event_id)
-          .or(`registration_number.eq.${regNo},email.eq.${paymentRecord.metadata?.customer_email}`);
+        try {
+          await supabase
+            .from('event_registrations')
+            .update({
+              payment_status: 'paid',
+              payment_reference: paymentRecord.reference,
+              confirmed_at: now
+            })
+            .eq('event_id', paymentRecord.metadata.event_id)
+            .or(`registration_number.eq.${regNo},email.eq.${paymentRecord.metadata?.customer_email}`);
+        } catch (_) {}
       }
     }
     

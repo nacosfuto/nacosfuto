@@ -377,7 +377,6 @@ const Dues = () => {
       // Parallelize queries concurrently with withTimeout(..., 6000)
       const [
         paymentsResult,
-        legacyDuesResult,
         deptDuesResult
       ] = await Promise.all([
         supabase && filters.length > 0
@@ -385,13 +384,6 @@ const Dues = () => {
               supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata, academic_session, level').or(filters.join(',')).order('created_at', { ascending: false }),
               6000
             ).catch(err => { console.warn('Bachs payments check notice:', err); return { data: [] }; })
-          : Promise.resolve({ data: [] }),
-
-        supabase && duesFilters.length > 0
-          ? withTimeout(
-              supabase.from('dues_payments').select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, paid_at, created_at').or(duesFilters.join(',')),
-              6000
-            ).catch(err => { console.warn('Legacy dues check notice:', err); return { data: [] }; })
           : Promise.resolve({ data: [] }),
 
         supabase && deptFilters.length > 0
@@ -407,12 +399,7 @@ const Dues = () => {
         paymentsResult.data.forEach(p => processItem(p));
       }
 
-      // 2. Process legacy dues_payments
-      if (legacyDuesResult?.data && legacyDuesResult.data.length > 0) {
-        legacyDuesResult.data.forEach(item => processItem(item));
-      }
-
-      // 3. Process departmental_dues
+      // 2. Process departmental_dues
       if (deptDuesResult?.data && deptDuesResult.data.length > 0) {
         deptDuesResult.data.forEach(item => processItem(item));
       }
@@ -775,18 +762,6 @@ const Dues = () => {
               event: '*',
               schema: 'public',
               table: 'payments',
-              filter: `registration_number=eq.${cleanMatric}`
-            },
-            () => {
-              checkStatus(userRef.current);
-            }
-          )
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'dues_payments',
               filter: `registration_number=eq.${cleanMatric}`
             },
             () => {

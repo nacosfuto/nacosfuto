@@ -1392,19 +1392,18 @@ export async function adminRevokeStudentDues(identifier, reason = 'Administrativ
   }
 
   try {
-    let duesUpdate = supabase
-      .from('dues_payments')
+    let deptUpdate = supabase
+      .from('departmental_dues')
       .update({
-        status: 'revoked',
-        updated_at: new Date().toISOString()
+        status: 'revoked'
       });
     if (isCleanIdUuid) {
-      await duesUpdate.or(`student_id.eq.${cleanId},registration_number.eq.${cleanId}`);
+      await deptUpdate.or(`student_id.eq.${cleanId},registration_number.eq.${cleanId}`);
     } else {
-      await duesUpdate.eq('registration_number', cleanId);
+      await deptUpdate.eq('registration_number', cleanId);
     }
   } catch (err) {
-    console.warn('Supabase dues_payments revoke error:', err);
+    console.warn('Supabase departmental_dues revoke error:', err);
   }
 
   // 3. Update local databases

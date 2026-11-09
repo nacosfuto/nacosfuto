@@ -633,7 +633,7 @@ export async function fetchStudentSavedResults(studentIdentifier) {
     try {
       const { data, error } = await supabase
         .from('student_results')
-        .select('*')
+        .select('id, student_id, user_id, registration_number, student_name, course_id, course_code, course_title, credit_units, level, semester, academic_session, entry_mode, score, grade, grade_point, quality_points, grading_scale_version, created_at, updated_at')
         .or(`registration_number.ilike.${cleanId},student_id.eq.${cleanId}`)
         .order('created_at', { ascending: true });
 

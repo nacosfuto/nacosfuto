@@ -118,7 +118,7 @@ export async function fetchCourses(options = {}) {
 
     let query = supabase
       .from('courses')
-      .select('*')
+      .select('id, code, title, credit_units, level, semester, academic_session, course_type, lecturer_name, office, prerequisites, description, syllabus, is_elective, created_by, created_at, updated_at')
       .order('level', { ascending: true })
       .order('semester', { ascending: true })
       .order('code', { ascending: true });

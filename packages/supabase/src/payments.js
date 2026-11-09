@@ -507,18 +507,19 @@ export async function adminManuallyClearDues({
         return { error: `Failed to record payment: ${payErr.message}` };
       }
 
-      // 2. Also record in dues_payments table if available
+      // 2. Also record in departmental_dues table
       try {
         await supabase
-          .from('dues_payments')
+          .from('departmental_dues')
           .upsert({
             student_id: stId,
             registration_number: regNo,
-            payment_type: 'departmental_dues',
             session: targetSession,
-            level: level,
-            status: 'successful'
-          });
+            amount: chargeAmount,
+            status: 'paid',
+            reference: payRef,
+            paid_at: now
+          }, { onConflict: 'reference' });
       } catch (_) {}
 
       return { success: true, payment: paymentRecord, reference: payRef };

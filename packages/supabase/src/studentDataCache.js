@@ -124,7 +124,8 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
       let totalSum = 0;
 
       // Parallelize queries across database tables
-      const [paymentsResult, idAppsResult, legacyDuesResult, deptDuesResult, liveProfileResult, duesCfg, idCfg] = await Promise.all([
+      const legacyDuesResult = [];
+      const [paymentsResult, idAppsResult, deptDuesResult, liveProfileResult, duesCfg, idCfg] = await Promise.all([
         // 1. Live Payments table
         (async () => {
           if (!supabase || (!cleanMatric && !userId)) return [];
@@ -192,28 +193,7 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
           }
         })(),
 
-        // 3. Legacy Dues Payments table
-        (async () => {
-          if (!supabase || (!cleanMatric && !userId)) return [];
-          try {
-            const duesConds = [];
-            if (cleanMatric) duesConds.push(`registration_number.eq.${cleanMatric}`);
-            if (strippedDigits && strippedDigits !== cleanMatric) duesConds.push(`registration_number.eq.${strippedDigits}`);
-            if (userId && isUuid(userId)) duesConds.push(`student_id.eq.${userId}`);
-            if (duesConds.length === 0) return [];
-
-            const { data } = await supabase
-              .from('dues_payments')
-              .select('id, student_id, registration_number, session, academic_session, level, amount, status, reference, paid_at, created_at')
-              .or(duesConds.join(','))
-              .in('status', ['successful', 'verified', 'cleared', 'paid']);
-            return data || [];
-          } catch (e) {
-            return [];
-          }
-        })(),
-
-        // 4. Departmental Dues table
+        // 3. Departmental Dues table
         (async () => {
           if (!supabase || !cleanMatric) return [];
           try {
