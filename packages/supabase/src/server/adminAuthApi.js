@@ -28,7 +28,7 @@ const OTP_EXPIRY_MINUTES = 15;
 const RATE_LIMIT_WINDOW_MINUTES = 15;
 const RATE_LIMIT_MAX_ATTEMPTS = 5;
 
-const ADMIN_SCOPE_FIELDS = 'id, email, password_hash, full_name, name, role, scope, is_active, created_at, updated_at, last_login_at';
+const ADMIN_SCOPE_FIELDS = 'id, user_id, email, password_hash, full_name, role, scope, permissions, assigned_level, is_active, created_at, updated_at, last_login_at';
 
 /**
  * Authoritatively determines if an administrator record or session holds Super Admin privileges.
@@ -273,6 +273,7 @@ export async function handleAdminLogin({ email, password, targetPlatform = 'webs
     id: adminRecord.id,
     email: adminRecord.email,
     full_name: adminRecord.full_name,
+    name: adminRecord.full_name,
     scope: adminRecord.scope,
     role: adminRecord.role,
     assigned_level: adminRecord.assigned_level || 'all',

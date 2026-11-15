@@ -304,7 +304,7 @@ export async function loginWebsiteAdmin(email, password) {
   try {
     const { data: dbAdmin, error: dbErr } = await supabase
       .from('admin_scopes')
-      .select('id, email, password_hash, full_name, name, role, scope, is_active, created_at, updated_at')
+      .select('id, user_id, email, password_hash, full_name, role, scope, permissions, assigned_level, is_active, created_at, updated_at, last_login_at')
       .ilike('email', cleanEmail)
       .maybeSingle();
 
@@ -353,6 +353,7 @@ export async function loginWebsiteAdmin(email, password) {
       user_id: dbAdmin.user_id || dbAdmin.id,
       email: dbAdmin.email,
       full_name: dbAdmin.full_name,
+      name: dbAdmin.full_name,
       scope: dbAdmin.scope,
       role: dbAdmin.role,
       assigned_level: dbAdmin.assigned_level || 'all',
@@ -422,7 +423,7 @@ export async function loginPortalAdmin(email, password) {
   try {
     const { data: dbAdmin, error: dbErr } = await supabase
       .from('admin_scopes')
-      .select('id, email, password_hash, full_name, name, role, scope, is_active, created_at, updated_at')
+      .select('id, user_id, email, password_hash, full_name, role, scope, permissions, assigned_level, is_active, created_at, updated_at, last_login_at')
       .ilike('email', cleanEmail)
       .maybeSingle();
 
@@ -473,6 +474,7 @@ export async function loginPortalAdmin(email, password) {
       user_id: dbAdmin.user_id || dbAdmin.id,
       email: dbAdmin.email,
       full_name: dbAdmin.full_name,
+      name: dbAdmin.full_name,
       scope: dbAdmin.scope,
       role: dbAdmin.role,
       assigned_level: dbAdmin.assigned_level || 'all',
@@ -596,11 +598,11 @@ export async function superAdminGetAdmins() {
     try {
       const { data, error } = await supabase
         .from('admin_scopes')
-        .select('id, email, full_name, name, role, scope, is_active, created_at, updated_at, last_login_at')
+        .select('id, user_id, email, full_name, role, scope, permissions, assigned_level, is_active, created_at, updated_at, last_login_at')
         .order('created_at', { ascending: false });
 
       if (!error && Array.isArray(data)) {
-        return { success: true, admins: data };
+        return { success: true, admins: data.map(a => ({ ...a, name: a.full_name })) };
       }
     } catch (_) {}
   }

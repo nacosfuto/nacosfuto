@@ -48,12 +48,12 @@ export async function fetchPortalAdminsFromSupabase() {
     if (supabase) {
       const { data: dbAdmins, error } = await supabase
         .from('admin_scopes')
-        .select('id, email, full_name, name, role, scope, is_active, created_at, updated_at, last_login_at, assigned_level')
+        .select('id, user_id, email, full_name, role, scope, permissions, assigned_level, is_active, created_at, updated_at, last_login_at')
         .or('scope.eq.student_portal,scope.eq.super_admin,role.eq.portal_admin,role.eq.course_adviser,role.eq.super_admin')
         .order('created_at', { ascending: false });
 
       if (!error && Array.isArray(dbAdmins)) {
-        return dbAdmins;
+        return dbAdmins.map(a => ({ ...a, name: a.full_name }));
       }
     }
   } catch (err) {
