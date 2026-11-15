@@ -155,7 +155,8 @@ export const DashboardDuesTracker = ({ onSettingsUpdated }) => {
     // Map of successful payments keyed by uppercase registration number and student ID
     const paymentMap = new Map();
     duesPayments.forEach(p => {
-      if (p.status === 'successful') {
+      const isSuccess = ['successful', 'paid', 'cleared', 'verified', 'completed'].includes(String(p.status || '').toLowerCase()) || Boolean(p.paid_at);
+      if (isSuccess) {
         if (p.registration_number) paymentMap.set(String(p.registration_number).trim().toUpperCase(), p);
         if (p.student_id) paymentMap.set(String(p.student_id).trim(), p);
       }
@@ -200,6 +201,27 @@ export const DashboardDuesTracker = ({ onSettingsUpdated }) => {
         level: extractLevel(v),
         isCleared,
         payment: matchedPayment,
+        isRegistered: false
+      });
+    });
+
+    // Also supplement with any students who made payments directly
+    duesPayments.forEach(p => {
+      const isSuccess = ['successful', 'paid', 'cleared', 'verified', 'completed'].includes(String(p.status || '').toLowerCase()) || Boolean(p.paid_at);
+      if (!isSuccess) return;
+      const reg = String(p.registration_number || '').trim().toUpperCase();
+      const pId = p.student_id || reg;
+      const key = reg || pId;
+      if (!key || studentMap.has(key) || (reg && studentMap.has(reg))) return;
+
+      studentMap.set(key, {
+        id: p.id || key,
+        fullName: p.metadata?.customer_name || p.metadata?.student_name || p.customer_name || `Student (${reg || 'Unassigned'})`,
+        registrationNumber: reg || 'PENDING',
+        email: p.metadata?.customer_email || p.email || '—',
+        level: extractLevel(p) || '100',
+        isCleared: true,
+        payment: p,
         isRegistered: false
       });
     });

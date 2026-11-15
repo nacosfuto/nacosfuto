@@ -109,7 +109,7 @@ export async function verifyPaymentStatus({ reference, paymentType, registration
   // Fallback direct check against Supabase
   try {
     if (supabase) {
-      let query = supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata, academic_session, level');
+      let query = supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata');
       if (reference) query = query.eq('reference', reference);
       else if (registrationNumber) {
         const cleanReg = String(registrationNumber).replace(/[\/\s\-]/g, '').trim().toUpperCase();
@@ -256,7 +256,7 @@ export async function updateDuesFee(amount, academicSession = null) {
   const targetSession = String(academicSession || getActiveAcademicSession()).trim();
   const now = new Date().toISOString();
   const settings = {
-    id: 'default',
+    id: 'dues',
     dues_amount: num,
     academic_session: targetSession,
     is_open: true,
@@ -307,7 +307,9 @@ export async function updateDuesFee(amount, academicSession = null) {
   } catch (e) {}
 
   try {
-    window.dispatchEvent(new CustomEvent('nacos_dues_settings_updated', { detail: settings }));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('nacos_dues_settings_updated', { detail: settings }));
+    }
   } catch (e) {}
 
   return { success: true, settings };
@@ -409,13 +411,13 @@ export async function adminGetAllDuesPayments(session = null) {
     while (true) {
       let query = supabase
         .from('payments')
-        .select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, updated_at, metadata, academic_session, level')
+        .select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, updated_at, metadata')
         .eq('payment_type', 'DEPARTMENTAL_DUES')
         .order('created_at', { ascending: false });
 
       if (targetSession && typeof targetSession === 'string') {
         const cleanSession = targetSession.trim();
-        query = query.or(`academic_session.eq.${cleanSession},metadata->>academic_session.eq.${cleanSession}`);
+        query = query.or(`metadata->>academic_session.eq.${cleanSession},metadata->>academicSession.eq.${cleanSession}`);
       }
 
       const { data, error } = await query.range(page * pageSize, (page + 1) * pageSize - 1);
@@ -433,8 +435,8 @@ export async function adminGetAllDuesPayments(session = null) {
     // Normalize top-level academic_session and level if only present in metadata
     return allDues.map(p => ({
       ...p,
-      academic_session: p.academic_session || p.metadata?.academic_session || p.metadata?.academicSession || '2026/2027',
-      level: p.level || p.metadata?.level || '100 Level'
+      academic_session: p.metadata?.academic_session || p.metadata?.academicSession || '2026/2027',
+      level: p.metadata?.level || '100 Level'
     }));
   } catch (err) {
     console.error('[Dues Payments Ledger Error]:', err);
@@ -470,7 +472,7 @@ export async function adminManuallyClearDues({
 
   try {
     if (supabase) {
-      // 1. Insert or update in public.payments table with top-level session and level
+      // 1. Insert or update in public.payments table (session and level stored authoritatively in metadata)
       const { data: paymentRecord, error: payErr } = await supabase
         .from('payments')
         .upsert({
@@ -482,8 +484,6 @@ export async function adminManuallyClearDues({
           currency: 'NGN',
           status: 'successful',
           reference: payRef,
-          academic_session: targetSession,
-          level: level,
           paid_at: now,
           created_at: now,
           updated_at: now,
@@ -515,7 +515,7 @@ export async function adminManuallyClearDues({
             student_id: stId,
             registration_number: regNo,
             session: targetSession,
-            amount: chargeAmount,
+            amount: numAmount,
             status: 'paid',
             reference: payRef,
             paid_at: now

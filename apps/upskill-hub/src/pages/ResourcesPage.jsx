@@ -227,11 +227,20 @@ const ResourcesPage = () => {
         let items = res.data;
         if (activeCategory !== 'All Resources') {
           const matchCat = activeCategory.toLowerCase();
+          const cleanMatch = matchCat.replace(/s$/, '');
           items = items.filter(r => {
             const catName = (r.category?.name || '').toLowerCase();
             const catSlug = (r.category?.slug || '').toLowerCase();
             const resType = (r.resource_type || '').toLowerCase();
-            return catName.includes(matchCat) || catSlug.includes(matchCat) || `${resType}s` === matchCat || resType === matchCat;
+            return (
+              catName.includes(matchCat) ||
+              matchCat.includes(catName) ||
+              catSlug.includes(cleanMatch) ||
+              catSlug.includes(matchCat) ||
+              resType.includes(cleanMatch) ||
+              `${resType}s` === matchCat ||
+              resType === matchCat
+            );
           });
         }
         setResources(items);

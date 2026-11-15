@@ -78,7 +78,7 @@ export default function PortalAdminDues() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL'); // ALL | CLEARED | UNPAID | MANUAL
   const [levelFilter, setLevelFilter] = useState('ALL'); // ALL | 100 | 200 | 300 | 400 | 500
-  const [sessionFilter, setSessionFilter] = useState(getActiveAcademicSession()); // ALL | specific academic session
+  const [sessionFilter, setSessionFilter] = useState('ALL'); // ALL | specific academic session
 
   // Modals & Feedback
   const [feedback, setFeedback] = useState({ message: '', type: '' });
@@ -221,7 +221,8 @@ export default function PortalAdminDues() {
     const paymentMapByStudentId = new Map();
 
     duesPayments.forEach(p => {
-      if (p.status === 'successful') {
+      const isSuccess = ['successful', 'paid', 'cleared', 'verified', 'completed'].includes(String(p.status || '').toLowerCase()) || Boolean(p.paid_at);
+      if (isSuccess) {
         const rawPSess = p.academic_session || p.metadata?.academic_session;
         const pSession = typeof rawPSess === 'string' ? rawPSess : (rawPSess?.sessionName || '');
         // If filtering for a specific session, only match payments made for that session
@@ -245,7 +246,7 @@ export default function PortalAdminDues() {
 
     const activeRate = Number(duesSettings?.dues_amount || 0);
 
-    return accounts.map(st => {
+    const rows = accounts.map(st => {
       const reg = (st.registration_number || st.matricNumber || '').toUpperCase().trim();
       const stId = st.id || st.student_id;
 
@@ -288,6 +289,51 @@ export default function PortalAdminDues() {
         isManual: directPayment?.metadata?.cleared_manually || directPayment?.provider?.toLowerCase().includes('manual') || false
       };
     });
+
+    // Also include payments made by students not yet in registered accounts
+    const accountRegs = new Set(accounts.map(st => (st.registration_number || st.matricNumber || '').toUpperCase().trim()).filter(Boolean));
+    const accountIds = new Set(accounts.map(st => st.id || st.student_id).filter(Boolean));
+
+    duesPayments.forEach(p => {
+      const isSuccess = ['successful', 'paid', 'cleared', 'verified', 'completed'].includes(String(p.status || '').toLowerCase()) || Boolean(p.paid_at);
+      if (!isSuccess) return;
+
+      const pReg = (p.registration_number || '').toUpperCase().trim();
+      const pId = p.student_id;
+      if ((pReg && accountRegs.has(pReg)) || (pId && accountIds.has(pId))) {
+        return; // already represented in rows via account mapping
+      }
+
+      const rawPSess = p.academic_session || p.metadata?.academic_session || '2026/2027';
+      const pSession = typeof rawPSess === 'string' ? rawPSess : (rawPSess?.sessionName || '2026/2027');
+      if (isSpecificSession && pSession && pSession !== targetSession) {
+        return;
+      }
+
+      const pLevel = p.level || p.metadata?.level || '100 Level';
+      const cleanLevel = String(pLevel).replace(/[^0-9]/g, '') || '100';
+
+      rows.push({
+        id: p.id || `pay-${Math.random()}`,
+        studentId: pId || pReg,
+        name: p.metadata?.customer_name || p.metadata?.student_name || p.customer_name || `Student (${pReg || 'Unassigned'})`,
+        email: p.metadata?.customer_email || p.email || '—',
+        registrationNumber: pReg || 'Pending',
+        level: pLevel.includes('Level') ? pLevel : `${cleanLevel} Level`,
+        rawLevel: cleanLevel,
+        session: pSession,
+        department: 'Computer Science',
+        hasPaid: true,
+        payment: p,
+        amount: Number(p.amount) || activeRate,
+        paidAt: p.paid_at || p.created_at,
+        reference: p.reference,
+        provider: p.provider || 'Online Gateway',
+        isManual: p.metadata?.cleared_manually || p.provider?.toLowerCase().includes('manual') || false
+      });
+    });
+
+    return rows;
   }, [accounts, duesPayments, duesSettings, sessionFilter]);
 
   // Filtered rows based on search and filters
@@ -333,7 +379,8 @@ export default function PortalAdminDues() {
     const activeRate = Number(duesSettings?.dues_amount || 0);
 
     const relevantPayments = duesPayments.filter(p => {
-      if (p.status !== 'successful') return false;
+      const isSuccess = ['successful', 'paid', 'cleared', 'verified', 'completed'].includes(String(p.status || '').toLowerCase()) || Boolean(p.paid_at);
+      if (!isSuccess) return false;
       if (isSpecificSession) {
         const rawPSess = p.academic_session || p.metadata?.academic_session;
         const pSess = typeof rawPSess === 'string' ? rawPSess : (rawPSess?.sessionName || '');

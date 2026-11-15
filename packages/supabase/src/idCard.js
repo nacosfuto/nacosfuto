@@ -408,7 +408,7 @@ export async function checkStudentPaymentStatus(matricNumber, currentLevel = nul
 
     let pQuery = supabase
       .from('payments')
-      .select('id, reference, amount, payment_type, status, level, academic_session, metadata, provider, paid_at, created_at')
+      .select('id, reference, amount, payment_type, status, metadata, provider, paid_at, created_at')
       .eq('payment_type', 'ID_CARD')
       .eq('status', 'successful');
 
@@ -616,9 +616,10 @@ export async function recordStudentPayment(matricNumber, amount = null) {
       payment_type: 'DEPARTMENTAL_DUES',
       reference: newPayment.payment_reference,
       paid_at: nowIso,
-      academic_session: newPayment.session,
       metadata: {
         payment_title: 'Departmental Dues (Full Payment)',
+        academic_session: newPayment.session,
+        academicSession: newPayment.session,
         cleared_by: 'recordStudentPayment'
       },
       created_at: nowIso,

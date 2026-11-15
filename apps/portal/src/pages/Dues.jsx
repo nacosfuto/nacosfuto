@@ -381,7 +381,7 @@ const Dues = () => {
       ] = await Promise.all([
         supabase && filters.length > 0
           ? withTimeout(
-              supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata, academic_session, level').or(filters.join(',')).order('created_at', { ascending: false }),
+              supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata').or(filters.join(',')).order('created_at', { ascending: false }),
               6000
             ).catch(err => { console.warn('Bachs payments check notice:', err); return { data: [] }; })
           : Promise.resolve({ data: [] }),

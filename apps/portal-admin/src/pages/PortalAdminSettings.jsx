@@ -8,6 +8,7 @@ import {
   CreditCard, 
   CheckCircle2,
   Calendar,
+  Clock,
   Users,
   Shield,
   Lock,

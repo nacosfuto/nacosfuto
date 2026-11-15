@@ -158,7 +158,7 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
             }
 
             if (conds.length === 0) return [];
-            const { data } = await supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata, academic_session, level').or(conds.join(','));
+            const { data } = await supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata').or(conds.join(','));
             return data || [];
           } catch (e) {
             console.warn('[Cache Service] Payments fetch notice:', e);

@@ -26,11 +26,16 @@ import {
   parseSessionYears 
 } from '@nacos/config/academic';
 
-const PAYMENT_RECORD_FIELDS = 'id, reference, provider_checkout_id, student_id, registration_number, payment_type, amount, currency, status, level, academic_session, metadata, provider, paid_at, created_at, updated_at';
+const PAYMENT_RECORD_FIELDS = 'id, reference, provider_checkout_id, student_id, registration_number, payment_type, amount, currency, status, metadata, provider, paid_at, created_at, updated_at';
 
 // In-memory 30s cache for authoritative admin settings to eliminate repetitive database latency
 let cachedIdCardSettings = null;
 let cachedIdCardSettingsExpiry = 0;
+
+export function invalidateAuthoritativeSettingsCache() {
+  cachedIdCardSettings = null;
+  cachedIdCardSettingsExpiry = 0;
+}
 
 export async function getCachedAuthoritativeSettings() {
   if (cachedIdCardSettings && Date.now() < cachedIdCardSettingsExpiry) {
@@ -178,16 +183,24 @@ export async function resolveDynamicFee({ paymentType = 'ID_CARD', academicSessi
 
     if (supabase) {
       // 2. Secondary check: public.payment_fees table (Session-aware institutional fee registry)
-      const { data: feeRow } = await supabase
+      let feeQuery = supabase
         .from('payment_fees')
-        .select('amount')
-        .eq('fee_key', feeKey)
-        .eq('academic_session', targetSession)
-        .eq('is_active', true)
-        .maybeSingle();
+        .select('amount, academic_session')
+        .eq('is_active', true);
 
-      if (feeRow?.amount != null && !isNaN(Number(feeRow.amount)) && Number(feeRow.amount) > 0) {
-        return Number(feeRow.amount);
+      if (pType === 'DEPARTMENTAL_DUES' || pType === 'DUES') {
+        feeQuery = feeQuery.or('fee_key.eq.departmental_dues,fee_key.eq.dues');
+      } else {
+        feeQuery = feeQuery.eq('fee_key', feeKey);
+      }
+
+      const { data: feeRows } = await feeQuery.order('updated_at', { ascending: false });
+      if (Array.isArray(feeRows) && feeRows.length > 0) {
+        const sessionMatch = feeRows.find(r => String(r.academic_session).trim() === targetSession);
+        const resolvedFeeRow = sessionMatch || feeRows[0];
+        if (resolvedFeeRow?.amount != null && !isNaN(Number(resolvedFeeRow.amount)) && Number(resolvedFeeRow.amount) > 0) {
+          return Number(resolvedFeeRow.amount);
+        }
       }
     }
   } catch (err) {
@@ -508,7 +521,7 @@ export async function createPaymentCheckout({
     if (supabase && (regNo || studentId)) {
       let dupQuery = supabase
         .from('payments')
-        .select('id, reference, amount, payment_type, status, level, academic_session, metadata, provider, paid_at, created_at')
+        .select('id, reference, amount, payment_type, status, metadata, provider, paid_at, created_at')
         .eq('payment_type', normalizedType)
         .in('status', ['successful']);
 
@@ -1217,6 +1230,8 @@ export async function processBachsWebhook(event) {
         const metadata = payload.metadata || {};
         const autoType = metadata.payment_type || metadata.paymentType || 'DEPARTMENTAL_SERVICE';
         const autoMatric = metadata.registration_number || metadata.matric_number || metadata.student_matric || payload.customer?.email || 'UNASSIGNED';
+        const autoSession = metadata.academic_session || metadata.academicSession || getDynamicAcademicSession();
+        const autoLevel = metadata.level || '100 Level';
         const { data: newRec } = await supabase.from('payments').insert([{
           reference,
           amount: paidAmount || 0,
@@ -1227,13 +1242,14 @@ export async function processBachsWebhook(event) {
           matric_number: autoMatric,
           provider_payment_id: providerPaymentId || reference,
           provider_checkout_id: providerCheckoutId,
-          academic_session: metadata.academic_session || metadata.academicSession || getDynamicAcademicSession(),
-          level: metadata.level || '100 Level',
           paid_at: now,
           created_at: now,
           updated_at: now,
           metadata: {
             ...metadata,
+            academic_session: autoSession,
+            academicSession: autoSession,
+            level: autoLevel,
             auto_created_from_webhook: true,
             webhook_event_id: eventId
           }

@@ -73,7 +73,7 @@ const Receipt = () => {
 
         // 1. Try finding payment record in Supabase
         if (supabase && (referenceParam || cleanMatric)) {
-          let query = supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, provider_payment_id, paid_at, created_at, metadata, academic_session, level');
+          let query = supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, provider_payment_id, paid_at, created_at, metadata');
           if (referenceParam) {
             const isRefUuid = /^[0-9a-fA-F-]{36}$/.test(referenceParam);
             const orList = [`reference.eq.${referenceParam}`, `provider_payment_id.eq.${referenceParam}`];

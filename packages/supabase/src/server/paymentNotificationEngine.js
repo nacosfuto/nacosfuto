@@ -543,7 +543,7 @@ export async function retryPaymentNotification({ notificationId, overrideEnv = {
     // Lookup original payment record
     const { data: paymentRecord } = await supabase
       .from('payments')
-      .select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata, academic_session, level')
+      .select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata')
       .eq('reference', notifRow.payment_reference)
       .maybeSingle();
 

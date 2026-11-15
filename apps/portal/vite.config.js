@@ -217,6 +217,37 @@ function cloudinaryDevPlugin() {
                 res.end(JSON.stringify({ feeKey: feeKey || 'id_card', amount }));
                 return;
               }
+              if (req.method === 'POST') {
+                let body = '';
+                req.on('data', chunk => { body += chunk; });
+                req.on('end', async () => {
+                  try {
+                    const postData = JSON.parse(body || '{}');
+                    const targetKey = String(postData.feeKey || feeKey || 'departmental_dues').toLowerCase();
+                    const newAmount = Number(postData.amount);
+                    const targetSession = String(postData.academicSession || '2026/2027').trim();
+                    const { invalidateAuthoritativeSettingsCache } = await import('../../packages/supabase/src/server/bachs.js');
+                    const { supabase } = await import('../../packages/supabase/src/client.js');
+                    if (supabase && targetKey.includes('due')) {
+                      await supabase.from('id_card_settings').upsert({
+                        id: 'dues',
+                        id_card_fee: newAmount,
+                        academic_session: targetSession,
+                        is_application_open: true,
+                        updated_at: new Date().toISOString()
+                      });
+                    }
+                    invalidateAuthoritativeSettingsCache();
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({ success: true, feeKey: targetKey, amount: newAmount, academicSession: targetSession }));
+                  } catch (pErr) {
+                    res.statusCode = 500;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({ error: pErr.message }));
+                  }
+                });
+                return;
+              }
               res.statusCode = 405;
               res.end(JSON.stringify({ error: 'Method Not Allowed' }));
             } catch (err) {

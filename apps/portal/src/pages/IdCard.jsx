@@ -411,7 +411,7 @@ const IdCard = ({ viewMode = false }) => {
           : Promise.resolve(null),
         supabase && orFilter
           ? withTimeout(
-              supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata, academic_session, level').or(orFilter).order('created_at', { ascending: false }),
+              supabase.from('payments').select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at, metadata').or(orFilter).order('created_at', { ascending: false }),
               6000
             ).then(res => res.data || []).catch(() => [])
           : Promise.resolve([]),

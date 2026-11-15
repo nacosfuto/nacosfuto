@@ -99,6 +99,24 @@ export async function fetchResourceCategories(options = { includeInactive: false
   }
 }
 
+export const RESOURCE_SELECT_FIELDS = `
+  id, title, slug, description, category_id, course_code, course_title, level, semester, resource_type,
+  storage_provider, storage_bucket, storage_key, thumbnail_storage_key, duration_seconds,
+  file_name, file_type, file_extension, mime_type, file_size,
+  download_count, view_count, is_public, is_published, is_active, uploaded_by, created_at, updated_at,
+  category:resource_categories(id, name, slug, icon, description)
+`;
+
+export function normalizeResourceRecord(r) {
+  if (!r) return r;
+  return {
+    ...r,
+    file_format: r.file_format || r.file_extension || r.file_type || 'pdf',
+    file_url: r.file_url || null,
+    is_featured: Boolean(r.is_featured || r.is_public)
+  };
+}
+
 /**
  * Fetch resources with multi-factor filtering, debounced search, sorting, and pagination.
  * Directly queried from Supabase PostgreSQL database.
@@ -130,10 +148,7 @@ export async function fetchResources({
   try {
     let query = supabase
       .from('resources')
-      .select(`
-        id, title, slug, description, course_code, course_title, level, semester, resource_type, file_url, storage_key, file_size, file_format, file_type, file_extension, file_name, download_count, view_count, is_featured, is_active, is_published, created_at, updated_at,
-        category:resource_categories(id, name, slug, icon, description)
-      `, { count: 'exact' });
+      .select(RESOURCE_SELECT_FIELDS, { count: 'exact' });
 
     // Active & published filter
     if (!includeInactive) {
@@ -222,7 +237,7 @@ export async function fetchResources({
     const total = count ?? (data?.length || 0);
 
     return {
-      data: data || [],
+      data: (data || []).map(normalizeResourceRecord),
       total,
       page,
       limit,
@@ -259,7 +274,7 @@ export async function fetchResourceById(id) {
       .single();
 
     if (error) throw error;
-    return { data, error: null };
+    return { data: normalizeResourceRecord(data), error: null };
   } catch (err) {
     console.error('Error fetching resource by id:', err);
     return { data: null, error: err.message };
@@ -344,14 +359,11 @@ export async function adminCreateResource(resourceData) {
     const { data, error } = await supabase
       .from('resources')
       .insert([payload])
-      .select(`
-        id, title, slug, description, course_code, course_title, level, semester, resource_type, file_url, storage_key, file_size, file_format, file_type, file_extension, file_name, download_count, view_count, is_featured, is_active, is_published, created_at, updated_at,
-        category:resource_categories(id, name, slug, icon, description)
-      `)
+      .select(RESOURCE_SELECT_FIELDS)
       .single();
 
     if (error) throw error;
-    return { data, error: null };
+    return { data: normalizeResourceRecord(data), error: null };
   } catch (err) {
     console.error('Admin create resource error:', err);
     return { data: null, error: err.message || 'Failed to create resource' };
@@ -400,14 +412,11 @@ export async function adminUpdateResource(id, updateData) {
       .from('resources')
       .update(payload)
       .eq('id', id)
-      .select(`
-        id, title, slug, description, course_code, course_title, level, semester, resource_type, file_url, storage_key, file_size, file_format, file_type, file_extension, file_name, download_count, view_count, is_featured, is_active, is_published, created_at, updated_at,
-        category:resource_categories(id, name, slug, icon, description)
-      `)
+      .select(RESOURCE_SELECT_FIELDS)
       .single();
 
     if (error) throw error;
-    return { data, error: null };
+    return { data: normalizeResourceRecord(data), error: null };
   } catch (err) {
     console.error('Admin update resource error:', err);
     return { data: null, error: err.message || 'Failed to update resource' };
@@ -506,7 +515,7 @@ export async function adminGetResourceAnalytics() {
     // Recent uploads
     const { data: recentUploads } = await supabase
       .from('resources')
-      .select('id, title, course_code, level, resource_type, file_size, file_format, download_count, created_at, category:resource_categories(name)')
+      .select('id, title, course_code, level, resource_type, file_size, file_type, file_extension, download_count, created_at, category:resource_categories(name)')
       .order('created_at', { ascending: false })
       .limit(6);
 
@@ -547,7 +556,7 @@ export async function adminCreateCategory(category) {
       .single();
 
     if (error) throw error;
-    return { data, error: null };
+    return { data: normalizeResourceRecord(data), error: null };
   } catch (err) {
     return { data: null, error: err.message };
   }
@@ -567,7 +576,7 @@ export async function adminUpdateCategory(id, updateData) {
       .single();
 
     if (error) throw error;
-    return { data, error: null };
+    return { data: normalizeResourceRecord(data), error: null };
   } catch (err) {
     return { data: null, error: err.message };
   }

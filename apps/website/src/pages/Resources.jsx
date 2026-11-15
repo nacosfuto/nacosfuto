@@ -161,7 +161,7 @@ const Resources = ({ isPreviewPage = false }) => {
       if (supabase) {
         supabase
           .from('resources')
-          .select('id, title, slug, description, course_code, level, semester, resource_type, file_type, file_extension, file_name, file_size, storage_key, download_count, view_count, is_featured, is_active, created_at')
+          .select('id, title, slug, description, course_code, level, semester, resource_type, file_type, file_extension, file_name, file_size, storage_key, download_count, view_count, is_active, is_published, created_at')
           .or(`id.eq.${routeResourceId},slug.eq.${routeResourceId}`)
           .maybeSingle()
           .then(({ data, error }) => {
@@ -276,11 +276,20 @@ const Resources = ({ isPreviewPage = false }) => {
         // Filter by category if specified
         if (activeCategory !== 'All Resources') {
           const matchCat = activeCategory.toLowerCase();
+          const cleanMatch = matchCat.replace(/s$/, '');
           items = items.filter(r => {
             const catName = (r.category?.name || '').toLowerCase();
             const catSlug = (r.category?.slug || '').toLowerCase();
             const resType = (r.resource_type || '').toLowerCase();
-            return catName.includes(matchCat) || catSlug.includes(matchCat) || `${resType}s` === matchCat || resType === matchCat;
+            return (
+              catName.includes(matchCat) ||
+              matchCat.includes(catName) ||
+              catSlug.includes(cleanMatch) ||
+              catSlug.includes(matchCat) ||
+              resType.includes(cleanMatch) ||
+              `${resType}s` === matchCat ||
+              resType === matchCat
+            );
           });
         }
         setResources(items);
