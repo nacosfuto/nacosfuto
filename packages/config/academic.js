@@ -747,7 +747,7 @@ export function getStudentApplicableLevelSessions(student, currentYearStart = ge
       session: sessionName,
       academicSession: sessionName,
       startYear,
-      isCurrent: i === maxLevelNum
+      isCurrent: !progression.isGraduated && (i === maxLevelNum)
     });
   }
   return items;

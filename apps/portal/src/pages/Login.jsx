@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getCloudinaryAssetUrl } from '@nacos/media';
 import { signInStudent } from '@nacos/supabase/auth';
+import { initAcademicSessionSync } from '@nacos/supabase';
 import logoDark from '../assets/full-logo-dark.png';
 import { AlertCircle, Eye, EyeOff, Loader, ArrowRight, CirclePower } from 'lucide-react';
 
@@ -72,6 +73,7 @@ const Login = () => {
 
   // Auto-Continue: If already logged in & within 1-hour window, open target or dashboard automatically!
   useEffect(() => {
+    initAcademicSessionSync();
     const params = new URLSearchParams(window.location.search);
     if (params.get('reason') === 'not_registered') {
       setError('Your registration number was not found in our student database. Please create an account or contact the NACOS admin.');

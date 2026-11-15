@@ -12,6 +12,7 @@ import {
 } from '@nacos/config/academic';
 import { createOTPVerification, verifyOTP, maskEmail, maskPhone } from './otpService.js';
 import { sendPasswordResetEmail } from './emailService.js';
+import { fetchAcademicSessionsFromDatabase } from './academicProgressionService.js';
 
 export const AUTH_PROFILE_FIELDS = 'id, first_name, middle_name, last_name, full_name, registration_number, matric_number, admission_year, email, phone_number, programme, department, faculty, programme_duration, institution, role, is_active, gender, date_of_birth, residential_address, bio, campus_zone, created_at, updated_at, surname, cloudinary_public_id, profile_photo_url, avatar_url, photo_alt, password_hash';
 
@@ -282,6 +283,10 @@ export async function signInStudent(identifier, password) {
         return { data: null, error: { message: 'Incorrect password. Please verify and try again.' } };
       }
 
+      try {
+        await fetchAcademicSessionsFromDatabase();
+      } catch (_) {}
+
       const enriched = enrichStudentProfile(dbProfile);
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('nacos_user', JSON.stringify(enriched));
@@ -324,6 +329,10 @@ export async function signInStudent(identifier, password) {
     if (!isValidPassword) {
       return { data: null, error: { message: 'Incorrect password. Please verify and try again.' } };
     }
+
+    try {
+      await fetchAcademicSessionsFromDatabase();
+    } catch (_) {}
 
     const enriched = enrichStudentProfile(student);
     if (typeof localStorage !== 'undefined') {
@@ -904,6 +913,9 @@ export async function adminGetAllStudents() {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(allProfiles));
       }
+      try {
+        await fetchAcademicSessionsFromDatabase();
+      } catch (_) {}
       return allProfiles.map(s => enrichStudentProfile(s));
     }
   } catch (e) {

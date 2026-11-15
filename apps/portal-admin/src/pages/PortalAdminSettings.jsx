@@ -546,7 +546,7 @@ export const PortalAdminSettings = () => {
               </label>
               <div className="divide-y divide-gray-100 dark:divide-white/10 border border-gray-200 dark:border-white/10 rounded-xl overflow-hidden text-xs">
                 {sessionsList.map((sess) => {
-                  const isCurrent = sess.is_current === true || sess.session_name === academicSession;
+                  const isCurrent = sess.session_name === (academicSession || getActiveAcademicSession());
                   return (
                     <div key={sess.id || sess.session_name} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                       <div className="space-y-0.5">

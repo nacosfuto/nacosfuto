@@ -33,6 +33,7 @@ import {
   getDepartmentalDuesFee,
   getIdCardSettings,
   initAcademicSessionSync,
+  fetchAcademicSessionsFromDatabase,
   getCachedStudentClearance,
   getStudentClearanceSummary,
   invalidateStudentDataCache
@@ -84,8 +85,14 @@ const Dashboard = () => {
   const deriveLevelNum = (u) => {
     if (!u) return '100';
     const prog = calculateAcademicProgression(u);
-    if (prog && prog.valid && prog.numericLevel) {
-      return String(prog.numericLevel * 100);
+    if (prog && prog.valid) {
+      if (prog.isGraduated) {
+        const dur = prog.programmeDuration || 5;
+        return String(dur * 100);
+      }
+      if (prog.numericLevel) {
+        return String(Math.min(5, Math.max(1, prog.numericLevel)) * 100);
+      }
     }
     const raw = String(u?.level || u?.current_level || '100');
     const match = raw.match(/\d{3}/);
@@ -130,6 +137,10 @@ const Dashboard = () => {
     }
 
     try {
+      try {
+        await fetchAcademicSessionsFromDatabase();
+      } catch (_) {}
+
       const strippedRegNo = String(regNo || '').replace(/[^a-zA-Z0-9]/g, '');
       const cleanReg = String(regNo || '').trim();
 
@@ -272,7 +283,13 @@ const Dashboard = () => {
     return 'Awaiting Senate Release';
   };
 
-  const isGraduated = Boolean(user.is_graduated || user.level === 'Graduated' || user.status === 'graduated');
+  const progression = calculateAcademicProgression(user);
+  const isGraduated = Boolean(
+    progression.isGraduated || 
+    user.is_graduated || 
+    String(user.level || '').toLowerCase().startsWith('graduated') || 
+    String(user.status || '').toLowerCase() === 'graduated'
+  );
   const graduationYear = user.graduation_year || user.expected_graduation_year || new Date().getFullYear();
   const isRevoked = String(user.payment_status).toLowerCase() === 'revoked';
 

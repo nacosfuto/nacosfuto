@@ -4,6 +4,7 @@ import { invalidateStudentDataCache } from './studentDataCache.js';
 import { ID_CARD_TEMPLATE } from '@nacos/config/idCardTemplate';
 import { getLocalStudentsDatabase } from './auth.js';
 import { uploadMedia, CLOUDINARY_FOLDERS, getOptimizedImageUrl, idTemplateMaster, idTemplateBack, idTemplateFrame } from '@nacos/media';
+import { buildSessionsListWithCurrent } from './academicProgressionService.js';
 import QRCode from 'qrcode';
 import { 
   getActiveAcademicSession, 
@@ -160,6 +161,21 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
 
   if (supabase) {
     try {
+      const parsedYears = parseSessionYears(session);
+      let existingSessions = [];
+      try {
+        const { data: cfgRow } = await supabase
+          .from('id_card_settings')
+          .select('payload')
+          .eq('id', 'store_academic_session_config')
+          .maybeSingle();
+        if (Array.isArray(cfgRow?.payload?.sessions)) {
+          existingSessions = cfgRow.payload.sessions;
+        }
+      } catch (_) {}
+
+      const updatedSessions = buildSessionsListWithCurrent(existingSessions, parsedYears.startYear);
+
       const { error } = await supabase
         .from('id_card_settings')
         .upsert([
@@ -182,7 +198,14 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
           {
             id: 'store_academic_session_config',
             academic_session: session,
-            payload: { active_semester: semester, academic_semester: semester, active_session: session },
+            payload: { 
+              active_semester: semester, 
+              academic_semester: semester, 
+              active_session: session,
+              start_year: parsedYears.startYear,
+              end_year: parsedYears.endYear,
+              sessions: updatedSessions
+            },
             updated_at: now
           }
         ], { onConflict: 'id' });
@@ -199,6 +222,7 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
           .upsert({
             id: 'default',
             current_session: session,
+            current_academic_year_start: parsedYears.startYear,
             updated_at: now
           }, { onConflict: 'id' });
       } catch (_) {}
@@ -232,7 +256,8 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
     localSettings.updated_at = now;
     localStorage.setItem(ID_SETTINGS_STORAGE_KEY, JSON.stringify(localSettings));
 
-    // Update in-memory active semester and broadcast
+    // Update in-memory active session & semester and broadcast
+    setActiveAcademicSession(session);
     setActiveAcademicSemester(semester);
 
     const duesSettings = {

@@ -30,7 +30,7 @@ const DEFAULT_SESSIONS = [
   { id: 'sess-2023-2024', session_name: '2023/2024', start_year: 2023, end_year: 2024, is_current: false },
   { id: 'sess-2024-2025', session_name: '2024/2025', start_year: 2024, end_year: 2025, is_current: false },
   { id: 'sess-2025-2026', session_name: '2025/2026', start_year: 2025, end_year: 2026, is_current: false },
-  { id: 'sess-2026-2027', session_name: '2026/2027', start_year: 2026, end_year: 2027, is_current: true },
+  { id: 'sess-2026-2027', session_name: '2026/2027', start_year: 2026, end_year: 2027, is_current: false },
   { id: 'sess-2027-2028', session_name: '2027/2028', start_year: 2027, end_year: 2028, is_current: false },
   { id: 'sess-2028-2029', session_name: '2028/2029', start_year: 2028, end_year: 2029, is_current: false },
   { id: 'sess-2029-2030', session_name: '2029/2030', start_year: 2029, end_year: 2030, is_current: false },
@@ -59,19 +59,31 @@ function saveLocalSessions(sessions) {
 
 /**
  * Builds or marks current in a list of sessions
+ * Strictly ensures only ONE session has is_current: true and eliminates duplicate entries.
  */
-function buildSessionsListWithCurrent(baseSessions, targetStartYear) {
+export function buildSessionsListWithCurrent(baseSessions, targetStartYear) {
   const currentStartYear = parseInt(targetStartYear, 10) || DEFAULT_ACADEMIC_YEAR_START;
   const currentSessionName = getAcademicSession(currentStartYear);
   const known = Array.isArray(baseSessions) && baseSessions.length > 0 ? baseSessions : DEFAULT_SESSIONS;
 
-  const mapped = known.map(s => ({
-    ...s,
-    is_current: s.start_year === currentStartYear || s.session_name === currentSessionName
-  }));
+  const seen = new Set();
+  const deduped = [];
 
-  if (!mapped.some(s => s.is_current)) {
-    mapped.unshift({
+  for (const s of known) {
+    const sName = s.session_name || getAcademicSession(s.start_year);
+    if (!seen.has(sName)) {
+      seen.add(sName);
+      deduped.push({
+        ...s,
+        session_name: sName,
+        start_year: s.start_year || parseSessionYears(sName).startYear,
+        end_year: s.end_year || parseSessionYears(sName).endYear
+      });
+    }
+  }
+
+  if (!seen.has(currentSessionName)) {
+    deduped.unshift({
       id: `sess-${currentStartYear}-${currentStartYear + 1}`,
       session_name: currentSessionName,
       start_year: currentStartYear,
@@ -79,6 +91,11 @@ function buildSessionsListWithCurrent(baseSessions, targetStartYear) {
       is_current: true
     });
   }
+
+  const mapped = deduped.map(s => ({
+    ...s,
+    is_current: s.start_year === currentStartYear || s.session_name === currentSessionName
+  }));
 
   mapped.sort((a, b) => b.start_year - a.start_year);
   return mapped;
@@ -413,7 +430,6 @@ export async function setActiveAcademicSessionInDatabase(sessionIdentifier) {
             id: 'default',
             current_academic_year_start: targetStartYear,
             current_session: targetSessionName,
-            current_semester: activeSem,
             updated_at: now
           }, { onConflict: 'id' });
       } catch (_) {}
@@ -504,6 +520,8 @@ export async function createAcademicSessionInDatabase({ sessionName, startDate =
           academic_session: isCurrent ? parsed.sessionName : getActiveAcademicSession(),
           payload: {
             active_session: isCurrent ? parsed.sessionName : getActiveAcademicSession(),
+            active_semester: getActiveAcademicSemester(),
+            academic_semester: getActiveAcademicSemester(),
             start_year: isCurrent ? parsed.startYear : getActiveAcademicYearStart(),
             sessions: list
           },
@@ -555,6 +573,14 @@ export async function setActiveAcademicSemesterInDatabase(semesterIdentifier) {
             },
             updated_at: now
           }, { onConflict: 'id' });
+        // Also sync default and dues row payloads in id_card_settings
+        await supabase
+          .from('id_card_settings')
+          .update({
+            payload: { active_semester: normalized, academic_semester: normalized },
+            updated_at: now
+          })
+          .in('id', ['default', 'dues']);
       } catch (_) {}
 
       // 2. Update academic_settings table
@@ -564,7 +590,6 @@ export async function setActiveAcademicSemesterInDatabase(semesterIdentifier) {
           .upsert({
             id: 'default',
             current_session: currentSession,
-            current_semester: normalized,
             current_academic_year_start: currentStartYear,
             updated_at: now
           }, { onConflict: 'id' });

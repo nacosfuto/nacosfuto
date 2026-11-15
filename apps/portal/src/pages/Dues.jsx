@@ -49,7 +49,7 @@ import PosThermalReceipt from '../components/PosThermalReceipt';
  */
 export const getProgressiveLevels = (u) => {
   if (!u) return ['100'];
-  if (u.is_graduated || String(u.level).toLowerCase().includes('graduat')) {
+  if (u.is_graduated || String(u.level).toLowerCase().includes('graduat') || String(u.status).toLowerCase() === 'graduated') {
     return ['100', '200', '300', '400', '500'];
   }
 

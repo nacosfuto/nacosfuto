@@ -1,5 +1,6 @@
 import { supabase } from './client.js';
 import { hashPassword, enrichStudentProfile, getLocalStudentsDatabase, adminDeleteStudent } from './auth.js';
+import { fetchAcademicSessionsFromDatabase } from './academicProgressionService.js';
 import { 
   DEFAULT_ACADEMIC_YEAR_START,
   CURRENT_ACADEMIC_YEAR_START, 
@@ -789,6 +790,10 @@ export async function adminGetAllVerifiedStudents() {
           }
         });
       }
+
+      try {
+        await fetchAcademicSessionsFromDatabase();
+      } catch (_) {}
 
       const merged = Array.from(map.values()).map(s => {
         const reg = s.registration_number?.toUpperCase()?.trim();

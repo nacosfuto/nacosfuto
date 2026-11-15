@@ -621,7 +621,7 @@ const Profile = () => {
               {/* Badges Row - wraps cleanly on mobile with center alignment */}
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1 text-xs">
                 {/* Level / Alumni Badge */}
-                {user.is_graduated || user.level === 'Graduated' ? (
+                {(user.is_graduated || String(user.level || '').toLowerCase().startsWith('graduated') || String(user.status || '').toLowerCase() === 'graduated') ? (
                   <span className="px-2.5 py-1 rounded-md text-xs font-bold border border-purple-300 dark:border-purple-600/40 text-purple-800 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 flex items-center gap-1.5 shadow-xs">
                     <Award className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                     <span>Graduated • {user.class_of_display || `Class of ${user.class_of || user.graduation_year || '2026'}`}</span>

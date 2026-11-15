@@ -315,7 +315,7 @@ const AdminStudents = () => {
       const matchLevel = levelFilter === 'ALL' 
         ? true 
         : levelFilter === 'GRADUATED'
-          ? Boolean(s.is_graduated || s.level === 'Graduated' || s.status === 'graduated' || s.current_level === 'Graduated')
+          ? Boolean(s.is_graduated || String(s.level || '').toLowerCase().startsWith('graduated') || String(s.status || '').toLowerCase() === 'graduated' || String(s.current_level || '').toLowerCase().startsWith('graduated'))
           : (s.level?.includes(levelFilter) || s.current_level?.includes(levelFilter));
       
       let matchStatus = true;
@@ -343,7 +343,7 @@ const AdminStudents = () => {
       const matchLevel = levelFilter === 'ALL' 
         ? true 
         : levelFilter === 'GRADUATED'
-          ? Boolean(s.is_graduated || s.level === 'Graduated' || s.status === 'graduated' || s.current_level === 'Graduated')
+          ? Boolean(s.is_graduated || String(s.level || '').toLowerCase().startsWith('graduated') || String(s.status || '').toLowerCase() === 'graduated' || String(s.current_level || '').toLowerCase().startsWith('graduated'))
           : (s.current_level?.includes(levelFilter) || s.level?.includes(levelFilter));
       return matchSearch && matchDept && matchLevel;
     });
@@ -1105,7 +1105,7 @@ const AdminStudents = () => {
                         {s.expected_graduation_year}
                       </td>
                       <td className="py-3.5 px-4">
-                        {s.is_graduated || s.level === 'Graduated' || s.status === 'graduated' ? (
+                        {s.is_graduated || String(s.level || '').toLowerCase().startsWith('graduated') || String(s.status || '').toLowerCase() === 'graduated' ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 dark:bg-purple-950/50 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/40">
                             <Award className="w-3 h-3 text-purple-600" />
                             <span>Graduated ({s.graduation_year || s.expected_graduation_year || 'Alumni'})</span>
@@ -1177,13 +1177,15 @@ const AdminStudents = () => {
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            title="Mark as Graduated / Alumni"
-                            onClick={() => handleAdminMarkGraduated(s)}
-                            className="p-1.5 rounded hover:bg-purple-100 dark:hover:bg-purple-950/40 text-purple-600 dark:text-purple-400"
-                          >
-                            <Award className="w-3.5 h-3.5" />
-                          </button>
+                          {!s.is_graduated && !String(s.level || '').toLowerCase().startsWith('graduated') && String(s.status || '').toLowerCase() !== 'graduated' && (
+                            <button
+                              title="Mark as Graduated / Alumni"
+                              onClick={() => handleAdminMarkGraduated(s)}
+                              className="p-1.5 rounded hover:bg-purple-100 dark:hover:bg-purple-950/40 text-purple-600 dark:text-purple-400"
+                            >
+                              <Award className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           <button
                             title={s.is_active ? 'Deactivate Student' : 'Activate Student'}
                             onClick={() => handleToggleAccountStatus(s)}

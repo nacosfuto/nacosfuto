@@ -46,8 +46,14 @@ export function getStudentIdentifier(student) {
 export function deriveStudentLevelNum(student) {
   if (!student) return '100';
   const prog = calculateAcademicProgression(student);
-  if (prog && prog.valid && prog.numericLevel) {
-    return String(prog.numericLevel * 100);
+  if (prog && prog.valid) {
+    if (prog.isGraduated) {
+      const dur = prog.programmeDuration || 5;
+      return String(dur * 100);
+    }
+    if (prog.numericLevel) {
+      return String(Math.min(5, Math.max(1, prog.numericLevel)) * 100);
+    }
   }
   const raw = String(student?.level || student?.current_level || '100');
   const match = raw.match(/\d{3}/);
