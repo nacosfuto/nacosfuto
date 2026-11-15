@@ -191,6 +191,11 @@ export function setActiveAcademicSession(sessionOrYear) {
     startYear = parsed.startYear;
   }
 
+  // Early return if session is already active to prevent recursive event and broadcast loops
+  if (startYear === _activeAcademicYearStart) {
+    return getAcademicSession(startYear);
+  }
+
   _activeAcademicYearStart = startYear;
 
   if (typeof localStorage !== 'undefined') {
@@ -294,6 +299,12 @@ if (typeof window !== 'undefined') {
 export function setActiveAcademicSemester(semester) {
   const clean = String(semester || '').trim();
   const validSemester = clean.toLowerCase().includes('second') ? 'Second Semester' : 'First Semester';
+
+  // Early return if semester is already active to prevent recursive event and broadcast loops
+  if (validSemester === _activeAcademicSemester) {
+    return validSemester;
+  }
+
   _activeAcademicSemester = validSemester;
 
   if (typeof localStorage !== 'undefined') {

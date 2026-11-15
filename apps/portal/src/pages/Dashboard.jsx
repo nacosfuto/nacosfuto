@@ -33,7 +33,6 @@ import {
   getDepartmentalDuesFee,
   getIdCardSettings,
   initAcademicSessionSync,
-  fetchAcademicSessionsFromDatabase,
   getCachedStudentClearance,
   getStudentClearanceSummary,
   invalidateStudentDataCache
@@ -137,10 +136,6 @@ const Dashboard = () => {
     }
 
     try {
-      try {
-        await fetchAcademicSessionsFromDatabase();
-      } catch (_) {}
-
       const strippedRegNo = String(regNo || '').replace(/[^a-zA-Z0-9]/g, '');
       const cleanReg = String(regNo || '').trim();
 
