@@ -95,7 +95,7 @@ export async function fetchAcademicSessionsFromDatabase() {
       // 1. Authoritative check: id_card_settings table (where Admin Dashboard saves settings)
       const { data: idSettingsRows, error: idErr } = await supabase
         .from('id_card_settings')
-        .select('id, academic_session, academic_semester, payload')
+        .select('id, academic_session, payload')
         .in('id', ['default', 'dues', 'store_academic_session_config']);
 
       if (!idErr && Array.isArray(idSettingsRows) && idSettingsRows.length > 0) {
@@ -103,9 +103,9 @@ export async function fetchAcademicSessionsFromDatabase() {
         const configRow = idSettingsRows.find(r => r.id === 'store_academic_session_config');
 
         // Check active semester
-        const activeSemesterRaw = configRow?.academic_semester || 
-                                  configRow?.payload?.active_semester || 
-                                  defaultRow?.academic_semester;
+        const activeSemesterRaw = configRow?.payload?.active_semester || 
+                                  configRow?.payload?.academic_semester || 
+                                  defaultRow?.payload?.active_semester;
         if (activeSemesterRaw) {
           const semNormalized = String(activeSemesterRaw).toLowerCase().includes('second')
             ? 'Second Semester'
@@ -136,7 +136,7 @@ export async function fetchAcademicSessionsFromDatabase() {
       // 2. Secondary check: academic_settings table
       const { data: settingsRow } = await supabase
         .from('academic_settings')
-        .select('current_session, current_semester, current_academic_year_start')
+        .select('current_session, current_academic_year_start')
         .eq('id', 'default')
         .maybeSingle();
 
@@ -340,15 +340,15 @@ export async function setActiveAcademicSessionInDatabase(sessionIdentifier) {
       const { error: idSaveErr } = await supabase
         .from('id_card_settings')
         .upsert([
-          { id: 'default', academic_session: targetSessionName, academic_semester: activeSem, updated_at: now },
-          { id: 'dues', academic_session: targetSessionName, academic_semester: activeSem, updated_at: now },
+          { id: 'default', academic_session: targetSessionName, payload: { active_semester: activeSem, academic_semester: activeSem }, updated_at: now },
+          { id: 'dues', academic_session: targetSessionName, payload: { active_semester: activeSem, academic_semester: activeSem }, updated_at: now },
           { 
             id: 'store_academic_session_config', 
             academic_session: targetSessionName, 
-            academic_semester: activeSem,
             payload: { 
               active_session: targetSessionName, 
               active_semester: activeSem,
+              academic_semester: activeSem,
               start_year: targetStartYear, 
               end_year: targetEndYear,
               sessions: updatedSessionsList 
@@ -534,19 +534,7 @@ export async function setActiveAcademicSemesterInDatabase(semesterIdentifier) {
 
   if (supabase) {
     try {
-      // 1. Update id_card_settings table
-      const { error: idErr } = await supabase
-        .from('id_card_settings')
-        .upsert([
-          { id: 'default', academic_semester: normalized, updated_at: now },
-          { id: 'dues', academic_semester: normalized, updated_at: now }
-        ], { onConflict: 'id' });
-
-      if (idErr) {
-        console.warn('[Academic Service] id_card_settings semester notice:', idErr.message);
-      }
-
-      // Also update store_academic_session_config payload
+      // 1. Update store_academic_session_config payload in id_card_settings
       try {
         const { data: configRow } = await supabase
           .from('id_card_settings')
@@ -560,10 +548,10 @@ export async function setActiveAcademicSemesterInDatabase(semesterIdentifier) {
           .upsert({
             id: 'store_academic_session_config',
             academic_session: currentSession,
-            academic_semester: normalized,
             payload: {
               ...currentPayload,
-              active_semester: normalized
+              active_semester: normalized,
+              academic_semester: normalized
             },
             updated_at: now
           }, { onConflict: 'id' });

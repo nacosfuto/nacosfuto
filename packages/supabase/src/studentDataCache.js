@@ -173,9 +173,11 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
             const appConds = [];
             if (cleanMatric) {
               appConds.push(`registration_number.eq.${cleanMatric}`);
+              appConds.push(`matric_number.eq.${cleanMatric}`);
             }
             if (strippedDigits && strippedDigits !== cleanMatric) {
               appConds.push(`registration_number.eq.${strippedDigits}`);
+              appConds.push(`matric_number.eq.${strippedDigits}`);
             }
             if (userId && isUuid(userId)) {
               appConds.push(`student_id.eq.${userId}`);
@@ -183,7 +185,7 @@ export async function getStudentClearanceSummary(student, { forceRefresh = false
             if (appConds.length === 0) return [];
             const { data } = await supabase
               .from('id_card_applications')
-              .select('id, student_id, registration_number, academic_session, payment_status, id_card_status, card_status, is_cleared, created_at, updated_at')
+              .select('id, student_id, registration_number, matric_number, level, payment_status, status, payment_reference, amount, amount_paid, created_at, updated_at')
               .in('payment_status', ['paid', 'verified'])
               .or(appConds.join(','));
             return data || [];

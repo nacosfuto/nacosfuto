@@ -58,7 +58,7 @@ export async function getIdCardSettings() {
       // 1. Primary check: id_card_settings for default row
       const { data, error } = await supabase
         .from('id_card_settings')
-        .select('id, id_card_fee, academic_session, academic_semester, is_application_open, updated_at')
+        .select('id, id_card_fee, academic_session, is_application_open, updated_at, payload')
         .eq('id', 'default')
         .maybeSingle();
 
@@ -69,8 +69,9 @@ export async function getIdCardSettings() {
             setActiveAcademicSession(p.startYear);
           }
         }
-        if (data.academic_semester) {
-          const sem = String(data.academic_semester).toLowerCase().includes('second')
+        const resolvedSemester = data.payload?.academic_semester || data.payload?.active_semester || getActiveAcademicSemester();
+        if (resolvedSemester) {
+          const sem = String(resolvedSemester).toLowerCase().includes('second')
             ? 'Second Semester'
             : 'First Semester';
           setActiveAcademicSemester(sem);
@@ -79,7 +80,7 @@ export async function getIdCardSettings() {
           id: 'default',
           id_card_fee: Number(data.id_card_fee),
           academic_session: data.academic_session || getDynamicAcademicSession(),
-          academic_semester: data.academic_semester || getActiveAcademicSemester(),
+          academic_semester: resolvedSemester,
           is_application_open: data.is_application_open ?? true,
           updated_at: data.updated_at
         };
@@ -100,7 +101,7 @@ export async function getIdCardSettings() {
         .maybeSingle();
 
       if (feeRow && feeRow.amount != null && !isNaN(Number(feeRow.amount)) && Number(feeRow.amount) > 0) {
-        return {
+        const resolvedSettings = {
           id: 'default',
           id_card_fee: Number(feeRow.amount),
           academic_session: feeRow.academic_session || getDynamicAcademicSession(),
@@ -108,6 +109,10 @@ export async function getIdCardSettings() {
           is_application_open: true,
           updated_at: feeRow.updated_at
         };
+        try {
+          localStorage.setItem(ID_SETTINGS_STORAGE_KEY, JSON.stringify(resolvedSettings));
+        } catch (_) {}
+        return resolvedSettings;
       }
     } catch (e) {
       console.warn('Supabase ID settings notice:', e);
@@ -162,7 +167,7 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
             id: 'default',
             id_card_fee: feeNum,
             academic_session: session,
-            academic_semester: semester,
+            payload: { active_semester: semester, academic_semester: semester },
             is_application_open: isOpen,
             updated_at: now
           },
@@ -170,14 +175,14 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
             id: 'dues',
             id_card_fee: duesNum,
             academic_session: session,
-            academic_semester: semester,
+            payload: { active_semester: semester, academic_semester: semester },
             is_application_open: true,
             updated_at: now
           },
           {
             id: 'store_academic_session_config',
             academic_session: session,
-            academic_semester: semester,
+            payload: { active_semester: semester, academic_semester: semester, active_session: session },
             updated_at: now
           }
         ], { onConflict: 'id' });
@@ -194,7 +199,6 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
           .upsert({
             id: 'default',
             current_session: session,
-            current_semester: semester,
             updated_at: now
           }, { onConflict: 'id' });
       } catch (_) {}
@@ -204,7 +208,7 @@ export async function savePortalSettingsDirectly({ idCardFee, duesFee, academicS
         await supabase
           .from('payment_fees')
           .update({ amount: feeNum, is_active: isOpen, updated_at: now })
-          .eq('fee_key', 'id_card');
+          .in('fee_key', ['id_card', 'idcard']);
 
         await supabase
           .from('payment_fees')
@@ -262,7 +266,8 @@ export async function updateIdCardFee(newFee, session = null, allowRegistration 
   if (allowRegistration !== null && allowRegistration !== undefined) {
     settings.is_application_open = Boolean(allowRegistration);
   }
-  settings.updated_at = new Date().toISOString();
+  const now = new Date().toISOString();
+  settings.updated_at = now;
 
   try {
     if (supabase) {
@@ -271,12 +276,12 @@ export async function updateIdCardFee(newFee, session = null, allowRegistration 
         id_card_fee: feeNumber,
         academic_session: session || settings.academic_session || getDynamicAcademicSession(),
         is_application_open: settings.is_application_open ?? true,
-        updated_at: new Date().toISOString()
+        updated_at: now
       };
 
       const { error: dbError } = await supabase
         .from('id_card_settings')
-        .upsert(payload);
+        .upsert(payload, { onConflict: 'id' });
 
       if (dbError) {
         console.error('[ID Settings Database Error]:', dbError);
@@ -286,14 +291,21 @@ export async function updateIdCardFee(newFee, session = null, allowRegistration 
       try {
         await supabase
           .from('payment_fees')
-          .update({ amount: feeNumber, is_active: settings.is_application_open ?? true, updated_at: new Date().toISOString() })
-          .eq('fee_key', 'id_card');
+          .update({ amount: feeNumber, is_active: settings.is_application_open ?? true, updated_at: now })
+          .in('fee_key', ['id_card', 'idcard']);
       } catch (_) {}
     }
   } catch (e) {
     console.error('[ID Settings Sync Error]:', e);
     return { error: e.message || 'Failed to update database' };
   }
+
+  try {
+    localStorage.setItem(ID_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('nacos_id_card_settings_updated', { detail: settings }));
+    }
+  } catch (_) {}
 
   return { success: true, settings };
 }
@@ -412,12 +424,19 @@ export async function checkStudentPaymentStatus(matricNumber, currentLevel = nul
       .eq('payment_type', 'ID_CARD')
       .eq('status', 'successful');
 
+    const cleanDigits = cleanMatric.replace(/\D/g, '');
+    const conds = [];
+    conds.push(`registration_number.eq.${cleanMatric}`);
+    conds.push(`matric_number.eq.${cleanMatric}`);
+    if (cleanDigits && cleanDigits !== cleanMatric) {
+      conds.push(`registration_number.eq.${cleanDigits}`);
+      conds.push(`matric_number.eq.${cleanDigits}`);
+    }
     const isStudentUuid = studentUuid && /^[0-9a-fA-F-]{36}$/.test(studentUuid);
     if (isStudentUuid) {
-      pQuery = pQuery.or(`registration_number.eq.${cleanMatric},student_id.eq.${studentUuid}`);
-    } else {
-      pQuery = pQuery.eq('registration_number', cleanMatric);
+      conds.push(`student_id.eq.${studentUuid}`);
     }
+    pQuery = pQuery.or(conds.join(','));
 
     const { data: allBachsPayments } = await pQuery
       .order('paid_at', { ascending: false });
@@ -426,7 +445,7 @@ export async function checkStudentPaymentStatus(matricNumber, currentLevel = nul
       if (cleanTargetLevel) {
         const exactLevelMatch = allBachsPayments.find(p => {
           const pLevel = String(p.level || p.metadata?.level || p.metadata?.assignedLevel || '').replace(/[^0-9]/g, '');
-          return Boolean(pLevel && pLevel === cleanTargetLevel);
+          return Boolean(!pLevel || pLevel === cleanTargetLevel);
         });
 
         if (exactLevelMatch) {
@@ -711,15 +730,17 @@ export async function getStudentIdApplication(matricOrId, targetLevel = null) {
     const cleanDigits = cleanMatric.replace(/\D/g, '');
     const conds = [];
     conds.push(`registration_number.eq.${cleanMatric}`);
+    conds.push(`matric_number.eq.${cleanMatric}`);
     if (cleanDigits && cleanDigits !== cleanMatric) {
       conds.push(`registration_number.eq.${cleanDigits}`);
+      conds.push(`matric_number.eq.${cleanDigits}`);
     }
     if (studentUuid && /^[0-9a-fA-F-]{36}$/.test(studentUuid)) {
       conds.push(`student_id.eq.${studentUuid}`);
     }
     const orFilter = conds.join(',');
 
-    const idAppColumns = 'id, student_id, matric_number, registration_number, full_name, level, department, faculty, card_expiry_date, issue_date, status, payment_status, passport_url, passport_photo_url, signature_url, id_card_image_url, qr_code_url, created_at, updated_at, submitted_at, approved_at, rejected_at, rejection_reason, amount, payment_reference';
+    const idAppColumns = 'id, student_id, matric_number, registration_number, full_name, level, application_number, id_card_number, card_expiry_date, status, payment_status, payment_reference, amount, amount_paid, passport_url, passport_photo_url, cloudinary_public_id, qr_verification_code, rejection_reason, revocation_reason, submitted_at, reviewed_by, reviewed_at, approved_at, generated_at, revoked_at, paid_at, created_at, updated_at';
 
     let query = supabase
       .from('id_card_applications')
@@ -864,13 +885,17 @@ export async function createIdCardApplication(student) {
 
     const dbPayload = {
       matric_number: cleanMatric,
+      registration_number: cleanMatric,
+      full_name: studentName,
       application_number: appNumber,
       level: student.level || (student.current_level ? `${student.current_level} Level` : null) || null,
-      academic_session: student.academic_session || student.session || null,
       status: initialStatus,
       payment_status: paymentStatus,
       payment_reference: paymentRef,
+      amount: fee,
+      amount_paid: paymentStatus === 'verified' || paymentStatus === 'paid' ? fee : 0,
       passport_url: existingPhoto || null,
+      passport_photo_url: existingPhoto || null,
       cloudinary_public_id: student.cloudinary_public_id || null,
       submitted_at: initialStatus === 'submitted' ? new Date().toISOString() : null,
       created_at: new Date().toISOString(),
@@ -884,7 +909,7 @@ export async function createIdCardApplication(student) {
     const { data: inserted, error: insertErr } = await supabase
       .from('id_card_applications')
       .insert([dbPayload])
-      .select()
+      .select('id, student_id, matric_number, registration_number, full_name, level, application_number, id_card_number, card_expiry_date, status, payment_status, payment_reference, amount, amount_paid, passport_url, passport_photo_url, cloudinary_public_id, qr_verification_code, rejection_reason, revocation_reason, submitted_at, reviewed_by, reviewed_at, approved_at, generated_at, revoked_at, paid_at, created_at, updated_at')
       .maybeSingle();
 
     if (!insertErr && inserted) {
@@ -948,7 +973,7 @@ export async function verifyAndLinkPayment(applicationId, matricNumber) {
       payment_status: app.payment_status,
       payment_reference: app.payment_reference,
       paid_at: app.paid_at,
-      renewal_date: app.renewal_date,
+      card_expiry_date: app.renewal_date || app.card_expiry_date,
       status: app.status,
       updated_at: app.updated_at
     }).eq('id', app.id);
@@ -1183,7 +1208,7 @@ export async function submitIdApplication(applicationId, passportUrlOverride = n
     try {
       const { data } = await supabase
         .from('id_card_applications')
-        .select('id, student_id, matric_number, registration_number, full_name, level, department, faculty, card_expiry_date, issue_date, status, payment_status, passport_url, passport_photo_url, signature_url, id_card_image_url, qr_code_url, created_at, updated_at, submitted_at, approved_at, rejected_at, rejection_reason, amount, payment_reference')
+        .select('id, student_id, matric_number, registration_number, full_name, level, application_number, id_card_number, card_expiry_date, status, payment_status, payment_reference, amount, amount_paid, passport_url, passport_photo_url, cloudinary_public_id, qr_verification_code, rejection_reason, revocation_reason, submitted_at, reviewed_by, reviewed_at, approved_at, generated_at, revoked_at, paid_at, created_at, updated_at')
         .eq('id', applicationId)
         .maybeSingle();
       if (data) {
@@ -1288,88 +1313,177 @@ export async function portalAdminGetApplicationStats() {
  */
 export async function portalAdminGetApplications(options = {}) {
   const status = typeof options === 'string' ? options : (options?.status || 'ALL');
-  const search = typeof options === 'object' && options?.search ? options.search : '';
+  const search = typeof options === 'object' && options?.search ? options.search.trim().toLowerCase() : '';
   let list = [];
 
   try {
-    let query = supabase
-      .from('id_card_applications')
-      .select('id, student_id, matric_number, registration_number, full_name, level, department, faculty, card_expiry_date, issue_date, status, payment_status, passport_url, passport_photo_url, signature_url, id_card_image_url, qr_code_url, created_at, updated_at, submitted_at, approved_at, rejected_at, rejection_reason, amount, payment_reference')
-      .order('created_at', { ascending: false });
+    const idAppColumns = 'id, student_id, matric_number, registration_number, full_name, level, application_number, id_card_number, card_expiry_date, status, payment_status, payment_reference, amount, amount_paid, passport_url, passport_photo_url, cloudinary_public_id, qr_verification_code, rejection_reason, revocation_reason, submitted_at, reviewed_by, reviewed_at, approved_at, generated_at, revoked_at, paid_at, created_at, updated_at';
 
-    if (status && status !== 'ALL') {
-      query = query.eq('status', status);
+    // 1. Fetch live applications and live payments in parallel
+    const [appsRes, paysRes] = await Promise.all([
+      supabase
+        .from('id_card_applications')
+        .select(idAppColumns)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('payments')
+        .select('id, student_id, registration_number, matric_number, student_name, payment_type, provider, amount, currency, status, reference, metadata, paid_at, created_at, updated_at')
+        .eq('payment_type', 'ID_CARD')
+        .order('created_at', { ascending: false })
+    ]);
+
+    const appsData = (!appsRes.error && Array.isArray(appsRes.data)) ? appsRes.data : [];
+    const paysData = (!paysRes.error && Array.isArray(paysRes.data)) ? paysRes.data : [];
+
+    // Collect all unique student identifiers for profile enrichment
+    const studentIdentifiers = new Set();
+    appsData.forEach(a => {
+      if (a.matric_number) studentIdentifiers.add(a.matric_number.toUpperCase());
+      if (a.registration_number) studentIdentifiers.add(a.registration_number.toUpperCase());
+      if (a.student_id) studentIdentifiers.add(a.student_id);
+    });
+    paysData.forEach(p => {
+      if (p.registration_number) studentIdentifiers.add(p.registration_number.toUpperCase());
+      if (p.matric_number) studentIdentifiers.add(p.matric_number.toUpperCase());
+      if (p.student_id) studentIdentifiers.add(p.student_id);
+    });
+
+    const idList = Array.from(studentIdentifiers).filter(Boolean);
+    let profilesMap = {};
+
+    if (idList.length > 0) {
+      try {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, registration_number, matric_number, full_name, surname, first_name, department, programme, admission_year, profile_photo_url, avatar_url')
+          .or(`registration_number.in.(${idList.join(',')}),matric_number.in.(${idList.join(',')})`);
+
+        if (Array.isArray(profs)) {
+          profs.forEach(p => {
+            if (p.registration_number) profilesMap[p.registration_number.toUpperCase()] = p;
+            if (p.matric_number) profilesMap[p.matric_number.toUpperCase()] = p;
+            if (p.id) profilesMap[p.id] = p;
+          });
+        }
+      } catch (profErr) {
+        console.warn('Could not enrich profiles:', profErr);
+      }
     }
 
-    if (search && typeof search === 'string' && search.trim()) {
-      const cleanSearch = search.trim();
-      query = query.or(`matric_number.ilike.%${cleanSearch}%,registration_number.ilike.%${cleanSearch}%,full_name.ilike.%${cleanSearch}%`);
+    // Build map of payments by student registration/matric
+    const paymentsMap = {};
+    const successfulPaymentsMap = {};
+    paysData.forEach(pay => {
+      const reg = (pay.registration_number || pay.matric_number || '').toUpperCase();
+      if (reg) {
+        if (!paymentsMap[reg]) paymentsMap[reg] = [];
+        paymentsMap[reg].push(pay);
+
+        const isSuccess = ['successful', 'paid', 'verified', 'cleared'].includes(String(pay.status).toLowerCase());
+        if (isSuccess && !successfulPaymentsMap[reg]) {
+          successfulPaymentsMap[reg] = pay;
+        }
+      }
+    });
+
+    // Map existing applications and reconcile with payments
+    const processedRegs = new Set();
+    const mergedList = appsData.map(app => {
+      const reg = (app.matric_number || app.registration_number || '').toUpperCase();
+      if (reg) processedRegs.add(reg);
+      const profile = profilesMap[reg] || (app.student_id ? profilesMap[app.student_id] : {}) || {};
+      const successPay = successfulPaymentsMap[reg] || null;
+      const latestPay = paymentsMap[reg]?.[0] || null;
+
+      const isPaid = app.payment_status === 'paid' || app.payment_status === 'verified' || Boolean(successPay);
+      const payRef = app.payment_reference || successPay?.reference || latestPay?.reference || null;
+      const amt = Number(successPay?.amount || app.amount_paid || app.amount || latestPay?.amount || 0);
+      const photo = app.passport_url || app.passport_photo_url || profile.profile_photo_url || profile.avatar_url || null;
+
+      let currentStatus = app.status;
+      if (isPaid && (currentStatus === 'pending_payment' || !currentStatus)) {
+        currentStatus = photo ? 'generated' : 'photo_required';
+      }
+
+      return {
+        ...app,
+        matric_number: app.matric_number || profile.registration_number || profile.matric_number || reg,
+        registration_number: app.registration_number || app.matric_number || profile.registration_number || profile.matric_number || reg,
+        student_name: profile.full_name || app.full_name || profile.name || 'Student Member',
+        full_name: profile.full_name || app.full_name || profile.name || 'Student Member',
+        programme: profile.programme || 'B.Tech Computer Science',
+        department: profile.department || 'Computer Science',
+        level: calculateAcademicProgression(profile?.registration_number ? profile : { ...profile, registration_number: reg }).levelString || app.level || '100 Level',
+        passport_url: photo,
+        passport_photo_url: photo,
+        payment_status: isPaid ? 'verified' : (app.payment_status || 'pending'),
+        status: currentStatus,
+        amount: amt,
+        amount_paid: isPaid ? amt : 0,
+        payment_reference: payRef,
+        payment_provider: successPay?.provider || latestPay?.provider || (payRef?.startsWith('NACOS-IDCARD') ? 'BACHS' : 'DIRECT'),
+        payment_record: successPay || latestPay || null
+      };
+    });
+
+    // Add any student who made an ID card payment but doesn't have an id_card_applications record yet
+    paysData.forEach(pay => {
+      const reg = (pay.registration_number || pay.matric_number || '').toUpperCase();
+      if (reg && !processedRegs.has(reg)) {
+        processedRegs.add(reg);
+        const profile = profilesMap[reg] || (pay.student_id ? profilesMap[pay.student_id] : {}) || {};
+        const isPaid = ['successful', 'paid', 'verified', 'cleared'].includes(String(pay.status).toLowerCase());
+        const photo = profile.profile_photo_url || profile.avatar_url || null;
+        const amt = Number(pay.amount || 0);
+
+        mergedList.push({
+          id: pay.id,
+          student_id: pay.student_id || profile.id || null,
+          matric_number: reg,
+          registration_number: reg,
+          student_name: profile.full_name || pay.student_name || pay.metadata?.customer_name || pay.metadata?.student_name || 'Student Member',
+          full_name: profile.full_name || pay.student_name || pay.metadata?.customer_name || pay.metadata?.student_name || 'Student Member',
+          programme: profile.programme || 'B.Tech Computer Science',
+          department: profile.department || 'Computer Science',
+          level: pay.metadata?.level || profile.level || '100 Level',
+          application_number: `APP-${String(reg).replace(/\D/g, '').slice(-6) || '2026'}`,
+          id_card_number: isPaid ? reg : null,
+          card_expiry_date: null,
+          status: isPaid ? (photo ? 'generated' : 'photo_required') : 'pending_payment',
+          payment_status: isPaid ? 'verified' : 'pending',
+          payment_reference: pay.reference,
+          amount: amt,
+          amount_paid: isPaid ? amt : 0,
+          passport_url: photo,
+          passport_photo_url: photo,
+          payment_provider: pay.provider || 'BACHS',
+          payment_record: pay,
+          created_at: pay.created_at,
+          paid_at: pay.paid_at || (isPaid ? pay.created_at : null)
+        });
+      }
+    });
+
+    list = mergedList;
+
+    // Apply filtering
+    if (status && status !== 'ALL') {
+      list = list.filter(a => String(a.status).toLowerCase() === status.toLowerCase());
+    }
+
+    if (search) {
+      list = list.filter(a => {
+        const m = (a.matric_number || '').toLowerCase();
+        const r = (a.registration_number || '').toLowerCase();
+        const n = (a.student_name || a.full_name || '').toLowerCase();
+        const ref = (a.payment_reference || '').toLowerCase();
+        const appNo = (a.application_number || '').toLowerCase();
+        return m.includes(search) || r.includes(search) || n.includes(search) || ref.includes(search) || appNo.includes(search);
+      });
     }
 
     if (options?.limit && Number.isInteger(options.limit)) {
-      query = query.limit(options.limit);
-    }
-
-    const { data, error } = await query;
-    if (!error && Array.isArray(data)) {
-      // Enrich with matching profile details and payment records
-      const regNos = data.map(d => d.matric_number || d.registration_number).filter(Boolean);
-      let profilesMap = {};
-      let paymentsMap = {};
-
-      if (regNos.length > 0) {
-        try {
-          const [profsRes, paysRes] = await Promise.all([
-            supabase
-              .from('profiles')
-              .select('id, registration_number, matric_number, full_name, surname, first_name, department, programme, admission_year, profile_photo_url, avatar_url')
-              .in('registration_number', regNos),
-            supabase
-              .from('payments')
-              .select('id, student_id, registration_number, payment_type, provider, amount, currency, status, reference, paid_at, created_at')
-              .eq('payment_type', 'ID_CARD')
-              .in('registration_number', regNos)
-          ]);
-
-          if (!profsRes.error && Array.isArray(profsRes.data)) {
-            profsRes.data.forEach(p => {
-              if (p.registration_number) profilesMap[p.registration_number.toUpperCase()] = p;
-              if (p.matric_number) profilesMap[p.matric_number.toUpperCase()] = p;
-              if (p.id) profilesMap[p.id] = p;
-            });
-          }
-
-          if (!paysRes.error && Array.isArray(paysRes.data)) {
-            paysRes.data.forEach(pay => {
-              if (pay.registration_number) paymentsMap[pay.registration_number.toUpperCase()] = pay;
-            });
-          }
-        } catch (enrichErr) {
-          console.warn('Could not enrich applications:', enrichErr);
-        }
-      }
-
-      list = data.map(app => {
-        const reg = (app.matric_number || app.registration_number || '').toUpperCase();
-        const profile = profilesMap[reg] || (app.student_id ? profilesMap[app.student_id] : {}) || {};
-        const payRecord = paymentsMap[reg] || null;
-
-        return {
-          ...app,
-          matric_number: app.matric_number || profile.registration_number || profile.matric_number || reg,
-          registration_number: app.matric_number || profile.registration_number || profile.matric_number || reg,
-          student_name: profile.full_name || app.full_name || profile.name || 'Student Member',
-          full_name: profile.full_name || app.full_name || profile.name || 'Student Member',
-          programme: profile.programme || app.programme || 'B.Tech Computer Science',
-          department: profile.department || app.department || 'Computer Science',
-          level: calculateAcademicProgression(profile?.registration_number ? profile : { ...profile, registration_number: reg }).levelString || app.level || '100 Level',
-          passport_url: app.passport_url || profile.profile_photo_url || profile.avatar_url || null,
-          passport_photo_url: app.passport_url || profile.profile_photo_url || profile.avatar_url || null,
-          payment_reference: app.payment_reference || payRecord?.reference || null,
-          payment_provider: payRecord?.provider || (app.payment_reference?.startsWith('NACOS-IDCARD') ? 'BACHS' : 'DIRECT'),
-          payment_record: payRecord
-        };
-      });
+      list = list.slice(0, options.limit);
     }
   } catch (e) {
     console.warn('portalAdminGetApplications Supabase fetch error:', e);
@@ -1450,11 +1564,11 @@ export async function portalAdminApproveApplication(applicationId, adminUser) {
   try {
     await supabase.from('id_card_applications').update({
       id_card_number: app.id_card_number,
-      id_card_back_url: app.id_card_back_url,
       status: 'generated',
       approved_at: app.approved_at,
       generated_at: app.generated_at,
       reviewed_by: app.reviewed_by,
+      reviewed_at: app.approved_at,
       updated_at: app.updated_at
     }).eq('id', app.id);
   } catch (e) { }
@@ -1477,11 +1591,12 @@ export async function portalAdminRejectApplication(applicationId, reason, adminU
   }
 
   const app = apps[index];
+  const now = new Date().toISOString();
   app.status = 'rejected';
   app.rejection_reason = reason.trim();
-  app.rejected_at = new Date().toISOString();
+  app.reviewed_at = now;
   app.reviewed_by = adminUser?.id || adminUser?.user_id || 'admin-portal';
-  app.updated_at = new Date().toISOString();
+  app.updated_at = now;
 
   saveLocalIdApplications(apps);
 
@@ -1489,7 +1604,7 @@ export async function portalAdminRejectApplication(applicationId, reason, adminU
     await supabase.from('id_card_applications').update({
       status: 'rejected',
       rejection_reason: app.rejection_reason,
-      rejected_at: app.rejected_at,
+      reviewed_at: app.reviewed_at,
       reviewed_by: app.reviewed_by,
       updated_at: app.updated_at
     }).eq('id', app.id);
@@ -1513,11 +1628,13 @@ export async function portalAdminRevokeIdCard(applicationId, reason, adminUser) 
   }
 
   const app = apps[index];
+  const now = new Date().toISOString();
   app.status = 'revoked';
   app.revocation_reason = reason.trim();
-  app.revoked_at = new Date().toISOString();
+  app.revoked_at = now;
+  app.reviewed_at = now;
   app.reviewed_by = adminUser?.id || adminUser?.user_id || 'admin-portal';
-  app.updated_at = new Date().toISOString();
+  app.updated_at = now;
 
   saveLocalIdApplications(apps);
 
@@ -1526,6 +1643,7 @@ export async function portalAdminRevokeIdCard(applicationId, reason, adminUser) 
       status: 'revoked',
       revocation_reason: app.revocation_reason,
       revoked_at: app.revoked_at,
+      reviewed_at: app.reviewed_at,
       reviewed_by: app.reviewed_by,
       updated_at: app.updated_at
     }).eq('id', app.id);
@@ -1558,7 +1676,6 @@ export async function portalAdminRegenerateIdCard(applicationId, adminUser) {
   try {
     await supabase.from('id_card_applications').update({
       id_card_number: app.id_card_number,
-      id_card_back_url: app.id_card_back_url,
       status: 'generated',
       generated_at: app.generated_at,
       reviewed_by: app.reviewed_by,
@@ -1584,14 +1701,6 @@ export async function saveGeneratedIdCardAsset(applicationId, imageUrl) {
     saveLocalIdApplications(apps);
   }
 
-  try {
-    await supabase.from('id_card_applications').update({
-      id_card_image_url: imageUrl,
-      id_card_back_url: ID_CARD_TEMPLATE.masterBackUrl,
-      updated_at: new Date().toISOString()
-    }).eq('id', applicationId);
-  } catch (e) { }
-
   return { success: true, imageUrl };
 }
 
@@ -1611,7 +1720,7 @@ export async function verifyIdCardPublic(idCardNumber) {
     const { data, error } = await supabase
       .from('id_card_applications')
       .select(`
-        id, student_id, matric_number, registration_number, id_card_number, application_number, full_name, level, department, faculty, card_expiry_date, issue_date, status, payment_status, passport_url, passport_photo_url, signature_url, id_card_image_url, qr_code_url, revocation_reason, created_at,
+        id, student_id, matric_number, registration_number, id_card_number, application_number, full_name, level, card_expiry_date, status, payment_status, passport_url, passport_photo_url, cloudinary_public_id, qr_verification_code, revocation_reason, created_at,
         profiles:student_id(id, full_name, registration_number, matric_number, department, faculty, level, admission_year)
       `)
       .or(`id_card_number.eq.${cleanNum},application_number.eq.${cleanNum}`)

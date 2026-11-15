@@ -630,7 +630,6 @@ const IdCard = ({ viewMode = false }) => {
                 status: 'generated',
                 payment_status: 'paid',
                 level: app.level,
-                academic_session: app.academic_session,
                 passport_url: photoToUse,
                 id_card_number: app.id_card_number,
                 generated_at: app.generated_at,

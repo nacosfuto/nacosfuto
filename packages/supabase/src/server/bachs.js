@@ -280,7 +280,7 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
       }
 
       // 2. Check for existing ID Card Application
-      let appQuery = supabase.from('id_card_applications').select('id, student_id, registration_number, matric_number, academic_session, payment_status, id_card_status, card_status, is_cleared, created_at, updated_at');
+      let appQuery = supabase.from('id_card_applications').select('id, student_id, registration_number, matric_number, level, payment_status, status, passport_url, id_card_number, created_at, updated_at');
       if (regNo && studentId && studentId.length === 36) {
         appQuery = appQuery.or(`registration_number.eq.${regNo},matric_number.eq.${regNo},student_id.eq.${studentId}`);
       } else if (regNo) {
@@ -316,10 +316,9 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
           updated_at: now
         };
 
-        // If paying for the active or higher level, update application level and session
+        // If paying for the active or higher level, update application level
         if (shouldUpdateAppLevel) {
           updatePayload.level = `${studentLevel} Level`;
-          updatePayload.academic_session = paymentSession;
           updatePayload.generated_at = resolvedPhoto ? (existingApp.generated_at || now) : existingApp.generated_at;
         } else if (resolvedPhoto && !existingApp.generated_at) {
           updatePayload.generated_at = now;
@@ -339,7 +338,6 @@ async function fulfillSuccessfulPayment(paymentRecord, now) {
             registration_number: regNo,
             full_name: studentName,
             level: `${studentLevel} Level`,
-            academic_session: paymentSession,
             application_number: `APP-${Date.now().toString().slice(-6)}`,
             id_card_number: cleanDigits,
             status: targetStatus,
@@ -1569,7 +1567,7 @@ export async function verifyIdCardAccess({ registrationNumber, studentId, reques
       // 5a. Check id_card_applications table strictly for current active level
       let appQuery = supabase
         .from('id_card_applications')
-        .select('id, student_id, registration_number, matric_number, level, academic_session, status, payment_status, payment_reference, created_at, updated_at');
+        .select('id, student_id, registration_number, matric_number, level, status, payment_status, payment_reference, created_at, updated_at');
 
       if (idMatchTerms.length > 0) {
         const orClauses = idMatchTerms.flatMap(term => [

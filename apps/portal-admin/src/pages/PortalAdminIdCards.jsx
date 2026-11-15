@@ -221,6 +221,7 @@ const AdminIdCards = () => {
       setSettings(res.settings);
       setIsFeeModalOpen(false);
       showNotification(`ID card fee updated to ₦${Number(newFeeInput).toLocaleString()}.00`);
+      await loadData();
     }
   };
 
