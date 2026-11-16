@@ -252,7 +252,7 @@ export default function LiveResultsPage() {
         {/* Turnout Analysis */}
         <div className="p-5 sm:p-6 rounded-[5px] bg-white border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-slate-500">Leading Participation</span>
+            <span className="text-xs font-bold text-slate-500">Turnout by Level</span>
             <div className="w-8 h-8 rounded-[4px] bg-green-50 text-[#138601] flex items-center justify-center">
               <Users className="w-4 h-4 stroke-[2.2]" />
             </div>
@@ -324,7 +324,7 @@ export default function LiveResultsPage() {
             </p>
           </div>
         ) : (
-          resultsByPost.map(({ post, totalVotes, candidates, leadingCandidate }) => (
+          resultsByPost.map(({ post, totalVotes, candidates }) => (
           <div
             key={post.id}
             className="p-5 sm:p-6 rounded-[5px] bg-white border border-slate-200 shadow-2xs space-y-5"
@@ -345,20 +345,14 @@ export default function LiveResultsPage() {
 
               <div className="text-left sm:text-right">
                 <span className="text-xs font-mono font-bold text-slate-900 block">
-                  {totalVotes} Total Votes Cast
+                  {totalVotes} {totalVotes === 1 ? 'Vote Cast' : 'Total Votes Cast'}
                 </span>
-                {leadingCandidate && totalVotes > 0 && (
-                  <span className="text-[11px] text-[#138601] font-semibold">
-                    Leading: {leadingCandidate.name} ({leadingCandidate.percentage}%)
-                  </span>
-                )}
               </div>
             </div>
 
             {/* Candidates Progress Bars */}
             <div className="space-y-4">
-              {candidates.map((cnd, idx) => {
-                const isLeading = idx === 0 && totalVotes > 0;
+              {candidates.map((cnd) => {
                 const isRecentlyUpdated = recentUpdates[cnd.id] && (Date.now() - recentUpdates[cnd.id] < 4000);
 
                 return (
@@ -377,11 +371,6 @@ export default function LiveResultsPage() {
                         />
                         <div>
                           <span className="font-bold text-slate-900">{cnd.name}</span>
-                          {isLeading && (
-                            <span className="ml-2 px-1.5 py-0.5 rounded-[3px] text-[10px] font-bold uppercase bg-green-50 text-[#138601] border border-green-200">
-                              Projected Lead
-                            </span>
-                          )}
                           {isRecentlyUpdated && (
                             <span className="ml-2 px-1.5 py-0.5 rounded-[3px] text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse inline-flex items-center gap-1">
                               <Zap className="w-2.5 h-2.5 text-emerald-700" />
@@ -393,7 +382,7 @@ export default function LiveResultsPage() {
 
                       <div className="text-right font-mono">
                         <span className="font-bold text-[#138601] text-sm">{cnd.percentage}%</span>
-                        <span className="text-slate-500 text-xs ml-2">({cnd.votesCount || 0} votes)</span>
+                        <span className="text-slate-500 text-xs ml-2">({cnd.votesCount || 0} {cnd.votesCount === 1 ? 'vote' : 'votes'})</span>
                       </div>
                     </div>
 
@@ -401,10 +390,10 @@ export default function LiveResultsPage() {
                     <div className="h-2.5 w-full bg-slate-100 rounded-[3px] overflow-hidden p-0.5 border border-slate-200">
                       <div
                         className={`h-full rounded-[2px] transition-all duration-700 ${
-                          isLeading
-                            ? 'bg-[#138601]'
-                            : isRecentlyUpdated
+                          isRecentlyUpdated
                             ? 'bg-emerald-500'
+                            : cnd.votesCount > 0
+                            ? 'bg-[#138601]'
                             : 'bg-slate-300'
                         }`}
                         style={{ width: `${Math.max(cnd.percentage, 2)}%` }}
