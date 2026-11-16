@@ -1638,7 +1638,7 @@ export async function getElectionAccreditations(electionId = null) {
     try {
       const { data, error } = await supabase
         .from('electra_accreditations')
-        .select('id, election_id, registration_number, student_level, status, accredited_at, voted_at, created_at')
+        .select('id, election_id, registration_number, student_name, student_level, status, accredited_at, voted_at, created_at')
         .eq('election_id', targetElectionId)
         .order('created_at', { ascending: false });
 

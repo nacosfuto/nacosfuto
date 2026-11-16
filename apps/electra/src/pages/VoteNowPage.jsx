@@ -30,6 +30,7 @@ export default function VoteNowPage({
   onOpenAccreditation 
 }) {
   const navigate = useNavigate();
+  const handleAccredit = onOpenAccreditation || (() => navigate('/accreditation'));
   const [election, setElection] = useState(() => getActiveElection());
   const [posts, setPosts] = useState(() => getElectraPosts());
   const [allContestants, setAllContestants] = useState(() => getContestants());
@@ -121,7 +122,7 @@ export default function VoteNowPage({
 
     if (!votingSessionToken) {
       setVoteError('Voter accreditation is required before submitting your ballot.');
-      if (onOpenAccreditation) onOpenAccreditation();
+      if (handleAccredit) handleAccredit();
       return;
     }
 
@@ -222,7 +223,7 @@ export default function VoteNowPage({
             <div className="pt-2 flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={onOpenAccreditation}
+                onClick={handleAccredit}
                 className="px-6 py-3 rounded-[4px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all shadow-xs inline-flex items-center gap-2 cursor-pointer active:scale-[0.99]"
               >
                 <span>Accredit / Vote Now</span>
@@ -406,8 +407,8 @@ export default function VoteNowPage({
                             key={candidate.id}
                             onClick={() => {
                               if (!isOfficeVoted) {
-                                if (!votingSessionToken && onOpenAccreditation) {
-                                  onOpenAccreditation();
+                                if (!votingSessionToken && handleAccredit) {
+                                  handleAccredit();
                                 } else {
                                   handleSelect(post.id, candidate.id);
                                 }
@@ -515,7 +516,7 @@ export default function VoteNowPage({
               {!votingSessionToken ? (
                 <button
                   type="button"
-                  onClick={onOpenAccreditation}
+                  onClick={handleAccredit}
                   className="w-full sm:w-auto px-6 py-3 rounded-[4px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all shadow-xs inline-flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <KeyRound className="w-4 h-4 stroke-[2.2]" />

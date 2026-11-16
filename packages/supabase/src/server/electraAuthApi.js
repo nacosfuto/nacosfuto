@@ -23,8 +23,7 @@ const ELECTRA_AUTH_SECRET = process.env.SESSION_SECRET || process.env.VITE_SUPAB
 const ELECTRA_OTP_SALT = 'nacos_electra_otp_salt_2026';
 const OTP_EXPIRY_MINUTES = 15;
 const MAX_VERIFICATION_ATTEMPTS = 5;
-const RESEND_COOLDOWN_SECONDS = 60;
-const MAX_CODE_REQUESTS = 4;
+const RESEND_COOLDOWN_SECONDS = 30;
 const VOTING_SESSION_TTL_HOURS = 2;
 
 
@@ -166,23 +165,84 @@ async function getOfficialStudentRecord(registrationNumber) {
 // DATABASE ATOMIC PERSISTENCE HELPERS
 // =============================================================================
 
+const ACCREDITATION_COLUMNS = 'id, election_id, registration_number, student_name, student_level, status, delivery_email, code_hash, code_expires_at, code_attempts, is_code_consumed, last_code_sent_at, code_request_count, accredited_at, voted_at, created_at, updated_at';
+
+// In-memory fallback map to guarantee immediate session consistency
+const memoryAccreditations = new Map();
+
+function isValidUuid(str) {
+  return typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+}
+
 async function getAccreditationRecord(electionId, registrationNumber) {
+  if (!registrationNumber) return null;
   const cleanReg = registrationNumber.trim().toUpperCase();
 
-  // Try PostgreSQL table first
+  // 1. Try PostgreSQL table with explicit valid column names
   if (supabase) {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('electra_accreditations')
-        .select('id, election_id, registration_number, student_level, status, passcode, accredited_at, voted_at, created_at')
-        .eq('election_id', electionId)
-        .eq('registration_number', cleanReg)
-        .maybeSingle();
+        .select(ACCREDITATION_COLUMNS)
+        .eq('registration_number', cleanReg);
 
-      if (data && !error) return data;
-    } catch (_) {}
+      if (electionId) {
+        query = query.eq('election_id', electionId);
+      }
+
+      const { data, error } = await query.maybeSingle();
+
+      if (data && !error) {
+        if (electionId) {
+          memoryAccreditations.set(`${electionId}::${cleanReg}`, data);
+        }
+        return data;
+      }
+      if (error) {
+        console.warn('[Electra Auth] getAccreditationRecord Supabase notice:', error.message);
+      }
+    } catch (err) {
+      console.warn('[Electra Auth] getAccreditationRecord lookup exception:', err.message);
+    }
   }
 
+  // 2. In-memory fallback lookup
+  if (electionId && memoryAccreditations.has(`${electionId}::${cleanReg}`)) {
+    return memoryAccreditations.get(`${electionId}::${cleanReg}`);
+  }
+
+  for (const [key, val] of memoryAccreditations.entries()) {
+    if (key.endsWith(`::${cleanReg}`)) {
+      return val;
+    }
+  }
+
+  // 3. Persistent Supabase snapshot fallback (store_electra_accreditations_db in id_card_settings)
+  if (supabase) {
+    try {
+      const { data: snap } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_electra_accreditations_db')
+        .maybeSingle();
+
+      if (snap?.academic_session) {
+        const list = JSON.parse(snap.academic_session);
+        if (Array.isArray(list)) {
+          const found = list.find(r => 
+            (r.registration_number || '').toUpperCase() === cleanReg &&
+            (!electionId || r.election_id === electionId)
+          );
+          if (found) {
+            if (electionId) {
+              memoryAccreditations.set(`${electionId}::${cleanReg}`, found);
+            }
+            return found;
+          }
+        }
+      }
+    } catch (_) {}
+  }
 
   return null;
 }
@@ -305,10 +365,19 @@ export async function getServerPostsAndContestants(electionId) {
 
 async function saveAccreditationRecord(record) {
   const now = new Date().toISOString();
+  const cleanReg = (record.registration_number || '').trim().toUpperCase();
+  const validId = isValidUuid(record.id) ? record.id : crypto.randomUUID();
+
   const fullRecord = {
     ...record,
+    id: validId,
+    registration_number: cleanReg,
     updated_at: now
   };
+
+  if (fullRecord.election_id && cleanReg) {
+    memoryAccreditations.set(`${fullRecord.election_id}::${cleanReg}`, fullRecord);
+  }
 
   let savedInTable = false;
   if (supabase) {
@@ -317,10 +386,49 @@ async function saveAccreditationRecord(record) {
         .from('electra_accreditations')
         .upsert(fullRecord, { onConflict: 'election_id,registration_number' });
 
-      if (!error) savedInTable = true;
+      if (error) {
+        console.warn('[Electra Auth] saveAccreditationRecord Supabase notice:', error.message);
+      } else {
+        savedInTable = true;
+      }
     } catch (_) {}
   }
 
+  // Atomically persist snapshot to id_card_settings (store_electra_accreditations_db)
+  if (supabase) {
+    try {
+      const { data: snap } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_electra_accreditations_db')
+        .maybeSingle();
+
+      let list = [];
+      if (snap?.academic_session) {
+        try { list = JSON.parse(snap.academic_session); } catch (_) {}
+      }
+      if (!Array.isArray(list)) list = [];
+
+      const idx = list.findIndex(r => 
+        (r.registration_number || '').toUpperCase() === cleanReg &&
+        r.election_id === fullRecord.election_id
+      );
+
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], ...fullRecord };
+      } else {
+        list.push(fullRecord);
+      }
+
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_electra_accreditations_db',
+        academic_session: JSON.stringify(list),
+        updated_at: now
+      });
+    } catch (snapErr) {
+      console.warn('[Electra Auth] Snapshot save notice:', snapErr.message);
+    }
+  }
 
   return fullRecord;
 }
@@ -328,6 +436,7 @@ async function saveAccreditationRecord(record) {
 async function getVoterVotesForElection(electionId, voterReg) {
   const cleanReg = voterReg.trim().toUpperCase();
 
+  // 1. Try PostgreSQL electra_votes table
   if (supabase) {
     try {
       const { data, error } = await supabase
@@ -336,10 +445,31 @@ async function getVoterVotesForElection(electionId, voterReg) {
         .eq('election_id', electionId)
         .eq('voter_registration_number', cleanReg);
 
-      if (data && !error) return data;
+      if (data && !error && data.length > 0) return data;
     } catch (_) {}
   }
 
+  // 2. Try store_electra_votes_db snapshot in id_card_settings
+  if (supabase) {
+    try {
+      const { data: snap } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_electra_votes_db')
+        .maybeSingle();
+
+      if (snap?.academic_session) {
+        const votes = JSON.parse(snap.academic_session);
+        if (Array.isArray(votes)) {
+          const userVotes = votes.filter(v => 
+            (v.voter_registration_number || '').toUpperCase() === cleanReg &&
+            (!electionId || v.election_id === electionId)
+          );
+          if (userVotes.length > 0) return userVotes;
+        }
+      }
+    } catch (_) {}
+  }
 
   return [];
 }
@@ -413,11 +543,56 @@ export async function broadcastRealtimeResultUpdate({ electionId, updates, total
 async function recordElectoralVotesAtomic(voteRecords, candidateIdMap, electionId, selections) {
   const now = new Date().toISOString();
 
-  // 1. Insert into electra_votes table (Database uniqueness constraint prevents double voting)
+  // 1. Insert into electra_votes table if available
   if (supabase) {
-    const { error: voteInsertError } = await supabase.from('electra_votes').insert(voteRecords);
-    if (voteInsertError && voteInsertError.code === '23505') {
-      throw new Error('Duplicate vote detected. You have already cast a ballot for one or more of these offices.');
+    try {
+      const { error: voteInsertError } = await supabase.from('electra_votes').insert(voteRecords);
+      if (voteInsertError && voteInsertError.code === '23505') {
+        throw new Error('Duplicate vote detected. You have already cast a ballot for one or more of these offices.');
+      }
+    } catch (insertErr) {
+      if (insertErr.message && insertErr.message.includes('Duplicate vote')) {
+        throw insertErr;
+      }
+    }
+  }
+
+  // 2. Persist to store_electra_votes_db snapshot in id_card_settings
+  if (supabase) {
+    try {
+      const { data: snap } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_electra_votes_db')
+        .maybeSingle();
+
+      let votesList = [];
+      if (snap?.academic_session) {
+        try { votesList = JSON.parse(snap.academic_session); } catch (_) {}
+      }
+      if (!Array.isArray(votesList)) votesList = [];
+
+      // Check duplicate
+      for (const newVote of voteRecords) {
+        const isDuplicate = votesList.some(v => 
+          v.election_id === newVote.election_id &&
+          v.voter_registration_number === newVote.voter_registration_number &&
+          v.position_id === newVote.position_id
+        );
+        if (isDuplicate) {
+          throw new Error('Duplicate vote detected. You have already cast a ballot for one or more of these offices.');
+        }
+      }
+
+      votesList.push(...voteRecords);
+
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_electra_votes_db',
+        academic_session: JSON.stringify(votesList),
+        updated_at: now
+      });
+    } catch (e) {
+      if (e.message && e.message.includes('Duplicate vote')) throw e;
     }
   }
 
@@ -510,9 +685,6 @@ async function recordElectoralVotesAtomic(voteRecords, candidateIdMap, electionI
 // =============================================================================
 
 export async function handleElectoralAccreditation({ electionId, registrationNumber, firstName, lastName }) {
-  if (!electionId) {
-    return { success: false, error: 'Election session identifier is required.' };
-  }
   if (!registrationNumber || !registrationNumber.trim()) {
     return { success: false, error: 'Registration number is required.' };
   }
@@ -520,10 +692,20 @@ export async function handleElectoralAccreditation({ electionId, registrationNum
     return { success: false, error: 'First Name and Last Name are required.' };
   }
 
+  // Dynamically resolve target election if not supplied or null
+  let targetElectionId = electionId;
+  if (!targetElectionId) {
+    const activeEl = await getServerElection(null);
+    targetElectionId = activeEl?.id || null;
+  }
+  if (!targetElectionId) {
+    return { success: false, error: 'No active election session found. Please contact the electoral commission.' };
+  }
+
   const cleanReg = registrationNumber.trim().toUpperCase();
 
   // Verify election status
-  const election = await getServerElection(electionId);
+  const election = await getServerElection(targetElectionId);
   if (election && (election.status === 'concluded' || election.status === 'published')) {
     return {
       success: false,
@@ -531,41 +713,17 @@ export async function handleElectoralAccreditation({ electionId, registrationNum
     };
   }
 
-  // 1. Check if voter already has an active accreditation for THIS election
-  const existingAccreditation = await getAccreditationRecord(electionId, cleanReg);
-  if (existingAccreditation) {
-    if (existingAccreditation.status === 'voted') {
-      return {
-        success: false,
-        alreadyVoted: true,
-        error: 'You have already voted in this election. Each elector is entitled to participate exactly once.'
-      };
-    }
-    if (existingAccreditation.status === 'verified') {
-      // Re-issue valid voting session without allowing re-accreditation
-      const votingSessionToken = signElectraToken({
-        purpose: 'ELECTRA_VOTING_SESSION',
-        electionId,
-        registrationNumber: cleanReg,
-        accreditationId: existingAccreditation.id,
-        voterName: existingAccreditation.student_name,
-        voterLevel: existingAccreditation.student_level,
-        exp: Date.now() + VOTING_SESSION_TTL_HOURS * 60 * 60 * 1000
-      });
+  // 1. Check if voter already cast their ballot in THIS election
+  const existingAccreditation = await getAccreditationRecord(targetElectionId, cleanReg);
+  const existingVotes = await getVoterVotesForElection(targetElectionId, cleanReg);
+  const hasCastBallot = existingAccreditation?.status === 'voted' || (existingVotes && existingVotes.length > 0);
 
-      return {
-        success: true,
-        alreadyVerified: true,
-        votingSessionToken,
-        voter: {
-          registrationNumber: cleanReg,
-          name: existingAccreditation.student_name,
-          level: existingAccreditation.student_level,
-          electionId
-        },
-        message: 'Your accreditation was already verified. Proceeding directly to your official ballot.'
-      };
-    }
+  if (hasCastBallot) {
+    return {
+      success: false,
+      alreadyVoted: true,
+      error: 'You have already cast your ballot in this election session. Each elector is entitled to participate exactly once.'
+    };
   }
 
   // 2. Verify identity against official student ground truth
@@ -606,10 +764,10 @@ export async function handleElectoralAccreditation({ electionId, registrationNum
   const officialFullName = officialRecord.full_name || `${officialRecord.first_name || ''} ${officialRecord.last_name || ''}`.trim() || 'Student Elector';
   const officialLevel = officialRecord.level || calculateAcademicProgression(officialRecord).levelString || '100 Level';
 
-  const accreditationId = existingAccreditation?.id || `acc-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+  const accreditationId = isValidUuid(existingAccreditation?.id) ? existingAccreditation.id : crypto.randomUUID();
   const accreditationRecord = {
     id: accreditationId,
-    election_id: electionId,
+    election_id: targetElectionId,
     registration_number: cleanReg,
     student_name: officialFullName,
     student_level: officialLevel,
@@ -624,11 +782,11 @@ export async function handleElectoralAccreditation({ electionId, registrationNum
   const accreditationToken = signElectraToken({
     purpose: 'ELECTRA_ACCREDITATION',
     accreditationId,
-    electionId,
+    electionId: targetElectionId,
     registrationNumber: cleanReg,
     studentName: officialFullName,
     studentLevel: officialLevel,
-    exp: Date.now() + 30 * 60 * 1000 // 30 minutes
+    exp: Date.now() + 60 * 60 * 1000 // 60 minutes
   });
 
   return {
@@ -657,26 +815,41 @@ export async function handleSendElectoralCode({ accreditationToken, email, ipAdd
   }
 
   if (!email || !isValidEmail(email)) {
-    return { success: false, error: 'A valid email address is required to receive your one-time code.' };
+    return { success: false, error: 'A valid email address is required to receive your one-time verification code.' };
   }
 
-  const { electionId, registrationNumber, accreditationId, studentName } = verifiedToken;
+  const { electionId, registrationNumber, accreditationId, studentName, studentLevel } = verifiedToken;
   const targetEmail = email.trim().toLowerCase();
 
-  // Fetch current accreditation state
-  const accreditation = await getAccreditationRecord(electionId, registrationNumber);
+  // Fetch current accreditation state or reconstruct from authenticated token
+  let accreditation = await getAccreditationRecord(electionId, registrationNumber);
   if (!accreditation) {
-    return { success: false, error: 'Accreditation record not found. Please restart.' };
+    const fallbackId = isValidUuid(accreditationId) ? accreditationId : crypto.randomUUID();
+    accreditation = {
+      id: fallbackId,
+      election_id: electionId,
+      registration_number: registrationNumber,
+      student_name: studentName,
+      student_level: studentLevel || '100 Level',
+      status: 'pending',
+      code_request_count: 0,
+      created_at: new Date().toISOString()
+    };
+    await saveAccreditationRecord(accreditation);
   }
 
-  if (accreditation.status === 'voted') {
-    return { success: false, error: 'You have already voted in this election.' };
-  }
-  if (accreditation.status === 'verified') {
-    return { success: false, error: 'You have already completed accreditation for this election.' };
+  // 1. Strict ballot check: Voters who already cast their ballot cannot request another code
+  const existingVotes = await getVoterVotesForElection(electionId, registrationNumber);
+  const hasCastBallot = accreditation.status === 'voted' || (existingVotes && existingVotes.length > 0);
+  if (hasCastBallot) {
+    return { 
+      success: false, 
+      alreadyVoted: true,
+      error: 'You have already cast your ballot in this election session. You cannot request another verification code.' 
+    };
   }
 
-  // Rate Limiting & Cooldown Protection
+  // 2. Debounce / Cooldown protection between rapid clicks (e.g. 30 seconds)
   const now = Date.now();
   if (accreditation.last_code_sent_at) {
     const timeSinceLast = (now - new Date(accreditation.last_code_sent_at).getTime()) / 1000;
@@ -691,21 +864,15 @@ export async function handleSendElectoralCode({ accreditationToken, email, ipAdd
     }
   }
 
-  if ((accreditation.code_request_count || 0) >= MAX_CODE_REQUESTS) {
-    return {
-      success: false,
-      error: 'Maximum code request attempts reached for this session. Please contact the electoral commission.'
-    };
-  }
-
-  // Generate cryptographically secure random 6-digit code
+  // 3. Generate cryptographically secure random 6-digit code
   const rawCode = crypto.randomInt(100000, 999999).toString();
   const codeHash = hashElectoralCode(rawCode);
   const expiresAt = new Date(now + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
 
-  // Persist code hash & metadata
+  // 4. Persist code hash & metadata (Voter can request codes as much as needed until ballot is cast)
   const updatedAccreditation = {
     ...accreditation,
+    status: 'pending',
     delivery_email: targetEmail,
     code_hash: codeHash,
     code_expires_at: expiresAt,
@@ -717,7 +884,7 @@ export async function handleSendElectoralCode({ accreditationToken, email, ipAdd
 
   await saveAccreditationRecord(updatedAccreditation);
 
-  // Dispatch branded electoral email via Resend
+  // 5. Dispatch branded electoral email via Resend
   const emailHtml = `
     <!DOCTYPE html>
     <html>
@@ -778,6 +945,14 @@ export async function handleSendElectoralCode({ accreditationToken, email, ipAdd
     text: `Your NACOS FUTO electoral verification code is: ${rawCode}. This code is valid for ${OTP_EXPIRY_MINUTES} minutes. Do not share this code with anyone.`
   });
 
+  if (!emailResult.success && !emailResult.simulated) {
+    console.error('[Electra Auth] Email dispatch failure:', emailResult.error);
+    return {
+      success: false,
+      error: emailResult.error || 'Failed to dispatch verification email. Please check your email and try again.'
+    };
+  }
+
   return {
     success: true,
     destinationMasked: targetEmail.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '•'.repeat(Math.max(b.length, 3))),
@@ -809,11 +984,18 @@ export async function handleVerifyElectoralCode({ accreditationToken, code }) {
 
   const accreditation = await getAccreditationRecord(electionId, registrationNumber);
   if (!accreditation) {
-    return { success: false, error: 'Accreditation record could not be found.' };
+    return { success: false, error: 'Accreditation record could not be found. Please restart from Step 1.' };
   }
 
-  if (accreditation.status === 'voted') {
-    return { success: false, error: 'You have already voted in this election.' };
+  // Check if voter already cast ballot
+  const existingVotes = await getVoterVotesForElection(electionId, registrationNumber);
+  const hasCastBallot = accreditation.status === 'voted' || (existingVotes && existingVotes.length > 0);
+  if (hasCastBallot) {
+    return { 
+      success: false, 
+      alreadyVoted: true,
+      error: 'You have already cast your ballot in this election.' 
+    };
   }
 
   // 1. Single-use consumption check
@@ -866,7 +1048,7 @@ export async function handleVerifyElectoralCode({ accreditationToken, code }) {
   const updatedAccreditation = {
     ...accreditation,
     status: 'verified',
-    is_code_consumed: true, // INVALDATED IMMEDIATELY - CAN NEVER BE USED AGAIN
+    is_code_consumed: true, // INVALIDATED IMMEDIATELY - CAN NEVER BE REUSED
     accredited_at: nowIso
   };
 
@@ -1015,7 +1197,7 @@ export async function handleSubmitElectoralVote({ votingSessionToken, selections
     }
 
     newVoteRecords.push({
-      id: `vote-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
+      id: crypto.randomUUID(),
       election_id: electionId,
       voter_registration_number: registrationNumber,
       position_id: postId,

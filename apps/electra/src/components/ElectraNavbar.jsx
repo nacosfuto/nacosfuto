@@ -30,6 +30,7 @@ export default function ElectraNavbar({ voter, onDisconnect }) {
   // Nav links matching the main website font size, font weight and uppercase casing
   const navLinks = [
     { label: 'HOME', path: '/' },
+    { label: 'ACCREDITATION', path: '/accreditation' },
     { label: 'VOTING', path: '/vote' },
     { label: 'LIVE RESULTS', path: '/results' },
     { label: 'MANIFESTOS', path: '/manifestos' },
@@ -38,6 +39,7 @@ export default function ElectraNavbar({ voter, onDisconnect }) {
 
   const isActive = (path) => {
     if (path === '/') return location.pathname === '/' || location.pathname === '/electra';
+    if (path === '/accreditation') return location.pathname.startsWith('/accreditation') || location.pathname.startsWith('/electra/accreditation') || location.pathname.startsWith('/accredit');
     if (path === '/vote') return location.pathname === '/vote' || location.pathname === '/electra/vote' || location.pathname === '/ballot' || location.pathname === '/electra/ballot';
     return location.pathname.startsWith(path);
   };
@@ -74,10 +76,16 @@ export default function ElectraNavbar({ voter, onDisconnect }) {
           ))}
         </nav>
 
-        {/* Right Action Items Strip - Removed Vote Now & Accreditation buttons */}
+        {/* Right Action Items Strip */}
         <div className="hidden sm:flex items-center gap-4 shrink-0">
-          {/* Voter Authentication Status (if already accredited) */}
-          {voter && (
+          {!voter ? (
+            <Link
+              to="/accreditation"
+              className="px-4 py-2 rounded-[4px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all shadow-xs flex items-center gap-1.5"
+            >
+              <span>Accredit to Vote</span>
+            </Link>
+          ) : (
             <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
               <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 px-3 py-1.5 rounded-[4px] text-xs font-bold text-[#138601]">
                 <div className="w-2 h-2 rounded-full bg-[#138601] animate-pulse" />
@@ -149,6 +157,22 @@ export default function ElectraNavbar({ voter, onDisconnect }) {
                 </Link>
               ))}
             </nav>
+
+            {voter && (
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-between px-3">
+                <span className="text-xs text-slate-500 font-mono">Voter: {voter.registrationNumber || voter.matricNumber}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (onDisconnect) onDisconnect();
+                  }}
+                  className="text-xs text-red-600 font-bold hover:underline cursor-pointer"
+                >
+                  Disconnect
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}

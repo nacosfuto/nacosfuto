@@ -26,10 +26,7 @@ export default function ElectraHome({
           <path d="M30 32l6-6 3 3-6 6h-3v-3z" stroke="currentColor" fill="#f0fdf4" />
         </svg>
       ),
-      action: () => {
-        if (onRequireConnect) onRequireConnect();
-        else navigate('/vote');
-      }
+      action: () => navigate('/accreditation')
     },
     {
       id: 'vote-now',

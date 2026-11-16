@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Link } from 'react-router-dom';
+import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import ElectraNavbar from './components/ElectraNavbar';
-import ConnectNacosModal from './components/ConnectNacosModal';
 import ManifestoModal from './components/ManifestoModal';
 import BallotVotingModal from './components/BallotVotingModal';
 import ElectraHome from './pages/ElectraHome';
+import AccreditationPage from './pages/AccreditationPage';
 import ContestantsPage from './pages/ContestantsPage';
 import ManifestosPage from './pages/ManifestosPage';
 import LiveResultsPage from './pages/LiveResultsPage';
@@ -86,6 +86,7 @@ export class ElectraErrorBoundary extends React.Component {
 }
 
 export default function App() {
+  const navigate = useNavigate();
   const urls = getAppUrls();
   const [election, setElection] = useState(() => getActiveElection());
   const [voter, setVoter] = useState(() => {
@@ -105,7 +106,6 @@ export default function App() {
     }
   });
 
-  const [isConnectOpen, setIsConnectOpen] = useState(false);
   const [isManifestoOpen, setIsManifestoOpen] = useState(false);
   const [activeManifestoCandidate, setActiveManifestoCandidate] = useState(null);
   const [isBallotOpen, setIsBallotOpen] = useState(false);
@@ -159,7 +159,7 @@ export default function App() {
       election={election}
       onOpenBallot={handleOpenBallot}
       onOpenManifesto={handleOpenManifesto}
-      onRequireConnect={() => setIsConnectOpen(true)}
+      onRequireConnect={() => navigate('/accreditation')}
     />
   );
 
@@ -183,7 +183,7 @@ export default function App() {
       {/* Top Navbar */}
       <ElectraNavbar
         voter={voter}
-        onOpenConnect={() => setIsConnectOpen(true)}
+        onOpenConnect={() => navigate('/accreditation')}
         onDisconnect={handleDisconnectVoter}
       />
 
@@ -192,6 +192,12 @@ export default function App() {
         <Routes>
           <Route path="/" element={renderHome()} />
           <Route path="/electra" element={renderHome()} />
+          <Route path="/accreditation" element={<AccreditationPage voter={voter} onConnectVoter={handleConnectVoter} election={election} />} />
+          <Route path="/accreditation/:stepId" element={<AccreditationPage voter={voter} onConnectVoter={handleConnectVoter} election={election} />} />
+          <Route path="/electra/accreditation" element={<AccreditationPage voter={voter} onConnectVoter={handleConnectVoter} election={election} />} />
+          <Route path="/electra/accreditation/:stepId" element={<AccreditationPage voter={voter} onConnectVoter={handleConnectVoter} election={election} />} />
+          <Route path="/accredit" element={<AccreditationPage voter={voter} onConnectVoter={handleConnectVoter} election={election} />} />
+          <Route path="/accredit/:stepId" element={<AccreditationPage voter={voter} onConnectVoter={handleConnectVoter} election={election} />} />
           <Route path="/contestants" element={renderContestants()} />
           <Route path="/electra/contestants" element={renderContestants()} />
           <Route path="/candidates" element={renderContestants()} />
@@ -200,10 +206,10 @@ export default function App() {
           <Route path="/electra/manifestos" element={renderManifestos()} />
           <Route path="/results" element={<LiveResultsPage />} />
           <Route path="/electra/results" element={<LiveResultsPage />} />
-          <Route path="/vote" element={<VoteNowPage voter={voter} votingSessionToken={votingSessionToken} onConnectVoter={handleConnectVoter} onOpenAccreditation={() => setIsConnectOpen(true)} />} />
-          <Route path="/electra/vote" element={<VoteNowPage voter={voter} votingSessionToken={votingSessionToken} onConnectVoter={handleConnectVoter} onOpenAccreditation={() => setIsConnectOpen(true)} />} />
-          <Route path="/ballot" element={<VoteNowPage voter={voter} votingSessionToken={votingSessionToken} onConnectVoter={handleConnectVoter} onOpenAccreditation={() => setIsConnectOpen(true)} />} />
-          <Route path="/electra/ballot" element={<VoteNowPage voter={voter} votingSessionToken={votingSessionToken} onConnectVoter={handleConnectVoter} onOpenAccreditation={() => setIsConnectOpen(true)} />} />
+          <Route path="/vote" element={<VoteNowPage voter={voter} votingSessionToken={votingSessionToken} onConnectVoter={handleConnectVoter} onOpenAccreditation={() => navigate('/accreditation')} />} />
+          <Route path="/electra/vote" element={<VoteNowPage voter={voter} votingSessionToken={votingSessionToken} onConnectVoter={handleConnectVoter} onOpenAccreditation={() => navigate('/accreditation')} />} />
+          <Route path="/ballot" element={<VoteNowPage voter={voter} votingSessionToken={votingSessionToken} onConnectVoter={handleConnectVoter} onOpenAccreditation={() => navigate('/accreditation')} />} />
+          <Route path="/electra/ballot" element={<VoteNowPage voter={voter} votingSessionToken={votingSessionToken} onConnectVoter={handleConnectVoter} onOpenAccreditation={() => navigate('/accreditation')} />} />
           <Route path="/guidelines" element={<GuidelinesPage />} />
           <Route path="/electra/guidelines" element={<GuidelinesPage />} />
           <Route path="/how-to-vote" element={<GuidelinesPage />} />
@@ -221,12 +227,6 @@ export default function App() {
       </main>
 
       {/* Global Modals */}
-      <ConnectNacosModal
-        isOpen={isConnectOpen}
-        onClose={() => setIsConnectOpen(false)}
-        onConnect={handleConnectVoter}
-      />
-
       <ManifestoModal
         contestant={activeManifestoCandidate}
         isOpen={isManifestoOpen}
@@ -250,7 +250,7 @@ export default function App() {
         targetCandidate={targetCandidate}
         onRequireConnect={() => {
           setIsBallotOpen(false);
-          setIsConnectOpen(true);
+          navigate('/accreditation');
         }}
         onVoteCastSuccess={(receipt) => {
           console.log('Ballot cast receipt:', receipt);
