@@ -17,6 +17,113 @@ export const EXECUTIVES_STORAGE_KEY = 'nacos_executives_db';
 export const EXECUTIVES_SETTINGS_STORAGE_KEY = 'nacos_executives_settings_db';
 export const TENURES_STORAGE_KEY = 'nacos_tenures_db';
 
+let memoryExecutivesList = null;
+let memoryExecutivesSettings = null;
+let memoryTenures = null;
+
+function sanitizeExecutivesForStorage(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map(item => {
+    let cleanImage = item.image || item.photo_url || '';
+    if (typeof cleanImage === 'string' && cleanImage.startsWith('data:')) {
+      cleanImage = item.cloudinary_public_id ? item.cloudinary_public_id : '';
+    }
+    return {
+      ...item,
+      image: cleanImage,
+      photo_url: cleanImage
+    };
+  });
+}
+
+function sanitizeSettingsForStorage(settings) {
+  if (!settings || typeof settings !== 'object') return settings;
+  let cleanHero = settings.heroImage || '';
+  if (typeof cleanHero === 'string' && cleanHero.startsWith('data:')) {
+    cleanHero = '';
+  }
+  return {
+    ...settings,
+    heroImage: cleanHero
+  };
+}
+
+function evictStaleLocalStorage() {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const keysToPrune = [
+      'nacos_local_media_assets_cache',
+      'nacos_active_gateway_redirect',
+      'nacos_pending_id_card_tx',
+      'nacos_last_payment_success',
+      'nacos_active_gateway_tx'
+    ];
+    keysToPrune.forEach(k => {
+      try { localStorage.removeItem(k); } catch (_) {}
+    });
+  } catch (_) {}
+}
+
+export function saveLocalExecutivesSettings(settings) {
+  if (!settings) return;
+  memoryExecutivesSettings = settings;
+  if (typeof window === 'undefined') return;
+
+  try {
+    const sanitized = sanitizeSettingsForStorage(settings);
+    localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(sanitized));
+  } catch (err) {
+    console.warn('[executivesService] localStorage quota reached on saveLocalExecutivesSettings. Attempting recovery...', err);
+    try {
+      evictStaleLocalStorage();
+      localStorage.removeItem(EXECUTIVES_SETTINGS_STORAGE_KEY);
+      const sanitized = sanitizeSettingsForStorage(settings);
+      localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(sanitized));
+    } catch (_) {
+      try {
+        if (window.sessionStorage) {
+          sessionStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(sanitizeSettingsForStorage(settings)));
+        }
+      } catch (_) {}
+    }
+  }
+
+  try {
+    window.dispatchEvent(new Event('nacos_executives_settings_updated'));
+  } catch (_) {}
+}
+
+export function saveLocalExecutives(list, { notify = true } = {}) {
+  if (!list || !Array.isArray(list)) return;
+  memoryExecutivesList = list;
+  if (typeof window === 'undefined') return;
+
+  try {
+    const sanitized = sanitizeExecutivesForStorage(list);
+    localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(sanitized));
+  } catch (err) {
+    console.warn('[executivesService] localStorage quota reached on saveLocalExecutives. Attempting recovery...', err);
+    try {
+      evictStaleLocalStorage();
+      localStorage.removeItem(EXECUTIVES_STORAGE_KEY);
+      const sanitized = sanitizeExecutivesForStorage(list);
+      localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(sanitized));
+    } catch (_) {
+      try {
+        if (window.sessionStorage) {
+          sessionStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(sanitizeExecutivesForStorage(list).slice(0, 30)));
+        }
+      } catch (_) {}
+    }
+  }
+
+  if (notify) {
+    try {
+      window.dispatchEvent(new Event('nacos_executives_updated'));
+    } catch (_) {}
+  }
+}
+
 export const DEFAULT_TENURES = [
   '2026/2027',
   '2025/2026',
@@ -29,6 +136,10 @@ export const DEFAULT_TENURES = [
 ];
 
 export function getTenures() {
+  if (memoryTenures && Array.isArray(memoryTenures) && memoryTenures.length > 0) {
+    return memoryTenures;
+  }
+
   let stored = [];
   if (typeof window !== 'undefined') {
     try {
@@ -51,6 +162,7 @@ export function getTenures() {
     return yearB - yearA;
   });
 
+  memoryTenures = combined;
   return combined;
 }
 
@@ -62,10 +174,17 @@ export function addTenure(tenureSession) {
   const current = getTenures();
   if (!current.includes(cleaned)) {
     const updated = [cleaned, ...current];
+    memoryTenures = updated;
     if (typeof window !== 'undefined') {
-      localStorage.setItem(TENURES_STORAGE_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new Event('nacos_tenures_updated'));
-      window.dispatchEvent(new Event('nacos_executives_updated'));
+      try {
+        localStorage.setItem(TENURES_STORAGE_KEY, JSON.stringify(updated));
+      } catch (err) {
+        console.warn('Quota exceeded saving tenures:', err);
+      }
+      try {
+        window.dispatchEvent(new Event('nacos_tenures_updated'));
+        window.dispatchEvent(new Event('nacos_executives_updated'));
+      } catch (_) {}
     }
     return updated;
   }
@@ -150,10 +269,7 @@ export async function fetchExecutivesFromSupabase() {
         if (settingsAsset && settingsAsset.image_alt) {
           try {
             const parsedSettings = JSON.parse(settingsAsset.image_alt);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(parsedSettings));
-              window.dispatchEvent(new Event('nacos_executives_settings_updated'));
-            }
+            saveLocalExecutivesSettings(parsedSettings);
           } catch (e) {}
         }
 
@@ -192,9 +308,7 @@ export async function fetchExecutivesFromSupabase() {
     if (setRow?.academic_session) {
       try {
         const parsedSet = JSON.parse(setRow.academic_session);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(parsedSet));
-        }
+        saveLocalExecutivesSettings(parsedSet);
       } catch (_) {}
     } else {
       const { data: tblSet } = await supabase
@@ -211,16 +325,12 @@ export async function fetchExecutivesFromSupabase() {
           currentSessionTitle: tblSet.current_session_title || 'Current Executives (2025/2026)',
           pastSessionTitle: tblSet.past_session_title || 'Past Executives (2024/2025)'
         };
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(parsedSet));
-        }
+        saveLocalExecutivesSettings(parsedSet);
       }
     }
 
     if (resultList.length > 0) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(resultList));
-      }
+      saveLocalExecutives(resultList);
       return resultList;
     }
   } catch (err) {
@@ -254,20 +364,34 @@ function getAllInitialExecutives() {
 // ─────────────────────────────────────────────────────────────
 
 export function getExecutivesSettings() {
+  if (memoryExecutivesSettings) {
+    return { ...DEFAULT_EXECUTIVES_PAGE_SETTINGS, ...memoryExecutivesSettings };
+  }
   if (typeof window === 'undefined') return DEFAULT_EXECUTIVES_PAGE_SETTINGS;
 
   try {
     const raw = localStorage.getItem(EXECUTIVES_SETTINGS_STORAGE_KEY);
     if (raw) {
-      return { ...DEFAULT_EXECUTIVES_PAGE_SETTINGS, ...JSON.parse(raw) };
+      const parsed = JSON.parse(raw);
+      memoryExecutivesSettings = parsed;
+      return { ...DEFAULT_EXECUTIVES_PAGE_SETTINGS, ...parsed };
     }
-    // Seed initial settings into localStorage
-    localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(DEFAULT_EXECUTIVES_PAGE_SETTINGS));
-    return DEFAULT_EXECUTIVES_PAGE_SETTINGS;
   } catch (err) {
     console.warn('Error reading executives settings:', err);
-    return DEFAULT_EXECUTIVES_PAGE_SETTINGS;
   }
+
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    try {
+      const sRaw = sessionStorage.getItem(EXECUTIVES_SETTINGS_STORAGE_KEY);
+      if (sRaw) {
+        const parsed = JSON.parse(sRaw);
+        memoryExecutivesSettings = parsed;
+        return { ...DEFAULT_EXECUTIVES_PAGE_SETTINGS, ...parsed };
+      }
+    } catch (_) {}
+  }
+
+  return DEFAULT_EXECUTIVES_PAGE_SETTINGS;
 }
 
 export async function updateExecutivesSettings(newSettings) {
@@ -278,16 +402,35 @@ export async function updateExecutivesSettings(newSettings) {
     updatedAt: new Date().toISOString()
   };
 
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(EXECUTIVES_SETTINGS_STORAGE_KEY, JSON.stringify(updated));
-    window.dispatchEvent(new Event('nacos_executives_settings_updated'));
+  // 1. Authoritative Supabase live store sync FIRST
+  try {
+    if (supabase) {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_executives_settings',
+        academic_session: JSON.stringify(updated),
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch (e) {
+    console.warn('Supabase store_executives_settings sync warning:', e);
   }
 
-  // Attempt Supabase synchronization
+  // 2. Direct table synchronization
   try {
     if (supabase) {
       await supabase.from('nacos_executives_settings').upsert({
         id: 'default',
+        hero_image: updated.heroImage,
+        hero_title: updated.heroTitle,
+        hero_year: updated.heroYear,
+        hero_subtitle: updated.heroSubtitle,
+        current_session_title: updated.currentSessionTitle,
+        past_session_title: updated.pastSessionTitle,
+        updated_at: new Date().toISOString()
+      });
+
+      await supabase.from('nacos_executives_settings').upsert({
+        id: 'current_settings',
         hero_image: updated.heroImage,
         hero_title: updated.heroTitle,
         hero_year: updated.heroYear,
@@ -301,16 +444,8 @@ export async function updateExecutivesSettings(newSettings) {
     console.warn('Supabase sync warning for executives settings:', err);
   }
 
-  // Authoritative live store sync to Supabase
-  try {
-    if (supabase) {
-      supabase.from('id_card_settings').upsert({
-        id: 'store_executives_settings',
-        academic_session: JSON.stringify(updated),
-        updated_at: new Date().toISOString()
-      }).then(() => {}).catch(() => {});
-    }
-  } catch (e) {}
+  // 3. Safe local cache persistence (NEVER throws, quota-resilient)
+  saveLocalExecutivesSettings(updated);
 
   return updated;
 }
@@ -320,28 +455,33 @@ export async function updateExecutivesSettings(newSettings) {
 // ─────────────────────────────────────────────────────────────
 
 export function getExecutives(category = 'all') {
-  if (typeof window === 'undefined') {
-    return [];
-  }
+  let list = [];
+  if (memoryExecutivesList && Array.isArray(memoryExecutivesList) && memoryExecutivesList.length > 0) {
+    list = memoryExecutivesList;
+  } else if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(EXECUTIVES_STORAGE_KEY);
+      if (raw) list = JSON.parse(raw);
+    } catch (e) {}
 
-  try {
-    const raw = localStorage.getItem(EXECUTIVES_STORAGE_KEY);
-    let list = raw ? JSON.parse(raw) : [];
-
-    if (!Array.isArray(list)) {
-      list = [];
+    if ((!list || list.length === 0) && window.sessionStorage) {
+      try {
+        const sRaw = sessionStorage.getItem(EXECUTIVES_STORAGE_KEY);
+        if (sRaw) list = JSON.parse(sRaw);
+      } catch (_) {}
     }
-
-    list = list.filter(e => e.id !== 'test-123');
-    // Sort by order_index ascending
-    list.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
-
-    if (category === 'all') return list;
-    return list.filter(e => e.category === category);
-  } catch (err) {
-    console.warn('Error reading executives list:', err);
-    return [];
   }
+
+  if (!Array.isArray(list)) {
+    list = [];
+  }
+
+  list = list.filter(e => e.id !== 'test-123');
+  // Sort by order_index ascending
+  list.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
+
+  if (category === 'all') return list;
+  return list.filter(e => e.category === category);
 }
 
 export async function saveExecutive(execData) {
@@ -400,12 +540,18 @@ export async function saveExecutive(execData) {
     addTenure(savedItem.session);
   }
 
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(updatedList));
-    window.dispatchEvent(new Event('nacos_executives_updated'));
+  // 1. Authoritative persistent save to Supabase store_executives FIRST
+  if (supabase) {
+    try {
+      await supabase.from('id_card_settings').upsert({
+        id: 'store_executives',
+        academic_session: JSON.stringify(updatedList),
+        updated_at: now
+      });
+    } catch (_) {}
   }
 
-  // 1. Direct fast write to Supabase nacos_executives table
+  // 2. Direct fast write to Supabase nacos_executives table
   if (supabase) {
     try {
       await supabase.from('nacos_executives').upsert({
@@ -428,16 +574,8 @@ export async function saveExecutive(execData) {
     }
   }
 
-  // 2. Authoritative persistent save to Supabase store_executives
-  if (supabase) {
-    try {
-      await supabase.from('id_card_settings').upsert({
-        id: 'store_executives',
-        academic_session: JSON.stringify(updatedList),
-        updated_at: now
-      });
-    } catch (_) {}
-  }
+  // 3. Safe local cache persistence (NEVER throws, quota-resilient)
+  saveLocalExecutives(updatedList);
 
   // Admin Notification
   addAdminNotification({
@@ -472,11 +610,6 @@ export async function deleteExecutive(id) {
   const target = list.find(e => e.id === id);
   const updatedList = list.filter(e => e.id !== id);
 
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(updatedList));
-    window.dispatchEvent(new Event('nacos_executives_updated'));
-  }
-
   // Direct fast delete from Supabase nacos_executives table
   if (supabase) {
     try {
@@ -491,6 +624,8 @@ export async function deleteExecutive(id) {
       });
     } catch (_) {}
   }
+
+  saveLocalExecutives(updatedList);
 
   if (target) {
     addAdminNotification({
@@ -542,11 +677,6 @@ export async function moveExecutiveToPast(id, pastSessionLabel = '2024/2025') {
     return e;
   });
 
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(updatedList));
-    window.dispatchEvent(new Event('nacos_executives_updated'));
-  }
-
   try {
     if (supabase) {
       await supabase.from('id_card_settings').upsert({
@@ -556,6 +686,8 @@ export async function moveExecutiveToPast(id, pastSessionLabel = '2024/2025') {
       });
     }
   } catch (err) {}
+
+  saveLocalExecutives(updatedList);
 
   return updatedList;
 }
@@ -597,11 +729,6 @@ export async function moveExecutiveToCurrent(id, currentSessionLabel = '2025/202
     return e;
   });
 
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(updatedList));
-    window.dispatchEvent(new Event('nacos_executives_updated'));
-  }
-
   try {
     if (supabase) {
       await supabase.from('id_card_settings').upsert({
@@ -611,6 +738,8 @@ export async function moveExecutiveToCurrent(id, currentSessionLabel = '2025/202
       });
     }
   } catch (err) {}
+
+  saveLocalExecutives(updatedList);
 
   return updatedList;
 }
@@ -656,19 +785,7 @@ export async function archiveCurrentTenure(archiveSession = '2024/2025', newTenu
     return e;
   });
 
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(updatedList));
-    window.dispatchEvent(new Event('nacos_executives_updated'));
-  }
-
-  // Update Page Settings titles to reflect the new tenure
-  await updateExecutivesSettings({
-    currentSessionTitle: `Current Executives (${newTenureSession})`,
-    pastSessionTitle: `Past Executives (${archiveSession})`,
-    heroYear: newTenureSession.split('/')[1] || newTenureSession
-  });
-
-  // Persistent save to Supabase store_executives
+  // Persistent save to Supabase store_executives FIRST
   try {
     if (supabase) {
       await supabase.from('id_card_settings').upsert({
@@ -678,6 +795,15 @@ export async function archiveCurrentTenure(archiveSession = '2024/2025', newTenu
       });
     }
   } catch (err) {}
+
+  saveLocalExecutives(updatedList);
+
+  // Update Page Settings titles to reflect the new tenure
+  await updateExecutivesSettings({
+    currentSessionTitle: `Current Executives (${newTenureSession})`,
+    pastSessionTitle: `Past Executives (${archiveSession})`,
+    heroYear: newTenureSession.split('/')[1] || newTenureSession
+  });
 
   addAdminNotification({
     type: 'executives',
@@ -705,20 +831,17 @@ export async function reorderExecutives(category, orderedIds) {
     return item;
   });
 
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(EXECUTIVES_STORAGE_KEY, JSON.stringify(updatedList));
-    window.dispatchEvent(new Event('nacos_executives_updated'));
-  }
-
   try {
     if (supabase) {
-      supabase.from('id_card_settings').upsert({
+      await supabase.from('id_card_settings').upsert({
         id: 'store_executives',
         academic_session: JSON.stringify(updatedList),
         updated_at: new Date().toISOString()
-      }).then(() => {}).catch(() => {});
+      });
     }
   } catch (err) {}
+
+  saveLocalExecutives(updatedList);
 
   return updatedList;
 }

@@ -55,6 +55,7 @@ const AdminNews = () => {
   const [author, setAuthor] = useState('NACOS Press Desk');
   const [category, setCategory] = useState('Tech & Academics');
   const [readTime, setReadTime] = useState(3);
+  const [publishedDate, setPublishedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [coverUrl, setCoverUrl] = useState('');
   const [coverPublicId, setCoverPublicId] = useState('');
   const [isPublished, setIsPublished] = useState(true);
@@ -102,6 +103,7 @@ const AdminNews = () => {
     setAuthor('NACOS Press Desk');
     setCategory('Research & Journal');
     setReadTime(3);
+    setPublishedDate(new Date().toISOString().split('T')[0]);
     setCoverUrl('');
     setCoverPublicId('');
     setIsPublished(true);
@@ -118,6 +120,20 @@ const AdminNews = () => {
     setAuthor(art.author || 'NACOS Press Desk');
     setCategory(art.category || 'Research & Journal');
     setReadTime(art.read_time_minutes || 3);
+
+    // Parse existing publication date into YYYY-MM-DD for editable date picker
+    let editDateStr = new Date().toISOString().split('T')[0];
+    const sourceDate = art.published_at || art.created_at || art.date;
+    if (sourceDate) {
+      try {
+        const d = new Date(sourceDate);
+        if (!isNaN(d.getTime())) {
+          editDateStr = d.toISOString().split('T')[0];
+        }
+      } catch (_) {}
+    }
+    setPublishedDate(editDateStr);
+
     const existingImg = art.cover_image_url || art.image || (art.cloudinary_public_id ? getCloudinaryAssetUrl(art.cloudinary_public_id) : '');
     setCoverUrl(existingImg);
     setCoverPublicId(art.cloudinary_public_id || '');
@@ -179,6 +195,20 @@ const AdminNews = () => {
         ? slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
         : title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
+      // Parse the admin-selected publication date to allow custom/backward dates
+      let parsedPublishedAt = new Date().toISOString();
+      if (publishedDate) {
+        try {
+          const d = new Date(publishedDate);
+          if (!isNaN(d.getTime())) {
+            d.setUTCHours(12, 0, 0, 0); // Midday UTC prevents timezone shifting to previous/next day
+            parsedPublishedAt = d.toISOString();
+          }
+        } catch (_) {}
+      } else if (existing?.published_at) {
+        parsedPublishedAt = existing.published_at;
+      }
+
       const payload = {
         id: editorMode === 'edit' ? selectedArticleId : `art-${Date.now()}`,
         title: title.trim(),
@@ -193,7 +223,8 @@ const AdminNews = () => {
         category,
         read_time_minutes: parseInt(readTime, 10) || 3,
         is_published: isPublished,
-        created_at: existing?.created_at || new Date().toISOString()
+        published_at: parsedPublishedAt,
+        created_at: existing?.created_at || parsedPublishedAt
       };
 
       await saveNewsArticle(payload);
@@ -426,7 +457,7 @@ const AdminNews = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div>
                     <label className="block font-semibold mb-1 text-gray-700 dark:text-green-200">Category *</label>
                     <select
@@ -444,6 +475,16 @@ const AdminNews = () => {
                     </select>
                   </div>
                   <div>
+                    <label className="block font-semibold mb-1 text-gray-700 dark:text-green-200">Publication Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={publishedDate}
+                      onChange={(e) => setPublishedDate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-300 dark:border-[#138601]/40 text-gray-900 dark:text-white focus:outline-none focus:border-[#138601]"
+                    />
+                  </div>
+                  <div>
                     <label className="block font-semibold mb-1 text-gray-700 dark:text-green-200">Author / Desk</label>
                     <input
                       type="text"
@@ -454,7 +495,7 @@ const AdminNews = () => {
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold mb-1 text-gray-700 dark:text-green-200">Read Time (minutes)</label>
+                    <label className="block font-semibold mb-1 text-gray-700 dark:text-green-200">Read Time (min)</label>
                     <input
                       type="number"
                       min={1}

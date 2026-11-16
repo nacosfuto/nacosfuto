@@ -516,11 +516,12 @@ const AdminEvents = () => {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Aug 15, 2026"
+                      placeholder="e.g. Aug 15, 2026 or Oct 10, 2025"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-300 dark:border-[#138601]/40 text-gray-900 dark:text-white focus:outline-none focus:border-[#138601]"
                     />
+                    <p className="text-[11px] text-gray-400 mt-1">Set any date (past, present, or upcoming).</p>
                   </div>
                   <div>
                     <label className="block font-semibold mb-1 text-gray-700 dark:text-green-200">Time</label>

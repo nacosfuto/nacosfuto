@@ -341,6 +341,13 @@ export async function saveNewsArticle(articleData) {
     updated = [record, ...current];
   }
 
+  // Sort chronologically descending by publication date
+  updated.sort((a, b) => {
+    const timeA = new Date(a.published_at || a.created_at || 0).getTime();
+    const timeB = new Date(b.published_at || b.created_at || 0).getTime();
+    return timeB - timeA;
+  });
+
   // 1. Authoritative live sync to Supabase store_news FIRST
   try {
     if (supabase) {
