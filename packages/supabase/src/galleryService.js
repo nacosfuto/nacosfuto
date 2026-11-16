@@ -30,10 +30,15 @@ function normalizeItem(item) {
   };
 }
 
+let memoryGalleryItems = null;
+
 /**
  * Get current gallery items from local storage with fallback to INITIAL_GALLERY
  */
 export function getGalleryItems() {
+  if (memoryGalleryItems && Array.isArray(memoryGalleryItems) && memoryGalleryItems.length > 0) {
+    return memoryGalleryItems;
+  }
   if (typeof window === 'undefined') {
     return [];
   }
@@ -54,11 +59,26 @@ export function getGalleryItems() {
 }
 
 export function saveLocalGalleryItems(items, { notify = true } = {}) {
-  if (typeof window === 'undefined') return;
+  if (!items || !Array.isArray(items)) return;
   const normalized = items.map(normalizeItem);
-  localStorage.setItem(GALLERY_STORAGE_KEY, JSON.stringify(normalized));
+  memoryGalleryItems = normalized;
+  if (typeof window === 'undefined') return;
+
+  try {
+    localStorage.setItem(GALLERY_STORAGE_KEY, JSON.stringify(normalized));
+  } catch (err) {
+    console.warn('[galleryService] localStorage quota exceeded on saveLocalGalleryItems:', err);
+    try {
+      if (window.sessionStorage) {
+        sessionStorage.setItem(GALLERY_STORAGE_KEY, JSON.stringify(normalized.slice(0, 30)));
+      }
+    } catch (_) {}
+  }
+
   if (notify) {
-    window.dispatchEvent(new Event('nacos_website_gallery_updated'));
+    try {
+      window.dispatchEvent(new Event('nacos_website_gallery_updated'));
+    } catch (_) {}
   }
 }
 

@@ -28,38 +28,58 @@ function normalizeEvent(e) {
   };
 }
 
+let memoryEvents = null;
+
 /**
  * Get events from local storage with fallback to INITIAL_EVENTS
  */
 export function getEvents({ category = 'all', publishedOnly = false } = {}) {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-  try {
-    const raw = localStorage.getItem(EVENTS_STORAGE_KEY);
-    let list = raw ? JSON.parse(raw) : [];
-    if (!list || !Array.isArray(list)) {
+  let list = [];
+  if (memoryEvents && Array.isArray(memoryEvents) && memoryEvents.length > 0) {
+    list = memoryEvents;
+  } else if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(EVENTS_STORAGE_KEY);
+      list = raw ? JSON.parse(raw) : [];
+    } catch (err) {
+      console.warn('Error reading events storage:', err);
       list = [];
     }
-    let normalized = list.map(normalizeEvent);
-    if (publishedOnly) normalized = normalized.filter(e => e.is_published);
-    if (category !== 'all') normalized = normalized.filter(e => e.category === category);
-    return normalized;
-  } catch (err) {
-    console.warn('Error reading events storage:', err);
-    return [];
   }
+
+  if (!list || !Array.isArray(list)) {
+    list = [];
+  }
+  let normalized = list.map(normalizeEvent);
+  if (publishedOnly) normalized = normalized.filter(e => e.is_published);
+  if (category !== 'all') normalized = normalized.filter(e => e.category === category);
+  return normalized;
 }
 
 /**
  * Save updated events array locally and dispatch event
  */
 export function saveLocalEvents(events, { notify = true } = {}) {
-  if (typeof window === 'undefined') return;
+  if (!events || !Array.isArray(events)) return;
   const normalized = events.map(normalizeEvent);
-  localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(normalized));
+  memoryEvents = normalized;
+  if (typeof window === 'undefined') return;
+
+  try {
+    localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(normalized));
+  } catch (err) {
+    console.warn('[eventsService] localStorage quota exceeded on saveLocalEvents:', err);
+    try {
+      if (window.sessionStorage) {
+        sessionStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(normalized.slice(0, 30)));
+      }
+    } catch (_) {}
+  }
+
   if (notify) {
-    window.dispatchEvent(new Event('nacos_website_events_updated'));
+    try {
+      window.dispatchEvent(new Event('nacos_website_events_updated'));
+    } catch (_) {}
   }
 }
 
