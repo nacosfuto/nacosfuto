@@ -4,6 +4,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuthStore } from '../../stores/authStore';
 import { getAppUrls } from '@nacos/config/urls';
 import upskillLogo from '../../assets/upskill-full-logo.png';
+import upskillLogoMark from '../../assets/upskill-logo-mark.png';
 import { FiMenu, FiX, FiSearch, FiUser, FiRefreshCw, FiPlusCircle, FiBookOpen } from 'react-icons/fi';
 import { CirclePower } from 'lucide-react';
 import { BsSun, BsMoon } from 'react-icons/bs';
