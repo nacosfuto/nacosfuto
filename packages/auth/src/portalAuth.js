@@ -26,7 +26,11 @@ const STUDENT_USER_SESSION_KEY = 'nacos_user';
 export {
   loginPortalAdmin,
   logoutPortalAdmin,
-  getPortalAdminSession
+  getPortalAdminSession,
+  verifyLiveAdminSession,
+  superAdminResendInvite,
+  requestAdminPasswordReset,
+  confirmAdminPasswordReset
 };
 
 export function getStudentSession() {

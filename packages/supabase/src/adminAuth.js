@@ -1,5 +1,5 @@
 import { supabase } from './client.js';
-import { hashPassword, verifyPassword } from './auth.js';
+import { hashPassword, hashPasswordPBKDF2, verifyPassword } from './auth.js';
 import { maskEmail } from './otpService.js';
 import { sendPasswordResetEmail } from './emailService.js';
 
@@ -869,7 +869,7 @@ export async function requestAdminPasswordReset(adminEmail) {
 
   const cleanEmail = adminEmail.trim().toLowerCase();
 
-  // 1. Try serverless endpoint
+  // 1. Try serverless endpoint first
   try {
     const res = await fetch('/api/admin/auth/forgot-password', {
       method: 'POST',
@@ -878,10 +878,10 @@ export async function requestAdminPasswordReset(adminEmail) {
     });
 
     const data = await res.json().catch(() => ({}));
-    if (res.ok && data.success) {
+    if (data.success) {
       return { success: true, maskedEmail: data.maskedEmail, expiresAt: data.expiresAt };
     }
-    if (!res.ok && data.error) {
+    if (data.error) {
       return { success: false, error: data.error, retryAfterSeconds: data.retryAfterSeconds };
     }
   } catch (_) {}
@@ -893,7 +893,7 @@ export async function requestAdminPasswordReset(adminEmail) {
 
   const { data: adminRecord } = await supabase
     .from('admin_scopes')
-    .select('id, email, full_name, role, is_active')
+    .select('id, email, full_name, role, scope, is_active')
     .ilike('email', cleanEmail)
     .maybeSingle();
 
@@ -967,20 +967,25 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
   }
 
   const cleanEmail = adminEmail.trim().toLowerCase();
+  const cleanOtp = String(otpCode || '').replace(/\D/g, '').trim();
 
-  // 1. Try serverless endpoint
+  if (!cleanOtp || cleanOtp.length !== 6) {
+    return { success: false, error: 'Please enter a valid 6-digit verification code.' };
+  }
+
+  // 1. Try serverless endpoint first
   try {
     const res = await fetch('/api/admin/auth/reset-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: cleanEmail, otp: otpCode, newPassword })
+      body: JSON.stringify({ email: cleanEmail, otp: cleanOtp, newPassword })
     });
 
     const data = await res.json().catch(() => ({}));
-    if (res.ok && data.success) {
+    if (data.success) {
       return { success: true, message: data.message };
     }
-    if (!res.ok && data.error) {
+    if (data.error) {
       return { success: false, error: data.error };
     }
   } catch (_) {}
@@ -988,11 +993,94 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
   // 2. Direct Supabase Fallback
   if (!supabase) return { success: false, error: 'Database offline.' };
 
-  const newHash = await hashPassword(newPassword);
+  const { data: adminRecord } = await supabase
+    .from('admin_scopes')
+    .select('id, email, full_name, role, is_active')
+    .ilike('email', cleanEmail)
+    .maybeSingle();
+
+  if (!adminRecord) {
+    return { success: false, error: 'No administrator account found with that email address.' };
+  }
+
+  if (adminRecord.is_active === false) {
+    return { success: false, error: 'This administrator account is currently suspended. Contact the Super Admin.' };
+  }
+
+  // Calculate browser client candidate hashes
+  let candidateSalted = cleanOtp;
+  let candidateUnsalted = cleanOtp;
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      const enc = new TextEncoder();
+      const bufSalted = await crypto.subtle.digest('SHA-256', enc.encode(cleanOtp + 'nacos_otp_salt_2026'));
+      candidateSalted = Array.from(new Uint8Array(bufSalted)).map(b => b.toString(16).padStart(2, '0')).join('');
+      const bufUnsalted = await crypto.subtle.digest('SHA-256', enc.encode(cleanOtp));
+      candidateUnsalted = Array.from(new Uint8Array(bufUnsalted)).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (_) {}
+  }
+
+  const { data: challenges, error: fetchErr } = await supabase
+    .from('otp_verifications')
+    .select('id, registration_number, destination_full, otp_hash, is_used, expires_at, created_at, attempts, max_attempts')
+    .or(`destination_full.ilike.${cleanEmail},registration_number.eq.ADMIN-${adminRecord.id}`)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (fetchErr) {
+    console.error('[Admin Reset Fallback Query Error]:', fetchErr);
+  }
+
+  const challengeList = challenges || [];
+  const matched = challengeList.find(c => 
+    c.otp_hash === candidateSalted ||
+    c.otp_hash === cleanOtp ||
+    c.otp_hash === candidateUnsalted
+  );
+
+  if (!matched) {
+    const activeChallenge = challengeList.find(c => !c.is_used);
+    if (activeChallenge) {
+      await supabase
+        .from('otp_verifications')
+        .update({ attempts: (activeChallenge.attempts || 0) + 1 })
+        .eq('id', activeChallenge.id);
+    }
+    return { success: false, error: 'Invalid or expired verification code. Please request a new one.' };
+  }
+
+  if (matched.is_used) {
+    return { success: false, error: 'This verification code has already been used. Please request a new code.' };
+  }
+
+  if ((matched.attempts || 0) >= (matched.max_attempts || 5)) {
+    return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
+  }
+
+  const expiryTime = matched.expires_at ? new Date(matched.expires_at).getTime() : 0;
+  if (expiryTime > 0 && Date.now() > expiryTime + 10 * 60 * 1000) {
+    return { success: false, error: 'This verification code has expired. Please request a new code.' };
+  }
+
+  const nowIso = new Date().toISOString();
+  await supabase
+    .from('otp_verifications')
+    .update({ is_used: true, verified_at: nowIso })
+    .eq('id', matched.id);
+
+  try {
+    await supabase
+      .from('otp_verifications')
+      .update({ is_used: true })
+      .eq('registration_number', `ADMIN-${adminRecord.id}`)
+      .eq('is_used', false);
+  } catch (_) {}
+
+  const newHash = await hashPasswordPBKDF2(newPassword);
   const { error: updateErr } = await supabase
     .from('admin_scopes')
-    .update({ password_hash: newHash, updated_at: new Date().toISOString() })
-    .ilike('email', cleanEmail);
+    .update({ password_hash: newHash, updated_at: nowIso })
+    .eq('id', adminRecord.id);
 
   if (updateErr) {
     return { success: false, error: `Failed to update password: ${updateErr.message}` };
