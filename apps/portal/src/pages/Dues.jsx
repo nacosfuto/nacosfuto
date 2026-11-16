@@ -49,11 +49,11 @@ import PosThermalReceipt from '../components/PosThermalReceipt';
  */
 export const getProgressiveLevels = (u) => {
   if (!u) return ['100'];
-  if (u.is_graduated || String(u.level).toLowerCase().includes('graduat') || String(u.status).toLowerCase() === 'graduated') {
+  const progression = calculateAcademicProgression(u, getActiveAcademicSession());
+  if (progression && progression.valid && progression.isGraduated) {
     return ['100', '200', '300', '400', '500'];
   }
 
-  const progression = calculateAcademicProgression(u, getActiveAcademicSession());
   let lvlNum = 100;
 
   if (progression && progression.valid && progression.numericLevel) {
@@ -189,6 +189,15 @@ const Dues = () => {
     const pLevels = getProgressiveLevels(user);
     return pLevels[pLevels.length - 1] || '100';
   });
+
+  // Keep formLevel bounded to progressive levels when session shifts
+  useEffect(() => {
+    const pLevels = getProgressiveLevels(user);
+    const topLevel = pLevels[pLevels.length - 1] || '100';
+    if (!pLevels.includes(formLevel)) {
+      setFormLevel(topLevel);
+    }
+  }, [user, formLevel]);
 
   // Cross-tab Gateway Waiting & Polling State
   const [isAwaitingGateway, setIsAwaitingGateway] = useState(false);
@@ -1120,20 +1129,7 @@ const Dues = () => {
   const progression = calculateAcademicProgression(user, getActiveAcademicSession());
   const admissionYear = progression?.admissionYear || extractEntryYearFromRegNumber(user?.registration_number || user?.matric) || 2024;
   const reachableLevels = getProgressiveLevels(user);
-  const paidHistoricalLevels = Object.keys(levelDuesMap).filter(lvl => {
-    const p = levelDuesMap[lvl];
-    return p && p.isPaid && !reachableLevels.includes(lvl);
-  });
-  const paidFromHistoryLevels = paymentHistoryList
-    .filter(p => p.isPaid)
-    .map(p => String(p.levelNum || p.level || '').match(/\d{3}/)?.[0])
-    .filter(Boolean);
-  const ACADEMIC_LEVELS = Array.from(new Set([
-    ...reachableLevels,
-    ...paidHistoricalLevels,
-    ...paidFromHistoryLevels,
-    ...Array.from(confirmedPaidLevelsRef.current)
-  ])).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+  const ACADEMIC_LEVELS = reachableLevels;
 
   const duesRowsByLevel = ACADEMIC_LEVELS.map(lvl => {
     const lvlNum = parseInt(lvl, 10);

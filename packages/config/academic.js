@@ -409,6 +409,15 @@ export function parseAdmissionYear(identifier, currentYearStart = getActiveAcade
     }
   }
 
+  // Also check if there is a 4-digit year embedded in the registration number (e.g. FUTO/2024/..., 2024/..., 2024-...)
+  const embeddedMatch = cleaned.match(/(?:^|[\/\-_A-Za-z\s])(19\d{2}|20\d{2})(?:[\/\-_A-Za-z\s]|$)/);
+  if (embeddedMatch) {
+    const year = parseInt(embeddedMatch[1], 10);
+    if (year >= 1980 && year <= currentYearStart + 10) {
+      return { valid: true, admissionYear: year };
+    }
+  }
+
   return { 
     valid: false, 
     error: 'Admission year could not be inferred from registration number. Please use the database student record.' 
@@ -554,14 +563,17 @@ export function calculateAcademicProgression(input, options = {}) {
       }
     }
 
-    if (
-      input.is_graduated === true || 
-      input.isGraduated === true || 
-      input.status === 'graduated' || 
-      input.level === 'Graduated' ||
-      input.current_level === 'Graduated'
-    ) {
-      isGraduatedOverride = true;
+    // Only use historical is_graduated flag if admission year could NOT be derived
+    if (!rawAdmissionYear || isNaN(rawAdmissionYear)) {
+      if (
+        input.is_graduated === true || 
+        input.isGraduated === true || 
+        input.status === 'graduated' || 
+        input.level === 'Graduated' ||
+        input.current_level === 'Graduated'
+      ) {
+        isGraduatedOverride = true;
+      }
     }
   }
 

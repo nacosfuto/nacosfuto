@@ -279,12 +279,7 @@ const Dashboard = () => {
   };
 
   const progression = calculateAcademicProgression(user);
-  const isGraduated = Boolean(
-    progression.isGraduated || 
-    user.is_graduated || 
-    String(user.level || '').toLowerCase().startsWith('graduated') || 
-    String(user.status || '').toLowerCase() === 'graduated'
-  );
+  const isGraduated = Boolean(progression.isGraduated);
   const graduationYear = user.graduation_year || user.expected_graduation_year || new Date().getFullYear();
   const isRevoked = String(user.payment_status).toLowerCase() === 'revoked';
 

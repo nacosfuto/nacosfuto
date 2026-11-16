@@ -294,6 +294,16 @@ export function initAcademicSessionSync() {
   // 5. Automatically re-enrich local user profile when active academic session changes
   onAcademicSessionChange(({ sessionName }) => {
     try {
+      if (typeof window !== 'undefined') {
+        try {
+          Object.keys(sessionStorage).forEach((key) => {
+            if (key.startsWith('nacos_cache_student_clearance_')) {
+              sessionStorage.removeItem(key);
+            }
+          });
+        } catch (_) {}
+        window.dispatchEvent(new CustomEvent('nacos_student_cache_invalidated', { detail: {} }));
+      }
       const stored = localStorage.getItem('nacos_user');
       if (stored) {
         const u = JSON.parse(stored);
@@ -307,13 +317,14 @@ export function initAcademicSessionSync() {
           current_level: progression.levelString,
           numeric_level: progression.numericLevel,
           is_graduated: progression.isGraduated,
-          status: progression.isGraduated ? 'Graduated' : (u.status || 'Active'),
+          status: progression.isGraduated ? 'Graduated' : (u.status === 'Graduated' ? 'Active' : (u.status || 'Active')),
           class_of: progression.classOf,
           classOf: progression.classOf,
           class_of_display: progression.classOfDisplay,
           graduation_year: progression.expectedGraduationYear,
           expected_graduation_year: progression.expectedGraduationYear,
-          academic_session: sessionName
+          academic_session: sessionName,
+          role: progression.isGraduated ? (u.role === 'Student Member' ? 'Alumni Member' : (u.role || 'Alumni Member')) : (u.role === 'Alumni Member' ? 'Student Member' : (u.role || 'Student Member'))
         };
         localStorage.setItem('nacos_user', JSON.stringify(updated));
         window.dispatchEvent(new Event('nacos_user_updated'));
@@ -488,13 +499,14 @@ export async function setActiveAcademicSessionInDatabase(sessionIdentifier) {
           current_level: progression.levelString,
           numeric_level: progression.numericLevel,
           is_graduated: progression.isGraduated,
-          status: progression.isGraduated ? 'Graduated' : (u.status || 'Active'),
+          status: progression.isGraduated ? 'Graduated' : (u.status === 'Graduated' ? 'Active' : (u.status || 'Active')),
           class_of: progression.classOf,
           classOf: progression.classOf,
           class_of_display: progression.classOfDisplay,
           graduation_year: progression.expectedGraduationYear,
           expected_graduation_year: progression.expectedGraduationYear,
-          academic_session: targetSessionName
+          academic_session: targetSessionName,
+          role: progression.isGraduated ? (u.role === 'Student Member' ? 'Alumni Member' : (u.role || 'Alumni Member')) : (u.role === 'Alumni Member' ? 'Student Member' : (u.role || 'Student Member'))
         };
         localStorage.setItem('nacos_user', JSON.stringify(updated));
       }

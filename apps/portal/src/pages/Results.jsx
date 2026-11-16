@@ -115,11 +115,9 @@ const Results = () => {
   }, [user, activeSession]);
 
   const currentLevel = useMemo(() => {
-    if (user.is_graduated || user.level === 'Graduated' || String(user.level).toLowerCase().includes('graduat')) {
-      return 500;
-    }
-    if (progression && progression.valid && progression.numericLevel) {
-      return Math.min(500, Math.max(100, progression.numericLevel * 100));
+    if (progression && progression.valid) {
+      if (progression.isGraduated) return 500;
+      if (progression.numericLevel) return Math.min(500, Math.max(100, progression.numericLevel * 100));
     }
     const levelStr = (user.level || user.current_level || '').toString();
     const match = levelStr.match(/(\d{3})/);

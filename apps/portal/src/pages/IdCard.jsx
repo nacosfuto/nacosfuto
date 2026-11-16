@@ -1539,37 +1539,9 @@ const IdCard = ({ viewMode = false }) => {
     return isNaN(obNum) || obNum <= activeLevelNum;
   });
 
-  // Preserve any historical paid records that might exist for other levels (e.g. if admin moved session backwards)
-  const paidHistoricalPayments = idCardPayments.filter(p => {
-    if (!p.isPaid) return false;
-    const pLvlNum = parseInt(String(p.level || '').replace(/[^0-9]/g, ''), 10);
-    return pLvlNum && !applicableObligations.some(ob => parseInt(String(ob.level).replace(/[^0-9]/g, ''), 10) === pLvlNum);
-  });
-
-  const historicalPaidObligations = paidHistoricalPayments.map(p => {
-    const lvlNum = parseInt(String(p.level).replace(/[^0-9]/g, ''), 10) || 100;
-    const lvlStr = `${lvlNum} Level`;
-    return {
-      levelNumber: Math.floor(lvlNum / 100),
-      numericLevel: lvlNum,
-      levelCode: `${lvlNum}`,
-      level: lvlStr,
-      levelString: lvlStr,
-      session: p.session || currentAcademicSession,
-      academicSession: p.session || currentAcademicSession,
-      isCurrent: false,
-      isHistoricalPaid: true
-    };
-  });
-
-  const mergedObligations = [...applicableObligations, ...historicalPaidObligations].sort((a, b) => {
-    const lA = parseInt(String(a.level).replace(/[^0-9]/g, ''), 10) || 0;
-    const lB = parseInt(String(b.level).replace(/[^0-9]/g, ''), 10) || 0;
-    return lA - lB;
-  });
-
-  // Map each applicable obligation to its payment status from database
-  const levelObligations = mergedObligations.map(ob => {
+  // Visible active obligations strictly adhere to reached levels under active progression.
+  // All historical payment records for past or future levels are safely preserved in the database.
+  const levelObligations = applicableObligations.map(ob => {
     const obLvlNum = String(ob.level).replace(/[^0-9]/g, '');
     const obSess = String(ob.session).trim();
 
