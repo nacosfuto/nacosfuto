@@ -239,7 +239,7 @@ const News = ({ isArticlePage }) => {
                     onKeyDown={(e) => { if (e.key === 'Enter') handleOpenArticle(item); }}
                   >
                     <img
-                      src={item.cover_image_url || item.image}
+                      src={item.cover_image_url || item.image || getCloudinaryAssetUrl('research') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569339/nacos/gallery/research.jpg'}
                       alt={item.title}
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
                     />
@@ -301,7 +301,7 @@ const News = ({ isArticlePage }) => {
               {/* Header Cover Banner */}
               <div className="relative h-72 sm:h-96 md:h-[420px] w-full bg-gray-950 shrink-0">
                 <img
-                  src={activeArticleModal.cover_image_url || activeArticleModal.image}
+                  src={activeArticleModal.cover_image_url || activeArticleModal.image || getCloudinaryAssetUrl('research') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569339/nacos/gallery/research.jpg'}
                   alt={activeArticleModal.title}
                   className="w-full h-full object-cover"
                 />

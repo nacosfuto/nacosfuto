@@ -118,7 +118,8 @@ const AdminNews = () => {
     setAuthor(art.author || 'NACOS Press Desk');
     setCategory(art.category || 'Research & Journal');
     setReadTime(art.read_time_minutes || 3);
-    setCoverUrl(art.cover_image_url || art.image || '');
+    const existingImg = art.cover_image_url || art.image || (art.cloudinary_public_id ? getCloudinaryAssetUrl(art.cloudinary_public_id) : '');
+    setCoverUrl(existingImg);
     setCoverPublicId(art.cloudinary_public_id || '');
     setIsPublished(art.is_published !== false);
     setIsEditorOpen(true);
@@ -185,8 +186,8 @@ const AdminNews = () => {
         summary: summary.trim(),
         excerpt: summary.trim(),
         content: content.trim(),
-        cover_image_url: coverUrl || existing?.cover_image_url || getCloudinaryAssetUrl('research') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569339/nacos/gallery/research.jpg',
-        image: coverUrl || existing?.cover_image_url || getCloudinaryAssetUrl('research') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569339/nacos/gallery/research.jpg',
+        cover_image_url: coverUrl || existing?.cover_image_url || existing?.image || '',
+        image: coverUrl || existing?.cover_image_url || existing?.image || '',
         cloudinary_public_id: coverPublicId || existing?.cloudinary_public_id || null,
         author: author.trim() || 'NACOS Press Desk',
         category,
@@ -505,8 +506,11 @@ const AdminNews = () => {
                     folder={CLOUDINARY_FOLDERS.NEWS}
                     label={editorMode === 'edit' ? 'Replace Cover Image (Cloudinary CDN)' : 'Official Cover Image (Cloudinary CDN)'}
                     aspectRatio="landscape"
-                    onUploadSuccess={({ url, publicId }) => {
-                      setCoverUrl(url);
+                    currentImageUrl={coverUrl}
+                    currentPublicId={coverPublicId}
+                    onUploadSuccess={({ url, publicId, secure_url, secureUrl }) => {
+                      const finalUrl = secure_url || secureUrl || url;
+                      setCoverUrl(finalUrl);
                       setCoverPublicId(publicId);
                     }}
                   />

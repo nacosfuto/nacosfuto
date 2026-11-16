@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   ShieldCheck, 
-  CheckCircle2, 
   Users, 
   Vote, 
   RefreshCw, 
@@ -10,7 +10,8 @@ import {
   Award,
   Wifi,
   Zap,
-  BarChart3
+  BarChart3,
+  ArrowLeft
 } from 'lucide-react';
 import { 
   getLiveElectionResults, 
@@ -199,110 +200,74 @@ export default function LiveResultsPage() {
     return () => clearTimeout(timeout);
   }, [recentUpdates]);
 
-  const { totalBallots, resultsByPost, turnoutByLevel, lastUpdated } = resultsData;
+  const { totalBallots, resultsByPost, lastUpdated } = resultsData;
 
   return (
     <div className="py-10 site-container bg-[#F8FAFC]">
       
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
-        <div className="space-y-2">
-
-
-          <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 font-display">
-            Live Election Results
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-            Live updates of certified ballots. All results are certified by NACOS ISEC.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => fetchAuthoritative(true)}
-            disabled={isRefreshing}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-[5px] text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 cursor-pointer shadow-2xs transition-colors disabled:opacity-50"
+      {/* Top Header Card matching reference */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 mb-8 shadow-xs">
+        {/* Navigation link */}
+        <div className="mb-4">
+          <Link
+            to="/electra"
+            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors group"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#138601] ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>Refresh Results</span>
-          </button>
+            <span className="transition-transform group-hover:-translate-x-0.5">&larr;</span>
+            <span>Back to elections</span>
+          </Link>
         </div>
-      </div>
 
-      {/* Top Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        
-        {/* Total Ballots */}
-        <div className="p-5 sm:p-6 rounded-[5px] bg-white border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-slate-500">Total Certified Ballots</span>
-            <div className="w-8 h-8 rounded-[4px] bg-green-50 text-[#138601] flex items-center justify-center">
-              <Vote className="w-4 h-4 stroke-[2.2]" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          {/* Left Side: Badges, Title, Subtitle */}
+          <div className="space-y-2">
+            {/* Badges Row */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Active Pill Badge */}
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                <span>{activeElection?.status ? (activeElection.status.charAt(0).toUpperCase() + activeElection.status.slice(1)) : 'Active'}</span>
+              </span>
+
+              {/* Verified Shield Badge */}
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold tracking-wider text-amber-500 uppercase">
+                <ShieldCheck className="w-4 h-4 text-amber-400 fill-amber-400/20 stroke-[2.2]" />
+                <span>VERIFIED BY NACOS ISEC</span>
+              </div>
+            </div>
+
+            {/* Election Title */}
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight font-display">
+              {activeElection?.title || 'Honourée Alumni Council 2025'}
+            </h1>
+
+            {/* Subtitle */}
+            <p className="text-xs sm:text-sm text-slate-500 font-normal">
+              Live results, updated in real time.
+            </p>
+          </div>
+
+          {/* Right Side: Total Ballots Floating Card */}
+          <div className="bg-white border border-slate-100 rounded-2xl px-6 py-4 shadow-sm text-center md:text-right shrink-0 min-w-[140px] self-start md:self-center">
+            <span className="text-xs font-medium text-slate-500 block mb-1">
+              Total ballots
+            </span>
+            <div className="flex items-center justify-center md:justify-end gap-2">
+              <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display tracking-tight">
+                {(totalBallots || 0).toLocaleString()}
+              </span>
+              <button
+                type="button"
+                onClick={() => fetchAuthoritative(true)}
+                disabled={isRefreshing}
+                title="Refresh Results"
+                className="p-1 rounded text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-40 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#138601]' : ''}`} />
+              </button>
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display">
-            {(totalBallots || 0).toLocaleString()}
-          </div>
-          <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1 mt-2">
-            <CheckCircle2 className="w-3.5 h-3.5 inline" /> Certified Ballots
-          </p>
         </div>
-
-        {/* Turnout Analysis */}
-        <div className="p-5 sm:p-6 rounded-[5px] bg-white border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-slate-500">Turnout by Level</span>
-            <div className="w-8 h-8 rounded-[4px] bg-green-50 text-[#138601] flex items-center justify-center">
-              <Users className="w-4 h-4 stroke-[2.2]" />
-            </div>
-          </div>
-          <div className="text-xl font-bold text-slate-900 font-display">
-            {(() => {
-              const activeCohorts = turnoutByLevel
-                ? Object.entries(turnoutByLevel).filter(([_, cnt]) => Number(cnt) > 0).sort((a, b) => b[1] - a[1])
-                : [];
-              if (activeCohorts.length > 0) {
-                return `${activeCohorts[0][0]} (${activeCohorts[0][1]} ${activeCohorts[0][1] === 1 ? 'vote' : 'votes'})`;
-              }
-              return totalBallots > 0 ? 'All Cohorts' : 'No Turnout Yet';
-            })()}
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[11px] text-slate-500">
-            {(() => {
-              const activeCohorts = turnoutByLevel
-                ? Object.entries(turnoutByLevel).filter(([_, cnt]) => Number(cnt) > 0).sort((a, b) => b[1] - a[1])
-                : [];
-              if (activeCohorts.length > 0) {
-                return activeCohorts.slice(0, 3).map(([lvl, cnt]) => (
-                  <span key={lvl} className="px-2 py-0.5 rounded-[3px] bg-green-50 text-[#138601] font-bold border border-green-200">
-                    {lvl}: {cnt}
-                  </span>
-                ));
-              }
-              return (
-                <span className="text-slate-400 italic">Awaiting live ballot submissions</span>
-              );
-            })()}
-          </div>
-        </div>
-
-        {/* Audit Status */}
-        <div className="p-5 sm:p-6 rounded-[5px] bg-white border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-slate-500">Electoral Integrity</span>
-            <div className="w-8 h-8 rounded-[4px] bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4 stroke-[2.2]" />
-            </div>
-          </div>
-          <div className="text-xl font-bold text-[#138601] font-display">
-            Certified by NACOS ISEC
-          </div>
-          <p className="text-[11px] text-slate-500 mt-2">
-            One voter, one vote. Results update in real-time.
-          </p>
-        </div>
-
       </div>
 
       {/* Results by Contested Position */}

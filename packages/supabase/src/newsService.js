@@ -6,7 +6,7 @@
 
 import { supabase, isSupabaseConfigured } from './client.js';
 import { syncMediaAsset, deleteMediaAsset } from './media.js';
-import { CLOUDINARY_FOLDERS } from '@nacos/media';
+import { CLOUDINARY_FOLDERS, getOptimizedImageUrl, getCloudinaryAssetUrl } from '@nacos/media';
 
 export const NEWS_STORAGE_KEY = 'nacos_website_articles_store';
 
@@ -19,6 +19,14 @@ export function normalizeArticle(a) {
     formattedDate = new Date(publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   } catch (e) {}
 
+  let cover = a.cover_image_url || a.image || '';
+  if (!cover && a.cloudinary_public_id) {
+    cover = getOptimizedImageUrl(a.cloudinary_public_id);
+  }
+  if (!cover) {
+    cover = getCloudinaryAssetUrl('research') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569339/nacos/gallery/research.jpg';
+  }
+
   return {
     ...a,
     id: a.id || `art-${Date.now()}`,
@@ -27,8 +35,8 @@ export function normalizeArticle(a) {
     summary: a.summary || a.excerpt || '',
     excerpt: a.summary || a.excerpt || '',
     content: a.content || a.summary || a.excerpt || '',
-    cover_image_url: a.cover_image_url || a.image || '',
-    image: a.cover_image_url || a.image || '',
+    cover_image_url: cover,
+    image: cover,
     cloudinary_public_id: a.cloudinary_public_id || null,
     author: a.author || 'NACOS Press Desk',
     category: a.category || 'Tech & Academics',
@@ -189,11 +197,20 @@ export async function saveNewsArticle(articleData) {
   const id = articleData.id || `art-${Date.now()}`;
   const now = new Date().toISOString();
   
+  let cover = articleData.cover_image_url || articleData.image || '';
+  if (!cover && articleData.cloudinary_public_id) {
+    cover = getOptimizedImageUrl(articleData.cloudinary_public_id);
+  }
+  if (!cover) {
+    cover = getCloudinaryAssetUrl('research') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569339/nacos/gallery/research.jpg';
+  }
+
   const record = normalizeArticle({
     ...articleData,
     id,
-    cover_image_url: String(articleData.cover_image_url || articleData.image || '').startsWith('data:') ? '' : (articleData.cover_image_url || articleData.image || ''),
-    image: String(articleData.cover_image_url || articleData.image || '').startsWith('data:') ? '' : (articleData.cover_image_url || articleData.image || ''),
+    cover_image_url: cover,
+    image: cover,
+    cloudinary_public_id: articleData.cloudinary_public_id || null,
     slug: articleData.slug || articleData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
     updated_at: now,
     created_at: articleData.created_at || now,
@@ -222,6 +239,21 @@ export async function saveNewsArticle(articleData) {
     }
   } catch (err) {
     console.warn('Supabase store_news save error:', err);
+  }
+
+  // Also sync to media_assets
+  if (record.cover_image_url) {
+    try {
+      await syncMediaAsset({
+        category: 'news',
+        entityId: record.slug || record.id,
+        imageUrl: record.cover_image_url,
+        cloudinaryPublicId: record.cloudinary_public_id,
+        imageAlt: JSON.stringify(record)
+      });
+    } catch (e) {
+      console.warn('Could not sync news to media_assets:', e);
+    }
   }
 
 

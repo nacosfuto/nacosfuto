@@ -11,6 +11,7 @@ import {
   Sparkles, 
   ExternalLink 
 } from 'lucide-react';
+import VerifiedCheckmark from './VerifiedCheckmark';
 import { castBallot, getElectraPosts, getContestants, fetchLiveElectraData } from '@nacos/supabase/electraService';
 import { calculateAcademicProgression } from '@nacos/config/academic';
 
@@ -135,8 +136,8 @@ export default function BallotVotingModal({
           {/* Success State */}
           {castSuccessReceipt ? (
             <div className="text-center py-6 space-y-4">
-              <div className="w-14 h-14 rounded-full bg-green-50 text-[#138601] border-2 border-[#138601] flex items-center justify-center mx-auto animate-bounce">
-                <CheckCircle2 className="w-8 h-8 stroke-[2.5]" />
+              <div className="flex justify-center">
+                <VerifiedCheckmark className="w-14 h-14" color="#138601" />
               </div>
 
               <div className="space-y-1">
@@ -163,7 +164,7 @@ export default function BallotVotingModal({
                   <span className="text-slate-900">{new Date(castSuccessReceipt.timestamp).toLocaleTimeString()}</span>
                 </div>
                 <div className="space-y-1 pt-1">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-widest block">Receipt Hash</span>
+                  <span className="text-[10px] text-slate-500 uppercase tracking-widest block">Confirmation Receipt Code</span>
                   <div className="p-2 rounded-[4px] bg-white border border-slate-200 text-[11px] text-[#138601] break-all select-all font-mono">
                     {castSuccessReceipt.ballotHash}
                   </div>

@@ -34,13 +34,14 @@ export default function ElectraNavbar({ voter, onDisconnect }) {
     { label: 'VOTING', path: '/vote' },
     { label: 'LIVE RESULTS', path: '/results' },
     { label: 'MANIFESTOS', path: '/manifestos' },
-    { label: 'GUIDELINES', path: '/guidelines' },
+    { label: 'HOW TO VOTE', path: '/guidelines' },
   ];
 
   const isActive = (path) => {
     if (path === '/') return location.pathname === '/' || location.pathname === '/electra';
     if (path === '/accreditation') return location.pathname.startsWith('/accreditation') || location.pathname.startsWith('/electra/accreditation') || location.pathname.startsWith('/accredit');
     if (path === '/vote') return location.pathname === '/vote' || location.pathname === '/electra/vote' || location.pathname === '/ballot' || location.pathname === '/electra/ballot';
+    if (path === '/guidelines') return location.pathname.startsWith('/guidelines') || location.pathname.startsWith('/how-to-vote') || location.pathname.startsWith('/electra/guidelines') || location.pathname.startsWith('/electra/how-to-vote');
     return location.pathname.startsWith(path);
   };
 

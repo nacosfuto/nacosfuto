@@ -3,7 +3,6 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { 
   ShieldCheck, 
   AlertCircle, 
-  CheckCircle2, 
   ArrowRight, 
   Mail, 
   KeyRound, 
@@ -13,6 +12,7 @@ import {
   Sparkles,
   UserCheck
 } from 'lucide-react';
+import VerifiedCheckmark from '../components/VerifiedCheckmark';
 import { 
   getActiveElection, 
   fetchLiveElectraData,
@@ -160,19 +160,21 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
     return (
       <div className="min-h-[80vh] bg-[#F8FAFC] py-12 sm:py-16 site-container max-w-2xl mx-auto px-4 sm:px-6">
         <div className="bg-white border border-green-200 rounded-[5px] p-8 sm:p-10 shadow-xs text-center space-y-6">
-          <div className="w-16 h-16 rounded-full bg-green-50 border border-green-200 text-[#138601] flex items-center justify-center mx-auto shadow-xs">
-            <CheckCircle2 className="w-8 h-8 stroke-[2.2]" />
+          <div className="flex justify-center">
+            <VerifiedCheckmark className="w-14 h-14" color="#138601" />
           </div>
 
-          <div className="space-y-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#138601] bg-green-50 px-3 py-1 rounded-[3px] border border-green-200">
-              Voter Accreditation Confirmed
-            </span>
+          <div className="space-y-3">
+            <div>
+              <span className="inline-block text-[11px] font-bold uppercase tracking-wider text-[#138601] bg-green-50 px-3.5 py-1.5 rounded-[4px] border border-green-200 shadow-2xs">
+                Voter Accreditation Confirmed
+              </span>
+            </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display">
               You are officially accredited!
             </h1>
             <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-              Welcome, <strong className="text-slate-900">{voter.name || 'Electra Voter'}</strong> ({voter.registrationNumber || voter.matricNumber}). Your digital accreditation has been confirmed for the active election.
+              Welcome, <strong className="text-slate-900 inline-flex items-center gap-1 font-bold">{voter.name || 'Electra Voter'} <VerifiedCheckmark className="w-4 h-4 shrink-0 inline-block" /></strong> ({voter.registrationNumber || voter.matricNumber}). Your digital accreditation has been confirmed for the active election.
             </p>
           </div>
 
@@ -455,7 +457,7 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
 
         {successNotice && !error && (
           <div className="p-3.5 rounded-[5px] bg-green-50 border border-green-200 text-[#138601] text-xs flex items-start gap-2 animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+            <VerifiedCheckmark className="w-4 h-4 shrink-0 mt-0.5" />
             <span className="leading-snug font-medium">{successNotice}</span>
           </div>
         )}
@@ -577,7 +579,7 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
             {(accreditedVoter || wizardData.accreditedVoter) && (
               <div className="p-4 rounded-[5px] bg-green-50 border border-green-200 text-xs space-y-1.5">
                 <div className="flex items-center gap-2 font-bold text-[#138601] text-sm">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <VerifiedCheckmark className="w-4 h-4 shrink-0" />
                   <span>{(accreditedVoter || wizardData.accreditedVoter)?.name}</span>
                 </div>
                 <div className="text-xs text-slate-600 font-mono">

@@ -4,7 +4,6 @@ import {
   X, 
   ShieldCheck, 
   AlertCircle, 
-  CheckCircle2, 
   Lock, 
   ArrowRight, 
   Mail, 
@@ -13,6 +12,7 @@ import {
   Sparkles,
   ChevronLeft
 } from 'lucide-react';
+import VerifiedCheckmark from './VerifiedCheckmark';
 import { 
   getActiveElection, 
   apiAccreditVoter, 
@@ -265,7 +265,7 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
 
         {successNotice && !error && (
           <div className="mb-4 p-3 rounded-[5px] bg-green-50 border border-green-200 text-[#138601] text-xs flex items-start gap-2 animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+            <VerifiedCheckmark className="w-4 h-4 shrink-0 mt-0.5" />
             <span className="leading-snug">{successNotice}</span>
           </div>
         )}
@@ -380,7 +380,7 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
             {accreditedVoter && (
               <div className="p-3 rounded-[5px] bg-green-50 border border-green-200 text-xs space-y-1">
                 <div className="flex items-center gap-1.5 font-bold text-[#138601]">
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <VerifiedCheckmark className="w-3.5 h-3.5 shrink-0" />
                   <span>{accreditedVoter.name}</span>
                 </div>
                 <div className="text-[11px] text-slate-600 font-mono">

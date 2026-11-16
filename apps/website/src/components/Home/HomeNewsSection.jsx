@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaArrowRight, FaCalendarAlt, FaClock } from 'react-icons/fa';
 import ScrollToTopLink from '../ScrollToTopLink';
 import { getLocalNewsArticles, fetchNewsArticles } from '@nacos/supabase';
+import { getCloudinaryAssetUrl } from '@nacos/media';
 
 const HomeNewsSection = () => {
   const [articles, setArticles] = useState(() => {
@@ -66,7 +67,7 @@ const HomeNewsSection = () => {
               {/* Image Banner */}
               <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-gray-900">
                 <img
-                  src={item.cover_image_url || item.image}
+                  src={item.cover_image_url || item.image || getCloudinaryAssetUrl('research') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569339/nacos/gallery/research.jpg'}
                   alt={item.title}
                   className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
                 />

@@ -14,6 +14,7 @@ import {
   FileText,
   RotateCcw
 } from 'lucide-react';
+import VerifiedCheckmark from '../components/VerifiedCheckmark';
 import { 
   getActiveElection, 
   getElectraPosts, 
@@ -243,8 +244,8 @@ export default function VoteNowPage({
         {submittedReceipt && (
           <div className="bg-white border-2 border-[#138601] rounded-[4px] p-6 sm:p-8 shadow-sm space-y-5 animate-in fade-in duration-200">
             <div className="flex items-center gap-3 text-[#138601]">
-              <div className="w-10 h-10 rounded-[3px] bg-green-50 border border-green-200 flex items-center justify-center font-bold">
-                <CheckCircle2 className="w-6 h-6 text-[#138601]" />
+              <div className="flex items-center justify-center">
+                <VerifiedCheckmark className="w-8 h-8" color="#138601" />
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-bold text-slate-900">
@@ -258,7 +259,7 @@ export default function VoteNowPage({
 
             <div className="bg-slate-50 border border-slate-200 rounded-[3px] p-4 sm:p-5 space-y-2.5 text-xs">
               <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                <span className="text-slate-500 font-semibold">Receipt Hash:</span>
+                <span className="text-slate-500 font-semibold">Confirmation Receipt Code:</span>
                 <span className="font-mono font-bold text-[#138601] break-all">{submittedReceipt.receiptHash}</span>
               </div>
               <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
