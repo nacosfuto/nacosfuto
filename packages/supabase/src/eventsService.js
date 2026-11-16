@@ -7,6 +7,7 @@
 import { supabase } from './client.js';
 import { syncMediaAsset, deleteMediaAsset } from './media.js';
 import { recordAdminAction } from './adminAuth.js';
+import { generateUniqueSlug } from './newsService.js';
 import { CLOUDINARY_FOLDERS, getCloudinaryAssetUrl } from '@nacos/media';
 
 export const EVENTS_STORAGE_KEY = 'nacos_website_events_store';
@@ -206,7 +207,10 @@ export async function saveEvent(eventData) {
   const current = await getRemoteStoreEvents();
   const id = eventData.id || `evt-${Date.now()}`;
   const now = new Date().toISOString();
-  const slug = eventData.slug || eventData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  
+  // Ensure slug is collision-free and never replaces an existing event
+  const rawSlug = eventData.slug || eventData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const finalSlug = generateUniqueSlug(rawSlug, current, id);
 
   const cleanImg = String(eventData.image_url || eventData.image || '').startsWith('data:') ? '' : (eventData.image_url || eventData.image || '');
   const normalized = normalizeEvent({
@@ -214,12 +218,13 @@ export async function saveEvent(eventData) {
     id,
     image: cleanImg,
     image_url: cleanImg,
-    slug,
+    slug: finalSlug,
     created_at: eventData.created_at || now,
     updated_at: now
   });
 
-  const existingIdx = current.findIndex(e => e.id === id || e.slug === slug);
+  // Target exclusively by unique ID so duplicate titles never replace previous events
+  const existingIdx = current.findIndex(e => e.id === id);
   let updated;
   if (existingIdx >= 0) {
     updated = [...current];
@@ -228,9 +233,7 @@ export async function saveEvent(eventData) {
     updated = [normalized, ...current];
   }
 
-  saveLocalEvents(updated);
-
-  // Authoritative live sync to Supabase store_events
+  // 1. Authoritative live sync to Supabase store_events FIRST
   try {
     if (supabase) {
       await supabase.from('id_card_settings').upsert({
@@ -242,6 +245,9 @@ export async function saveEvent(eventData) {
   } catch (err) {
     console.warn('Supabase store_events save error:', err);
   }
+
+  // 2. Safe local cache update
+  saveLocalEvents(updated);
 
 
   // 2. Authoritative live write directly to public.website_events table

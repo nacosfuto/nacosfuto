@@ -307,6 +307,35 @@ async function getRemoteStoreNews() {
   return fallback;
 }
 
+/**
+ * Generates a collision-free URL slug.
+ * If the slug already exists on a different article, automatically appends a unique numeric suffix (-2, -3, etc.).
+ */
+export function generateUniqueSlug(baseSlug, existingArticles = [], currentArticleId = null) {
+  let clean = String(baseSlug || 'article')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+  if (!clean) clean = `article-${Date.now()}`;
+
+  // If base already has a numeric suffix like -2, separate the root
+  const match = clean.match(/^(.*?)-(\d+)$/);
+  const root = match ? match[1] : clean;
+  let counter = match ? parseInt(match[2], 10) : 1;
+
+  let candidate = clean;
+  const isConflict = (slugCandidate) => existingArticles.some(
+    a => a && a.slug === slugCandidate && a.id !== currentArticleId
+  );
+
+  while (isConflict(candidate)) {
+    counter++;
+    candidate = `${root}-${counter}`;
+  }
+
+  return candidate;
+}
+
 export async function saveNewsArticle(articleData) {
   const current = await getRemoteStoreNews();
   const id = articleData.id || `art-${Date.now()}`;
@@ -320,19 +349,24 @@ export async function saveNewsArticle(articleData) {
     cover = getCloudinaryAssetUrl('research') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569339/nacos/gallery/research.jpg';
   }
 
+  // Generate collision-free unique slug to prevent replacing/overwriting existing articles
+  const rawSlug = articleData.slug || articleData.title || `article-${Date.now()}`;
+  const uniqueSlug = generateUniqueSlug(rawSlug, current, id);
+
   const record = normalizeArticle({
     ...articleData,
     id,
     cover_image_url: cover,
     image: cover,
     cloudinary_public_id: articleData.cloudinary_public_id || null,
-    slug: articleData.slug || articleData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+    slug: uniqueSlug,
     updated_at: now,
-    created_at: articleData.created_at || now,
+    created_at: articleData.created_at || (articleData.published_at ? articleData.published_at : now),
     published_at: articleData.published_at || (articleData.is_published ? now : null)
   });
 
-  const existingIdx = current.findIndex(a => a.id === id || a.slug === record.slug);
+  // Target exclusively by unique ID so a new article with matching title NEVER replaces an existing one
+  const existingIdx = current.findIndex(a => a.id === id);
   let updated;
   if (existingIdx >= 0) {
     updated = [...current];

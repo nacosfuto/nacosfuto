@@ -22,7 +22,8 @@ import {
   fetchNewsArticles, 
   saveNewsArticle, 
   deleteNewsArticle, 
-  toggleNewsPublish 
+  toggleNewsPublish,
+  generateUniqueSlug
 } from '@nacos/supabase';
 import AdminSaveButton from '../components/AdminSaveButton';
 import { adminToast, getSafeErrorMessage } from '../utils/adminToast';
@@ -59,6 +60,13 @@ const AdminNews = () => {
   const [coverUrl, setCoverUrl] = useState('');
   const [coverPublicId, setCoverPublicId] = useState('');
   const [isPublished, setIsPublished] = useState(true);
+
+  // Real-time slug conflict detection against existing articles
+  const activeArticleId = editorMode === 'edit' ? selectedArticleId : null;
+  const isSlugConflict = Boolean(
+    slug.trim() && articles.some(a => a && a.slug === slug.trim() && a.id !== activeArticleId)
+  );
+  const suggestedSlug = isSlugConflict ? generateUniqueSlug(slug.trim(), articles, activeArticleId) : '';
 
   // Sync with Supabase on mount and listen for real-time updates
   useEffect(() => {
@@ -144,7 +152,8 @@ const AdminNews = () => {
   const handleTitleChange = (val) => {
     setTitle(val);
     if (editorMode === 'add') {
-      setSlug(val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
+      const base = val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      setSlug(generateUniqueSlug(base, articles, null));
     }
   };
 
@@ -191,9 +200,14 @@ const AdminNews = () => {
     setIsSubmitting(true);
     try {
       const existing = editorMode === 'edit' ? articles.find(a => a.id === selectedArticleId) : null;
-      const articleSlug = slug.trim() 
+      const rawSlug = slug.trim() 
         ? slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
         : title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const articleSlug = generateUniqueSlug(rawSlug, articles, activeArticleId);
+      const hadSlugCollision = rawSlug && rawSlug !== articleSlug;
+      if (hadSlugCollision) {
+        setSlug(articleSlug);
+      }
 
       // Parse the admin-selected publication date to allow custom/backward dates
       let parsedPublishedAt = new Date().toISOString();
@@ -236,7 +250,11 @@ const AdminNews = () => {
 
       setArticles(getLocalNewsArticles({ publishedOnly: false }));
       setIsEditorOpen(false);
-      showFeedback(editorMode === 'edit' ? 'News & Journal article updated!' : 'News & Journal article published to website!');
+      if (hadSlugCollision) {
+        showFeedback(`Saved with unique slug "${articleSlug}" (prevented overwriting existing post)!`);
+      } else {
+        showFeedback(editorMode === 'edit' ? 'News & Journal article updated!' : 'News & Journal article published to website!');
+      }
     } catch (err) {
       console.error('Error saving article:', err);
       showFeedback(getSafeErrorMessage(err, 'Failed to save article to database.'), 'error');
@@ -508,14 +526,37 @@ const AdminNews = () => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold mb-1 text-gray-700 dark:text-green-200">URL Slug (Auto-generated)</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold text-gray-700 dark:text-green-200">URL Slug</label>
+                    {isSlugConflict && (
+                      <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                        ⚠️ Slug in use by another article
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     required
                     value={slug}
                     onChange={(e) => setSlug(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#041801] border border-gray-300 dark:border-[#138601]/40 font-mono text-gray-900 dark:text-white focus:outline-none focus:border-[#138601]"
+                    className={`w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-[#041801] border font-mono text-gray-900 dark:text-white focus:outline-none ${
+                      isSlugConflict 
+                        ? 'border-amber-500 focus:border-amber-500' 
+                        : 'border-gray-300 dark:border-[#138601]/40 focus:border-[#138601]'
+                    }`}
                   />
+                  {isSlugConflict && suggestedSlug && (
+                    <div className="mt-1.5 flex items-center justify-between p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-[11px] text-amber-800 dark:text-amber-300">
+                      <span>Conflict detected. We suggest: <strong className="font-mono">{suggestedSlug}</strong></span>
+                      <button
+                        type="button"
+                        onClick={() => setSlug(suggestedSlug)}
+                        className="px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white font-medium cursor-pointer transition-colors"
+                      >
+                        Use {suggestedSlug}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div>
