@@ -141,10 +141,10 @@ export default function BallotVotingModal({
 
               <div className="space-y-1">
                 <h3 className="text-xl font-bold text-slate-900 font-display">
-                  Ballot Cryptographically Sealed!
+                  Ballot Submitted Successfully!
                 </h3>
                 <p className="text-xs text-slate-600 max-w-md mx-auto">
-                  Your votes have been permanently stamped onto the NACOS FUTO immutable electoral ledger.
+                  Your votes have been recorded and certified by NACOS ISEC.
                 </p>
               </div>
 
@@ -159,11 +159,11 @@ export default function BallotVotingModal({
                   <span className="text-[#138601] font-bold">{castSuccessReceipt.voterMatric}</span>
                 </div>
                 <div className="flex justify-between items-center text-slate-600 pb-2 border-b border-slate-200">
-                  <span>Audit Timestamp</span>
+                  <span>Timestamp</span>
                   <span className="text-slate-900">{new Date(castSuccessReceipt.timestamp).toLocaleTimeString()}</span>
                 </div>
                 <div className="space-y-1 pt-1">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-widest block">Cryptographic Hash</span>
+                  <span className="text-[10px] text-slate-500 uppercase tracking-widest block">Receipt Hash</span>
                   <div className="p-2 rounded-[4px] bg-white border border-slate-200 text-[11px] text-[#138601] break-all select-all font-mono">
                     {castSuccessReceipt.ballotHash}
                   </div>
@@ -317,7 +317,7 @@ export default function BallotVotingModal({
               {/* Security Footnote */}
               <div className="flex items-center gap-2 text-[11px] text-slate-500">
                 <ShieldCheck className="w-4 h-4 text-[#138601] shrink-0" />
-                <span>One-time cryptographic signature. You cannot recast your ballot once sealed.</span>
+                <span>Your ballot cannot be changed once submitted.</span>
               </div>
             </>
           )}
@@ -342,11 +342,11 @@ export default function BallotVotingModal({
               className="inline-flex items-center gap-2 px-6 py-2 rounded-[5px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all cursor-pointer shadow-xs disabled:opacity-40"
             >
               {isSubmitting ? (
-                <span>Sealing Ballot on Ledger...</span>
+                <span>Submitting Ballot...</span>
               ) : (
                 <>
                   <Vote className="w-4 h-4 stroke-[2.2]" />
-                  <span>Cast Certified Ballot</span>
+                  <span>Submit Ballot</span>
                 </>
               )}
             </button>

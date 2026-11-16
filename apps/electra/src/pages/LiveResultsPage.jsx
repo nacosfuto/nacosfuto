@@ -213,7 +213,7 @@ export default function LiveResultsPage() {
             Live Election Results
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-            All ballots are mathematically verified against individual matriculation signatures and broadcast live via Supabase Realtime WebSockets. Tallies update in-place with zero voter PII exposed.
+            Live updates of certified ballots. All results are certified by NACOS ISEC.
           </p>
         </div>
 
@@ -225,7 +225,7 @@ export default function LiveResultsPage() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-[5px] text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 cursor-pointer shadow-2xs transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-[#138601] ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>Resync Ledger</span>
+            <span>Refresh Results</span>
           </button>
         </div>
       </div>
@@ -245,7 +245,7 @@ export default function LiveResultsPage() {
             {(totalBallots || 0).toLocaleString()}
           </div>
           <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1 mt-2">
-            <CheckCircle2 className="w-3.5 h-3.5 inline" /> 100% Cryptographically Validated
+            <CheckCircle2 className="w-3.5 h-3.5 inline" /> Certified Ballots
           </p>
         </div>
 
@@ -296,10 +296,10 @@ export default function LiveResultsPage() {
             </div>
           </div>
           <div className="text-xl font-bold text-[#138601] font-display">
-            Active SHA-256 Ledger
+            Certified by NACOS ISEC
           </div>
           <p className="text-[11px] text-slate-500 mt-2">
-            Zero duplicate votes permitted. Real-time audit active.
+            One voter, one vote. Results update in real-time.
           </p>
         </div>
 

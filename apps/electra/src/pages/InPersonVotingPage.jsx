@@ -31,30 +31,30 @@ export default function InPersonVotingPage() {
     },
     {
       title: 'Active Matriculation / Registration Number',
-      desc: 'Your official FUTO registration / matriculation number for cryptographic terminal accreditation.'
+      desc: 'Your official FUTO registration or matriculation number for voter accreditation.'
     }
   ];
 
   const procedures = [
     {
       step: '01',
-      title: 'Arrival & Physical Queue Verification',
-      detail: 'Arrive at the Computer Science Department ground floor. Present your identification credentials to the NACOS ISEC registration desk.'
+      title: 'Arrival & Verification',
+      detail: 'Arrive at the Computer Science Department ground floor and present your student identification to the NACOS ISEC desk.'
     },
     {
       step: '02',
-      title: 'Biometric & Matriculation Terminal Sign-In',
-      detail: 'A certified electoral officer validates your matriculation number against the departmental ground-truth voter roll.'
+      title: 'Accreditation',
+      detail: 'An electoral officer validates your matriculation number against the student voter roll.'
     },
     {
       step: '03',
-      title: 'Secret Digital Ballot Casting',
-      detail: 'Enter a private polling booth and make your candidate choices on the secure, touch-screen terminal.'
+      title: 'Secret Ballot Casting',
+      detail: 'Enter a private polling booth and make your candidate choices on the voting terminal.'
     },
     {
       step: '04',
-      title: 'Cryptographic Audit Receipt Issuance',
-      detail: 'Upon ballot submission, your SHA-256 seal is cryptographically recorded into the live blockchain-style ledger.'
+      title: 'Vote Confirmation Receipt',
+      detail: 'Upon ballot submission, your vote is recorded and certified with an official digital receipt.'
     }
   ];
 

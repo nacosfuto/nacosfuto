@@ -69,7 +69,7 @@ export default function NewsPressPage() {
             News & Press Releases
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-            Authoritative communications, polling announcements, debate schedules, and certified circulars issued by NACOS ISEC.
+            Official announcements, schedules, and circulars issued by NACOS ISEC.
           </p>
         </div>
 
@@ -79,7 +79,7 @@ export default function NewsPressPage() {
           className="inline-flex items-center gap-2 px-4 py-2 rounded-[5px] text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shrink-0 cursor-pointer shadow-2xs transition-colors"
         >
           <RefreshCw className={`w-3.5 h-3.5 text-[#138601] ${isRefreshing ? 'animate-spin' : ''}`} />
-          <span>Refresh Releases</span>
+          <span>Refresh</span>
         </button>
       </div>
 

@@ -76,20 +76,20 @@ export default function ContestantsPage({ onOpenBallot, onOpenManifesto }) {
       <div className="mb-8 space-y-2">
         <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-[3px] text-xs font-bold bg-green-50 text-[#138601] border border-green-200 uppercase tracking-wider">
           <Vote className="w-3.5 h-3.5 text-[#138601]" />
-          <span>Electoral Commission Certified</span>
+          <span>Certified Candidates</span>
         </div>
         <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 font-display">
-          Certified Aspirants & Candidates
+          Election Candidates
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-          Review candidates for each executive office, inspect verified academic credentials, and explore their policy manifestos.
+          Review candidates and their campaign manifestos for each executive office.
         </p>
       </div>
 
       {isLoading ? (
         <div className="py-20 text-center">
           <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-xs text-slate-500 font-medium">Checking active election and certified candidates...</p>
+          <p className="text-xs text-slate-500 font-medium">Loading candidates...</p>
         </div>
       ) : !activeElection ? (
         /* Empty State: When there is NO active election */
@@ -98,10 +98,10 @@ export default function ContestantsPage({ onOpenBallot, onOpenManifesto }) {
             <Vote className="w-8 h-8 text-slate-400" />
           </div>
           <h3 className="text-xl font-bold text-slate-900 mb-2 font-display">
-            There is currently no active election.
+            No active election currently
           </h3>
           <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed mb-6">
-            The Independent Student Electoral Commission (NACOS ISEC) has not opened an active balloting session. Candidates and manifestos will appear here once an election is officially activated.
+            NACOS ISEC has not opened an active election session. Candidates and manifestos will appear here once an election is opened.
           </p>
           <div className="flex justify-center gap-3">
             <Link

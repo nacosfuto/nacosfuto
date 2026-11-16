@@ -404,15 +404,15 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display tracking-tight">
               {currentStep === 1 && 'Voter Identification'}
-              {currentStep === 2 && 'Student Identity Verification'}
+              {currentStep === 2 && 'Confirm Your Name'}
               {currentStep === 3 && 'Verification Code Delivery'}
               {currentStep === 4 && 'Enter Verification Code'}
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mt-1">
-              {currentStep === 1 && 'Enter your institutional matriculation number to start your ballot session.'}
-              {currentStep === 2 && 'Confirm your official legal names to verify against the departmental student database.'}
-              {currentStep === 3 && 'Provide your email address to receive your secure, single-use voting passcode.'}
-              {currentStep === 4 && `Enter the 6-digit electoral verification code delivered to ${maskedEmail || wizardData.maskedEmail || 'your email'}.`}
+              {currentStep === 1 && 'Enter your registration or matriculation number to begin.'}
+              {currentStep === 2 && 'Enter your first and last name as registered in the department.'}
+              {currentStep === 3 && 'Enter your email address to receive your voting code.'}
+              {currentStep === 4 && `Enter the 6-digit verification code sent to ${maskedEmail || wizardData.maskedEmail || 'your email'}.`}
             </p>
           </div>
 
@@ -479,9 +479,6 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
                 required
                 autoFocus
               />
-              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                No portal password required. All verified Computer Science undergraduates across 100L through 500L are eligible electors.
-              </p>
             </div>
 
             <div className="pt-2">
@@ -489,7 +486,7 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
                 type="submit"
                 className="w-full py-3 rounded-[5px] text-xs sm:text-sm font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>Next: Verify Student Identity</span>
+                <span>Continue</span>
                 <ArrowRight className="w-4 h-4 stroke-[2.5]" />
               </button>
             </div>
@@ -562,10 +559,10 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
                 className="flex-1 py-3 rounded-[5px] text-xs sm:text-sm font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isLoading ? (
-                  <span>Verifying Institutional Record...</span>
+                  <span>Verifying...</span>
                 ) : (
                   <>
-                    <span>Next: Passcode Delivery</span>
+                    <span>Continue</span>
                     <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                   </>
                 )}
@@ -591,7 +588,7 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
 
             <div>
               <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-                Destination Email for Single-Use Passcode *
+                Email Address *
               </label>
               <input
                 type="email"
@@ -602,9 +599,6 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
                 required
                 autoFocus
               />
-              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                Used solely to transmit your secure, single-use voting passcode. Does not overwrite your permanent student profile.
-              </p>
             </div>
 
             <div className="pt-2 flex items-center gap-3">
@@ -623,10 +617,10 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
                 className="flex-1 py-3 rounded-[5px] text-xs sm:text-sm font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isLoading ? (
-                  <span>Dispatching Single-Use Code...</span>
+                  <span>Sending Code...</span>
                 ) : (
                   <>
-                    <span>Next: Enter Passcode</span>
+                    <span>Send Code</span>
                     <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                   </>
                 )}
@@ -656,7 +650,7 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
 
             <div>
               <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-                6-Digit Electoral Code *
+                Verification Code *
               </label>
               <input
                 type="text"
@@ -668,9 +662,8 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
                 required
                 autoFocus
               />
-              <div className="flex items-center justify-between text-xs text-slate-500 mt-2">
+              <div className="text-xs text-slate-500 mt-2">
                 <span>Code expires in 15 minutes</span>
-                <span>Single-use credential</span>
               </div>
             </div>
 
@@ -690,10 +683,10 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
                 className="flex-1 py-3 rounded-[5px] text-xs sm:text-sm font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isLoading ? (
-                  <span>Verifying Code & Unlocking Ballot...</span>
+                  <span>Verifying Code...</span>
                 ) : (
                   <>
-                    <span>Verify Code & Unlock Official Ballot</span>
+                    <span>Verify & Proceed to Ballot</span>
                     <ShieldCheck className="w-4 h-4 stroke-[2.2]" />
                   </>
                 )}
@@ -720,14 +713,6 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
           </form>
         )}
 
-      </div>
-
-      {/* Security Assurance Footer Note */}
-      <div className="mt-8 text-center text-xs text-slate-400 leading-relaxed max-w-lg mx-auto">
-        <p>
-          Protected by NACOS Independent Students Electoral Commission (ISEC) cryptography.
-          Your ballot remains secret and untraceable to your matriculation record.
-        </p>
       </div>
 
     </div>

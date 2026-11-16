@@ -231,15 +231,15 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
 
           <h2 className="text-xl font-bold text-slate-900 font-display tracking-tight">
             {step === 1 && 'Voter Identification'}
-            {step === 2 && 'Student Identity Verification'}
+            {step === 2 && 'Confirm Your Name'}
             {step === 3 && 'Verification Code Delivery'}
             {step === 4 && 'Enter Verification Code'}
           </h2>
           <p className="text-xs text-slate-500 leading-relaxed mt-1">
-            {step === 1 && 'Enter your institutional matriculation number to start your ballot session.'}
-            {step === 2 && 'Confirm your official legal names to verify against the departmental student database.'}
-            {step === 3 && 'Provide your email address to receive your secure, single-use voting credential.'}
-            {step === 4 && `Enter the 6-digit verification code delivered to ${maskedEmail || 'your email'}.`}
+            {step === 1 && 'Enter your registration or matriculation number to begin.'}
+            {step === 2 && 'Enter your first and last name as registered in the department.'}
+            {step === 3 && 'Enter your email address to receive your voting code.'}
+            {step === 4 && `Enter the 6-digit verification code sent to ${maskedEmail || 'your email'}.`}
           </p>
 
           {/* Stepper Dots */}
@@ -286,9 +286,6 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
                 required
                 autoFocus
               />
-              <p className="text-[11px] text-slate-400 mt-1.5">
-                No portal password required. All verified CS undergraduates are eligible electors.
-              </p>
             </div>
 
             <div className="pt-2">
@@ -296,7 +293,7 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
                 type="submit"
                 className="w-full py-2.5 rounded-[5px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>Continue to Identity Verification</span>
+                <span>Continue</span>
                 <ArrowRight className="w-4 h-4 stroke-[2.5]" />
               </button>
             </div>
@@ -365,11 +362,11 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
                 className="flex-1 py-2.5 rounded-[5px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isLoading ? (
-                  <span>Verifying Institutional Record...</span>
+                  <span>Verifying...</span>
                 ) : (
                   <>
-                    <span>Verify Institutional Record</span>
-                    <ShieldCheck className="w-4 h-4 stroke-[2.2]" />
+                    <span>Continue</span>
+                    <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                   </>
                 )}
               </button>
@@ -394,7 +391,7 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
 
             <div>
               <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Destination Email for Verification Code *
+                Email Address *
               </label>
               <input
                 type="email"
@@ -405,9 +402,6 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
                 required
                 autoFocus
               />
-              <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
-                Used solely to transmit your single-use voting passcode. Does not overwrite your permanent student profile.
-              </p>
             </div>
 
             <div className="pt-2">
@@ -417,10 +411,10 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
                 className="w-full py-2.5 rounded-[5px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isLoading ? (
-                  <span>Dispatching Single-Use Code...</span>
+                  <span>Sending Code...</span>
                 ) : (
                   <>
-                    <span>Send Verification Code</span>
+                    <span>Send Code</span>
                     <Mail className="w-4 h-4 stroke-[2.2]" />
                   </>
                 )}
@@ -434,7 +428,7 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
           <form onSubmit={handleVerifyCode} className="space-y-4">
             <div>
               <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                6-Digit Electoral Code *
+                Verification Code *
               </label>
               <input
                 type="text"
@@ -446,9 +440,8 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
                 required
                 autoFocus
               />
-              <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2">
+              <div className="text-[11px] text-slate-500 mt-2">
                 <span>Code expires in 15 minutes</span>
-                <span>Single-use credential</span>
               </div>
             </div>
 
@@ -459,10 +452,10 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
                 className="w-full py-2.5 rounded-[5px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all active:scale-[0.99] shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isLoading ? (
-                  <span>Verifying Code & Unlocking Ballot...</span>
+                  <span>Verifying Code...</span>
                 ) : (
                   <>
-                    <span>Verify Code & Unlock Ballot</span>
+                    <span>Verify & Proceed to Ballot</span>
                     <ShieldCheck className="w-4 h-4 stroke-[2.2]" />
                   </>
                 )}

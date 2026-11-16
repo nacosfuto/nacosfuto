@@ -72,14 +72,14 @@ export default function ManifestosPage({ onOpenManifesto, onOpenBallot }) {
           Candidate Manifestos
         </h1>
         <p className="text-xs sm:text-sm text-slate-500">
-          Official Electoral Registry • {activeElection?.title || 'NACOS FUTO General Elections'}
+          {activeElection?.title || 'NACOS FUTO Elections'}
         </p>
       </div>
 
       {/* Top Instruction & Office Dropdown Bar */}
       <div className="p-4 sm:p-5 rounded-[4px] bg-white border border-slate-200 shadow-2xs mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <p className="text-xs sm:text-sm text-slate-700 font-medium leading-relaxed max-w-2xl">
-          Click to read each candidate's manifesto or use the menu to see the ones running to stand as the candidate for a particular office.
+          Select an office or click on any candidate to view their campaign manifesto.
         </p>
 
         <div className="flex items-center gap-3 shrink-0">

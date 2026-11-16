@@ -212,10 +212,10 @@ export default function VoteNowPage({
               </div>
               <div className="space-y-1.5 flex-1">
                 <h2 className="text-lg sm:text-xl font-bold text-slate-900 font-display">
-                  Accreditation Required to Cast Ballot
+                  Accreditation Required
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                  To ensure democratic integrity, all electors must verify their student identity (Registration Number, First Name, Last Name) and receive a one-time passcode before voting. No student portal password is required.
+                  Please verify and accredit your student details before casting your vote.
                 </p>
               </div>
             </div>
@@ -226,7 +226,7 @@ export default function VoteNowPage({
                 onClick={handleAccredit}
                 className="px-6 py-3 rounded-[4px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all shadow-xs inline-flex items-center gap-2 cursor-pointer active:scale-[0.99]"
               >
-                <span>Accredit / Vote Now</span>
+                <span>Accredit to Vote</span>
                 <ArrowRight className="w-4 h-4 stroke-[2.5]" />
               </button>
               <Link
@@ -248,17 +248,17 @@ export default function VoteNowPage({
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-bold text-slate-900">
-                  Your Vote Has Been Successfully Submitted
+                  Your Vote Has Been Submitted
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Your ballot has been cryptographically signed and atomically recorded in the electoral ledger.
+                  Your ballot has been recorded and certified by NACOS ISEC.
                 </p>
               </div>
             </div>
 
             <div className="bg-slate-50 border border-slate-200 rounded-[3px] p-4 sm:p-5 space-y-2.5 text-xs">
               <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                <span className="text-slate-500 font-semibold">Cryptographic Receipt Hash:</span>
+                <span className="text-slate-500 font-semibold">Receipt Hash:</span>
                 <span className="font-mono font-bold text-[#138601] break-all">{submittedReceipt.receiptHash}</span>
               </div>
               <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
@@ -305,14 +305,14 @@ export default function VoteNowPage({
         {isLoading ? (
           <div className="py-20 text-center">
             <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-xs text-slate-500 font-medium">Loading official ballot from election ledger...</p>
+            <p className="text-xs text-slate-500 font-medium">Loading ballot...</p>
           </div>
         ) : !election ? (
           <div className="bg-white border rounded-[4px] p-8 text-center shadow-xs space-y-3">
             <Lock className="w-10 h-10 text-slate-400 mx-auto" />
-            <h2 className="text-lg font-bold text-slate-900">Electoral Ballot Box Closed</h2>
+            <h2 className="text-lg font-bold text-slate-900">Voting Closed</h2>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              There is currently no active election session open for balloting. Balloting will be enabled once an election is activated by the Electoral Commission.
+              There is currently no active election open for voting. Voting will be enabled once an election is opened by NACOS ISEC.
             </p>
           </div>
         ) : posts.length === 0 ? (
@@ -520,7 +520,7 @@ export default function VoteNowPage({
                   className="w-full sm:w-auto px-6 py-3 rounded-[4px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all shadow-xs inline-flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <KeyRound className="w-4 h-4 stroke-[2.2]" />
-                  <span>Accredit to Cast Ballot</span>
+                  <span>Accredit to Vote</span>
                 </button>
               ) : (
                 <button
@@ -529,10 +529,10 @@ export default function VoteNowPage({
                   className="w-full sm:w-auto px-7 py-3 rounded-[4px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] transition-all shadow-xs inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
-                    <span>Sealing & Recording Ballot...</span>
+                    <span>Submitting Ballot...</span>
                   ) : (
                     <>
-                      <span>Submit Official Ballot</span>
+                      <span>Submit Ballot</span>
                       <ShieldCheck className="w-4 h-4 stroke-[2.2]" />
                     </>
                   )}
