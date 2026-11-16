@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard,
   Calendar,
@@ -64,6 +64,21 @@ import electraLogo from './assets/electra-logo.png';
 import ElectraAdminLogin from './components/ElectraAdminLogin';
 import ElectraVoterRollTab from './components/ElectraVoterRollTab';
 
+const STANDARD_NACOS_OFFICES = [
+  { id: 'post-president', title: 'President', code: 'PRES', order: 1 },
+  { id: 'post-vice-president', title: 'Vice President', code: 'VP', order: 2 },
+  { id: 'post-sec-gen', title: 'Secretary General', code: 'SEC-GEN', order: 3 },
+  { id: 'post-asst-sec-gen', title: 'Assistant Secretary General', code: 'ASG', order: 4 },
+  { id: 'post-fin-sec', title: 'Financial Secretary', code: 'FIN-SEC', order: 5 },
+  { id: 'post-treasurer', title: 'Treasurer', code: 'TRS', order: 6 },
+  { id: 'post-software-dir', title: 'Director of Software', code: 'DIR-SOFT', order: 7 },
+  { id: 'post-pro', title: 'Director of Public Relations (PRO)', code: 'PRO', order: 8 },
+  { id: 'post-social-dir', title: 'Director of Socials', code: 'DIR-SOC', order: 9 },
+  { id: 'post-sports-dir', title: 'Director of Sports', code: 'DIR-SPT', order: 10 },
+  { id: 'post-welfare-dir', title: 'Director of Welfare', code: 'DIR-WLF', order: 11 },
+  { id: 'post-provost', title: 'Provost', code: 'PVST', order: 12 }
+];
+
 export default function App() {
   const urls = getAppUrls();
   const { theme, toggleTheme } = useTheme();
@@ -87,6 +102,14 @@ export default function App() {
   const [contestants, setContestants] = useState(() => getContestants(null, selectedElectionId));
   const [results, setResults] = useState(() => getLiveElectionResults(selectedElectionId));
   const [newsList, setNewsList] = useState(() => getElectraNews());
+
+  // Available offices: prioritize current election's posts, fallback to all configured posts or standard NACOS offices
+  const availablePosts = useMemo(() => {
+    if (posts && posts.length > 0) return posts;
+    const all = getElectraPosts('all');
+    if (all && all.length > 0) return all;
+    return STANDARD_NACOS_OFFICES;
+  }, [posts]);
   
   // Modal states
   const [isCandidateModalOpen, setIsCandidateModalOpen] = useState(false);
@@ -277,6 +300,27 @@ export default function App() {
     }
   };
 
+  const handleInitializeStandardOffices = async () => {
+    try {
+      const targetElId = selectedElectionId || currentElection?.id;
+      for (const std of STANDARD_NACOS_OFFICES) {
+        await adminSavePost({
+          title: std.title,
+          code: std.code,
+          order: std.order,
+          description: `Executive office of ${std.title}`,
+          eligibilityLevel: '200L - 400L',
+          maxVotesPerVoter: 1,
+          electionId: targetElId
+        });
+      }
+      reloadData();
+      showToast('Standard NACOS executive offices initialized for this election session!');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
   const showToast = (text, type = 'success') => {
     setStatusMessage({ text, type });
     setTimeout(() => setStatusMessage({ text: '', type: '' }), 4000);
@@ -308,9 +352,12 @@ export default function App() {
   // Open modal to add candidate
   const handleOpenAddModal = () => {
     setEditingCandidate(null);
+    const defaultPostId = (posts && posts.length > 0 ? posts[0].id : availablePosts[0]?.id) || 'post-president';
+    const defaultPost = availablePosts.find(p => p.id === defaultPostId);
     setCandidateForm({
       name: '',
-      postId: posts[0]?.id || 'post-president',
+      postId: defaultPostId,
+      runningPost: defaultPost?.title || '',
       matricNumber: '',
       level: '400 Level',
       slogan: '',
@@ -337,9 +384,12 @@ export default function App() {
   // Open modal to edit candidate
   const handleOpenEditModal = (cnd) => {
     setEditingCandidate(cnd);
+    const resolvedPostId = cnd.postId || (posts && posts.length > 0 ? posts[0].id : availablePosts[0]?.id) || 'post-president';
+    const resolvedPost = availablePosts.find(p => p.id === resolvedPostId) || posts.find(p => p.id === resolvedPostId);
     setCandidateForm({
       name: cnd.name || '',
-      postId: cnd.postId || posts[0]?.id,
+      postId: resolvedPostId,
+      runningPost: cnd.runningPost || resolvedPost?.title || '',
       matricNumber: cnd.matricNumber || '',
       level: cnd.level || '400 Level',
       slogan: cnd.slogan || '',
@@ -457,12 +507,12 @@ export default function App() {
         pillars.push({ title: candidateForm.pillar2Title, detail: candidateForm.pillar2Detail });
       }
 
-      const postObj = posts.find(p => p.id === candidateForm.postId);
-      const postName = postObj ? postObj.title : 'President';
+      const postObj = availablePosts.find(p => p.id === candidateForm.postId) || posts.find(p => p.id === candidateForm.postId);
+      const postName = postObj ? postObj.title : (candidateForm.runningPost || 'Executive Office');
 
       const payload = {
         name: candidateForm.name,
-        postId: candidateForm.postId,
+        postId: candidateForm.postId || postObj?.id || 'post-president',
         runningPost: postName,
         matricNumber: candidateForm.matricNumber,
         level: candidateForm.level,
@@ -1509,49 +1559,81 @@ export default function App() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {posts.map(post => (
-                <div 
-                  key={post.id} 
-                  className={`p-5 rounded-[5px] border flex flex-col justify-between space-y-3 shadow-xs ${
-                    isDark ? 'bg-[#083002]/60 border-[#138601]/25 text-white' : 'bg-white border-gray-200 text-gray-900'
-                  }`}
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded-[3px] text-xs font-mono font-bold bg-green-50 text-[#138601] border border-green-200 dark:bg-green-950/40 dark:text-green-400 dark:border-green-800/40">
-                        {post.code}
-                      </span>
-                      <span className="text-xs font-semibold text-gray-400">Order #{post.order}</span>
-                    </div>
-                    <h3 className="text-lg font-bold">{post.title}</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{post.description}</p>
-                    <div className="pt-2 text-[11px] text-gray-400 font-medium">
-                      Eligible Cohort: {post.eligibilityLevel}
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-gray-100 dark:border-white/10 flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditPost(post)}
-                      className="px-3 py-1.5 rounded-[4px] text-xs font-bold bg-gray-100 dark:bg-white/10 hover:bg-gray-200 text-gray-700 dark:text-gray-200 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>Edit</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeletePost(post.id, post.title)}
-                      className="px-3 py-1.5 rounded-[4px] text-xs font-bold text-rose-700 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 border border-rose-200 dark:border-rose-800/40 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
-                    </button>
-                  </div>
+            {posts.length === 0 ? (
+              <div className="p-10 text-center border-2 border-dashed border-gray-300 dark:border-white/10 rounded-[5px] space-y-4">
+                <div className="w-12 h-12 rounded-full bg-green-50 dark:bg-green-950/40 text-[#138601] dark:text-[#4bd043] mx-auto flex items-center justify-center">
+                  <Layers className="w-6 h-6" />
                 </div>
-              ))}
-            </div>
+                <div>
+                  <h3 className="text-base font-bold">No Executive Offices Configured For This Election</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md mx-auto mt-1">
+                    No custom offices have been created for session ({currentElection?.session || 'Current'}). You can initialize standard NACOS offices with one click or add custom positions manually.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleInitializeStandardOffices}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] cursor-pointer shadow-xs"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Initialize Standard Executive Offices</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddPost}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[5px] text-xs font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Custom Position</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {posts.map(post => (
+                  <div 
+                    key={post.id} 
+                    className={`p-5 rounded-[5px] border flex flex-col justify-between space-y-3 shadow-xs ${
+                      isDark ? 'bg-[#083002]/60 border-[#138601]/25 text-white' : 'bg-white border-gray-200 text-gray-900'
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-0.5 rounded-[3px] text-xs font-mono font-bold bg-green-50 text-[#138601] border border-green-200 dark:bg-green-950/40 dark:text-green-400 dark:border-green-800/40">
+                          {post.code}
+                        </span>
+                        <span className="text-xs font-semibold text-gray-400">Order #{post.order}</span>
+                      </div>
+                      <h3 className="text-lg font-bold">{post.title}</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{post.description}</p>
+                      <div className="pt-2 text-[11px] text-gray-400 font-medium">
+                        Eligible Cohort: {post.eligibilityLevel}
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-gray-100 dark:border-white/10 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditPost(post)}
+                        className="px-3 py-1.5 rounded-[4px] text-xs font-bold bg-gray-100 dark:bg-white/10 hover:bg-gray-200 text-gray-700 dark:text-gray-200 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePost(post.id, post.title)}
+                        className="px-3 py-1.5 rounded-[4px] text-xs font-bold text-rose-700 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 border border-rose-200 dark:border-rose-800/40 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -1879,8 +1961,8 @@ export default function App() {
           ADD/EDIT CANDIDATE MODAL
          ======================================================== */}
       {isCandidateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className={`relative w-full max-w-2xl border rounded-[5px] p-6 sm:p-8 shadow-2xl my-auto max-h-[92vh] overflow-y-auto ${
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className={`relative w-full max-w-2xl border rounded-[5px] p-4 sm:p-6 md:p-8 shadow-2xl my-auto max-h-[92vh] overflow-y-auto ${
             isDark ? 'bg-[#083002] border-[#138601]/40 text-white' : 'bg-white border-gray-200 text-gray-900'
           }`}>
             
@@ -1896,7 +1978,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setIsCandidateModalOpen(false)}
-                className="p-1.5 rounded-[4px] text-gray-400 hover:text-gray-600 dark:hover:text-white"
+                className="p-1.5 rounded-[4px] text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1906,77 +1988,141 @@ export default function App() {
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider mb-1">
+                  <label 
+                    htmlFor="candidate-fullname-input"
+                    className="block text-xs font-bold uppercase tracking-wider mb-1 cursor-pointer"
+                  >
                     Candidate Full Name *
                   </label>
                   <input
+                    id="candidate-fullname-input"
                     type="text"
                     required
                     value={candidateForm.name}
                     onChange={(e) => setCandidateForm({ ...candidateForm, name: e.target.value })}
                     placeholder="e.g. Chukwuebuka Anyanwu"
-                    className="w-full px-3.5 py-2 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:ring-1 focus:ring-[#138601]"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 sm:py-2 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-white/10 text-base sm:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601]"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider mb-1">
-                    Contested Executive Office *
-                  </label>
-                  <select
-                    value={candidateForm.postId}
-                    onChange={(e) => setCandidateForm({ ...candidateForm, postId: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:ring-1 focus:ring-[#138601]"
-                  >
-                    {posts.map(post => (
-                      <option key={post.id} value={post.id} className="dark:bg-[#083002]">{post.title}</option>
-                    ))}
-                  </select>
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <label 
+                      htmlFor="candidate-office-select"
+                      className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 cursor-pointer"
+                    >
+                      Contested Executive Office *
+                    </label>
+                    {posts.length === 0 && (
+                      <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        Offices Available ({availablePosts.length})
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <select
+                      id="candidate-office-select"
+                      value={candidateForm.postId}
+                      onChange={(e) => {
+                        const selPost = availablePosts.find(p => p.id === e.target.value);
+                        setCandidateForm({ 
+                          ...candidateForm, 
+                          postId: e.target.value,
+                          runningPost: selPost ? selPost.title : ''
+                        });
+                      }}
+                      className="w-full min-h-[44px] px-3.5 py-2.5 sm:py-2 pr-10 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-white/10 text-base sm:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#138601] cursor-pointer appearance-none touch-manipulation shadow-2xs"
+                    >
+                      {!candidateForm.postId && (
+                        <option value="" disabled>-- Tap to Select Executive Office --</option>
+                      )}
+                      {availablePosts.map(post => (
+                        <option 
+                          key={post.id} 
+                          value={post.id} 
+                          className="py-2 text-gray-900 dark:text-white dark:bg-[#083002]"
+                        >
+                          {post.title} {post.code ? `(${post.code})` : ''}
+                        </option>
+                      ))}
+                      {candidateForm.postId && !availablePosts.some(p => p.id === candidateForm.postId) && (
+                        <option 
+                          value={candidateForm.postId} 
+                          className="py-2 text-gray-900 dark:text-white dark:bg-[#083002]"
+                        >
+                          {candidateForm.runningPost || candidateForm.postId}
+                        </option>
+                      )}
+                    </select>
+
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider mb-1">
+                  <label 
+                    htmlFor="candidate-matric-input"
+                    className="block text-xs font-bold uppercase tracking-wider mb-1 cursor-pointer"
+                  >
                     FUTO Matriculation Number
                   </label>
                   <input
+                    id="candidate-matric-input"
                     type="text"
                     value={candidateForm.matricNumber}
                     onChange={(e) => setCandidateForm({ ...candidateForm, matricNumber: e.target.value })}
                     placeholder="e.g. 20231429810"
-                    className="w-full px-3.5 py-2 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-white/10 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-[#138601]"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 sm:py-2 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-white/10 text-base sm:text-sm font-mono text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601]"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider mb-1">
+                <div className="relative">
+                  <label 
+                    htmlFor="candidate-level-select"
+                    className="block text-xs font-bold uppercase tracking-wider mb-1 cursor-pointer"
+                  >
                     Academic Cohort
                   </label>
-                  <select
-                    value={candidateForm.level}
-                    onChange={(e) => setCandidateForm({ ...candidateForm, level: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:ring-1 focus:ring-[#138601]"
-                  >
-                    <option value="100 Level" className="dark:bg-[#083002]">100 Level</option>
-                    <option value="200 Level" className="dark:bg-[#083002]">200 Level</option>
-                    <option value="300 Level" className="dark:bg-[#083002]">300 Level</option>
-                    <option value="400 Level" className="dark:bg-[#083002]">400 Level</option>
-                    <option value="500 Level" className="dark:bg-[#083002]">500 Level</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      id="candidate-level-select"
+                      value={candidateForm.level}
+                      onChange={(e) => setCandidateForm({ ...candidateForm, level: e.target.value })}
+                      className="w-full min-h-[44px] px-3.5 py-2.5 sm:py-2 pr-10 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-white/10 text-base sm:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#138601] cursor-pointer appearance-none touch-manipulation shadow-2xs"
+                    >
+                      <option value="100 Level" className="py-2 text-gray-900 dark:text-white dark:bg-[#083002]">100 Level</option>
+                      <option value="200 Level" className="py-2 text-gray-900 dark:text-white dark:bg-[#083002]">200 Level</option>
+                      <option value="300 Level" className="py-2 text-gray-900 dark:text-white dark:bg-[#083002]">300 Level</option>
+                      <option value="400 Level" className="py-2 text-gray-900 dark:text-white dark:bg-[#083002]">400 Level</option>
+                      <option value="500 Level" className="py-2 text-gray-900 dark:text-white dark:bg-[#083002]">500 Level</option>
+                    </select>
+
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider mb-1">
+                <label 
+                  htmlFor="candidate-slogan-input"
+                  className="block text-xs font-bold uppercase tracking-wider mb-1 cursor-pointer"
+                >
                   Campaign Slogan
                 </label>
                 <input
+                  id="candidate-slogan-input"
                   type="text"
                   value={candidateForm.slogan}
                   onChange={(e) => setCandidateForm({ ...candidateForm, slogan: e.target.value })}
                   placeholder="e.g. Technology That Empowers, Leadership That Listens"
-                  className="w-full px-3.5 py-2 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:ring-1 focus:ring-[#138601]"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 sm:py-2 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-white/10 text-base sm:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601]"
                 />
               </div>
 
@@ -2203,17 +2349,17 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="pt-4 flex items-center justify-end gap-3 border-t border-gray-200 dark:border-white/10">
+              <div className="pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 border-t border-gray-200 dark:border-white/10">
                 <button
                   type="button"
                   onClick={() => setIsCandidateModalOpen(false)}
-                  className="px-4 py-2 rounded-[5px] text-xs font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-white/10 hover:bg-gray-200"
+                  className="min-h-[44px] px-4 py-2.5 rounded-[5px] text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-[5px] text-xs font-bold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs cursor-pointer"
+                  className="min-h-[44px] px-5 py-2.5 rounded-[5px] text-xs sm:text-sm font-bold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs cursor-pointer"
                 >
                   {editingCandidate ? 'Save Changes' : 'Certify Candidate'}
                 </button>
