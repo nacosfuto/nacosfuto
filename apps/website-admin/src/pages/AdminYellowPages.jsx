@@ -48,7 +48,7 @@ const AdminYellowPages = () => {
     name: '',
     category: 'Food & Drinks',
     ownerName: '',
-    ownerLevel: 'Student Business',
+    ownerLevel: '',
     description: '',
     location: 'FUTO Campus / Hostel Area',
     phone: '',
@@ -152,7 +152,7 @@ const AdminYellowPages = () => {
       name: '',
       category: 'Food & Drinks',
       ownerName: '',
-      ownerLevel: 'Student Business',
+      ownerLevel: '',
       description: '',
       location: 'FUTO Campus / Hostel Area',
       phone: '',
@@ -173,7 +173,7 @@ const AdminYellowPages = () => {
       name: biz.name || '',
       category: biz.category || 'Food & Drinks',
       ownerName: biz.ownerName || '',
-      ownerLevel: biz.ownerLevel || 'Student Business',
+      ownerLevel: biz.ownerLevel || '',
       description: biz.description || '',
       location: biz.location || 'FUTO Campus / Hostel Area',
       phone: biz.phone || '',
@@ -375,7 +375,7 @@ const AdminYellowPages = () => {
                     </p>
 
                     <div className="space-y-1 pt-2 border-t border-gray-100 dark:border-[#138601]/20 text-[11px] text-gray-500 dark:text-green-200/70">
-                      <div>Owner: <strong className="text-gray-800 dark:text-white">{biz.ownerName}</strong> ({biz.ownerLevel})</div>
+                      <div>Owner: <strong className="text-gray-800 dark:text-white">{biz.ownerName || '—'}</strong>{biz.ownerLevel?.trim() ? ` (${biz.ownerLevel.trim()})` : ''}</div>
                       <div className="flex items-center gap-1.5 truncate">
                         <MapPin className="w-3 h-3 text-[#138601]" />
                         <span className="truncate">{biz.location}</span>
@@ -480,15 +480,26 @@ const AdminYellowPages = () => {
                   </div>
 
                   <div>
-                    <label className="block font-bold mb-1">Owner Name / Level</label>
+                    <label className="block font-bold mb-1">Owner Name</label>
                     <input
                       type="text"
                       value={formData.ownerName}
                       onChange={(e) => setFormData(prev => ({ ...prev, ownerName: e.target.value }))}
-                      placeholder="e.g. Somto (300L)"
+                      placeholder="e.g. Somto"
                       className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-[#138601]/30 bg-gray-50 dark:bg-[#041801] focus:outline-none focus:border-[#138601]"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">Owner Level / Status (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData.ownerLevel}
+                    onChange={(e) => setFormData(prev => ({ ...prev, ownerLevel: e.target.value }))}
+                    placeholder="e.g. Student Business, Alumni, or leave blank"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-[#138601]/30 bg-gray-50 dark:bg-[#041801] focus:outline-none focus:border-[#138601]"
+                  />
                 </div>
 
                 <div>

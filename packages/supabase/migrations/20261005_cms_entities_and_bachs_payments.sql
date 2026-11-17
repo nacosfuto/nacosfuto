@@ -164,7 +164,7 @@ VALUES
   'Fashion & Styling',
   '["Other Services"]'::jsonb,
   'Nina O.',
-  '300 Level',
+  'Student Business',
   'Professional knotless braids, bohemian box braids, wig revamping, frontal installation, and hair treatment with free campus delivery.',
   'Hostel A / Eziobodo Gate',
   '+2348123456789',

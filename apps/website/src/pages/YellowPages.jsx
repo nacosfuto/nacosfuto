@@ -119,7 +119,7 @@ const YellowPages = () => {
     name: '',
     category: 'Food & Drinks',
     ownerName: '',
-    ownerLevel: '100 Level',
+    ownerLevel: '',
     description: '',
     location: '',
     phone: '',
@@ -170,7 +170,7 @@ const YellowPages = () => {
       name: '',
       category: 'Food & Drinks',
       ownerName: '',
-      ownerLevel: '100 Level',
+      ownerLevel: '',
       description: '',
       location: '',
       phone: '',
@@ -351,10 +351,12 @@ const YellowPages = () => {
                     </h3>
 
                     {/* Owner detail */}
-                    <div className="flex items-center gap-1.5 text-xs text-[#138601] dark:text-[#4bd043] font-bold mb-3 uppercase tracking-wider">
-                      <FiUser className="shrink-0" />
-                      <span>{biz.ownerName} ({biz.ownerLevel})</span>
-                    </div>
+                    {biz.ownerName && (
+                      <div className="flex items-center gap-1.5 text-xs text-[#138601] dark:text-[#4bd043] font-bold mb-3 uppercase tracking-wider">
+                        <FiUser className="shrink-0" />
+                        <span>{biz.ownerName}{biz.ownerLevel?.trim() ? ` (${biz.ownerLevel.trim()})` : ''}</span>
+                      </div>
+                    )}
 
                     <p className="opacity-75 text-xs leading-relaxed line-clamp-3">
                       {biz.description}
@@ -522,12 +524,13 @@ const YellowPages = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 opacity-80">Owner Level</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 opacity-80">Owner Level / Role (Optional)</label>
                   <select 
                     className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 dark:border-[#138601]/30 bg-white dark:bg-[#041801] text-xs focus:outline-none focus:border-[#138601] text-gray-900 dark:text-white cursor-pointer"
                     value={newBusiness.ownerLevel}
                     onChange={(e) => setNewBusiness({...newBusiness, ownerLevel: e.target.value})}
                   >
+                    <option value="">Leave blank (Optional)</option>
                     <option value="100 Level">100 Level</option>
                     <option value="200 Level">200 Level</option>
                     <option value="300 Level">300 Level</option>
