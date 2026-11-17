@@ -46,6 +46,8 @@ import {
   adminCreateCategory,
   adminDeleteCategory,
   storageService,
+  fetchCourseFolders,
+  updateCourseFolders,
   DEFAULT_RESOURCE_CATEGORIES
 } from '@nacos/supabase';
 import { getPortalAdminSession } from '@nacos/auth';
@@ -78,6 +80,9 @@ const PortalAdminResources = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isDriveFoldersModalOpen, setIsDriveFoldersModalOpen] = useState(false);
+  const [driveFolders, setDriveFolders] = useState([]);
+  const [isSavingDriveFolders, setIsSavingDriveFolders] = useState(false);
   const [selectedResourceForEdit, setSelectedResourceForEdit] = useState(null);
   const [deleteConfirmResource, setDeleteConfirmResource] = useState(null);
   const [previewResource, setPreviewResource] = useState(null);
@@ -127,10 +132,11 @@ const PortalAdminResources = () => {
   const loadAllData = async () => {
     setIsLoading(true);
     try {
-      const [resData, catData, anaData] = await Promise.all([
+      const [resData, catData, anaData, foldersData] = await Promise.all([
         fetchResources({ limit: 100, includeInactive: true }),
         fetchResourceCategories({ includeInactive: true }),
-        adminGetResourceAnalytics()
+        adminGetResourceAnalytics(),
+        fetchCourseFolders()
       ]);
 
       if (resData.data) setResources(resData.data);
@@ -141,6 +147,7 @@ const PortalAdminResources = () => {
         }
       }
       if (anaData.data) setAnalytics(anaData.data);
+      if (foldersData) setDriveFolders(foldersData);
     } catch (err) {
       console.warn('Error loading admin resource data:', err);
     } finally {
@@ -451,6 +458,23 @@ const PortalAdminResources = () => {
     }
   };
 
+  // Drive Folders Manager: Save Folders
+  const handleSaveDriveFolders = async (e) => {
+    e.preventDefault();
+    setIsSavingDriveFolders(true);
+    try {
+      const result = await updateCourseFolders(driveFolders);
+      if (!result.success) throw new Error(result.error || 'Failed to save drive folders');
+      showNotification('Google Drive course folders updated successfully!');
+      setIsDriveFoldersModalOpen(false);
+      loadAllData();
+    } catch (err) {
+      showNotification(err.message || 'Error updating drive folders', 'error');
+    } finally {
+      setIsSavingDriveFolders(false);
+    }
+  };
+
   const formatBytes = (bytes) => {
     if (!bytes || bytes <= 0) return '0 MB';
     if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
@@ -496,6 +520,16 @@ const PortalAdminResources = () => {
             >
               <Layers className="w-4 h-4" />
               <span>Categories</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsDriveFoldersModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded text-xs font-semibold bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/50 transition-colors cursor-pointer"
+              title="Configure 100L - 500L Google Drive shared folders"
+            >
+              <FolderPlus className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span>Drive Folders</span>
             </button>
 
             <button
@@ -1255,6 +1289,99 @@ const PortalAdminResources = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── MODAL: GOOGLE DRIVE COURSE FOLDERS (100L - 500L) ─── */}
+        {isDriveFoldersModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/40 rounded w-full max-w-xl flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-[#138601]/25 flex items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                    <FolderPlus className="w-5 h-5" />
+                  </span>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                      Course Google Drive Folders
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-green-200/70">
+                      Link Google Drive shared folders for 100L through 500L displayed at the top of the Resources page.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsDriveFoldersModalOpen(false)}
+                  className="p-1.5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-white cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveDriveFolders} className="p-4 sm:p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+                {driveFolders.map((df, idx) => (
+                  <div key={df.level} className="p-3.5 rounded-lg border border-gray-200 dark:border-[#138601]/25 bg-gray-50/50 dark:bg-[#041801]/50 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-[#138601]" />
+                        {df.level} ({df.shortLevel || `${df.level.slice(0, 3)}L`})
+                      </span>
+                      {df.drive_url && (
+                        <a
+                          href={df.drive_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#138601] dark:text-[#4bd043] hover:underline"
+                        >
+                          <span>Test Link</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="url"
+                        placeholder="https://drive.google.com/drive/folders/..."
+                        value={df.drive_url || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setDriveFolders(prev => prev.map((item, i) => i === idx ? { ...item, drive_url: val } : item));
+                        }}
+                        className="w-full text-xs font-mono px-3 py-2 rounded border border-gray-300 dark:border-[#138601]/40 bg-white dark:bg-[#083002] text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601]"
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100 dark:border-[#138601]/25">
+                  <button
+                    type="button"
+                    onClick={() => setIsDriveFoldersModalOpen(false)}
+                    className="px-4 py-2 rounded text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingDriveFolders}
+                    className="inline-flex items-center gap-1.5 px-5 py-2 rounded text-xs font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+                  >
+                    {isSavingDriveFolders ? (
+                      <>
+                        <Loader className="w-3.5 h-3.5 animate-spin" />
+                        <span>Saving Folders...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Save Drive Folders</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

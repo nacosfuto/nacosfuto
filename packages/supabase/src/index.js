@@ -27,5 +27,6 @@ export * from './studentCsvEngine.js';
 export * from './academicProgressionService.js';
 export * from './studentDataCache.js';
 export * from './heroSlidesService.js';
+export * from './courseFoldersService.js';
 export { default } from './client.js';
 

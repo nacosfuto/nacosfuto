@@ -29,6 +29,7 @@ import {
 import libraryShelfCloseup from '../assets/library_shelf_closeup.jpg';
 import libraryHero from '../assets/library_hero.jpg';
 import libraryStudyGuides from '../assets/library_study_guides.jpg';
+import CourseFoldersSection from '../components/Resources/CourseFoldersSection';
 import { 
   fetchResources, 
   fetchResourceCategories, 
@@ -675,6 +676,10 @@ const Resources = ({ isPreviewPage = false }) => {
       {/* ─── Main Resources Section ─── */}
       <main id="catalog-section" className="flex-grow site-container w-full py-8 sm:py-10">
         
+        {/* ─── 1. Course Folders (Google Drive Cloud Folders 100L - 500L) ─── */}
+        <CourseFoldersSection onToast={(msg, type) => showToast(msg, type)} />
+
+        {/* ─── 2. Catalog & Archive (Direct Downloads & Materials from B2) ─── */}
         {/* Catalog Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-6 border-b border-[#138601]/20 dark:border-[#138601]/30 gap-3">
           <div>
