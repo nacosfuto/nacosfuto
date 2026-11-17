@@ -105,7 +105,7 @@ export const CourseFoldersSection = ({ onToast }) => {
             COURSE FOLDERS
           </h2>
           <p className="text-xs sm:text-sm text-gray-600 dark:text-green-200/80 mt-1 font-normal max-w-2xl leading-relaxed">
-            Systematic access to lecture materials and past questions categorized by academic level.
+            <span className="font-semibold text-[#138601] dark:text-[#4bd043]">Skip the hurdle</span> — explore lecture notes, past questions, and study materials contributed by department members across each academic level.
           </p>
         </div>
       </div>

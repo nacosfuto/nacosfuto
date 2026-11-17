@@ -1307,7 +1307,7 @@ const PortalAdminResources = () => {
                       Course Google Drive Folders
                     </h3>
                     <p className="text-xs text-gray-500 dark:text-green-200/70">
-                      Link Google Drive shared folders for 100L through 500L displayed at the top of the Resources page.
+                      Link Google Drive shared folders for 100L through 500L (files and study materials contributed by department members).
                     </p>
                   </div>
                 </div>
