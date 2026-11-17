@@ -13,7 +13,7 @@ import {
   ArrowRight, 
   Sparkles
 } from 'lucide-react';
-import { fetchNotices } from '@nacos/supabase';
+import { fetchNotices, supabase } from '@nacos/supabase';
 
 export default function Notices() {
   const [notices, setNotices] = useState([]);
@@ -55,7 +55,23 @@ export default function Notices() {
     // Listen for cross-tab or admin notice updates
     const handleUpdate = () => loadData(true);
     window.addEventListener('nacos_notices_updated', handleUpdate);
-    return () => window.removeEventListener('nacos_notices_updated', handleUpdate);
+
+    let channel = null;
+    if (supabase) {
+      channel = supabase
+        .channel('portal-circulars-live-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
+          loadData(true);
+        })
+        .subscribe();
+    }
+
+    return () => {
+      window.removeEventListener('nacos_notices_updated', handleUpdate);
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, []);
 
   const levelOptions = ['All', '100L', '200L', '300L', '400L', '500L'];

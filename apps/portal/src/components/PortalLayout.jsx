@@ -137,9 +137,22 @@ const PortalLayout = ({ children }) => {
     const handleNoticeUpdate = () => syncNotices();
     window.addEventListener('nacos_notices_updated', handleNoticeUpdate);
 
+    let channel = null;
+    if (supabase) {
+      channel = supabase
+        .channel('portal-notices-live-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
+          syncNotices();
+        })
+        .subscribe();
+    }
+
     return () => {
       isMounted = false;
       window.removeEventListener('nacos_notices_updated', handleNoticeUpdate);
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [user?.level, user?.id, user?.current_level, user?.currentLevel]);
 

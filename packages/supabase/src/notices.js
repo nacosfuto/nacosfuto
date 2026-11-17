@@ -9,6 +9,30 @@ import { supabase } from './client.js';
 
 const STORAGE_KEY_NOTICES = 'nacos_notices_db';
 const STORAGE_KEY_DISMISSED = 'nacos_dismissed_popups';
+const ZOMBIE_NOTICE_ID = '3d6429a8-6687-4a0e-83cb-5a5fc0f1d1ec';
+const ZOMBIE_TITLE_KEYWORD = 'HARMATTAN SEMESTER 2026/2027 REGISTRATION';
+
+// Explicit column selection strictly adhering to AGENTS.md (No wildcard select('*'))
+const ANNOUNCEMENT_COLUMNS = 'id, title, slug, excerpt, content, category, priority, is_published, target_audience, author_unit, is_popup, is_urgent, published_at, created_at, updated_at';
+
+// Immediately cleanse any legacy zombie notice from localStorage on load
+if (typeof window !== 'undefined') {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_NOTICES);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed.filter(n => 
+          n?.id !== ZOMBIE_NOTICE_ID &&
+          !String(n?.title || '').toUpperCase().includes(ZOMBIE_TITLE_KEYWORD)
+        );
+        if (cleaned.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEY_NOTICES, JSON.stringify(cleaned));
+        }
+      }
+    }
+  } catch (_) {}
+}
 
 /**
  * Generate RFC-4122 compliant UUID v4 string
@@ -84,6 +108,27 @@ function normalizeNoticeRecord(item) {
 }
 
 /**
+ * Robust target audience level matcher supporting:
+ * - 'ALL STUDENTS', 'ALL'
+ * - '100 LEVEL', '100 Level', '100L', '100'
+ */
+function audienceMatches(targetAudience, studentLevel) {
+  if (!studentLevel) return true;
+  const aud = String(targetAudience || 'ALL STUDENTS').trim().toUpperCase();
+  if (aud === 'ALL' || aud === 'ALL STUDENTS' || aud.includes('ALL')) return true;
+
+  const reqClean = String(studentLevel).trim().toUpperCase();
+  if (aud.includes(reqClean) || reqClean.includes(aud)) return true;
+
+  // Compare 3-digit numeric level (e.g. 100, 200, 300, 400, 500)
+  const reqNum = reqClean.match(/\b\d{3}\b|\d{3}/)?.[0];
+  const audNum = aud.match(/\b\d{3}\b|\d{3}/)?.[0];
+  if (reqNum && audNum && reqNum === audNum) return true;
+
+  return false;
+}
+
+/**
  * Helper to get cached notices from local store (clean fallback, zero mock seeds)
  */
 function getCachedNotices() {
@@ -92,7 +137,16 @@ function getCachedNotices() {
     const raw = localStorage.getItem(STORAGE_KEY_NOTICES);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    // Ensure deleted zombie notice is never returned from cache
+    const cleaned = parsed.filter(n => 
+      n?.id !== ZOMBIE_NOTICE_ID && 
+      !String(n?.title || '').toUpperCase().includes(ZOMBIE_TITLE_KEYWORD)
+    );
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEY_NOTICES, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch (_) {
     return [];
   }
@@ -104,7 +158,11 @@ function getCachedNotices() {
 function setCachedNotices(notices, notify = false) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY_NOTICES, JSON.stringify(notices));
+    const cleaned = (Array.isArray(notices) ? notices : []).filter(n => 
+      n?.id !== ZOMBIE_NOTICE_ID &&
+      !String(n?.title || '').toUpperCase().includes(ZOMBIE_TITLE_KEYWORD)
+    );
+    localStorage.setItem(STORAGE_KEY_NOTICES, JSON.stringify(cleaned));
     if (notify) {
       window.dispatchEvent(new Event('nacos_notices_updated'));
     }
@@ -114,7 +172,43 @@ function setCachedNotices(notices, notify = false) {
 }
 
 /**
- * Fetch all notices with optional filtering by level, search, and published status
+ * Fetch fresh authoritative list from Supabase and synchronize local cache & backup rows
+ */
+async function syncAuthoritativeStore() {
+  if (!supabase) return null;
+  try {
+    const { data: fresh, error } = await supabase
+      .from('announcements')
+      .select(ANNOUNCEMENT_COLUMNS)
+      .order('created_at', { ascending: false });
+
+    if (!error && Array.isArray(fresh)) {
+      const normalized = fresh
+        .map(normalizeNoticeRecord)
+        .filter(n => n && n.id !== ZOMBIE_NOTICE_ID && !String(n.title || '').toUpperCase().includes(ZOMBIE_TITLE_KEYWORD));
+
+      setCachedNotices(normalized, true);
+
+      const jsonStr = JSON.stringify(normalized);
+      const nowIso = new Date().toISOString();
+
+      await supabase.from('id_card_settings').upsert([
+        { id: 'store_notices', academic_session: jsonStr, updated_at: nowIso },
+        { id: 'store_portal_notices', academic_session: jsonStr, updated_at: nowIso }
+      ]);
+
+      return normalized;
+    }
+  } catch (err) {
+    console.warn('Sync authoritative store error:', err);
+  }
+  return null;
+}
+
+/**
+ * Fetch all notices with optional filtering by level, search, and published status.
+ * Strictly queries the authoritative Supabase 'announcements' table.
+ * Never resurrects deleted notices from backup rows.
  */
 export async function fetchNotices(options = {}) {
   const { level = null, activeOnly = true, search = '' } = options;
@@ -124,7 +218,7 @@ export async function fetchNotices(options = {}) {
     if (supabase) {
       let query = supabase
         .from('announcements')
-        .select('id, title, slug, target_audience, category, author_unit, author, published_date, published_at, created_at, updated_at, content, excerpt, is_popup, is_urgent, priority, is_published')
+        .select(ANNOUNCEMENT_COLUMNS)
         .order('created_at', { ascending: false });
 
       if (activeOnly) {
@@ -134,42 +228,16 @@ export async function fetchNotices(options = {}) {
       const { data, error } = await query;
 
       if (!error && Array.isArray(data)) {
-        let normalized = data.map(normalizeNoticeRecord).filter(Boolean);
-
-        // Also check if any backup records exist in id_card_settings store_notices
-        try {
-          const { data: backupRow } = await supabase
-            .from('id_card_settings')
-            .select('academic_session')
-            .eq('id', 'store_notices')
-            .maybeSingle();
-
-          if (backupRow?.academic_session) {
-            const parsedBackup = JSON.parse(backupRow.academic_session);
-            if (Array.isArray(parsedBackup) && parsedBackup.length > 0) {
-              const existingIds = new Set(normalized.map(n => n.id));
-              parsedBackup.forEach(b => {
-                if (b?.id && !existingIds.has(b.id)) {
-                  const normB = normalizeNoticeRecord(b);
-                  if (normB && (!activeOnly || normB.is_published !== false)) {
-                    normalized.push(normB);
-                  }
-                }
-              });
-            }
-          }
-        } catch (_) {}
+        let normalized = data
+          .map(normalizeNoticeRecord)
+          .filter(n => n && n.id !== ZOMBIE_NOTICE_ID && !String(n.title || '').toUpperCase().includes(ZOMBIE_TITLE_KEYWORD));
 
         // Sort newest first
         normalized.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
         // Filter by target level if requested
         if (level) {
-          const cleanLvl = String(level).toUpperCase();
-          normalized = normalized.filter(n => {
-            const aud = (n.target_audience || '').toUpperCase();
-            return aud === 'ALL STUDENTS' || aud === 'ALL' || aud.includes(cleanLvl);
-          });
+          normalized = normalized.filter(n => audienceMatches(n.target_audience, level));
         }
 
         // Filter by search query
@@ -183,6 +251,7 @@ export async function fetchNotices(options = {}) {
           );
         }
 
+        // Authoritatively update local cache to match database exactly
         setCachedNotices(normalized);
         return { data: normalized, error: null };
       }
@@ -191,17 +260,13 @@ export async function fetchNotices(options = {}) {
     console.warn('[Notices Fetch Notice]:', err);
   }
 
-  // 2. Fallback to cached store without mock seeds
+  // 2. Fallback to cached store ONLY if database network error occurred
   let list = getCachedNotices();
   if (activeOnly) {
     list = list.filter(n => n.is_published !== false);
   }
   if (level) {
-    const cleanLvl = String(level).toUpperCase();
-    list = list.filter(n => {
-      const aud = (n.target_audience || '').toUpperCase();
-      return aud === 'ALL STUDENTS' || aud === 'ALL' || aud.includes(cleanLvl);
-    });
+    list = list.filter(n => audienceMatches(n.target_audience, level));
   }
   if (search && search.trim()) {
     const q = search.toLowerCase();
@@ -226,8 +291,18 @@ export async function fetchActivePopupNotice(options = {}) {
   const { data: notices } = await fetchNotices({ level, activeOnly: true });
   if (!notices || notices.length === 0) return null;
 
-  // Find the single active urgent notice (set to urgent or popup)
-  const urgentNotice = notices.find(n => Boolean(n.is_urgent || n.is_popup) && n.is_published !== false);
+  // Filter all candidates with urgent/popup flags
+  const urgentCandidates = notices.filter(n => Boolean(n.is_urgent || n.is_popup) && n.is_published !== false);
+  if (urgentCandidates.length === 0) return null;
+
+  // Pick the most recently updated/created urgent notice
+  urgentCandidates.sort((a, b) => {
+    const timeA = new Date(a.updated_at || a.published_at || a.created_at || 0).getTime();
+    const timeB = new Date(b.updated_at || b.published_at || b.created_at || 0).getTime();
+    return timeB - timeA;
+  });
+
+  const urgentNotice = urgentCandidates[0];
   if (!urgentNotice) return null;
 
   if (!force && typeof window !== 'undefined') {
@@ -319,7 +394,7 @@ export async function adminCreateNotice(noticeData) {
           .neq('id', id);
       }
 
-      const { data: inserted, error: insErr } = await supabase
+      const { error: insErr } = await supabase
         .from('announcements')
         .insert([{
           id: newNotice.id,
@@ -338,7 +413,7 @@ export async function adminCreateNotice(noticeData) {
           created_at: newNotice.created_at,
           updated_at: newNotice.updated_at
         }])
-        .select()
+        .select(ANNOUNCEMENT_COLUMNS)
         .single();
 
       if (insErr) {
@@ -349,27 +424,20 @@ export async function adminCreateNotice(noticeData) {
     console.error('Error during Supabase announcement insert:', err);
   }
 
-  // 2. Synchronize cache and id_card_settings store_notices backup
-  const current = getCachedNotices();
-  if (isUrgent) {
-    current.forEach(n => {
-      n.is_popup = false;
-      n.is_urgent = false;
-      n.priority = 'normal';
-    });
-  }
-  current.unshift(newNotice);
-  setCachedNotices(current, true);
-
-  try {
-    if (supabase) {
-      await supabase.from('id_card_settings').upsert({
-        id: 'store_notices',
-        academic_session: JSON.stringify(current),
-        updated_at: nowIso
+  // 2. Authoritatively synchronize stores from live database
+  const synchronized = await syncAuthoritativeStore();
+  if (!synchronized) {
+    const current = getCachedNotices();
+    if (isUrgent) {
+      current.forEach(n => {
+        n.is_popup = false;
+        n.is_urgent = false;
+        n.priority = 'normal';
       });
     }
-  } catch (_) {}
+    current.unshift(newNotice);
+    setCachedNotices(current, true);
+  }
 
   return { success: true, data: newNotice };
 }
@@ -414,41 +482,33 @@ export async function adminUpdateNotice(id, updates = {}) {
     console.warn('Supabase update notice error:', err);
   }
 
-  // 2. Update local cache & id_card_settings
-  const current = getCachedNotices();
-  const index = current.findIndex(n => n.id === id);
-  if (index !== -1) {
-    if (isUrgent === true) {
-      current.forEach((n, idx) => {
-        if (idx !== index) {
-          n.is_popup = false;
-          n.is_urgent = false;
-          n.priority = 'normal';
-        }
-      });
-    }
-    current[index] = {
-      ...current[index],
-      ...updates,
-      ...(isUrgent !== undefined ? { is_popup: isUrgent, is_urgent: isUrgent, priority: isUrgent ? 'high' : 'normal' } : {}),
-      updated_at: nowIso
-    };
-    setCachedNotices(current, true);
-
-    try {
-      if (supabase) {
-        await supabase.from('id_card_settings').upsert({
-          id: 'store_notices',
-          academic_session: JSON.stringify(current),
-          updated_at: nowIso
+  // 2. Authoritatively synchronize stores from live database
+  const synchronized = await syncAuthoritativeStore();
+  if (!synchronized) {
+    const current = getCachedNotices();
+    const index = current.findIndex(n => n.id === id);
+    if (index !== -1) {
+      if (isUrgent === true) {
+        current.forEach((n, idx) => {
+          if (idx !== index) {
+            n.is_popup = false;
+            n.is_urgent = false;
+            n.priority = 'normal';
+          }
         });
       }
-    } catch (_) {}
-
-    return { success: true, data: current[index] };
+      current[index] = {
+        ...current[index],
+        ...updates,
+        ...(isUrgent !== undefined ? { is_popup: isUrgent, is_urgent: isUrgent, priority: isUrgent ? 'high' : 'normal' } : {}),
+        updated_at: nowIso
+      };
+      setCachedNotices(current, true);
+      return { success: true, data: current[index] };
+    }
   }
 
-  return { success: true };
+  return { success: true, data: updates };
 }
 
 /**
@@ -464,20 +524,13 @@ export async function adminDeleteNotice(id) {
     console.warn('Supabase delete notice error:', err);
   }
 
-  // 2. Update local cache and backup store
-  const current = getCachedNotices();
-  const filtered = current.filter(n => n.id !== id);
-  setCachedNotices(filtered, true);
-
-  try {
-    if (supabase) {
-      await supabase.from('id_card_settings').upsert({
-        id: 'store_notices',
-        academic_session: JSON.stringify(filtered),
-        updated_at: new Date().toISOString()
-      });
-    }
-  } catch (_) {}
+  // 2. Authoritatively synchronize stores from live database
+  const synchronized = await syncAuthoritativeStore();
+  if (!synchronized) {
+    const current = getCachedNotices();
+    const filtered = current.filter(n => n.id !== id);
+    setCachedNotices(filtered, true);
+  }
 
   return { success: true };
 }
