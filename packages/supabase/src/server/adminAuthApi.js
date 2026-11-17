@@ -384,7 +384,7 @@ export async function handleAdminForgotPassword({ email, ipAddress = null }) {
     const { count } = await supabase
       .from('otp_verifications')
       .select('id', { count: 'exact', head: true })
-      .or(`destination_full.ilike.${cleanEmail},registration_number.eq.ADMIN-${adminRecord.id}`)
+      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
       .gte('created_at', windowStart);
 
     if (count >= RATE_LIMIT_MAX_ATTEMPTS) {
@@ -396,13 +396,23 @@ export async function handleAdminForgotPassword({ email, ipAddress = null }) {
     }
   } catch (_) {}
 
-  // 3. Generate secure 6-digit OTP
+  // 3. Invalidate any existing unused challenges for this administrator
+  // Ensures only ONE newly issued verification code is active at any time
+  try {
+    await supabase
+      .from('otp_verifications')
+      .update({ is_used: true })
+      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+      .eq('is_used', false);
+  } catch (_) {}
+
+  // 4. Generate secure 6-digit OTP
   const randomBytes = crypto.randomBytes(3);
   const otpCode = ((randomBytes.readUIntBE(0, 3) % 900000) + 100000).toString();
   const otpHash = hashOtpServer(otpCode);
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
 
-  // 4. Save to otp_verifications table
+  // 5. Save to otp_verifications table
   await supabase.from('otp_verifications').insert([{
     registration_number: `ADMIN-${adminRecord.id}`,
     channel: 'email',
@@ -417,7 +427,7 @@ export async function handleAdminForgotPassword({ email, ipAddress = null }) {
     created_at: new Date().toISOString()
   }]);
 
-  // 5. Dispatch transactional email via Resend
+  // 6. Dispatch transactional email via Resend
   const adminName = adminRecord.full_name || 'Administrator';
   const roleTitle = adminRecord.role || 'Admin Officer';
 
@@ -480,23 +490,20 @@ export async function handleAdminResetPassword({ email, otp, newPassword }) {
     return { success: false, error: 'This administrator account is currently suspended. Please contact the Super Administrator.' };
   }
 
-  // 2. Fetch candidate active challenges
-  // Compare against:
-  // a) Server-salted SHA-256: hashOtpServer(cleanOtp)
-  // b) Raw 6-digit code: cleanOtp
-  // c) Unsalted SHA-256
-  const candidateSalted = hashOtpServer(cleanOtp);
-  const candidateUnsalted = crypto.createHash('sha256').update(cleanOtp).digest('hex');
+  // 2. Prepare candidate match formats (case-insensitive hex and raw string)
+  const candidateSalted = hashOtpServer(cleanOtp).toLowerCase();
+  const candidateUnsalted = crypto.createHash('sha256').update(cleanOtp).digest('hex').toLowerCase();
 
   const nowIso = new Date().toISOString();
   const nowMs = Date.now();
 
+  // 3. Query recent verification records for this admin across all possible identification columns
   const { data: challenges, error: challengeErr } = await supabase
     .from('otp_verifications')
     .select('id, registration_number, destination_full, otp_hash, is_used, expires_at, created_at, attempts, max_attempts')
-    .or(`destination_full.ilike.${cleanEmail},registration_number.eq.ADMIN-${adminRecord.id}`)
+    .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
     .order('created_at', { ascending: false })
-    .limit(15);
+    .limit(25);
 
   if (challengeErr) {
     console.error('[Admin Reset Password Challenge Query Error]:', challengeErr);
@@ -505,31 +512,53 @@ export async function handleAdminResetPassword({ email, otp, newPassword }) {
 
   const challengeList = challenges || [];
 
-  // Match against candidate hashes or raw code
-  const matchedRecord = challengeList.find(r => 
-    r.otp_hash === candidateSalted || 
-    r.otp_hash === cleanOtp || 
-    r.otp_hash === candidateUnsalted
-  );
+  // Helper matcher comparing hashes trimmed and case-insensitively
+  const isMatch = (r) => {
+    const storedHash = (r.otp_hash || '').trim().toLowerCase();
+    return storedHash === candidateSalted || storedHash === cleanOtp || storedHash === candidateUnsalted;
+  };
 
+  // Find candidate among active/unused challenges first
+  let matchedRecord = challengeList.find(r => !r.is_used && isMatch(r));
+
+  // If not found among active/unused, check if matched against an already used or expired record to give an informative error
   if (!matchedRecord) {
-    // If there is an active challenge, increment its attempts
+    const historicalMatch = challengeList.find(isMatch);
+    if (historicalMatch) {
+      if (historicalMatch.is_used) {
+        return { success: false, error: 'This verification code has already been used. Please request a new code.' };
+      }
+      const expiryTime = historicalMatch.expires_at ? new Date(historicalMatch.expires_at).getTime() : 0;
+      if (expiryTime > 0 && nowMs > expiryTime + 10 * 60 * 1000) {
+        return { success: false, error: 'This verification code has expired. Please request a new code.' };
+      }
+    }
+
+    // If an active challenge exists, increment its attempts
     const activeChallenge = challengeList.find(r => !r.is_used);
     if (activeChallenge) {
+      const newAttempts = (activeChallenge.attempts || 0) + 1;
+      const maxAtt = activeChallenge.max_attempts || 5;
       await supabase
         .from('otp_verifications')
-        .update({ attempts: (activeChallenge.attempts || 0) + 1 })
+        .update({
+          attempts: newAttempts,
+          is_used: newAttempts >= maxAtt
+        })
         .eq('id', activeChallenge.id);
+
+      const remaining = Math.max(0, maxAtt - newAttempts);
+      if (remaining > 0) {
+        return { success: false, error: `Invalid verification code. ${remaining} attempt(s) remaining.` };
+      } else {
+        return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
+      }
     }
+
     return { success: false, error: 'Invalid or expired verification code. Please request a new one.' };
   }
 
-  // Check if already used
-  if (matchedRecord.is_used) {
-    return { success: false, error: 'This verification code has already been used. Please request a new code.' };
-  }
-
-  // Check max attempts
+  // Check attempts on matched record
   if ((matchedRecord.attempts || 0) >= (matchedRecord.max_attempts || 5)) {
     return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
   }
@@ -541,7 +570,7 @@ export async function handleAdminResetPassword({ email, otp, newPassword }) {
     return { success: false, error: 'This verification code has expired. Please request a new code.' };
   }
 
-  // 3. Mark matched OTP as used & verified
+  // 4. Mark matched OTP as used & verified
   await supabase
     .from('otp_verifications')
     .update({ is_used: true, verified_at: nowIso })
@@ -552,14 +581,14 @@ export async function handleAdminResetPassword({ email, otp, newPassword }) {
     await supabase
       .from('otp_verifications')
       .update({ is_used: true })
-      .eq('registration_number', `ADMIN-${adminRecord.id}`)
+      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
       .eq('is_used', false);
   } catch (_) {}
 
-  // 4. Hash new password with PBKDF2
+  // 5. Hash new password with PBKDF2
   const newHash = hashPasswordServer(newPassword);
 
-  // 5. Update password in admin_scopes
+  // 6. Update password in admin_scopes
   const { error: updateErr } = await supabase
     .from('admin_scopes')
     .update({

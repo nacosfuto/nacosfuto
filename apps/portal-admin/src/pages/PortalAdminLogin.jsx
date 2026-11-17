@@ -120,7 +120,8 @@ export const PortalAdminLogin = () => {
   // Step 1: Request Admin Reset OTP
   const handleRequestReset = async (e) => {
     e.preventDefault();
-    if (!resetEmail.trim()) {
+    const cleanEmail = resetEmail.trim().toLowerCase();
+    if (!cleanEmail) {
       setResetError('Please enter your official administrator email address.');
       return;
     }
@@ -129,11 +130,11 @@ export const PortalAdminLogin = () => {
     setResetError('');
 
     try {
-      const result = await requestAdminPasswordReset(resetEmail.trim());
+      const result = await requestAdminPasswordReset(cleanEmail);
       setIsResetLoading(false);
 
       if (result.success) {
-        setMaskedResetEmail(result.maskedEmail);
+        setMaskedResetEmail(result.maskedEmail || cleanEmail);
         setResetCooldown(60);
         setResetStep(2);
       } else {
@@ -151,11 +152,12 @@ export const PortalAdminLogin = () => {
   // Resend OTP in Step 2
   const handleResendResetOTP = async () => {
     if (resetCooldown > 0 || isResetLoading) return;
+    const cleanEmail = resetEmail.trim().toLowerCase();
     setIsResetLoading(true);
     setResetError('');
 
     try {
-      const result = await requestAdminPasswordReset(resetEmail.trim());
+      const result = await requestAdminPasswordReset(cleanEmail);
       setIsResetLoading(false);
       if (result.success) {
         setResetCooldown(60);
@@ -171,8 +173,15 @@ export const PortalAdminLogin = () => {
   // Step 2: Verify Code and Set New Password
   const handleConfirmReset = async (e) => {
     e.preventDefault();
-    if (!otpCode.trim()) {
+    const cleanEmail = resetEmail.trim().toLowerCase();
+    const cleanCode = otpCode.replace(/\D/g, '').trim();
+
+    if (!cleanCode) {
       setResetError('Please enter the 6-digit verification code.');
+      return;
+    }
+    if (cleanCode.length !== 6) {
+      setResetError('Verification code must be exactly 6 digits.');
       return;
     }
     if (!newPassword) {
@@ -192,7 +201,7 @@ export const PortalAdminLogin = () => {
     setResetError('');
 
     try {
-      const result = await confirmAdminPasswordReset(resetEmail.trim(), otpCode.trim(), newPassword);
+      const result = await confirmAdminPasswordReset(cleanEmail, cleanCode, newPassword);
       setIsResetLoading(false);
 
       if (result.success) {
@@ -360,10 +369,21 @@ export const PortalAdminLogin = () => {
                         <input
                           type="text"
                           required
-                          maxLength={6}
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          maxLength={12}
                           placeholder="e.g. 123456"
                           value={otpCode}
-                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                            setOtpCode(val);
+                          }}
+                          onPaste={(e) => {
+                            e.preventDefault();
+                            const pasted = e.clipboardData?.getData('text') || '';
+                            const digits = pasted.replace(/\D/g, '').slice(0, 6);
+                            setOtpCode(digits);
+                          }}
                           className="w-full pl-10 pr-4 py-3 text-lg font-mono tracking-widest rounded-lg bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] text-center"
                         />
                         <KeyRound className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5 pointer-events-none" />

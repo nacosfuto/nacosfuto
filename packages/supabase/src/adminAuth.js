@@ -909,13 +909,22 @@ export async function requestAdminPasswordReset(adminEmail) {
   const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
+  // Invalidate any older unused challenges for this admin so only the newly issued code is active
+  try {
+    await supabase
+      .from('otp_verifications')
+      .update({ is_used: true })
+      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+      .eq('is_used', false);
+  } catch (_) {}
+
   // Compute and persist OTP hash so it can be verified in database
   let otpHash = otpCode;
   if (typeof crypto !== 'undefined' && crypto.subtle) {
     try {
       const enc = new TextEncoder();
       const buf = await crypto.subtle.digest('SHA-256', enc.encode(otpCode + 'nacos_otp_salt_2026'));
-      otpHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      otpHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
     } catch (_) {}
   }
 
@@ -973,6 +982,8 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
     return { success: false, error: 'Please enter a valid 6-digit verification code.' };
   }
 
+  let serverlessError = null;
+
   // 1. Try serverless endpoint first
   try {
     const res = await fetch('/api/admin/auth/reset-password', {
@@ -986,12 +997,14 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
       return { success: true, message: data.message };
     }
     if (data.error) {
-      return { success: false, error: data.error };
+      serverlessError = data.error;
     }
-  } catch (_) {}
+  } catch (err) {
+    serverlessError = err.message;
+  }
 
-  // 2. Direct Supabase Fallback
-  if (!supabase) return { success: false, error: 'Database offline.' };
+  // 2. Direct Supabase Fallback (Execute if serverless endpoint failed or returned an error)
+  if (!supabase) return { success: false, error: serverlessError || 'Database offline.' };
 
   const { data: adminRecord } = await supabase
     .from('admin_scopes')
@@ -1014,43 +1027,69 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
     try {
       const enc = new TextEncoder();
       const bufSalted = await crypto.subtle.digest('SHA-256', enc.encode(cleanOtp + 'nacos_otp_salt_2026'));
-      candidateSalted = Array.from(new Uint8Array(bufSalted)).map(b => b.toString(16).padStart(2, '0')).join('');
+      candidateSalted = Array.from(new Uint8Array(bufSalted)).map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
       const bufUnsalted = await crypto.subtle.digest('SHA-256', enc.encode(cleanOtp));
-      candidateUnsalted = Array.from(new Uint8Array(bufUnsalted)).map(b => b.toString(16).padStart(2, '0')).join('');
+      candidateUnsalted = Array.from(new Uint8Array(bufUnsalted)).map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
     } catch (_) {}
   }
 
   const { data: challenges, error: fetchErr } = await supabase
     .from('otp_verifications')
     .select('id, registration_number, destination_full, otp_hash, is_used, expires_at, created_at, attempts, max_attempts')
-    .or(`destination_full.ilike.${cleanEmail},registration_number.eq.ADMIN-${adminRecord.id}`)
+    .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
     .order('created_at', { ascending: false })
-    .limit(10);
+    .limit(25);
 
   if (fetchErr) {
     console.error('[Admin Reset Fallback Query Error]:', fetchErr);
   }
 
   const challengeList = challenges || [];
-  const matched = challengeList.find(c => 
-    c.otp_hash === candidateSalted ||
-    c.otp_hash === cleanOtp ||
-    c.otp_hash === candidateUnsalted
-  );
+  const nowMs = Date.now();
+  const nowIso = new Date().toISOString();
 
+  // Helper matcher comparing hashes trimmed and case-insensitively
+  const isMatch = (c) => {
+    const storedHash = (c.otp_hash || '').trim().toLowerCase();
+    return storedHash === candidateSalted || storedHash === cleanOtp || storedHash === candidateUnsalted;
+  };
+
+  // Find candidate among active/unused challenges first
+  let matched = challengeList.find(c => !c.is_used && isMatch(c));
+
+  // If not found among active/unused, check historical for clearer error messaging
   if (!matched) {
+    const historicalMatch = challengeList.find(isMatch);
+    if (historicalMatch) {
+      if (historicalMatch.is_used) {
+        return { success: false, error: 'This verification code has already been used. Please request a new code.' };
+      }
+      const expiryTime = historicalMatch.expires_at ? new Date(historicalMatch.expires_at).getTime() : 0;
+      if (expiryTime > 0 && nowMs > expiryTime + 10 * 60 * 1000) {
+        return { success: false, error: 'This verification code has expired. Please request a new code.' };
+      }
+    }
+
     const activeChallenge = challengeList.find(c => !c.is_used);
     if (activeChallenge) {
+      const newAttempts = (activeChallenge.attempts || 0) + 1;
+      const maxAtt = activeChallenge.max_attempts || 5;
       await supabase
         .from('otp_verifications')
-        .update({ attempts: (activeChallenge.attempts || 0) + 1 })
+        .update({
+          attempts: newAttempts,
+          is_used: newAttempts >= maxAtt
+        })
         .eq('id', activeChallenge.id);
-    }
-    return { success: false, error: 'Invalid or expired verification code. Please request a new one.' };
-  }
 
-  if (matched.is_used) {
-    return { success: false, error: 'This verification code has already been used. Please request a new code.' };
+      const remaining = Math.max(0, maxAtt - newAttempts);
+      if (remaining > 0) {
+        return { success: false, error: `Invalid verification code. ${remaining} attempt(s) remaining.` };
+      } else {
+        return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
+      }
+    }
+    return { success: false, error: serverlessError || 'Invalid or expired verification code. Please request a new one.' };
   }
 
   if ((matched.attempts || 0) >= (matched.max_attempts || 5)) {
@@ -1062,7 +1101,6 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
     return { success: false, error: 'This verification code has expired. Please request a new code.' };
   }
 
-  const nowIso = new Date().toISOString();
   await supabase
     .from('otp_verifications')
     .update({ is_used: true, verified_at: nowIso })
@@ -1072,7 +1110,7 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
     await supabase
       .from('otp_verifications')
       .update({ is_used: true })
-      .eq('registration_number', `ADMIN-${adminRecord.id}`)
+      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
       .eq('is_used', false);
   } catch (_) {}
 
