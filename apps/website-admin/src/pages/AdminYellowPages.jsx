@@ -334,7 +334,7 @@ const AdminYellowPages = () => {
                   {/* Flyer Image with imagePosition support */}
                   <div className="relative aspect-video bg-gray-100 dark:bg-black/40 overflow-hidden">
                     <img
-                      src={biz.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569310/nacos/yellow_pages/flyer_cypher.jpg'}
+                      src={biz.image || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569310/nacos/yellow_pages/flyer_cypher.jpg'}
                       alt={biz.name}
                       style={{ objectPosition: biz.imagePosition || 'center' }}
                       className="w-full h-full object-cover"

@@ -208,7 +208,7 @@ export function getCloudName() {
   if (typeof process !== 'undefined' && process.env?.CLOUDINARY_CLOUD_NAME) {
     return process.env.CLOUDINARY_CLOUD_NAME;
   }
-  return 'z3wgqisj';
+  return 'a2mmcttn';
 }
 
 /**

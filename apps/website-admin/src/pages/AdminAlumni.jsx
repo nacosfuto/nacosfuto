@@ -293,7 +293,7 @@ const AdminAlumni = () => {
               <div>
                 <div className="relative aspect-[4/3] bg-gray-100 dark:bg-black/40 overflow-hidden">
                   <img
-                    src={alm.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569284/nacos/alumni/alumni.jpg'}
+                    src={alm.image || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569284/nacos/alumni/alumni.jpg'}
                     alt={alm.name}
                     className="w-full h-full object-cover"
                   />

@@ -16,6 +16,7 @@ import './loadEnv.js';
 import crypto from 'crypto';
 import { supabase } from '../client.js';
 import { dispatchEmail } from './emailDispatcher.js';
+import { renderEmailFooterHtml } from './emailTemplates.js';
 
 const AUTH_SECRET = process.env.SESSION_SECRET || process.env.VITE_SUPABASE_ANON_KEY || 'nacos_futo_auth_signature_key_2026';
 const SALT = 'nacos_futo_salt_2026';
@@ -536,11 +537,7 @@ export async function handleSendOtp({ stepToken, channel = 'email', purpose = 'S
               Valid for <strong>15 minutes</strong>. If you did not initiate this request, you can safely ignore this email.
             </p>
           </div>
-          <div style="padding: 16px 24px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: left;">
-            <p style="font-size: 11px; color: #94a3b8; margin: 0; line-height: 1.5;">
-              NACOS FUTO &bull; Department of Computer Science &bull; Federal University of Technology, Owerri
-            </p>
-          </div>
+          ${renderEmailFooterHtml()}
         </div>
       </body>
       </html>

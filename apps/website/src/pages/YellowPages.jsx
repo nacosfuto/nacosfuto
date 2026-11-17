@@ -19,11 +19,11 @@ import {
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
 import { getCloudinaryAssetUrl, MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
-const flyerPeacemaker = getCloudinaryAssetUrl('flyer_peacemaker') || "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569313/nacos/yellow_pages/flyer_peacemaker.jpg";
-const flyerNiforix = getCloudinaryAssetUrl('flyer_niforix') || "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569311/nacos/yellow_pages/flyer_niforix.jpg";
-const flyerCypher = getCloudinaryAssetUrl('flyer_cypher') || "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569310/nacos/yellow_pages/flyer_cypher.jpg";
-const flyerNinasBraid = getCloudinaryAssetUrl('flyer_ninas_braid') || "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569312/nacos/yellow_pages/flyer_ninas_braid.jpg";
-const laptopImg = getCloudinaryAssetUrl('flyer_cypher') || "https://res.cloudinary.com/z3wgqisj/image/upload/v1788569310/nacos/yellow_pages/flyer_cypher.jpg";
+const flyerPeacemaker = getCloudinaryAssetUrl('flyer_peacemaker') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569313/nacos/yellow_pages/flyer_peacemaker.jpg";
+const flyerNiforix = getCloudinaryAssetUrl('flyer_niforix') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569311/nacos/yellow_pages/flyer_niforix.jpg";
+const flyerCypher = getCloudinaryAssetUrl('flyer_cypher') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569310/nacos/yellow_pages/flyer_cypher.jpg";
+const flyerNinasBraid = getCloudinaryAssetUrl('flyer_ninas_braid') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569312/nacos/yellow_pages/flyer_ninas_braid.jpg";
+const laptopImg = getCloudinaryAssetUrl('flyer_cypher') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569310/nacos/yellow_pages/flyer_cypher.jpg";
 import { getYellowPagesBusinesses, submitYellowPageBusiness, fetchYellowPagesFromSupabase } from '@nacos/supabase';
 
 const YellowPages = () => {

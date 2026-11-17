@@ -849,7 +849,7 @@ export default async function handler(req, res) {
       }
       if (method === 'POST') {
         const data = await parseRequestBody(req);
-        const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.VITE_CLOUDINARY_CLOUD_NAME || 'z3wgqisj';
+        const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.VITE_CLOUDINARY_CLOUD_NAME || 'a2mmcttn';
         const apiKey = process.env.CLOUDINARY_API_KEY || '722252495954777';
         const apiSecret = process.env.CLOUDINARY_API_SECRET || 'S8lEKNI2XO6bcGGylYWivj05xUA';
         const timestamp = Math.round(Date.now() / 1000);

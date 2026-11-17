@@ -64,7 +64,7 @@ function cloudinaryDevPlugin() {
                 const env = { ...process.env, ...rootEnv, ...localEnv };
 
                 const data = typeof rawBody === 'object' ? rawBody : JSON.parse(rawBody || '{}');
-                const cloudName = env.CLOUDINARY_CLOUD_NAME || env.VITE_CLOUDINARY_CLOUD_NAME || 'z3wgqisj';
+                const cloudName = env.CLOUDINARY_CLOUD_NAME || env.VITE_CLOUDINARY_CLOUD_NAME || 'a2mmcttn';
                 const apiKey = env.CLOUDINARY_API_KEY || '722252495954777';
                 const apiSecret = env.CLOUDINARY_API_SECRET || 'S8lEKNI2XO6bcGGylYWivj05xUA';
                 const timestamp = Math.round(Date.now() / 1000);

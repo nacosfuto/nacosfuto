@@ -114,7 +114,7 @@ VALUES
   'peacemaker@nacos.org.ng',
   5.0,
   14,
-  'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569313/nacos/yellow_pages/flyer_peacemaker.jpg',
+  'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569313/nacos/yellow_pages/flyer_peacemaker.jpg',
   'nacos/yellow_pages/flyer_peacemaker',
   'top left',
   'approved'
@@ -128,12 +128,13 @@ VALUES
   'Student Business',
   'Graphics Design, Branding, UI/UX, Website Design, CAC/NUPRC/SMEDAN Registrations, Social Media Management, Technical/Resume Writing, E-Pin sales, and IT Consulting.',
   'FUTO Campus / Remote 24/7',
+  'FUTO Campus / Remote 24/7',
   '+2349060900245',
   '2349060900245',
   'niforix@nacos.org.ng',
   5.0,
   25,
-  'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569311/nacos/yellow_pages/flyer_niforix.jpg',
+  'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569311/nacos/yellow_pages/flyer_niforix.jpg',
   'nacos/yellow_pages/flyer_niforix',
   'top right',
   'approved'
@@ -152,7 +153,7 @@ VALUES
   'dev@cypher.org.ng',
   5.0,
   30,
-  'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569310/nacos/yellow_pages/flyer_cypher.jpg',
+  'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569310/nacos/yellow_pages/flyer_cypher.jpg',
   'nacos/yellow_pages/flyer_cypher',
   'top center',
   'approved'
@@ -171,7 +172,7 @@ VALUES
   '',
   4.9,
   19,
-  'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569312/nacos/yellow_pages/flyer_ninas_braid.jpg',
+  'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569312/nacos/yellow_pages/flyer_ninas_braid.jpg',
   'nacos/yellow_pages/flyer_ninas_braid',
   'top center',
   'approved'
@@ -246,7 +247,7 @@ VALUES
   'Head of Department (CSC)',
   'Senior Lecturer / HOD',
   'hod.csc@futo.edu.ng',
-  'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569270/nacos/executives/hod_stanley.jpg',
+  'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569270/nacos/executives/hod_stanley.jpg',
   'nacos/executives/hod_stanley',
   1,
   true
@@ -257,7 +258,7 @@ VALUES
   'Staff Adviser / Course Adviser',
   'Senior Lecturer / Staff Adviser',
   'staff.adviser@futo.edu.ng',
-  'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569274/nacos/executives/staff_adviser_nwokorie.jpg',
+  'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569274/nacos/executives/staff_adviser_nwokorie.jpg',
   'nacos/executives/staff_adviser_nwokorie',
   2,
   true

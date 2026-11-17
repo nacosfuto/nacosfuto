@@ -17,6 +17,7 @@ import './loadEnv.js';
 import crypto from 'crypto';
 import { supabase } from '../client.js';
 import { dispatchEmail, isValidEmail } from './emailDispatcher.js';
+import { renderEmailFooterHtml } from './emailTemplates.js';
 import { calculateAcademicProgression } from '@nacos/config/academic';
 
 const ELECTRA_AUTH_SECRET = process.env.SESSION_SECRET || process.env.VITE_SUPABASE_ANON_KEY || 'nacos_electra_futo_auth_key_2026';
@@ -929,10 +930,7 @@ export async function handleSendElectoralCode({ accreditationToken, email, ipAdd
             Valid for <strong>${OTP_EXPIRY_MINUTES} minutes</strong>. Single use only. Do not share this code with anyone.
           </p>
         </div>
-        <div class="footer">
-          ELECTRA &bull; NACOS FUTO Independent Student Electoral Commission<br />
-          Federal University of Technology, Owerri
-        </div>
+        ${renderEmailFooterHtml()}
       </div>
     </body>
     </html>

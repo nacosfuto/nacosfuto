@@ -8,6 +8,105 @@
 
 const NACOS_LOGO_URL = 'https://res.cloudinary.com/a2mmcttn/image/upload/v1791331612/nacos/general/full-logo-light.png';
 
+export const NACOS_EMAIL_ASSETS = {
+  logo: NACOS_LOGO_URL,
+  icons: {
+    website: 'https://res.cloudinary.com/z3wgqisj/image/upload/f_png,w_64,h_64,c_fit/nacos/email_assets/icon_globe.png',
+    email: 'https://res.cloudinary.com/z3wgqisj/image/upload/f_png,w_64,h_64,c_fit/nacos/email_assets/icon_email.png',
+    linkedin: 'https://res.cloudinary.com/z3wgqisj/image/upload/f_png,w_64,h_64,c_fit/nacos/email_assets/icon_linkedin.png',
+    instagram: 'https://res.cloudinary.com/z3wgqisj/image/upload/f_png,w_64,h_64,c_fit/nacos/email_assets/icon_instagram.png',
+    facebook: 'https://res.cloudinary.com/z3wgqisj/image/upload/f_png,w_64,h_64,c_fit/nacos/email_assets/icon_facebook.png'
+  },
+  links: {
+    website: 'https://nacosfuto.com.ng',
+    email: 'mailto:hello@nacosfuto.com.ng',
+    linkedin: 'https://www.linkedin.com/company/nigeria-association-of-computing-students-futo-chapter/',
+    instagram: 'https://www.instagram.com/nacosfuto',
+    facebook: 'https://facebook.com/nacosfuto'
+  }
+};
+
+/**
+ * Standard Branded Email Footer (HTML)
+ * Displays "CONNECT WITH US", social + email icons row, chapter name, and department address.
+ */
+export function renderEmailFooterHtml() {
+  const { icons, links } = NACOS_EMAIL_ASSETS;
+
+  return `
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border-top: 1px solid #e2e8f0;">
+      <tr>
+        <td class="footer-padding" align="center" style="padding: 24px 20px 24px; text-align: center;">
+          <!-- CONNECT WITH US Header -->
+          <p style="margin: 0 0 14px 0; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 1.5px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            CONNECT WITH US
+          </p>
+
+          <!-- Social & Email Icons Row -->
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 16px auto;">
+            <tr>
+              <td align="center" valign="middle" style="padding: 0 6px;">
+                <a href="${links.website}" target="_blank" rel="noopener noreferrer" title="NACOS FUTO Website" style="text-decoration: none; display: inline-block;">
+                  <img src="${icons.website}" alt="Website" width="26" height="26" style="display: block; width: 26px; height: 26px; border: 0;" />
+                </a>
+              </td>
+              <td align="center" valign="middle" style="padding: 0 6px;">
+                <a href="${links.email}" title="Email NACOS FUTO" style="text-decoration: none; display: inline-block;">
+                  <img src="${icons.email}" alt="Email Us" width="26" height="26" style="display: block; width: 26px; height: 26px; border: 0;" />
+                </a>
+              </td>
+              <td align="center" valign="middle" style="padding: 0 6px;">
+                <a href="${links.linkedin}" target="_blank" rel="noopener noreferrer" title="NACOS FUTO LinkedIn" style="text-decoration: none; display: inline-block;">
+                  <img src="${icons.linkedin}" alt="LinkedIn" width="26" height="26" style="display: block; width: 26px; height: 26px; border: 0;" />
+                </a>
+              </td>
+              <td align="center" valign="middle" style="padding: 0 6px;">
+                <a href="${links.instagram}" target="_blank" rel="noopener noreferrer" title="NACOS FUTO Instagram" style="text-decoration: none; display: inline-block;">
+                  <img src="${icons.instagram}" alt="Instagram" width="26" height="26" style="display: block; width: 26px; height: 26px; border: 0;" />
+                </a>
+              </td>
+              <td align="center" valign="middle" style="padding: 0 6px;">
+                <a href="${links.facebook}" target="_blank" rel="noopener noreferrer" title="NACOS FUTO Facebook" style="text-decoration: none; display: inline-block;">
+                  <img src="${icons.facebook}" alt="Facebook" width="26" height="26" style="display: block; width: 26px; height: 26px; border: 0;" />
+                </a>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Chapter Title -->
+          <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 700; color: #1e293b; text-align: center; line-height: 1.4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            Nigeria Association of Computing Students (NACOS) &mdash; FUTO Chapter
+          </p>
+
+          <!-- Address & Copyright -->
+          <p style="margin: 0 auto; max-width: 440px; font-size: 11px; line-height: 1.5; color: #64748b; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            &copy; 2026 Department of Computer Science, Federal University of Technology, PMB 1526, Owerri, Imo State, Nigeria.
+          </p>
+        </td>
+      </tr>
+    </table>
+  `;
+}
+
+/**
+ * Standard Branded Email Footer (Plain-text)
+ */
+export function renderEmailFooterText() {
+  const { links } = NACOS_EMAIL_ASSETS;
+  return [
+    '---------------------------------',
+    'CONNECT WITH US:',
+    `Website:   ${links.website}`,
+    'Email:     hello@nacosfuto.com.ng',
+    `LinkedIn:  ${links.linkedin}`,
+    `Instagram: ${links.instagram}`,
+    `Facebook:  ${links.facebook}`,
+    '',
+    'Nigeria Association of Computing Students (NACOS) — FUTO Chapter',
+    '© 2026 Department of Computer Science, Federal University of Technology, PMB 1526, Owerri, Imo State, Nigeria.'
+  ].join('\n');
+}
+
 function sanitizeHtml(str) {
   if (!str) return '';
   return String(str)
@@ -87,13 +186,8 @@ export function buildBaseEmailLayout({ title, preheader, contentHtml }) {
 
           <!-- Footer -->
           <tr>
-            <td class="footer-padding" style="background-color: #f8fafc; padding: 18px 28px; border-top: 1px solid #e2e8f0; text-align: left;">
-              <p style="color: #64748b; margin: 0 0 4px; font-size: 12px; font-weight: 600;">
-                NACOS FUTO &bull; Department of Computer Science
-              </p>
-              <p style="color: #94a3b8; margin: 0; font-size: 11px; line-height: 1.5;">
-                Federal University of Technology, Owerri &bull; <a href="mailto:hello@nacosfuto.com.ng" style="color: #16a34a; text-decoration: underline;">hello@nacosfuto.com.ng</a>
-              </p>
+            <td style="padding: 0; background-color: #f8fafc;">
+              ${renderEmailFooterHtml()}
             </td>
           </tr>
 
@@ -159,9 +253,7 @@ export function renderVerificationEmail({ code, expiryMinutes = 15, studentName 
     `Valid for ${expiryMinutes} minutes.`,
     'If you did not initiate this request, you can safely ignore this email.',
     '',
-    '---------------------------------',
-    'Department of Computer Science',
-    'Federal University of Technology, Owerri (FUTO)'
+    renderEmailFooterText()
   ].join('\n');
 
   return {
@@ -218,9 +310,7 @@ export function renderPasswordResetEmail({ code, expiryMinutes = 10, studentName
     `Valid for ${expiryMinutes} minutes.`,
     'If you did not request this, you can safely ignore this email.',
     '',
-    '---------------------------------',
-    'Department of Computer Science',
-    'Federal University of Technology, Owerri (FUTO)'
+    renderEmailFooterText()
   ].join('\n');
 
   return {
@@ -393,9 +483,7 @@ export function renderPaymentSuccessEmail({
     '',
     `Portal: ${targetPortalLink}`,
     '',
-    '---------------------------------',
-    'Department of Computer Science',
-    'Federal University of Technology, Owerri (FUTO)'
+    renderEmailFooterText()
   ];
 
   return {
@@ -510,9 +598,7 @@ export function renderPaymentFailedEmail({
     '',
     `Student Portal: ${basePortalUrl}`,
     '',
-    '---------------------------------',
-    'Department of Computer Science',
-    'Federal University of Technology, Owerri (FUTO)'
+    renderEmailFooterText()
   ].filter(Boolean);
 
   return {
@@ -615,9 +701,7 @@ export function renderPaymentReversedEmail({
     '',
     `Student Portal: ${basePortalUrl}`,
     '',
-    '---------------------------------',
-    'Department of Computer Science',
-    'Federal University of Technology, Owerri (FUTO)'
+    renderEmailFooterText()
   ];
 
   return {
@@ -681,9 +765,7 @@ export function renderRecoveryNotificationEmail({ adminEmail, studentReg, studen
     '',
     'Please review this request in the Portal Admin Panel: https://nacosfuto.com.ng/portal-admin',
     '',
-    '---------------------------------',
-    'Department of Computer Science',
-    'Federal University of Technology, Owerri (FUTO)'
+    renderEmailFooterText()
   ].join('\n');
 
   return {
@@ -783,9 +865,7 @@ export function renderAdminAssignmentEmail({
     '',
     `Login Link: ${accessUrl}`,
     '',
-    '---------------------------------',
-    'Department of Computer Science',
-    'Federal University of Technology, Owerri (FUTO)'
+    renderEmailFooterText()
   ].filter(Boolean).join('\n');
 
   return {
@@ -847,9 +927,7 @@ export function renderAdminSecurityCodeEmail({
     `Valid for ${expiryMinutes} minutes. Single-use only.`,
     'Never disclose this code to anyone.',
     '',
-    '---------------------------------',
-    'Department of Computer Science',
-    'Federal University of Technology, Owerri (FUTO)'
+    renderEmailFooterText()
   ].join('\n');
 
   return {
