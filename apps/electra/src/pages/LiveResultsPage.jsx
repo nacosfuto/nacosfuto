@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { 
-  ShieldCheck, 
   Users, 
   Vote, 
   RefreshCw, 
@@ -205,54 +203,25 @@ export default function LiveResultsPage() {
   return (
     <div className="py-10 site-container bg-[#F8FAFC]">
       
-      {/* Top Header Card matching reference */}
+      {/* Top Header Card */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 mb-8 shadow-xs">
-        {/* Navigation link */}
-        <div className="mb-4">
-          <Link
-            to="/electra"
-            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors group"
-          >
-            <span className="transition-transform group-hover:-translate-x-0.5">&larr;</span>
-            <span>Back to elections</span>
-          </Link>
-        </div>
-
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          {/* Left Side: Badges, Title, Subtitle */}
-          <div className="space-y-2">
-            {/* Badges Row */}
-            <div className="flex items-center gap-3 flex-wrap">
-              {/* Active Pill Badge */}
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
-                <span>{activeElection?.status ? (activeElection.status.charAt(0).toUpperCase() + activeElection.status.slice(1)) : 'Active'}</span>
-              </span>
-
-              {/* Verified Shield Badge */}
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold tracking-wider text-amber-500 uppercase">
-                <ShieldCheck className="w-4 h-4 text-amber-400 fill-amber-400/20 stroke-[2.2]" />
-                <span>VERIFIED BY NACOS ISEC</span>
-              </div>
-            </div>
-
-            {/* Election Title */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 sm:gap-6">
+          {/* Left Side: Title & Subtitle */}
+          <div className="space-y-1.5">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight font-display">
-              {activeElection?.title || 'Honourée Alumni Council 2025'}
+              {activeElection?.title || 'Live Election Results'}
             </h1>
-
-            {/* Subtitle */}
             <p className="text-xs sm:text-sm text-slate-500 font-normal">
               Live results, updated in real time.
             </p>
           </div>
 
-          {/* Right Side: Total Ballots Floating Card */}
-          <div className="bg-white border border-slate-100 rounded-2xl px-6 py-4 shadow-sm text-center md:text-right shrink-0 min-w-[140px] self-start md:self-center">
-            <span className="text-xs font-medium text-slate-500 block mb-1">
-              Total ballots
+          {/* Right Side: Total Ballots / Voters Counter Card */}
+          <div className="bg-slate-50/80 sm:bg-white border border-slate-200/80 rounded-xl sm:rounded-2xl px-5 py-3.5 sm:px-6 sm:py-4 shadow-2xs sm:shadow-xs flex items-center justify-between sm:flex-col sm:items-end shrink-0 min-w-[170px]">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block sm:mb-1">
+              Total Voters
             </span>
-            <div className="flex items-center justify-center md:justify-end gap-2">
+            <div className="flex items-center sm:justify-end gap-2.5">
               <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display tracking-tight">
                 {(totalBallots || 0).toLocaleString()}
               </span>
@@ -261,7 +230,7 @@ export default function LiveResultsPage() {
                 onClick={() => fetchAuthoritative(true)}
                 disabled={isRefreshing}
                 title="Refresh Results"
-                className="p-1 rounded text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-40 cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-40 cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#138601]' : ''}`} />
               </button>
