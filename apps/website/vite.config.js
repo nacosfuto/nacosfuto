@@ -248,7 +248,6 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
-    chunkSizeWarningLimit: 1500,
     // Ensure Vite doesn't try to bundle backend files
     rollupOptions: {
       external: [
