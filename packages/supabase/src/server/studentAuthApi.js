@@ -590,22 +590,32 @@ export async function handleVerifyOtp({ stepToken, otpCode, purpose = 'SIGNUP' }
     return { success: false, error: 'Please enter a valid 6-digit verification code.' };
   }
 
-  const cleanReg = (verifiedToken.registrationNumber || '').toString().replace(/[\/\s\-]/g, '').trim().toUpperCase();
+  const rawReg = (verifiedToken.registrationNumber || '').toString().trim();
+  const cleanReg = rawReg.replace(/[\/\s\-]/g, '').toUpperCase();
   const strippedReg = cleanReg.replace(/[^a-zA-Z0-9]/g, '');
+  const candidateEmail = (verifiedToken.providedEmail || '').trim().toLowerCase();
 
-  const candidateHash = hashOtpServer(cleanOtp);
+  const candidateSalted = hashOtpServer(cleanOtp).toLowerCase();
+  const candidateUnsalted = crypto.createHash('sha256').update(cleanOtp).digest('hex').toLowerCase();
   const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
 
   let matched = false;
 
   // 1. Look up challenges in Supabase
   if (supabase) {
     try {
-      // Query recent challenges across registration number / identifier
-      const orFilter = `registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg}`;
+      // Build dynamic OR filter across cleanReg, strippedReg, rawReg, and candidateEmail
+      const filterConditions = new Set();
+      if (cleanReg) filterConditions.add(`registration_number.ilike.${cleanReg}`);
+      if (strippedReg && strippedReg !== cleanReg) filterConditions.add(`registration_number.ilike.${strippedReg}`);
+      if (rawReg && rawReg !== cleanReg && rawReg !== strippedReg) filterConditions.add(`registration_number.ilike.${rawReg}`);
+      if (candidateEmail && candidateEmail.includes('@')) filterConditions.add(`destination_full.ilike.${candidateEmail}`);
+
+      const orFilter = Array.from(filterConditions).join(',');
       const { data: challenges, error: fetchErr } = await supabase
         .from('otp_verifications')
-        .select('id, registration_number, otp_hash, code, expires_at, is_used, created_at')
+        .select('id, registration_number, destination_full, otp_hash, expires_at, attempts, max_attempts, verified_at, is_used, created_at')
         .or(orFilter)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -615,25 +625,30 @@ export async function handleVerifyOtp({ stepToken, otpCode, purpose = 'SIGNUP' }
       }
 
       const challengeList = challenges || [];
-      // Look for a match against candidate hash or raw code
-      const matchedRecord = challengeList.find(r => r.otp_hash === candidateHash || (r.code && r.code === cleanOtp));
+      // Look for a match against candidate hash or raw code (case-insensitive)
+      const isMatch = (r) => {
+        const storedHash = (r.otp_hash || '').trim().toLowerCase();
+        return storedHash === candidateSalted || storedHash === candidateUnsalted || storedHash === cleanOtp;
+      };
+
+      const matchedRecord = challengeList.find(isMatch);
 
       if (matchedRecord) {
         // Allow up to 10 minutes clock skew beyond expires_at
         const expiryTime = matchedRecord.expires_at ? new Date(matchedRecord.expires_at).getTime() : 0;
-        const isExpired = expiryTime > 0 && (Date.now() > expiryTime + 10 * 60 * 1000);
+        const isExpired = expiryTime > 0 && (nowMs > expiryTime + 10 * 60 * 1000);
 
         if (isExpired) {
           return { success: false, error: 'This verification code has expired. Please request a new code.' };
         }
 
-        if (matchedRecord.attempts >= (matchedRecord.max_attempts || 5)) {
+        if ((matchedRecord.attempts || 0) >= (matchedRecord.max_attempts || 5)) {
           return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
         }
 
         // If already verified, allow re-authorization within 30 minutes
         if (matchedRecord.verified_at) {
-          const verifiedAge = Date.now() - new Date(matchedRecord.verified_at).getTime();
+          const verifiedAge = nowMs - new Date(matchedRecord.verified_at).getTime();
           if (verifiedAge < 30 * 60 * 1000) {
             matched = true;
           } else {
@@ -650,10 +665,10 @@ export async function handleVerifyOtp({ stepToken, otpCode, purpose = 'SIGNUP' }
 
       } else {
         // No match found for candidate code -> User entered an incorrect code
-        // Find the most recent active or unexpired challenge to register the attempt against
+        // Find the most recent unverified challenge to register the attempt against
         const pendingChallenge = challengeList.find(c => 
-          !c.is_used || (c.expires_at && new Date(c.expires_at).getTime() + 10 * 60 * 1000 >= Date.now())
-        );
+          !c.verified_at && (!c.is_used || (c.expires_at && new Date(c.expires_at).getTime() + 10 * 60 * 1000 >= nowMs))
+        ) || challengeList.find(c => !c.verified_at);
 
         if (pendingChallenge) {
           const newAttempts = (pendingChallenge.attempts || 0) + 1;

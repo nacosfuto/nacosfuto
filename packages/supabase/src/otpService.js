@@ -300,13 +300,16 @@ export async function verifyOTP(regNumber, channel, submittedCode) {
     const orFilter = `registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg}`;
     const { data: activeList } = await supabase
       .from('otp_verifications')
-      .select('id, registration_number, otp_hash, code, expires_at, attempts, max_attempts, is_used, created_at')
+      .select('id, registration_number, destination_full, otp_hash, expires_at, attempts, max_attempts, verified_at, is_used, created_at')
       .or(orFilter)
       .order('created_at', { ascending: false })
       .limit(20);
 
     if (activeList && activeList.length > 0) {
-      match = activeList.find(r => r.otp_hash === submittedHash || (r.code && r.code === cleanCode));
+      match = activeList.find(r => {
+        const storedHash = (r.otp_hash || '').trim().toLowerCase();
+        return storedHash === submittedHash.toLowerCase() || storedHash === cleanCode || (r.code && r.code === cleanCode);
+      });
 
       if (match) {
         const expiryTime = match.expires_at ? new Date(match.expires_at).getTime() : 0;
