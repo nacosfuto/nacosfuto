@@ -20,12 +20,14 @@ const NacosSection = () => {
         if (Array.isArray(liveData) && liveData.length > 0) {
           const cur = liveData.filter(e => e.category === 'current');
           if (cur.length > 0) {
+            cur.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
             setExecutivesList(cur);
             return;
           }
         }
         const cur = getExecutives('current');
         if (Array.isArray(cur) && cur.length > 0) {
+          cur.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
           setExecutivesList(cur);
         }
       } catch (e) {

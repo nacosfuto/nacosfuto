@@ -39,18 +39,21 @@ const NacosExecutives = () => {
   const availableTenures = useMemo(() => tenureList.map(t => t.session), [tenureList]);
   const displayedPastExecutives = useMemo(() => {
     if (!selectedTenure) return [];
-    return pastExecutives.filter(e => (e.session || '2024/2025') === selectedTenure);
+    return pastExecutives
+      .filter(e => (e.session || '2024/2025') === selectedTenure)
+      .sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
   }, [pastExecutives, selectedTenure]);
 
   const loadData = (liveList) => {
     try {
       setPageSettings(getExecutivesSettings());
+      const sortExecs = (items) => [...items].sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
       if (Array.isArray(liveList)) {
-        setCurrentExecutives(liveList.filter(e => e.category === 'current'));
-        setPastExecutives(liveList.filter(e => e.category === 'past'));
+        setCurrentExecutives(sortExecs(liveList.filter(e => e.category === 'current')));
+        setPastExecutives(sortExecs(liveList.filter(e => e.category === 'past')));
       } else {
-        setCurrentExecutives(getExecutives('current'));
-        setPastExecutives(getExecutives('past'));
+        setCurrentExecutives(sortExecs(getExecutives('current')));
+        setPastExecutives(sortExecs(getExecutives('past')));
       }
     } catch (e) {
       console.warn('Error loading executives data:', e);

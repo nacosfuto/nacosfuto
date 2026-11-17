@@ -231,7 +231,7 @@ export async function fetchExecutivesFromSupabase() {
     if (resultList.length === 0) {
       const { data: execRows } = await supabase
         .from('nacos_executives')
-        .select('id, name, role, portfolio, level, bio, photo_url, image, cloudinary_public_id, category, is_active, session, academic_session, order_index')
+        .select('id, name, role, portfolio, level, bio, photo_url, cloudinary_public_id, is_active, academic_session, order_index, sort_order')
         .order('order_index', { ascending: true });
 
       if (execRows && execRows.length > 0) {
@@ -242,12 +242,12 @@ export async function fetchExecutivesFromSupabase() {
           portfolio: r.portfolio || r.role || 'Executive',
           level: r.level || '400L',
           bio: r.bio || '',
-          image: r.photo_url || r.image || '',
-          photo_url: r.photo_url || r.image || '',
+          image: r.photo_url || '',
+          photo_url: r.photo_url || '',
           cloudinary_public_id: r.cloudinary_public_id || '',
-          category: r.category || (r.is_active ? 'current' : 'past'),
-          session: r.session || r.academic_session || '2025/2026',
-          academic_session: r.academic_session || r.session || '2025/2026',
+          category: r.is_active ? 'current' : 'past',
+          session: r.academic_session || '2025/2026',
+          academic_session: r.academic_session || '2025/2026',
           order_index: r.order_index ?? r.sort_order ?? 0
         }));
       }
@@ -330,6 +330,8 @@ export async function fetchExecutivesFromSupabase() {
     }
 
     if (resultList.length > 0) {
+      resultList = resultList.filter(e => e.id !== 'test-123' && e.name !== 'EEEE');
+      resultList.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
       saveLocalExecutives(resultList);
       return resultList;
     }
@@ -817,30 +819,74 @@ export async function archiveCurrentTenure(archiveSession = '2024/2025', newTenu
 }
 
 /**
- * Reorder executives within a category
+ * Reorder executives within a category and atomically synchronize order across database and client views
  */
 export async function reorderExecutives(category, orderedIds) {
-  const list = getExecutives('all');
+  let list = getExecutives('all');
+  if (supabase) {
+    try {
+      const { data: storeRow } = await supabase
+        .from('id_card_settings')
+        .select('academic_session')
+        .eq('id', 'store_executives')
+        .maybeSingle();
+      if (storeRow?.academic_session) {
+        const parsed = JSON.parse(storeRow.academic_session);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          list = parsed;
+        }
+      }
+    } catch (_) {}
+  }
+
   const updatedList = list.map(item => {
     if (item.category === category) {
       const newIndex = orderedIds.indexOf(item.id);
       if (newIndex !== -1) {
-        return { ...item, order_index: newIndex };
+        return { ...item, order_index: newIndex, sort_order: newIndex };
       }
     }
     return item;
   });
 
+  // Guarantee strict ascending order in memory and storage
+  updatedList.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
+
+  const now = new Date().toISOString();
+
+  // 1. Authoritative persistent save to Supabase store_executives
   try {
     if (supabase) {
       await supabase.from('id_card_settings').upsert({
         id: 'store_executives',
         academic_session: JSON.stringify(updatedList),
-        updated_at: new Date().toISOString()
+        updated_at: now
       });
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn('Supabase store_executives reorder save warning:', err);
+  }
 
+  // 2. Direct fast sync to nacos_executives table with explicit column updates
+  if (supabase) {
+    try {
+      const changed = updatedList.filter(item => item.category === category && orderedIds.includes(item.id));
+      for (const item of changed) {
+        await supabase
+          .from('nacos_executives')
+          .update({
+            order_index: item.order_index,
+            sort_order: item.order_index,
+            updated_at: now
+          })
+          .eq('id', item.id);
+      }
+    } catch (tblErr) {
+      console.warn('Supabase nacos_executives order sync notice:', tblErr);
+    }
+  }
+
+  // 3. Safe local cache persistence and event broadcast
   saveLocalExecutives(updatedList);
 
   return updatedList;

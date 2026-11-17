@@ -34,7 +34,8 @@ import {
   DEFAULT_EXECUTIVES_PAGE_SETTINGS,
   getTenures,
   addTenure,
-  fetchExecutivesFromSupabase
+  fetchExecutivesFromSupabase,
+  reorderExecutives
 } from '@nacos/supabase';
 import { MediaUpload, CLOUDINARY_FOLDERS } from '@nacos/media';
 import { recordAdminAction } from '@nacos/supabase/adminAuth';
@@ -197,9 +198,10 @@ const AdminExecutives = () => {
     }
   };
 
-  // Filtered lists
+  // Filtered lists (strictly sorted by arrangement order_index)
   const currentList = executives
     .filter(e => e.category === 'current')
+    .sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999))
     .filter(e => 
       e.name.toLowerCase().includes(search.toLowerCase()) || 
       e.role.toLowerCase().includes(search.toLowerCase())
@@ -207,6 +209,7 @@ const AdminExecutives = () => {
 
   const pastList = executives
     .filter(e => e.category === 'past')
+    .sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999))
     .filter(e => selectedPastSession === 'all' || e.session === selectedPastSession)
     .filter(e => 
       e.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -323,27 +326,29 @@ const AdminExecutives = () => {
     }
   };
 
-  // Reorder executive up/down
+  // Reorder executive up/down with live sync across database and front end
   const handleReorder = async (exec, direction) => {
     try {
-      const list = executives
+      const categoryList = executives
         .filter(e => e.category === exec.category)
         .sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
 
-      const currentIndex = list.findIndex(e => e.id === exec.id);
+      const currentIndex = categoryList.findIndex(e => e.id === exec.id);
       if (currentIndex === -1) return;
 
       const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-      if (targetIndex < 0 || targetIndex >= list.length) return;
+      if (targetIndex < 0 || targetIndex >= categoryList.length) return;
 
-      // Swap order_index
-      const currentOrder = list[currentIndex].order_index ?? currentIndex;
-      const targetOrder = list[targetIndex].order_index ?? targetIndex;
+      // Swap in the array to guarantee unambiguous sequential order indices
+      const reordered = [...categoryList];
+      const temp = reordered[currentIndex];
+      reordered[currentIndex] = reordered[targetIndex];
+      reordered[targetIndex] = temp;
 
-      await saveExecutive({ ...list[currentIndex], order_index: targetOrder });
-      await saveExecutive({ ...list[targetIndex], order_index: currentOrder });
-
-      loadAll();
+      const orderedIds = reordered.map(e => e.id);
+      const updated = await reorderExecutives(exec.category, orderedIds);
+      loadAll(updated);
+      showNotice(`Arrangement updated for "${exec.name}"!`);
     } catch (err) {
       showNotice(getSafeErrorMessage(err, 'Failed to reorder executive.'), 'error');
     }
