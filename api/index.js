@@ -840,31 +840,45 @@ export default async function handler(req, res) {
     // =========================================================================
     // 7. CLOUDINARY MEDIA SIGNING & DELETION
     // =========================================================================
-    if (route === '/api/cloudinary/sign' && method === 'POST') {
-      const data = await parseRequestBody(req);
-      const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.VITE_CLOUDINARY_CLOUD_NAME || 'nacos-futo';
-      const apiKey = process.env.CLOUDINARY_API_KEY || 'dev_key';
-      const apiSecret = process.env.CLOUDINARY_API_SECRET || 'dev_secret';
-      const timestamp = Math.round(Date.now() / 1000);
-      const paramsToSign = {};
-      if (data.folder) paramsToSign.folder = data.folder;
-      if (data.public_id) paramsToSign.public_id = data.public_id;
-      if (data.tags) paramsToSign.tags = Array.isArray(data.tags) ? data.tags.join(',') : data.tags;
-      paramsToSign.timestamp = timestamp;
-      const sorted = Object.keys(paramsToSign).sort().map(k => `${k}=${paramsToSign[k]}`).join('&');
-      const signature = crypto.createHash('sha1').update(sorted + apiSecret).digest('hex');
-      return res.status(200).json({
-        signature,
-        timestamp,
-        apiKey,
-        cloudName,
-        folder: paramsToSign.folder,
-        public_id: paramsToSign.public_id,
-        tags: paramsToSign.tags
-      });
+    if (route === '/api/cloudinary/sign') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (method === 'OPTIONS') {
+        return res.status(200).end();
+      }
+      if (method === 'POST') {
+        const data = await parseRequestBody(req);
+        const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.VITE_CLOUDINARY_CLOUD_NAME || 'z3wgqisj';
+        const apiKey = process.env.CLOUDINARY_API_KEY || '722252495954777';
+        const apiSecret = process.env.CLOUDINARY_API_SECRET || 'S8lEKNI2XO6bcGGylYWivj05xUA';
+        const timestamp = Math.round(Date.now() / 1000);
+        const paramsToSign = {};
+        if (data.folder) paramsToSign.folder = data.folder;
+        if (data.public_id) paramsToSign.public_id = data.public_id;
+        if (data.tags) paramsToSign.tags = Array.isArray(data.tags) ? data.tags.join(',') : data.tags;
+        paramsToSign.timestamp = timestamp;
+        const sorted = Object.keys(paramsToSign).sort().map(k => `${k}=${paramsToSign[k]}`).join('&');
+        const signature = crypto.createHash('sha1').update(sorted + apiSecret).digest('hex');
+        return res.status(200).json({
+          signature,
+          timestamp,
+          apiKey,
+          cloudName,
+          folder: paramsToSign.folder,
+          public_id: paramsToSign.public_id,
+          tags: paramsToSign.tags
+        });
+      }
     }
 
-    if (route === '/api/cloudinary/delete' && method === 'POST') {
+    if (route === '/api/cloudinary/delete') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (method === 'OPTIONS') {
+        return res.status(200).end();
+      }
       return res.status(200).json({ result: 'ok' });
     }
 

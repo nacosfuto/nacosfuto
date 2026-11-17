@@ -40,47 +40,68 @@ function electraAdminDevPlugin() {
           }
         }
 
-        // --- CLOUDINARY SIGNING & DELETION DEV ENDPOINTS ---
-        if (req.url === '/api/cloudinary/sign' && req.method === 'POST') {
-          let body = '';
-          req.on('data', chunk => { body += chunk; });
-          req.on('end', () => {
-            try {
-              const rootEnv = loadEnv('development', path.resolve(__dirname, '../../'), '');
-              const localEnv = loadEnv('development', process.cwd(), '');
-              const env = { ...process.env, ...rootEnv, ...localEnv };
+        const reqUrlObj = new URL(req.url, 'http://localhost');
+        const reqPath = reqUrlObj.pathname;
 
-              const data = JSON.parse(body || '{}');
-              const cloudName = env.CLOUDINARY_CLOUD_NAME || env.VITE_CLOUDINARY_CLOUD_NAME || 'nacos-futo';
-              const apiKey = env.CLOUDINARY_API_KEY || 'dev_key';
-              const apiSecret = env.CLOUDINARY_API_SECRET || 'dev_secret';
-              const timestamp = Math.round(Date.now() / 1000);
-              const paramsToSign = {};
-              if (data.folder) paramsToSign.folder = data.folder;
-              if (data.public_id) paramsToSign.public_id = data.public_id;
-              if (data.tags) paramsToSign.tags = Array.isArray(data.tags) ? data.tags.join(',') : data.tags;
-              paramsToSign.timestamp = timestamp;
-              const sorted = Object.keys(paramsToSign).sort().map(k => `${k}=${paramsToSign[k]}`).join('&');
-              const signature = crypto.createHash('sha1').update(sorted + apiSecret).digest('hex');
-              res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({
-                signature,
-                timestamp,
-                apiKey,
-                cloudName,
-                folder: paramsToSign.folder,
-                public_id: paramsToSign.public_id,
-                tags: paramsToSign.tags
-              }));
-            } catch (e) {
-              res.statusCode = 500;
-              res.end(JSON.stringify({ error: e.message }));
+        // --- CLOUDINARY SIGNING & DELETION DEV ENDPOINTS ---
+        if (reqPath === '/api/cloudinary/sign') {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+          if (req.method === 'OPTIONS') {
+            res.statusCode = 200;
+            res.end();
+            return;
+          }
+          if (req.method === 'POST') {
+            const handleSign = (rawBody) => {
+              try {
+                const rootEnv = loadEnv('development', path.resolve(__dirname, '../../'), '');
+                const localEnv = loadEnv('development', process.cwd(), '');
+                const env = { ...process.env, ...rootEnv, ...localEnv };
+
+                const data = typeof rawBody === 'object' ? rawBody : JSON.parse(rawBody || '{}');
+                const cloudName = env.CLOUDINARY_CLOUD_NAME || env.VITE_CLOUDINARY_CLOUD_NAME || 'z3wgqisj';
+                const apiKey = env.CLOUDINARY_API_KEY || '722252495954777';
+                const apiSecret = env.CLOUDINARY_API_SECRET || 'S8lEKNI2XO6bcGGylYWivj05xUA';
+                const timestamp = Math.round(Date.now() / 1000);
+                const paramsToSign = {};
+                if (data.folder) paramsToSign.folder = data.folder;
+                if (data.public_id) paramsToSign.public_id = data.public_id;
+                if (data.tags) paramsToSign.tags = Array.isArray(data.tags) ? data.tags.join(',') : data.tags;
+                paramsToSign.timestamp = timestamp;
+                const sorted = Object.keys(paramsToSign).sort().map(k => `${k}=${paramsToSign[k]}`).join('&');
+                const signature = crypto.createHash('sha1').update(sorted + apiSecret).digest('hex');
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({
+                  signature,
+                  timestamp,
+                  apiKey,
+                  cloudName,
+                  folder: paramsToSign.folder,
+                  public_id: paramsToSign.public_id,
+                  tags: paramsToSign.tags
+                }));
+              } catch (e) {
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: e.message }));
+              }
+            };
+
+            if (req.body && typeof req.body === 'object') {
+              handleSign(req.body);
+            } else {
+              let body = '';
+              req.on('data', chunk => { body += chunk; });
+              req.on('end', () => handleSign(body));
             }
-          });
-          return;
+            return;
+          }
         }
 
-        if (req.url === '/api/cloudinary/delete' && req.method === 'POST') {
+        if (reqPath === '/api/cloudinary/delete') {
+          res.setHeader('Access-Control-Allow-Origin', '*');
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ result: 'ok' }));
           return;

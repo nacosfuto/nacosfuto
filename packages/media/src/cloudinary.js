@@ -208,7 +208,7 @@ export function getCloudName() {
   if (typeof process !== 'undefined' && process.env?.CLOUDINARY_CLOUD_NAME) {
     return process.env.CLOUDINARY_CLOUD_NAME;
   }
-  return 'a2mmcttn';
+  return 'z3wgqisj';
 }
 
 /**
@@ -250,19 +250,33 @@ export function getOptimizedImageUrl(publicIdOrUrl, options = {}) {
 
   // Case 1: Already a full Cloudinary URL
   if (typeof publicIdOrUrl === 'string' && publicIdOrUrl.includes('res.cloudinary.com')) {
-    // If no custom dimensions or crops are requested, ensure automatic web format and quality compression
-    if (!options.width && !options.height && !options.crop && !options.gravity && !options.preset) {
-      if (!publicIdOrUrl.includes('f_auto') && !publicIdOrUrl.includes('q_auto')) {
-        return publicIdOrUrl.replace('/upload/', '/upload/f_auto,q_auto/');
-      }
-      return publicIdOrUrl;
-    }
-    const regex = /res\.cloudinary\.com\/([^/]+)\/image\/upload\/(?:[^\/]+\/)?(.+)$/;
-    const match = publicIdOrUrl.match(regex);
-    if (match && match[2]) {
+    const match = publicIdOrUrl.match(/res\.cloudinary\.com\/([^/]+)\/image\/upload\/(.+)$/);
+    if (match) {
       const urlCloudName = match[1] || cloudName;
-      const cleanPath = match[2].replace(/^v\d+\//, '');
-      return `https://res.cloudinary.com/${urlCloudName}/image/upload/${transforms}/${cleanPath}`;
+      const rest = match[2];
+      const segments = rest.split('/');
+      const cleanParts = [];
+      let foundAsset = false;
+      for (const seg of segments) {
+        if (!foundAsset) {
+          if (/^v\d+$/.test(seg)) {
+            foundAsset = true;
+            continue;
+          }
+          if (seg.includes('_') || /^[a-z]{1,2}_/.test(seg)) {
+            continue;
+          }
+          foundAsset = true;
+          cleanParts.push(seg);
+        } else {
+          cleanParts.push(seg);
+        }
+      }
+      const cleanPath = cleanParts.length > 0 ? cleanParts.join('/') : rest.replace(/^v\d+\//, '');
+      if (transforms) {
+        return `https://res.cloudinary.com/${urlCloudName}/image/upload/${transforms}/${cleanPath}`;
+      }
+      return `https://res.cloudinary.com/${urlCloudName}/image/upload/f_auto,q_auto/${cleanPath}`;
     }
     return publicIdOrUrl;
   }
@@ -332,6 +346,7 @@ export async function uploadMedia(file, options = {}) {
   const folder = options.folder || CLOUDINARY_FOLDERS.GENERAL;
   const publicId = options.publicId || undefined;
   const tags = options.tags ? (Array.isArray(options.tags) ? options.tags.join(',') : options.tags) : undefined;
+  let lastError = null;
 
   // Attempt 1: Server-side signed upload
   try {
@@ -369,17 +384,24 @@ export async function uploadMedia(file, options = {}) {
           return signedResult;
         }
 
+        lastError = signedResult.error || 'Signed upload was rejected by Cloudinary';
         console.warn('Cloudinary signed upload rejected, falling back to next strategy:', signedResult.error);
+      } else {
+        lastError = 'Signing endpoint returned incomplete credentials';
       }
+    } else {
+      const errText = await signRes.text().catch(() => '');
+      lastError = `Server signing endpoint returned status ${signRes.status}: ${errText}`;
     }
   } catch (signErr) {
+    lastError = signErr.message || 'Server signing endpoint unreachable';
     console.warn('Server signing not reachable, checking client upload preset...', signErr);
   }
 
   // Attempt 2: Unsigned upload via client upload preset
   const uploadPreset =
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_CLOUDINARY_UPLOAD_PRESET) ||
-    'nacos_portal_preset';
+    '';
 
   if (uploadPreset) {
     try {
@@ -394,13 +416,23 @@ export async function uploadMedia(file, options = {}) {
         onProgress: options.onProgress
       });
       if (result.success) return result;
+      lastError = result.error || 'Unsigned preset upload failed';
     } catch (presetErr) {
+      lastError = presetErr.message || 'Unsigned preset upload failed';
       console.warn('Unsigned upload failed, falling back to local client processing...', presetErr);
     }
   }
 
-  // Attempt 3: Local/Offline development fallback
-  return await mockLocalUpload(file, folder, publicId, options.onProgress);
+  // Attempt 3: Local/Offline fallback ONLY if explicitly permitted
+  if (options.allowLocalFallback === true) {
+    return await mockLocalUpload(file, folder, publicId, options.onProgress);
+  }
+
+  // Fail cleanly so the UI displays the error and NEVER poisons live databases with Base64 strings
+  return {
+    success: false,
+    error: lastError || 'Upload to Cloudinary CDN failed. Please check network connection and credentials.'
+  };
 }
 
 /**

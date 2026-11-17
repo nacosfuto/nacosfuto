@@ -342,6 +342,9 @@ export async function saveNewsArticle(articleData) {
   const now = new Date().toISOString();
   
   let cover = articleData.cover_image_url || articleData.image || '';
+  if (typeof cover === 'string' && (cover.startsWith('data:') || cover.startsWith('blob:'))) {
+    cover = articleData.cloudinary_public_id ? getOptimizedImageUrl(articleData.cloudinary_public_id) : '';
+  }
   if (!cover && articleData.cloudinary_public_id) {
     cover = getOptimizedImageUrl(articleData.cloudinary_public_id);
   }

@@ -197,6 +197,11 @@ const AdminNews = () => {
       return;
     }
 
+    if (coverUrl && (coverUrl.startsWith('data:') || coverUrl.startsWith('blob:'))) {
+      showFeedback('The cover image is still processing or failed to upload to Cloudinary CDN. Please re-upload your image.', 'error');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const existing = editorMode === 'edit' ? articles.find(a => a.id === selectedArticleId) : null;
@@ -248,7 +253,8 @@ const AdminNews = () => {
         category: payload.category
       });
 
-      setArticles(getLocalNewsArticles({ publishedOnly: false }));
+      const refreshedArticles = await fetchNewsArticles({ publishedOnly: false });
+      setArticles(refreshedArticles && refreshedArticles.length > 0 ? refreshedArticles : getLocalNewsArticles({ publishedOnly: false }));
       setIsEditorOpen(false);
       if (hadSlugCollision) {
         showFeedback(`Saved with unique slug "${articleSlug}" (prevented overwriting existing post)!`);
@@ -592,8 +598,13 @@ const AdminNews = () => {
                     currentPublicId={coverPublicId}
                     onUploadSuccess={({ url, publicId, secure_url, secureUrl }) => {
                       const finalUrl = secure_url || secureUrl || url;
-                      setCoverUrl(finalUrl);
-                      setCoverPublicId(publicId);
+                      if (finalUrl && !finalUrl.startsWith('data:') && !finalUrl.startsWith('blob:')) {
+                        setCoverUrl(finalUrl);
+                        setCoverPublicId(publicId || '');
+                      }
+                    }}
+                    onError={(err) => {
+                      showFeedback(`Image upload failed: ${err || 'Please check your connection and try again.'}`, 'error');
                     }}
                   />
                 </div>
