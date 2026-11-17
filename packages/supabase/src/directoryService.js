@@ -11,6 +11,7 @@
 
 import { addAdminNotification } from './notificationService.js';
 import { supabase } from './client.js';
+import { syncMediaAsset, deleteMediaAsset } from './media.js';
 
 const YELLOW_PAGES_STORAGE_KEY = 'nacos_yellow_pages_db';
 const CAMPUS_CLUBS_STORAGE_KEY = 'nacos_campus_clubs_db';
@@ -257,6 +258,19 @@ export async function submitYellowPageBusiness(businessData) {
     } catch (_) {}
   }
 
+  // 3. Sync flyer to media_assets
+  if (newBusiness.image && typeof newBusiness.image === 'string' && newBusiness.image.includes('res.cloudinary.com')) {
+    try {
+      await syncMediaAsset({
+        category: 'yellow_pages',
+        entityId: newBusiness.id,
+        imageUrl: newBusiness.image,
+        cloudinaryPublicId: newBusiness.cloudinary_public_id,
+        imageAlt: JSON.stringify(newBusiness)
+      });
+    } catch (_) {}
+  }
+
   // Trigger real-time Admin notification
   addAdminNotification({
     type: 'yellow_pages',
@@ -333,6 +347,19 @@ export async function updateYellowPageBusiness(id, updates) {
     } catch (_) {}
   }
 
+  // 3. Sync flyer to media_assets
+  if (updatedItem.image && typeof updatedItem.image === 'string' && updatedItem.image.includes('res.cloudinary.com')) {
+    try {
+      await syncMediaAsset({
+        category: 'yellow_pages',
+        entityId: updatedItem.id,
+        imageUrl: updatedItem.image,
+        cloudinaryPublicId: updatedItem.cloudinary_public_id,
+        imageAlt: JSON.stringify(updatedItem)
+      });
+    } catch (_) {}
+  }
+
   return updatedItem;
 }
 
@@ -364,6 +391,10 @@ export async function deleteYellowPageBusiness(id) {
         academic_session: JSON.stringify(updated),
         updated_at: new Date().toISOString()
       });
+    } catch (_) {}
+
+    try {
+      await deleteMediaAsset(id, 'yellow_pages');
     } catch (_) {}
   }
   return updated;

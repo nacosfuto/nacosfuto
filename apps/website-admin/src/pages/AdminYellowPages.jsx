@@ -54,6 +54,7 @@ const AdminYellowPages = () => {
     phone: '',
     whatsapp: '',
     image: '',
+    cloudinary_public_id: '',
     imagePosition: 'top center',
     rating: 5.0,
     reviewsCount: 1
@@ -157,6 +158,7 @@ const AdminYellowPages = () => {
       phone: '',
       whatsapp: '',
       image: '',
+      cloudinary_public_id: '',
       imagePosition: 'top center',
       rating: 5.0,
       reviewsCount: 1
@@ -177,6 +179,7 @@ const AdminYellowPages = () => {
       phone: biz.phone || '',
       whatsapp: biz.whatsapp || '',
       image: biz.image || '',
+      cloudinary_public_id: biz.cloudinary_public_id || '',
       imagePosition: biz.imagePosition || 'top center',
       rating: biz.rating || 5.0,
       reviewsCount: biz.reviewsCount || 1,
@@ -189,6 +192,11 @@ const AdminYellowPages = () => {
     e.preventDefault();
     if (!formData.name.trim()) {
       showNotice('Please enter the business name.', 'error');
+      return;
+    }
+
+    if (formData.image && (formData.image.startsWith('data:') || formData.image.startsWith('blob:'))) {
+      showNotice('Please wait for the flyer image to finish uploading to Cloudinary CDN before saving.', 'error');
       return;
     }
 
@@ -326,7 +334,7 @@ const AdminYellowPages = () => {
                   {/* Flyer Image with imagePosition support */}
                   <div className="relative aspect-video bg-gray-100 dark:bg-black/40 overflow-hidden">
                     <img
-                      src={biz.image || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569310/nacos/yellow_pages/flyer_cypher.jpg'}
+                      src={biz.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569310/nacos/yellow_pages/flyer_cypher.jpg'}
                       alt={biz.name}
                       style={{ objectPosition: biz.imagePosition || 'center' }}
                       className="w-full h-full object-cover"
@@ -535,11 +543,20 @@ const AdminYellowPages = () => {
                     folder={CLOUDINARY_FOLDERS.YELLOW_PAGES}
                     aspectRatio="landscape"
                     currentImageUrl={formData.image}
+                    currentPublicId={formData.cloudinary_public_id}
                     onUploadSuccess={(asset) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        image: asset.secure_url || asset.url
-                      }));
+                      const finalUrl = asset.secure_url || asset.secureUrl || asset.url;
+                      const finalPublicId = asset.publicId || asset.public_id;
+                      if (finalUrl && !finalUrl.startsWith('data:') && !finalUrl.startsWith('blob:')) {
+                        setFormData(prev => ({
+                          ...prev,
+                          image: finalUrl,
+                          cloudinary_public_id: finalPublicId || prev.cloudinary_public_id
+                        }));
+                      }
+                    }}
+                    onError={(err) => {
+                      showNotice(`Flyer upload failed: ${err || 'Please check your connection and try again.'}`, 'error');
                     }}
                   />
                 </div>
