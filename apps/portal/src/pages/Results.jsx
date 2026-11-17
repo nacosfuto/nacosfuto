@@ -135,6 +135,8 @@ const Results = () => {
   // Database Courses & Saved Results State
   const [coursesList, setCoursesList] = useState([]);
   const [savedResultsMap, setSavedResultsMap] = useState({});
+  const [savedResultsByCode, setSavedResultsByCode] = useState({});
+  const [savedResultsByKey, setSavedResultsByKey] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
   // View Navigation: null = Overview Table, Object = Active Semester Details View
@@ -158,7 +160,7 @@ const Results = () => {
     try {
       const [coursesRes, resultsRes] = await Promise.all([
         fetchCourses(),
-        studentId ? fetchStudentSavedResults(studentId) : Promise.resolve({ mapByCourseId: {}, data: [] })
+        studentId ? fetchStudentSavedResults(studentId) : Promise.resolve({ mapByCourseId: {}, mapByCourseCode: {}, mapByKey: {}, data: [] })
       ]);
 
       if (coursesRes && coursesRes.data) {
@@ -167,22 +169,29 @@ const Results = () => {
         setCoursesList([]);
       }
 
-      if (resultsRes && resultsRes.mapByCourseId) {
-        setSavedResultsMap(resultsRes.mapByCourseId);
+      if (resultsRes) {
+        if (resultsRes.mapByCourseId) setSavedResultsMap(resultsRes.mapByCourseId);
+        if (resultsRes.mapByCourseCode) setSavedResultsByCode(resultsRes.mapByCourseCode);
+        if (resultsRes.mapByKey) setSavedResultsByKey(resultsRes.mapByKey);
 
         // Pre-populate drafts from saved results
         const drafts = {};
-        Object.entries(resultsRes.mapByCourseId).forEach(([cId, res]) => {
-          drafts[cId] = {
-            entryMode: res.entry_mode || 'score',
-            score: res.score !== null && res.score !== undefined ? String(res.score) : '',
-            grade: res.grade || '',
-            gradePoint: res.grade_point !== null && res.grade_point !== undefined ? res.grade_point : null,
-            qualityPoints: res.quality_points !== null && res.quality_points !== undefined ? res.quality_points : null,
-            isDirty: false,
-            error: null
-          };
-        });
+        const populateFromObj = (res) => {
+          const cKey = res.course_id || res.course_code;
+          if (cKey) {
+            drafts[cKey] = {
+              entryMode: res.entry_mode || 'score',
+              score: res.score !== null && res.score !== undefined ? String(res.score) : '',
+              grade: res.grade || '',
+              gradePoint: res.grade_point !== null && res.grade_point !== undefined ? res.grade_point : null,
+              qualityPoints: res.quality_points !== null && res.quality_points !== undefined ? res.quality_points : null,
+              isDirty: false,
+              error: null
+            };
+          }
+        };
+
+        (resultsRes.data || []).forEach(populateFromObj);
         setDraftResults(drafts);
       }
     } catch (err) {
@@ -230,15 +239,22 @@ const Results = () => {
       // Find matching courses for this level, session, and semester
       const matchingCourses = coursesList.filter((c) => {
         const matchesLevel = (c.level || '').includes(String(rec.numericLevel));
-        const matchesSession = c.academic_session === rec.academicSession;
-        const matchesSemester = (c.semester || '').toLowerCase() === (rec.semester || '').toLowerCase();
+        const matchesSession = !c.academic_session || c.academic_session === 'All' || c.academic_session === rec.academicSession;
+        const cSem = (c.semester || '').toLowerCase();
+        const recSem = (rec.semester || '').toLowerCase();
+        const matchesSemester = cSem === recSem || 
+          (recSem.includes('first') && (cSem.includes('first') || cSem.includes('harmattan'))) ||
+          (recSem.includes('second') && (cSem.includes('second') || cSem.includes('rain')));
         return matchesLevel && matchesSession && matchesSemester;
       });
 
       // Enrich each course with draft or saved grade
       const coursesWithResults = matchingCourses.map((c) => {
-        const draft = draftResults[c.id];
-        const saved = savedResultsMap[c.id];
+        const draft = draftResults[c.id] || draftResults[c.code];
+        const saved = savedResultsMap[c.id] || 
+                      savedResultsByCode[c.code] || 
+                      savedResultsByKey[`${c.code}__${rec.academicSession}__${rec.semester}`] ||
+                      savedResultsByKey[`${c.code}__${c.academic_session}__${c.semester}`];
 
         const entryMode = draft ? draft.entryMode : (saved?.entry_mode || 'score');
         const score = draft ? draft.score : (saved?.score !== null && saved?.score !== undefined ? saved.score : '');
@@ -271,7 +287,7 @@ const Results = () => {
         semStats
       };
     });
-  }, [eligibleRecords, coursesList, draftResults, savedResultsMap]);
+  }, [eligibleRecords, coursesList, draftResults, savedResultsMap, savedResultsByCode, savedResultsByKey]);
 
   // Overall Cumulative Academic Performance across all eligible semesters
   const overallCumulativeStats = useMemo(() => {
@@ -441,6 +457,7 @@ const Results = () => {
         await deleteStudentCourseResult({
           registrationNumber: regNo,
           courseId: cId,
+          courseCode: course.code,
           resultId: saved.id
         });
       } catch (e) {

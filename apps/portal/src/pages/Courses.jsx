@@ -147,16 +147,23 @@ const Courses = () => {
     return () => window.removeEventListener('nacos_courses_updated', handleUpdate);
   }, []);
 
+  // Helper to test if a course belongs to a specific level, session, and semester record
+  const isCourseMatchingRecord = (c, rec) => {
+    if (!c || !rec) return false;
+    const matchesLevel = (c.level || '').includes(String(rec.numericLevel));
+    const matchesSession = !c.academic_session || c.academic_session === 'All' || c.academic_session === rec.academicSession;
+    const cSem = (c.semester || '').toLowerCase();
+    const recSem = (rec.semester || '').toLowerCase();
+    const matchesSemester = cSem === recSem || 
+      (recSem.includes('first') && (cSem.includes('first') || cSem.includes('harmattan'))) ||
+      (recSem.includes('second') && (cSem.includes('second') || cSem.includes('rain')));
+    return matchesLevel && matchesSession && matchesSemester;
+  };
+
   // Map courses to each eligible record
   const recordsWithCourseCounts = useMemo(() => {
     return eligibleRecords.map((rec) => {
-      const matching = coursesList.filter((c) => {
-        const matchesLevel = c.level.includes(String(rec.numericLevel));
-        const matchesSession = c.academic_session === rec.academicSession;
-        const matchesSemester = c.semester.toLowerCase() === rec.semester.toLowerCase();
-        return matchesLevel && matchesSession && matchesSemester;
-      });
-
+      const matching = coursesList.filter((c) => isCourseMatchingRecord(c, rec));
       const totalUnits = matching.reduce((acc, c) => acc + (Number(c.credit_units) || 0), 0);
 
       return {
@@ -173,12 +180,7 @@ const Courses = () => {
     if (!selectedOffering) return [];
     
     // Find matching courses strictly for this level, session, and semester
-    const matching = coursesList.filter((c) => {
-      const matchesLevel = c.level.includes(String(selectedOffering.numericLevel));
-      const matchesSession = c.academic_session === selectedOffering.academicSession;
-      const matchesSemester = c.semester.toLowerCase() === selectedOffering.semester.toLowerCase();
-      return matchesLevel && matchesSession && matchesSemester;
-    });
+    const matching = coursesList.filter((c) => isCourseMatchingRecord(c, selectedOffering));
 
     if (!detailSearch.trim()) return matching;
 
@@ -193,12 +195,7 @@ const Courses = () => {
 
   const currentOfferingTotalUnits = useMemo(() => {
     if (!selectedOffering) return 0;
-    const all = coursesList.filter((c) => {
-      const matchesLevel = c.level.includes(String(selectedOffering.numericLevel));
-      const matchesSession = c.academic_session === selectedOffering.academicSession;
-      const matchesSemester = c.semester.toLowerCase() === selectedOffering.semester.toLowerCase();
-      return matchesLevel && matchesSession && matchesSemester;
-    });
+    const all = coursesList.filter((c) => isCourseMatchingRecord(c, selectedOffering));
     return all.reduce((acc, c) => acc + (Number(c.credit_units) || 0), 0);
   }, [selectedOffering, coursesList]);
 

@@ -332,7 +332,7 @@ export async function fetchResultsForStudent(matricOrRegNo) {
     if (supabase) {
       const { data, error } = await supabase
         .from('student_results')
-        .select('id, matric_number, student_name, course_code, course_title, credit_units, score, grade, grade_point, semester, level, session, created_at')
+        .select('id, matric_number, student_name, course_code, course_title, units, score, grade, gp, semester, level, session, test, exam, status, created_at')
         .ilike('matric_number', cleanId);
       if (!error && Array.isArray(data) && data.length > 0) {
         return { data, error: null };
@@ -617,12 +617,62 @@ function saveLocalStudentResults(results) {
 }
 
 /**
+ * Normalizes a student result record to a unified shape
+ */
+export function normalizeStudentResult(r) {
+  if (!r) return null;
+  const units = Number(r.credit_units ?? r.units) || 3;
+  const grade = r.grade || (r.score !== null && r.score !== undefined ? scoreToGrade(Number(r.score)).grade : 'A');
+  const gradePoint = r.grade_point !== undefined && r.grade_point !== null 
+    ? Number(r.grade_point) 
+    : (r.gp !== undefined && r.gp !== null ? (Number(r.gp) / units) : letterGradeToPoint(grade));
+  const qualityPoints = r.quality_points !== undefined && r.quality_points !== null
+    ? Number(r.quality_points)
+    : (r.gp !== undefined && r.gp !== null ? Number(r.gp) : calculateQualityPoints(units, gradePoint));
+
+  const regNo = (r.registration_number || r.matric_number || '').trim().toUpperCase();
+  const session = r.academic_session || r.session || '2026/2027';
+  const semester = r.semester || 'First Semester';
+  const code = String(r.course_code || '').trim().toUpperCase();
+
+  return {
+    id: r.id,
+    student_id: r.student_id || regNo,
+    user_id: r.user_id || null,
+    registration_number: regNo,
+    matric_number: regNo,
+    student_name: r.student_name || 'Student',
+    course_id: r.course_id || null,
+    course_code: code,
+    course_title: r.course_title || code,
+    credit_units: units,
+    units,
+    level: r.level || '100 Level',
+    semester,
+    academic_session: session,
+    session,
+    entry_mode: r.entry_mode || (r.score !== null && r.score !== undefined && r.score !== '' ? 'score' : 'grade'),
+    score: r.score !== null && r.score !== undefined ? Number(r.score) : null,
+    test: r.test !== undefined ? Number(r.test) : null,
+    exam: r.exam !== undefined ? Number(r.exam) : null,
+    grade,
+    grade_point: gradePoint,
+    quality_points: qualityPoints,
+    gp: qualityPoints,
+    status: r.status || (grade === 'F' ? 'Carry Over' : 'Passed'),
+    grading_scale_version: r.grading_scale_version || GRADING_SCALE_VERSION,
+    created_at: r.created_at,
+    updated_at: r.updated_at
+  };
+}
+
+/**
  * Fetch all student-entered course results for an authenticated student
  * Authoritative source: public.student_results in Supabase
  */
 export async function fetchStudentSavedResults(studentIdentifier) {
   if (!studentIdentifier) {
-    return { data: [], mapByCourseId: {}, mapByKey: {}, error: null };
+    return { data: [], mapByCourseId: {}, mapByCourseCode: {}, mapByKey: {}, error: null };
   }
 
   const cleanId = String(studentIdentifier).trim().toLowerCase();
@@ -631,19 +681,35 @@ export async function fetchStudentSavedResults(studentIdentifier) {
   // 1. Authoritative Supabase query
   if (supabase) {
     try {
-      const { data, error } = await supabase
+      // First attempt full column selection
+      let queryResult = await supabase
         .from('student_results')
         .select('id, student_id, user_id, registration_number, student_name, course_id, course_code, course_title, credit_units, level, semester, academic_session, entry_mode, score, grade, grade_point, quality_points, grading_scale_version, created_at, updated_at')
         .or(`registration_number.ilike.${cleanId},student_id.eq.${cleanId}`)
         .order('created_at', { ascending: true });
 
-      if (!error && Array.isArray(data)) {
-        resultsList = data;
+      // If schema lacks newly proposed columns, fallback to existing base columns
+      if (queryResult.error && (
+        queryResult.error.code === '42703' || 
+        queryResult.error.code === 'PGRST204' || 
+        queryResult.error.message?.includes('does not exist') || 
+        queryResult.error.message?.includes('Could not find')
+      )) {
+        queryResult = await supabase
+          .from('student_results')
+          .select('id, matric_number, student_name, course_code, course_title, units, level, semester, session, test, exam, score, grade, gp, status, created_at, updated_at')
+          .ilike('matric_number', cleanId)
+          .order('created_at', { ascending: true });
+      }
+
+      if (!queryResult.error && Array.isArray(queryResult.data)) {
+        resultsList = queryResult.data.map(normalizeStudentResult).filter(Boolean);
         // Merge into local cache
         const local = getLocalStudentResults().filter(
-          r => (r.registration_number && r.registration_number.toLowerCase() !== cleanId)
+          r => (r.registration_number && r.registration_number.toLowerCase() !== cleanId) &&
+               (r.matric_number && r.matric_number.toLowerCase() !== cleanId)
         );
-        saveLocalStudentResults([...local, ...data]);
+        saveLocalStudentResults([...local, ...resultsList]);
       }
     } catch (dbErr) {
       console.warn('[Results] Supabase query notice:', dbErr.message);
@@ -653,19 +719,27 @@ export async function fetchStudentSavedResults(studentIdentifier) {
   // 2. Fallback to local cache if offline or database check returned empty
   if (resultsList.length === 0) {
     const allLocal = getLocalStudentResults();
-    resultsList = allLocal.filter(
-      r => (r.registration_number && r.registration_number.toLowerCase() === cleanId) ||
-           (r.student_id && String(r.student_id).toLowerCase() === cleanId)
-    );
+    resultsList = allLocal
+      .filter(
+        r => (r.registration_number && r.registration_number.toLowerCase() === cleanId) ||
+             (r.matric_number && r.matric_number.toLowerCase() === cleanId) ||
+             (r.student_id && String(r.student_id).toLowerCase() === cleanId)
+      )
+      .map(normalizeStudentResult)
+      .filter(Boolean);
   }
 
   // Build lookup maps
   const mapByCourseId = {};
+  const mapByCourseCode = {};
   const mapByKey = {};
 
   for (const r of resultsList) {
     if (r.course_id) {
       mapByCourseId[r.course_id] = r;
+    }
+    if (r.course_code) {
+      mapByCourseCode[r.course_code] = r;
     }
     const key = `${r.course_code}__${r.academic_session}__${r.semester}`;
     mapByKey[key] = r;
@@ -674,6 +748,7 @@ export async function fetchStudentSavedResults(studentIdentifier) {
   return {
     data: resultsList,
     mapByCourseId,
+    mapByCourseCode,
     mapByKey,
     error: null
   };
@@ -685,17 +760,18 @@ export async function fetchStudentSavedResults(studentIdentifier) {
  * - 0-100 numerical score validation
  * - A-F letter grade validation
  * - 5-point Grade Point and Quality Points derivation
- * - Uniqueness per student registration number and course_id
+ * - Adaptive database persistence across existing and evolving schema
  */
 export async function saveStudentCourseResult(payload) {
-  const regNo = String(payload.registrationNumber || payload.registration_number || '').trim().toUpperCase();
+  const regNo = String(payload.registrationNumber || payload.registration_number || payload.matric_number || '').trim().toUpperCase();
+  const courseCode = String(payload.courseCode || payload.course_code || '').trim().toUpperCase();
   const courseId = payload.courseId || payload.course_id;
 
   if (!regNo) {
     return { success: false, error: 'Student registration number is required.' };
   }
-  if (!courseId) {
-    return { success: false, error: 'Valid course offering ID is required.' };
+  if (!courseCode && !courseId) {
+    return { success: false, error: 'Course code or offering ID is required.' };
   }
 
   const entryMode = payload.entryMode === 'grade' || payload.entry_mode === 'grade' ? 'grade' : 'score';
@@ -726,43 +802,125 @@ export async function saveStudentCourseResult(payload) {
   const units = Math.max(1, parseInt(payload.creditUnits ?? payload.credit_units ?? payload.units, 10) || 3);
   const qualityPointsVal = calculateQualityPoints(units, gradePointVal);
   const now = new Date().toISOString();
+  const session = String(payload.academicSession || payload.academic_session || payload.session || '2026/2027').trim();
+  const semester = String(payload.semester || 'First Semester').trim();
+  const levelStr = String(payload.level || '100 Level').trim();
+  const numLevel = parseInt(levelStr.replace(/\D/g, ''), 10) || 100;
+
+  // Ensure UUID for id
+  const isValidUuid = (val) => typeof val === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val);
+  const generateUuid = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  };
 
   const recordToPersist = {
+    id: isValidUuid(payload.id) ? payload.id : generateUuid(),
     student_id: payload.userId || payload.studentId || regNo,
     user_id: payload.userId || null,
     registration_number: regNo,
+    matric_number: regNo,
     student_name: payload.studentName || payload.student_name || 'Student',
-    course_id: courseId,
-    course_code: String(payload.courseCode || payload.course_code || '').trim().toUpperCase(),
-    course_title: String(payload.courseTitle || payload.course_title || '').trim(),
+    course_id: courseId || null,
+    course_code: courseCode,
+    course_title: String(payload.courseTitle || payload.course_title || courseCode).trim(),
     credit_units: units,
-    level: String(payload.level || '100 Level').trim(),
-    semester: String(payload.semester || 'First Semester').trim(),
-    academic_session: String(payload.academicSession || payload.academic_session || '2026/2027').trim(),
+    units,
+    level: levelStr,
+    semester,
+    academic_session: session,
+    session,
     entry_mode: entryMode,
     score: scoreVal,
+    test: scoreVal !== null ? Math.round(scoreVal * 0.3) : null,
+    exam: scoreVal !== null ? Math.round(scoreVal * 0.7) : null,
     grade: gradeVal,
     grade_point: gradePointVal,
     quality_points: qualityPointsVal,
+    gp: qualityPointsVal,
+    status: gradeVal === 'F' ? 'Carry Over' : 'Passed',
     grading_scale_version: GRADING_SCALE_VERSION,
     updated_at: now
   };
 
-  // 1. Authoritative Supabase save
-  let savedRecord = { ...recordToPersist, id: payload.id || `res-${Date.now()}` };
+  let savedRecord = normalizeStudentResult(recordToPersist);
 
+  // 1. Authoritative Supabase save
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('student_results')
-        .upsert([recordToPersist], { onConflict: 'registration_number,course_id' })
-        .select()
-        .single();
+      // Find existing row by student & course_code
+      let existingDbId = null;
+      try {
+        const { data: exRow } = await supabase
+          .from('student_results')
+          .select('id')
+          .or(`matric_number.ilike.${regNo},registration_number.ilike.${regNo}`)
+          .eq('course_code', courseCode)
+          .maybeSingle();
+        if (exRow?.id) existingDbId = exRow.id;
+      } catch (_) {
+        try {
+          const { data: exRow } = await supabase
+            .from('student_results')
+            .select('id')
+            .ilike('matric_number', regNo)
+            .eq('course_code', courseCode)
+            .maybeSingle();
+          if (exRow?.id) existingDbId = exRow.id;
+        } catch (_) {}
+      }
 
-      if (error) {
-        console.warn('[Results] Supabase upsert notice:', error.message);
-      } else if (data) {
-        savedRecord = data;
+      if (existingDbId) {
+        recordToPersist.id = existingDbId;
+      }
+
+      // Try saving full columns
+      let saveRes;
+      if (existingDbId) {
+        saveRes = await supabase.from('student_results').update(recordToPersist).eq('id', existingDbId).select().single();
+      } else {
+        saveRes = await supabase.from('student_results').insert([recordToPersist]).select().single();
+      }
+
+      // If full columns fail because schema lacks extended columns, save base columns
+      if (saveRes.error && (
+        saveRes.error.code === '42703' || 
+        saveRes.error.code === 'PGRST204' || 
+        saveRes.error.message?.includes('does not exist') || 
+        saveRes.error.message?.includes('Could not find')
+      )) {
+        const baseRecord = {
+          id: recordToPersist.id,
+          matric_number: regNo,
+          student_name: recordToPersist.student_name,
+          course_code: courseCode,
+          course_title: recordToPersist.course_title,
+          units,
+          level: numLevel,
+          semester,
+          session,
+          score: scoreVal,
+          test: recordToPersist.test,
+          exam: recordToPersist.exam,
+          grade: gradeVal,
+          gp: qualityPointsVal,
+          status: recordToPersist.status,
+          updated_at: now
+        };
+
+        if (existingDbId) {
+          saveRes = await supabase.from('student_results').update(baseRecord).eq('id', existingDbId).select().single();
+        } else {
+          saveRes = await supabase.from('student_results').insert([baseRecord]).select().single();
+        }
+      }
+
+      if (saveRes.data) {
+        savedRecord = normalizeStudentResult(saveRes.data);
       }
     } catch (e) {
       console.error('[Results] Database save exception:', e);
@@ -772,7 +930,8 @@ export async function saveStudentCourseResult(payload) {
   // 2. Update local storage cache
   const localList = getLocalStudentResults();
   const existingIdx = localList.findIndex(
-    r => r.registration_number === regNo && (r.course_id === courseId || r.id === savedRecord.id)
+    r => (r.registration_number === regNo || r.matric_number === regNo) && 
+         (r.course_code === courseCode || (courseId && r.course_id === courseId) || r.id === savedRecord.id)
   );
 
   if (existingIdx !== -1) {
@@ -782,7 +941,13 @@ export async function saveStudentCourseResult(payload) {
   }
   saveLocalStudentResults(localList);
 
-  // 3. Broadcast real-time update
+  // 3. Invalidate student clearance cache so dashboard metrics update synchronously
+  try {
+    const { invalidateStudentDataCache } = await import('./studentDataCache.js');
+    if (invalidateStudentDataCache) invalidateStudentDataCache();
+  } catch (_) {}
+
+  // 4. Broadcast real-time update
   broadcastStudentResultUpdate('save', savedRecord);
 
   return {
@@ -817,16 +982,19 @@ export async function batchSaveStudentCourseResults(resultsArray = []) {
 /**
  * Delete a student's course result
  */
-export async function deleteStudentCourseResult({ registrationNumber, courseId, resultId }) {
+export async function deleteStudentCourseResult({ registrationNumber, courseId, courseCode, resultId }) {
   const regNo = String(registrationNumber || '').trim().toUpperCase();
+  const cCode = String(courseCode || '').trim().toUpperCase();
 
   if (supabase) {
     try {
       let query = supabase.from('student_results').delete();
       if (resultId) {
         query = query.eq('id', resultId);
+      } else if (regNo && cCode) {
+        query = query.or(`matric_number.ilike.${regNo},registration_number.ilike.${regNo}`).eq('course_code', cCode);
       } else if (regNo && courseId) {
-        query = query.eq('registration_number', regNo).eq('course_id', courseId);
+        query = query.or(`matric_number.ilike.${regNo},registration_number.ilike.${regNo}`).eq('course_id', courseId);
       }
       await query;
     } catch (_) {}
@@ -836,12 +1004,19 @@ export async function deleteStudentCourseResult({ registrationNumber, courseId, 
   const localList = getLocalStudentResults();
   const filtered = localList.filter(r => {
     if (resultId && r.id === resultId) return false;
-    if (regNo && courseId && r.registration_number === regNo && r.course_id === courseId) return false;
+    const rReg = (r.registration_number || r.matric_number || '').toUpperCase();
+    if (rReg === regNo && ((courseId && r.course_id === courseId) || (cCode && r.course_code === cCode))) return false;
     return true;
   });
   saveLocalStudentResults(filtered);
 
-  broadcastStudentResultUpdate('delete', { registrationNumber: regNo, courseId, resultId });
+  // Invalidate student clearance cache
+  try {
+    const { invalidateStudentDataCache } = await import('./studentDataCache.js');
+    if (invalidateStudentDataCache) invalidateStudentDataCache();
+  } catch (_) {}
+
+  broadcastStudentResultUpdate('delete', { registrationNumber: regNo, courseId, courseCode, resultId });
   return { success: true };
 }
 

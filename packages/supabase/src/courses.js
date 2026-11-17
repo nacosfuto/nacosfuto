@@ -96,9 +96,13 @@ function broadcastCourseUpdate(action, payload) {
   }
 }
 
+const FULL_COURSES_COLUMNS = 'id, code, title, credit_units, level, semester, academic_session, course_type, lecturer_name, office, prerequisites, description, syllabus, is_elective, created_by, created_at, updated_at';
+const BASE_COURSES_COLUMNS = 'id, code, title, credit_units, level, semester, lecturer_name, description, syllabus, is_elective, created_at';
+
 /**
  * Fetch courses from Supabase with optional level, session, semester, and search filters.
  * Returns empty array [] when no database records exist.
+ * Fully resilient to schema evolutions (auto-detects base vs full column set).
  */
 export async function fetchCourses(options = {}) {
   const { 
@@ -116,37 +120,65 @@ export async function fetchCourses(options = {}) {
       return { data: [], error: 'Supabase client not initialized' };
     }
 
-    let query = supabase
-      .from('courses')
-      .select('id, code, title, credit_units, level, semester, academic_session, course_type, lecturer_name, office, prerequisites, description, syllabus, is_elective, created_by, created_at, updated_at')
-      .order('level', { ascending: true })
-      .order('semester', { ascending: true })
-      .order('code', { ascending: true });
+    const buildQuery = (columns) => {
+      let q = supabase
+        .from('courses')
+        .select(columns)
+        .order('level', { ascending: true })
+        .order('semester', { ascending: true })
+        .order('code', { ascending: true });
 
-    if (level && String(level).toLowerCase() !== 'all') {
-      const numMatch = String(level).match(/\d{3}/);
-      if (numMatch) {
-        const num = numMatch[0];
-        query = query.or(`level.eq.${num} Level,level.eq.${num},level.ilike.%${num}%`);
+      if (level && String(level).toLowerCase() !== 'all') {
+        const numMatch = String(level).match(/\d{3}/);
+        if (numMatch) {
+          const num = numMatch[0];
+          q = q.or(`level.eq.${num} Level,level.eq.${num},level.ilike.%${num}%`);
+        }
       }
+
+      if (semester && String(semester).toLowerCase() !== 'all') {
+        const isSecond = String(semester).toLowerCase().includes('second') || String(semester).toLowerCase().includes('rain');
+        if (isSecond) {
+          q = q.or('semester.ilike.%second%,semester.ilike.%rain%');
+        } else {
+          q = q.or('semester.ilike.%first%,semester.ilike.%harmattan%');
+        }
+      }
+
+      if (columns.includes('academic_session') && targetSession && String(targetSession).toLowerCase() !== 'all') {
+        q = q.eq('academic_session', targetSession);
+      }
+
+      return q;
+    };
+
+    let { data, error } = await buildQuery(FULL_COURSES_COLUMNS);
+
+    // If schema lacks academic_session or extended columns, smoothly fallback to base columns
+    if (error && (
+      error.code === '42703' || 
+      error.code === 'PGRST204' || 
+      error.message?.includes('does not exist') || 
+      error.message?.includes('Could not find') ||
+      error.message?.includes('schema cache')
+    )) {
+      const fallbackResult = await buildQuery(BASE_COURSES_COLUMNS);
+      data = fallbackResult.data;
+      error = fallbackResult.error;
     }
 
-    if (semester && String(semester).toLowerCase() !== 'all') {
-      const isSecond = String(semester).toLowerCase().includes('second');
-      query = query.ilike('semester', isSecond ? '%Second%' : '%First%');
-    }
-
-    if (targetSession && String(targetSession).toLowerCase() !== 'all') {
-      query = query.eq('academic_session', targetSession);
-    }
-
-    const { data, error } = await query;
     if (error) {
       console.warn('[Courses] Database query error:', error);
       return { data: [], error: error.message };
     }
 
     let normalized = (data || []).map(normalizeCourseRecord).filter(Boolean);
+
+    // If targetSession filter was requested and database table lacked academic_session column,
+    // filter normalized session in memory
+    if (targetSession && String(targetSession).toLowerCase() !== 'all') {
+      normalized = normalized.filter(c => !c.academic_session || c.academic_session === 'All' || c.academic_session === targetSession);
+    }
 
     // Apply text search filtering if provided
     if (search && search.trim()) {
@@ -266,18 +298,21 @@ export async function adminCreateCourse(courseData) {
   const courseType = String(courseData.course_type || courseData.type || 'Core / Compulsory').trim();
 
   // 1. Prevent duplicate entries for same course code, level, semester, and academic session
-  const { data: existing, error: checkErr } = await supabase
-    .from('courses')
-    .select('id, code, level, semester, academic_session')
-    .eq('code', code)
-    .eq('academic_session', session)
-    .ilike('semester', semester)
-    .maybeSingle();
+  let existing = null;
+  try {
+    const checkQuery = supabase
+      .from('courses')
+      .select('id, code, level, semester')
+      .eq('code', code)
+      .ilike('semester', `%${semester.replace(' Semester', '')}%`);
+    const { data: dupData } = await checkQuery.maybeSingle();
+    existing = dupData;
+  } catch (_) {}
 
   if (existing) {
     return {
       success: false,
-      error: `Course code "${code}" is already registered for ${session} (${level}, ${semester}). Please edit the existing entry or use a different course code.`
+      error: `Course code "${code}" is already registered (${level}, ${semester}). Please edit the existing entry or use a different course code.`
     };
   }
 
@@ -308,15 +343,49 @@ export async function adminCreateCourse(courseData) {
     updated_at: new Date().toISOString()
   };
 
-  const { data: inserted, error: insertErr } = await supabase
+  let inserted = null;
+  const { data: fullInsert, error: insertErr } = await supabase
     .from('courses')
     .insert([newRow])
     .select()
     .single();
 
-  if (insertErr) {
+  if (insertErr && (
+    insertErr.code === '42703' || 
+    insertErr.code === 'PGRST204' || 
+    insertErr.message?.includes('does not exist') || 
+    insertErr.message?.includes('Could not find') ||
+    insertErr.message?.includes('schema cache')
+  )) {
+    // If table schema lacks extended columns, gracefully insert base columns
+    const baseRow = {
+      code,
+      title,
+      credit_units: units,
+      level,
+      semester,
+      lecturer_name: newRow.lecturer_name,
+      description: newRow.description,
+      syllabus: newRow.syllabus,
+      is_elective: newRow.is_elective,
+      created_at: newRow.created_at
+    };
+    const { data: baseInsert, error: baseErr } = await supabase
+      .from('courses')
+      .insert([baseRow])
+      .select()
+      .single();
+
+    if (baseErr) {
+      console.error('[Courses] Error inserting course base row:', baseErr);
+      return { success: false, error: baseErr.message || 'Failed to save course to database.' };
+    }
+    inserted = { ...newRow, ...baseInsert };
+  } else if (insertErr) {
     console.error('[Courses] Error inserting course:', insertErr);
     return { success: false, error: insertErr.message || 'Failed to save course to database.' };
+  } else {
+    inserted = fullInsert;
   }
 
   broadcastCourseUpdate('create', inserted);
@@ -391,16 +460,52 @@ export async function adminUpdateCourse(id, updates = {}) {
     }
   }
 
-  const { data: updated, error: updateErr } = await supabase
+  let updated = null;
+  const { data: fullUpdate, error: updateErr } = await supabase
     .from('courses')
     .update(cleanUpdates)
     .eq('id', id)
     .select()
     .single();
 
-  if (updateErr) {
+  if (updateErr && (
+    updateErr.code === '42703' || 
+    updateErr.code === 'PGRST204' || 
+    updateErr.message?.includes('does not exist') || 
+    updateErr.message?.includes('Could not find') ||
+    updateErr.message?.includes('schema cache')
+  )) {
+    // If schema lacks extended columns, gracefully update base columns
+    const baseUpdates = {
+      code: cleanUpdates.code,
+      title: cleanUpdates.title,
+      credit_units: cleanUpdates.credit_units,
+      level: cleanUpdates.level,
+      semester: cleanUpdates.semester,
+      lecturer_name: cleanUpdates.lecturer_name,
+      description: cleanUpdates.description,
+      syllabus: cleanUpdates.syllabus,
+      is_elective: cleanUpdates.is_elective
+    };
+    Object.keys(baseUpdates).forEach(k => baseUpdates[k] === undefined && delete baseUpdates[k]);
+
+    const { data: baseUpdate, error: baseErr } = await supabase
+      .from('courses')
+      .update(baseUpdates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (baseErr) {
+      console.error('[Courses] Error updating course base columns:', baseErr);
+      return { success: false, error: baseErr.message || 'Failed to update course in database.' };
+    }
+    updated = { ...cleanUpdates, ...baseUpdate };
+  } else if (updateErr) {
     console.error('[Courses] Error updating course:', updateErr);
     return { success: false, error: updateErr.message || 'Failed to update course in database.' };
+  } else {
+    updated = fullUpdate;
   }
 
   broadcastCourseUpdate('update', updated);
