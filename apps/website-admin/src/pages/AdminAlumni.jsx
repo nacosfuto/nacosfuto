@@ -47,7 +47,8 @@ const AdminAlumni = () => {
     company: '',
     linkedin: '',
     bio: '',
-    image: ''
+    image: '',
+    cloudinary_public_id: ''
   });
 
   useEffect(() => {
@@ -100,7 +101,8 @@ const AdminAlumni = () => {
       company: '',
       linkedin: '',
       bio: '',
-      image: ''
+      image: '',
+      cloudinary_public_id: ''
     });
     setIsAddModalOpen(true);
   };
@@ -116,6 +118,7 @@ const AdminAlumni = () => {
       linkedin: alm.linkedin || '',
       bio: alm.bio || '',
       image: alm.image || '',
+      cloudinary_public_id: alm.cloudinary_public_id || '',
       status: alm.status || 'approved'
     });
     setIsAddModalOpen(true);
@@ -160,6 +163,11 @@ const AdminAlumni = () => {
     e.preventDefault();
     if (!formData.name.trim()) {
       showNotice('Please enter the alumnus full name.', 'error');
+      return;
+    }
+
+    if (formData.image && (formData.image.startsWith('data:') || formData.image.startsWith('blob:'))) {
+      showNotice('Please wait for the portrait photo to finish uploading to Cloudinary CDN before saving.', 'error');
       return;
     }
 
@@ -285,7 +293,7 @@ const AdminAlumni = () => {
               <div>
                 <div className="relative aspect-[4/3] bg-gray-100 dark:bg-black/40 overflow-hidden">
                   <img
-                    src={alm.image || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569284/nacos/alumni/alumni.jpg'}
+                    src={alm.image || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569284/nacos/alumni/alumni.jpg'}
                     alt={alm.name}
                     className="w-full h-full object-cover"
                   />
@@ -465,8 +473,20 @@ const AdminAlumni = () => {
                     folder={CLOUDINARY_FOLDERS.ALUMNI}
                     aspectRatio="portrait"
                     currentImageUrl={formData.image}
+                    currentPublicId={formData.cloudinary_public_id}
                     onUploadSuccess={(asset) => {
-                      setFormData(prev => ({ ...prev, image: asset.secure_url || asset.url }));
+                      const finalUrl = asset.secure_url || asset.secureUrl || asset.url;
+                      const finalPublicId = asset.publicId || asset.public_id;
+                      if (finalUrl && !finalUrl.startsWith('data:') && !finalUrl.startsWith('blob:')) {
+                        setFormData(prev => ({
+                          ...prev,
+                          image: finalUrl,
+                          cloudinary_public_id: finalPublicId || prev.cloudinary_public_id
+                        }));
+                      }
+                    }}
+                    onError={(err) => {
+                      showNotice(`Portrait upload failed: ${err || 'Please check your connection and try again.'}`, 'error');
                     }}
                   />
                 </div>

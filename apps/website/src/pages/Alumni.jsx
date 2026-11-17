@@ -17,10 +17,10 @@ import { FaGraduationCap, FaAward, FaBuilding, FaGlobeAmericas, FaLinkedin, FaUs
 import ScrollToTopLink from "../components/ScrollToTopLink";
 import { getCloudinaryAssetUrl, MediaUpload, CLOUDINARY_FOLDERS } from "@nacos/media";
 import { getAlumniDirectory, submitAlumniRequest, fetchAlumniFromSupabase } from "@nacos/supabase";
-const alumniImage = getCloudinaryAssetUrl('alumni') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569284/nacos/alumni/alumni.jpg';
-const departmentImage = getCloudinaryAssetUrl('department') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569287/nacos/gallery/department.webp';
-const benitaImg = getCloudinaryAssetUrl('alumni_benita') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569285/nacos/alumni/alumni_benita.jpg';
-const godfirstImg = getCloudinaryAssetUrl('alumni_godfirst') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569286/nacos/alumni/alumni_godfirst.jpg';
+const alumniImage = getCloudinaryAssetUrl('alumni') || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569284/nacos/alumni/alumni.jpg';
+const departmentImage = getCloudinaryAssetUrl('department') || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569287/nacos/gallery/department.webp';
+const benitaImg = getCloudinaryAssetUrl('alumni_benita') || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569285/nacos/alumni/alumni_benita.jpg';
+const godfirstImg = getCloudinaryAssetUrl('alumni_godfirst') || 'https://res.cloudinary.com/z3wgqisj/image/upload/v1788569286/nacos/alumni/alumni_godfirst.jpg';
 
 const Alumni = () => {
   const { theme } = useTheme();
@@ -92,13 +92,19 @@ const Alumni = () => {
     company: '',
     linkedin: '',
     bio: '',
-    image: ''
+    image: '',
+    cloudinary_public_id: ''
   });
 
   const handleRegisterAlumni = async (e) => {
     e.preventDefault();
     if (!newAlumni.name || !newAlumni.position) {
       alert('Please fill in your name and current position.');
+      return;
+    }
+
+    if (newAlumni.image && (newAlumni.image.startsWith('data:') || newAlumni.image.startsWith('blob:'))) {
+      alert('Please wait for the photo to finish uploading to Cloudinary CDN before submitting.');
       return;
     }
 
@@ -119,7 +125,8 @@ const Alumni = () => {
       company: '',
       linkedin: '',
       bio: '',
-      image: ''
+      image: '',
+      cloudinary_public_id: ''
     });
   };
 
@@ -291,7 +298,9 @@ const Alumni = () => {
 
                   {alum.gradYear && (
                     <span className="text-[11px] text-gray-500 dark:text-green-200/60 font-medium">
-                      Class of {alum.gradYear}
+                      {String(alum.gradYear).trim().toLowerCase().startsWith('class of')
+                        ? alum.gradYear
+                        : `Class of ${alum.gradYear}`}
                     </span>
                   )}
 
@@ -354,14 +363,18 @@ const Alumni = () => {
                 </label>
                 <MediaUpload
                   currentImageUrl={newAlumni.image}
-                  folder={CLOUDINARY_FOLDERS.GENERAL || 'alumni'}
+                  folder={CLOUDINARY_FOLDERS.ALUMNI}
                   label="Upload Profile Photo"
                   aspectRatio="square"
                   onUploadSuccess={(mediaData) => {
-                    setNewAlumni(prev => ({
-                      ...prev,
-                      image: mediaData.url || mediaData.secure_url
-                    }));
+                    const finalUrl = mediaData.secure_url || mediaData.secureUrl || mediaData.url;
+                    if (finalUrl && !finalUrl.startsWith('data:') && !finalUrl.startsWith('blob:')) {
+                      setNewAlumni(prev => ({
+                        ...prev,
+                        image: finalUrl,
+                        cloudinary_public_id: mediaData.publicId || mediaData.public_id || ''
+                      }));
+                    }
                   }}
                   onError={(err) => {
                     console.warn('Cloudinary upload error:', err);

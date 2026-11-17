@@ -710,6 +710,19 @@ export async function submitAlumnus(alumnusData) {
     console.warn('Supabase store_alumni sync error:', err);
   }
 
+  // Sync portrait image to media_assets
+  if (newAlumnus.image && typeof newAlumnus.image === 'string' && newAlumnus.image.includes('res.cloudinary.com')) {
+    try {
+      await syncMediaAsset({
+        category: 'alumni',
+        entityId: newAlumnus.id,
+        imageUrl: newAlumnus.image,
+        cloudinaryPublicId: newAlumnus.cloudinary_public_id,
+        imageAlt: JSON.stringify(newAlumnus)
+      });
+    } catch (_) {}
+  }
+
   // Trigger Admin notification
   addAdminNotification({
     type: 'alumni',
@@ -764,6 +777,19 @@ export async function updateAlumnus(id, updates) {
     console.warn('Supabase store_alumni update error:', err);
   }
 
+  // Sync portrait image to media_assets
+  if (updatedAlm.image && typeof updatedAlm.image === 'string' && updatedAlm.image.includes('res.cloudinary.com')) {
+    try {
+      await syncMediaAsset({
+        category: 'alumni',
+        entityId: updatedAlm.id,
+        imageUrl: updatedAlm.image,
+        cloudinaryPublicId: updatedAlm.cloudinary_public_id,
+        imageAlt: JSON.stringify(updatedAlm)
+      });
+    } catch (_) {}
+  }
+
   return updatedAlm;
 }
 
@@ -791,7 +817,7 @@ export async function deleteAlumnus(id) {
         academic_session: JSON.stringify(updated),
         updated_at: new Date().toISOString()
       });
-      await supabase.from('media_assets').delete().eq('entity_id', id);
+      await deleteMediaAsset(id, 'alumni');
     }
   } catch (err) {}
 
