@@ -61,8 +61,7 @@ function formatNoticeDate(isoOrDate) {
  */
 function normalizeNoticeRecord(item) {
   if (!item) return null;
-  const isPop = Boolean(item.is_popup);
-  const isUrg = Boolean(item.is_urgent || item.priority === 'high' || isPop);
+  const isUrg = Boolean(item.is_urgent || item.is_popup || item.priority === 'high');
 
   return {
     id: item.id,
@@ -70,14 +69,14 @@ function normalizeNoticeRecord(item) {
     slug: item.slug || slugifyTitle(item.title),
     target_audience: item.target_audience || 'ALL STUDENTS',
     category: item.category || 'Academic',
-    author_unit: item.author_unit || item.author || 'Admissions Unit',
+    author_unit: item.author_unit || item.author || 'NACOS Directorate',
     published_date: item.published_date || formatNoticeDate(item.published_at || item.created_at),
     created_at: item.created_at || new Date().toISOString(),
     published_at: item.published_at || item.created_at || new Date().toISOString(),
     updated_at: item.updated_at || item.created_at || new Date().toISOString(),
     content: item.content || item.excerpt || '',
     excerpt: item.excerpt || (item.content ? item.content.slice(0, 160) : ''),
-    is_popup: isPop,
+    is_popup: isUrg,
     is_urgent: isUrg,
     is_published: item.is_published !== false,
     priority: isUrg ? 'high' : (item.priority || 'normal')
@@ -218,7 +217,8 @@ export async function fetchNotices(options = {}) {
 
 /**
  * Retrieve the active urgent pop-up notice targeted at a specific student/level
- * Returns null if no active popup or if already dismissed in this browser session.
+ * Whatever notification that is set to urgent is the one that pops up when user opens the portal.
+ * Returns null if no active urgent notice or if already dismissed in this browser session.
  */
 export async function fetchActivePopupNotice(options = {}) {
   const { level = null, force = false } = options;
@@ -226,23 +226,23 @@ export async function fetchActivePopupNotice(options = {}) {
   const { data: notices } = await fetchNotices({ level, activeOnly: true });
   if (!notices || notices.length === 0) return null;
 
-  // Find the active popup notice (published and is_popup === true)
-  const popupNotice = notices.find(n => n.is_popup === true && n.is_published !== false);
-  if (!popupNotice) return null;
+  // Find the single active urgent notice (set to urgent or popup)
+  const urgentNotice = notices.find(n => Boolean(n.is_urgent || n.is_popup) && n.is_published !== false);
+  if (!urgentNotice) return null;
 
   if (!force && typeof window !== 'undefined') {
     try {
       const dismissedRaw = sessionStorage.getItem(STORAGE_KEY_DISMISSED);
       if (dismissedRaw) {
         const dismissedIds = JSON.parse(dismissedRaw);
-        if (Array.isArray(dismissedIds) && dismissedIds.includes(popupNotice.id)) {
+        if (Array.isArray(dismissedIds) && dismissedIds.includes(urgentNotice.id)) {
           return null; // Already dismissed this session
         }
       }
     } catch (_) {}
   }
 
-  return popupNotice;
+  return urgentNotice;
 }
 
 /**
@@ -253,7 +253,7 @@ export async function fetchUrgentNotices(options = {}) {
   const { data: notices } = await fetchNotices({ level, activeOnly: true });
   if (!notices || notices.length === 0) return [];
 
-  // Filter urgent or high priority notices
+  // Filter urgent notices
   return notices.filter(n => Boolean(n.is_urgent || n.is_popup || n.priority === 'high'));
 }
 
@@ -275,7 +275,9 @@ export function markNoticeDismissed(noticeId) {
 }
 
 /**
- * Admin: Create a new notice and persist live to Supabase
+ * Admin: Create a new notice and persist live to Supabase.
+ * If set to urgent, all other notices have their urgent status deactivated,
+ * ensuring only ONE notice is urgent and pops up for students.
  */
 export async function adminCreateNotice(noticeData) {
   const id = generateNoticeUuid();
@@ -284,8 +286,7 @@ export async function adminCreateNotice(noticeData) {
   const nowIso = new Date().toISOString();
   const formattedDate = formatNoticeDate(nowIso);
 
-  const isPopup = Boolean(noticeData.is_popup);
-  const isUrgent = Boolean(noticeData.is_urgent || isPopup);
+  const isUrgent = Boolean(noticeData.is_urgent || noticeData.is_popup);
 
   const newNotice = {
     id,
@@ -293,14 +294,14 @@ export async function adminCreateNotice(noticeData) {
     slug,
     target_audience: noticeData.target_audience || 'ALL STUDENTS',
     category: noticeData.category || 'Academic',
-    author_unit: noticeData.author_unit || 'Admissions Unit',
+    author_unit: noticeData.author_unit || 'NACOS Directorate',
     published_date: formattedDate,
     created_at: nowIso,
     published_at: nowIso,
     updated_at: nowIso,
     content: String(noticeData.content || '').trim(),
     excerpt: String(noticeData.content || '').slice(0, 160).trim(),
-    is_popup: isPopup,
+    is_popup: isUrgent,
     is_urgent: isUrgent,
     is_published: noticeData.is_published !== false,
     priority: isUrgent ? 'high' : (noticeData.priority || 'normal')
@@ -309,11 +310,12 @@ export async function adminCreateNotice(noticeData) {
   // 1. Live Sync to Supabase announcements table
   try {
     if (supabase) {
-      // If this notice is a pop-up, deactivate any existing pop-up in announcements table
-      if (isPopup) {
+      // If this notice is set to urgent, ensure strictly ONE urgent notice exists:
+      // Deactivate urgent status on all other announcements in Supabase
+      if (isUrgent) {
         await supabase
           .from('announcements')
-          .update({ is_popup: false })
+          .update({ is_popup: false, is_urgent: false, priority: 'normal' })
           .neq('id', id);
       }
 
@@ -349,8 +351,12 @@ export async function adminCreateNotice(noticeData) {
 
   // 2. Synchronize cache and id_card_settings store_notices backup
   const current = getCachedNotices();
-  if (isPopup) {
-    current.forEach(n => { n.is_popup = false; });
+  if (isUrgent) {
+    current.forEach(n => {
+      n.is_popup = false;
+      n.is_urgent = false;
+      n.priority = 'normal';
+    });
   }
   current.unshift(newNotice);
   setCachedNotices(current, true);
@@ -369,20 +375,23 @@ export async function adminCreateNotice(noticeData) {
 }
 
 /**
- * Admin: Update an existing notice live in Supabase
+ * Admin: Update an existing notice live in Supabase.
+ * If setting to urgent, all other notices have urgent removed, maintaining single-urgent rule.
  */
 export async function adminUpdateNotice(id, updates = {}) {
   const nowIso = new Date().toISOString();
-  const isPopup = updates.is_popup !== undefined ? Boolean(updates.is_popup) : undefined;
-  const isUrgent = updates.is_urgent !== undefined ? Boolean(updates.is_urgent) : (isPopup ? true : undefined);
+  const isUrgent = updates.is_urgent !== undefined
+    ? Boolean(updates.is_urgent)
+    : (updates.is_popup !== undefined ? Boolean(updates.is_popup) : undefined);
 
   // 1. Sync directly to Supabase announcements table
   try {
     if (supabase) {
-      if (isPopup) {
+      // If setting this notice to urgent, clear urgent on ALL other announcements
+      if (isUrgent === true) {
         await supabase
           .from('announcements')
-          .update({ is_popup: false })
+          .update({ is_popup: false, is_urgent: false, priority: 'normal' })
           .neq('id', id);
       }
 
@@ -390,10 +399,8 @@ export async function adminUpdateNotice(id, updates = {}) {
       if (updates.title) {
         payload.title = updates.title.toUpperCase();
       }
-      if (isPopup !== undefined) {
-        payload.is_popup = isPopup;
-      }
       if (isUrgent !== undefined) {
+        payload.is_popup = isUrgent;
         payload.is_urgent = isUrgent;
         payload.priority = isUrgent ? 'high' : 'normal';
       }
@@ -411,16 +418,19 @@ export async function adminUpdateNotice(id, updates = {}) {
   const current = getCachedNotices();
   const index = current.findIndex(n => n.id === id);
   if (index !== -1) {
-    if (isPopup) {
+    if (isUrgent === true) {
       current.forEach((n, idx) => {
-        if (idx !== index) n.is_popup = false;
+        if (idx !== index) {
+          n.is_popup = false;
+          n.is_urgent = false;
+          n.priority = 'normal';
+        }
       });
     }
     current[index] = {
       ...current[index],
       ...updates,
-      ...(isPopup !== undefined ? { is_popup: isPopup } : {}),
-      ...(isUrgent !== undefined ? { is_urgent: isUrgent, priority: isUrgent ? 'high' : 'normal' } : {}),
+      ...(isUrgent !== undefined ? { is_popup: isUrgent, is_urgent: isUrgent, priority: isUrgent ? 'high' : 'normal' } : {}),
       updated_at: nowIso
     };
     setCachedNotices(current, true);
@@ -473,12 +483,14 @@ export async function adminDeleteNotice(id) {
 }
 
 /**
- * Admin: Toggle urgent popup status
+ * Admin: Toggle urgent status (sets single active popup on student portal)
  */
-export async function adminTogglePopup(id, isPopup) {
+export async function adminToggleUrgent(id, isUrgent) {
   return adminUpdateNotice(id, {
-    is_popup: Boolean(isPopup),
-    is_urgent: Boolean(isPopup),
-    priority: isPopup ? 'high' : 'normal'
+    is_popup: Boolean(isUrgent),
+    is_urgent: Boolean(isUrgent),
+    priority: isUrgent ? 'high' : 'normal'
   });
 }
+
+export const adminTogglePopup = adminToggleUrgent;

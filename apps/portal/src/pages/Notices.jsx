@@ -87,13 +87,9 @@ export default function Notices() {
     });
   }, [notices, selectedLevel, searchQuery]);
 
-  // Only the active assigned urgent/login pop-up notice should display the "Urgent Attention" badge
+  // Only the single active urgent notice should display the "Urgent Attention" badge
   const activeUrgentNoticeId = useMemo(() => {
-    // 1. Find notice explicitly flagged as active login pop-up
-    const popup = notices.find(n => n.is_popup === true && n.is_published !== false);
-    if (popup) return popup.id;
-    // 2. Otherwise find the single newest urgent notice
-    const urgent = notices.find(n => n.is_urgent === true && n.is_published !== false);
+    const urgent = notices.find(n => Boolean(n.is_urgent || n.is_popup) && n.is_published !== false);
     return urgent ? urgent.id : null;
   }, [notices]);
 

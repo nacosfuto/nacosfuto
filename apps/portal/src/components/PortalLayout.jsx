@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { hashPassword, isLocalEnvironment, enrichStudentProfile } from '@nacos/supabase/auth';
-import { supabase, fetchActivePopupNotice, clearStudentDataCache } from '@nacos/supabase';
+import { supabase, fetchNotices, fetchActivePopupNotice, clearStudentDataCache } from '@nacos/supabase';
 import { calculateAcademicProgression, onAcademicSessionChange } from '@nacos/config/academic';
 import { getAppUrls } from '@nacos/config/urls';
 import NoticeModal from './NoticeModal';
@@ -102,25 +102,39 @@ const PortalLayout = ({ children }) => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activePopupNotice, setActivePopupNotice] = useState(null);
+  const [portalNotices, setPortalNotices] = useState([]);
+  const [isLoadingNotices, setIsLoadingNotices] = useState(false);
 
-  // Auto-check and trigger urgent pop-up notice for student on login / session mount
+  // Auto-check and trigger urgent pop-up notice for student on login / session mount,
+  // and synchronize live portal notifications for notification bell
   useEffect(() => {
     let isMounted = true;
-    const checkPopup = async () => {
+    const syncNotices = async () => {
       try {
+        setIsLoadingNotices(true);
         const prog = calculateAcademicProgression(user);
         const studentLevel = prog.valid ? prog.levelString : (user?.level || user?.currentLevel || user?.current_level);
-        const notice = await fetchActivePopupNotice({ level: studentLevel });
+        
+        // 1. Fetch active urgent popup notice for this student
+        const popup = await fetchActivePopupNotice({ level: studentLevel });
         if (isMounted) {
-          setActivePopupNotice(notice);
+          setActivePopupNotice(popup);
+        }
+
+        // 2. Fetch all active notices for notification bell
+        const { data: allNotices } = await fetchNotices({ level: studentLevel, activeOnly: true });
+        if (isMounted) {
+          setPortalNotices(Array.isArray(allNotices) ? allNotices : []);
         }
       } catch (err) {
-        console.warn('Popup notice check error:', err);
+        console.warn('Portal notices sync error:', err);
+      } finally {
+        if (isMounted) setIsLoadingNotices(false);
       }
     };
-    checkPopup();
+    syncNotices();
 
-    const handleNoticeUpdate = () => checkPopup();
+    const handleNoticeUpdate = () => syncNotices();
     window.addEventListener('nacos_notices_updated', handleNoticeUpdate);
 
     return () => {
@@ -502,27 +516,69 @@ const PortalLayout = ({ children }) => {
                 title="Notifications"
               >
                 <Bell className="w-4 h-4" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#138601] ring-2 ring-white dark:ring-[#083002]"></span>
+                {portalNotices.length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#138601] ring-2 ring-white dark:ring-[#083002]"></span>
+                )}
               </button>
 
-              {/* Notifications Dropdown Menu */}
+              {/* Notifications Dropdown Menu (Strictly Live Supabase Sourced - Zero Hardcoded Items) */}
               {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 rounded bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/40 shadow-xl z-50 overflow-hidden py-2 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="px-4 py-2.5 border-b border-gray-100 dark:border-[#138601]/20 flex items-center justify-between">
+                <div className="absolute right-0 mt-2 w-80 rounded-lg bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/40 shadow-xl z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-4 py-2.5 border-b border-gray-100 dark:border-[#138601]/20 flex items-center justify-between bg-gray-50/50 dark:bg-[#041801]/30">
                     <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Notifications</h4>
-                    <span className="text-[10px] font-semibold text-[#138601] dark:text-[#4bd043] bg-green-50 dark:bg-[#138601]/20 px-2 py-0.5 rounded">2 New</span>
+                    <span className="text-[10px] font-semibold text-[#138601] dark:text-[#4bd043] bg-green-50 dark:bg-[#138601]/20 px-2 py-0.5 rounded border border-[#138601]/20">
+                      {portalNotices.length > 0 ? `${portalNotices.length} New` : '0 New'}
+                    </span>
                   </div>
+
                   <div className="divide-y divide-gray-100 dark:divide-[#138601]/10 text-xs max-h-72 overflow-y-auto">
-                    <div className="p-3 hover:bg-gray-50 dark:hover:bg-[#041801]/60 transition-colors">
-                      <p className="font-semibold text-gray-900 dark:text-white">Academic Appraisal Open</p>
-                      <p className="text-gray-500 dark:text-green-200/70 text-[11px] mt-0.5">Please complete your semester appraisal form.</p>
-                      <span className="text-[10px] text-gray-400 mt-1 block">10 mins ago</span>
-                    </div>
-                    <div className="p-3 hover:bg-gray-50 dark:hover:bg-[#041801]/60 transition-colors">
-                      <p className="font-semibold text-gray-900 dark:text-white">ID Card Ready for Verification</p>
-                      <p className="text-gray-500 dark:text-green-200/70 text-[11px] mt-0.5">Your official digital student ID card is available.</p>
-                      <span className="text-[10px] text-gray-400 mt-1 block">1 hour ago</span>
-                    </div>
+                    {isLoadingNotices ? (
+                      <div className="p-4 text-center text-xs text-gray-400">Loading notifications...</div>
+                    ) : portalNotices.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-gray-500 dark:text-green-200/70 space-y-1">
+                        <Bell className="w-6 h-6 mx-auto text-gray-300 dark:text-gray-600 mb-1" />
+                        <p className="font-semibold text-gray-700 dark:text-gray-300">No active notifications</p>
+                        <p className="text-[11px] text-gray-400">Official circulars and bulletins will appear here.</p>
+                      </div>
+                    ) : (
+                      portalNotices.slice(0, 5).map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={() => {
+                            setActivePopupNotice(n);
+                            setNotificationsOpen(false);
+                          }}
+                          className="p-3 hover:bg-gray-50 dark:hover:bg-[#041801]/60 transition-colors cursor-pointer group text-left"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-semibold text-gray-900 dark:text-white group-hover:text-[#138601] dark:group-hover:text-[#4bd043] line-clamp-1">
+                              {n.title}
+                            </p>
+                            {n.is_urgent && (
+                              <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-red-600 bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded border border-red-200 dark:border-red-800">
+                                Urgent
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-gray-500 dark:text-green-200/70 text-[11px] mt-0.5 line-clamp-2">
+                            {n.content || n.excerpt}
+                          </p>
+                          <span className="text-[10px] text-gray-400 mt-1 block">
+                            {n.published_date}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="px-4 py-2 border-t border-gray-100 dark:border-[#138601]/20 bg-gray-50/50 dark:bg-[#041801]/40 text-center">
+                    <Link
+                      to="/notices"
+                      onClick={() => setNotificationsOpen(false)}
+                      className="text-[11px] font-bold text-[#138601] dark:text-[#4bd043] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      View all notices & circulars &rarr;
+                    </Link>
                   </div>
                 </div>
               )}

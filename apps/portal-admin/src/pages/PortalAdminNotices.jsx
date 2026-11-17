@@ -22,6 +22,7 @@ import {
   adminCreateNotice, 
   adminUpdateNotice, 
   adminDeleteNotice,
+  adminToggleUrgent,
   adminTogglePopup,
   supabase
 } from '@nacos/supabase';
@@ -43,11 +44,10 @@ export default function PortalAdminNotices() {
   const [formData, setFormData] = useState({
     title: '',
     target_audience: 'ALL STUDENTS',
-    category: 'Admissions',
-    author_unit: 'Admissions Unit',
+    category: 'Academic',
+    author_unit: 'NACOS Directorate',
     content: '',
-    is_popup: true,
-    is_urgent: true,
+    is_urgent: false,
     is_published: true
   });
 
@@ -101,9 +101,8 @@ export default function PortalAdminNotices() {
       title: '',
       target_audience: 'ALL STUDENTS',
       category: 'Academic',
-      author_unit: 'Admissions Unit',
+      author_unit: 'NACOS Directorate',
       content: '',
-      is_popup: false,
       is_urgent: false,
       is_published: true
     });
@@ -115,11 +114,10 @@ export default function PortalAdminNotices() {
     setFormData({
       title: notice.title || '',
       target_audience: notice.target_audience || 'ALL STUDENTS',
-      category: notice.category || 'General',
-      author_unit: notice.author_unit || 'Admissions Unit',
+      category: notice.category || 'Academic',
+      author_unit: notice.author_unit || 'NACOS Directorate',
       content: notice.content || '',
-      is_popup: Boolean(notice.is_popup),
-      is_urgent: Boolean(notice.is_urgent),
+      is_urgent: Boolean(notice.is_urgent || notice.is_popup),
       is_published: notice.is_published !== false
     });
   };
@@ -140,18 +138,20 @@ export default function PortalAdminNotices() {
           category: formData.category,
           author_unit: formData.author_unit,
           content: formData.content,
-          is_popup: formData.is_popup,
-          is_urgent: formData.is_urgent || formData.is_popup,
+          is_urgent: formData.is_urgent,
+          is_popup: formData.is_urgent,
           is_published: formData.is_published
         });
-        showToast('Notice updated successfully');
+        showToast(formData.is_urgent ? 'Notice updated & set as active urgent pop-up!' : 'Notice updated successfully');
         setEditingNotice(null);
       } else {
         await adminCreateNotice({
           ...formData,
-          title: formData.title.toUpperCase()
+          title: formData.title.toUpperCase(),
+          is_urgent: formData.is_urgent,
+          is_popup: formData.is_urgent
         });
-        showToast(formData.is_popup ? 'Urgent pop-up notice created & published!' : 'Notice published to bulletin');
+        showToast(formData.is_urgent ? 'Urgent notice created & active for student pop-up!' : 'Notice published to bulletin');
         setIsCreateModalOpen(false);
       }
       loadData();
@@ -162,14 +162,15 @@ export default function PortalAdminNotices() {
     }
   };
 
-  const handleTogglePopup = async (notice) => {
-    const nextState = !notice.is_popup;
+  const handleToggleUrgent = async (notice) => {
+    const isCurrentlyUrgent = Boolean(notice.is_urgent || notice.is_popup);
+    const nextState = !isCurrentlyUrgent;
     try {
-      await adminTogglePopup(notice.id, nextState);
-      showToast(nextState ? `"${notice.title}" is now active login pop-up!` : 'Login pop-up disabled');
+      await adminToggleUrgent(notice.id, nextState);
+      showToast(nextState ? `"${notice.title}" is now the active urgent login pop-up!` : 'Urgent pop-up deactivated');
       loadData();
     } catch (err) {
-      showToast('Failed to update pop-up status', 'error');
+      showToast('Failed to update urgent status', 'error');
     }
   };
 
@@ -251,41 +252,41 @@ export default function PortalAdminNotices() {
           </div>
         </div>
 
-        {/* Active Pop-up Banner (Single Active Popup Rule) */}
+        {/* Active Urgent Notice Banner (Single Active Urgent Rule) */}
         {(() => {
-          const activePopup = notices.find(n => Boolean(n.is_popup));
+          const activeUrgentNotice = notices.find(n => Boolean(n.is_urgent || n.is_popup));
           return (
             <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
-              activePopup 
-                ? 'bg-purple-50 dark:bg-[#083002] border-purple-200 dark:border-[#138601]/40 text-purple-900 dark:text-purple-200' 
+              activeUrgentNotice 
+                ? 'bg-amber-50 dark:bg-[#083002] border-amber-300 dark:border-amber-600/40 text-amber-950 dark:text-amber-200' 
                 : 'bg-gray-50 dark:bg-[#041801] border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300'
             }`}>
               <div className="flex items-start sm:items-center gap-2.5">
-                <span className={`w-2 h-2 rounded-full mt-1 sm:mt-0 shrink-0 ${activePopup ? 'bg-[#684BFD] animate-ping' : 'bg-gray-400'}`} />
+                <span className={`w-2.5 h-2.5 rounded-full mt-1 sm:mt-0 shrink-0 ${activeUrgentNotice ? 'bg-red-500 animate-ping' : 'bg-gray-400'}`} />
                 <div>
                   <div className="font-bold flex items-center gap-2">
-                    <span>{activePopup ? 'Active Student Login Pop-up:' : 'No Active Login Pop-up Configured'}</span>
-                    {activePopup && (
-                      <span className="font-mono uppercase text-[#684BFD] dark:text-[#a78bfa] underline font-extrabold truncate max-w-xs sm:max-w-md">
-                        {activePopup.title}
+                    <span>{activeUrgentNotice ? 'Active Urgent Pop-Up Notification:' : 'No Urgent Pop-Up Configured'}</span>
+                    {activeUrgentNotice && (
+                      <span className="font-mono uppercase text-red-600 dark:text-red-400 underline font-extrabold truncate max-w-xs sm:max-w-md">
+                        {activeUrgentNotice.title}
                       </span>
                     )}
                   </div>
                   <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                    {activePopup
-                      ? 'This notice pops up immediately when eligible students sign in. Only one notice can be active at a time.'
-                      : 'Students browse notices via the Notices & Bulletin section. Click "Set as Login Pop-up" on any notice to enable.'}
+                    {activeUrgentNotice
+                      ? 'This notification pops up immediately when eligible students open the portal. Only ONE notification can be urgent at a time.'
+                      : 'Students browse circulars via the bulletin & notification bell. No modal will pop up upon opening the portal. Click "Set as Urgent" on any notice to enable.'}
                   </p>
                 </div>
               </div>
 
-              {activePopup && (
+              {activeUrgentNotice && (
                 <button
                   type="button"
-                  onClick={() => handleTogglePopup(activePopup)}
+                  onClick={() => handleToggleUrgent(activeUrgentNotice)}
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#041801] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/20 hover:bg-gray-100 transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
                 >
-                  Unset Pop-up
+                  Disable Urgent
                 </button>
               )}
             </div>
@@ -305,7 +306,7 @@ export default function PortalAdminNotices() {
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-[#138601]/15">
               {filtered.map((notice) => {
-                const isPopup = Boolean(notice.is_popup);
+                const isUrgent = Boolean(notice.is_urgent || notice.is_popup);
 
                 return (
                   <div key={notice.id} className="p-5 sm:p-6 hover:bg-gray-50/60 dark:hover:bg-[#062602]/50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -317,22 +318,15 @@ export default function PortalAdminNotices() {
                           <span>{notice.target_audience}</span>
                         </span>
 
-                        {/* Pop-up Push status */}
-                        {isPopup ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase bg-green-100 text-green-800 dark:bg-green-950/60 dark:text-green-300 border border-green-300/60">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-600 animate-ping" />
-                            <span>Active Login Pop-up</span>
+                        {/* Urgent Pop-up status */}
+                        {isUrgent ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300 border border-red-300/60">
+                            <AlertCircle className="w-3 h-3 text-red-600" />
+                            <span>Active Urgent Pop-up</span>
                           </span>
                         ) : (
-                          <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 px-2 py-0.5 rounded bg-gray-100 dark:bg-[#041801]">
-                            Bulletin Only
-                          </span>
-                        )}
-
-                        {notice.is_urgent && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300 border border-red-300/50">
-                            <AlertCircle className="w-3 h-3" />
-                            <span>Urgent Alert</span>
+                          <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded bg-gray-100 dark:bg-[#041801]">
+                            Circular Bulletin
                           </span>
                         )}
 
@@ -357,18 +351,18 @@ export default function PortalAdminNotices() {
 
                     {/* Action Buttons Strip */}
                     <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-gray-100 dark:border-white/10">
-                      {/* Toggle Urgent Pop-up */}
+                      {/* Toggle Urgent Status */}
                       <button
                         type="button"
-                        onClick={() => handleTogglePopup(notice)}
+                        onClick={() => handleToggleUrgent(notice)}
                         className={`px-3 py-1.5 rounded text-xs font-bold transition-colors cursor-pointer border ${
-                          isPopup
-                            ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                          isUrgent
+                            ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-100'
                             : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 dark:bg-[#041801] dark:text-gray-300 dark:border-[#138601]/30'
                         }`}
-                        title={isPopup ? 'Click to disable login pop-up' : 'Click to make this pop up on student login'}
+                        title={isUrgent ? 'Click to deactivate urgent pop-up' : 'Click to make this the active urgent pop-up for students'}
                       >
-                        {isPopup ? 'Disable Pop-up' : 'Set as Login Pop-up'}
+                        {isUrgent ? 'Disable Urgent' : 'Set as Urgent'}
                       </button>
 
                       {/* Preview */}
@@ -494,44 +488,33 @@ export default function PortalAdminNotices() {
                   />
                 </div>
 
-                {/* Urgent Pop-up Push Checkbox */}
-                <div className="p-3.5 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/40 space-y-1">
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.is_popup}
-                      onChange={(e) => setFormData({ 
-                        ...formData, 
-                        is_popup: e.target.checked,
-                        is_urgent: e.target.checked ? true : formData.is_urgent
-                      })}
-                      className="w-4 h-4 text-[#138601] rounded accent-[#138601]"
-                    />
-                    <span className="text-xs font-bold text-purple-900 dark:text-purple-200">
-                      Push as Urgent Pop-up on Student Login
-                    </span>
-                  </label>
-                  <p className="text-[11px] text-purple-700/80 dark:text-purple-300/70 ml-6">
-                    When active, any student logging in matching the target audience will immediately be presented with the institutional pop-up dialog.
-                  </p>
-                </div>
-
-                {/* Mark as Urgent Checkbox */}
-                <div className="p-3.5 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 space-y-1">
-                  <label className="flex items-center gap-2.5 cursor-pointer">
+                {/* Urgent Notification Toggle Card */}
+                <div className={`p-4 rounded-xl border transition-all ${
+                  formData.is_urgent
+                    ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700/60'
+                    : 'bg-gray-50 dark:bg-[#041801] border-gray-200 dark:border-white/10'
+                }`}>
+                  <label className="flex items-start gap-3 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={formData.is_urgent}
-                      onChange={(e) => setFormData({ ...formData, is_urgent: e.target.checked })}
-                      className="w-4 h-4 text-red-600 rounded accent-red-600"
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        is_urgent: e.target.checked
+                      })}
+                      className="w-4 h-4 mt-0.5 text-amber-600 rounded accent-amber-600 cursor-pointer"
                     />
-                    <span className="text-xs font-bold text-red-900 dark:text-red-200">
-                      Mark as Urgent Notice (Banner on Student Dashboard)
-                    </span>
+                    <div>
+                      <span className="text-xs font-bold text-gray-900 dark:text-white block">
+                        Set as Urgent Notification (Pops up when user opens portal)
+                      </span>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
+                        {formData.is_urgent
+                          ? 'This notification will immediately pop up for students matching the audience when they open the portal. Only ONE notification can be urgent at a time; any other urgent notification will be replaced.'
+                          : 'This notification will appear in the portal circular bulletin and notification bell without popping up.'}
+                      </p>
+                    </div>
                   </label>
-                  <p className="text-[11px] text-red-700/80 dark:text-red-300/70 ml-6">
-                    Highlights this directive prominently as an urgent bulletin banner at the top of the student dashboard.
-                  </p>
                 </div>
 
                 {/* Form Buttons */}

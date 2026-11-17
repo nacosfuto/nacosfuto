@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Users } from 'lucide-react';
+import { X, Users, AlertCircle } from 'lucide-react';
 import { markNoticeDismissed } from '@nacos/supabase';
 
 /**
@@ -42,8 +42,15 @@ export default function NoticeModal({ notice, isOpen, onClose }) {
       >
         {/* Modal Top Header Bar */}
         <div className="border-b border-gray-200 dark:border-[#138601]/25 px-6 py-4 flex items-center justify-between bg-white dark:bg-[#062402]">
-          <h2 id="notice-modal-title" className="text-base font-bold text-gray-900 dark:text-white tracking-tight">
-            General Notice
+          <h2 id="notice-modal-title" className="text-base font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
+            {notice.is_urgent ? (
+              <span className="inline-flex items-center gap-1.5 text-red-600 dark:text-red-400 font-extrabold">
+                <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                Urgent Notice
+              </span>
+            ) : (
+              <span>{notice.category ? `${notice.category} Notice` : 'Official Notice'}</span>
+            )}
           </h2>
           <button
             type="button"
@@ -57,12 +64,19 @@ export default function NoticeModal({ notice, isOpen, onClose }) {
 
         {/* Modal Body */}
         <div className="p-6 sm:p-8 space-y-6 max-h-[80vh] overflow-y-auto">
-          {/* Target Audience Badge (Institutional Purple Pill) */}
-          <div>
+          {/* Target Audience & Urgent Badges */}
+          <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded text-[11px] font-bold tracking-wider uppercase bg-[#ede9fe] text-[#6d28d9] dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/40">
               <Users className="w-3.5 h-3.5" />
               <span>{audienceText}</span>
             </span>
+
+            {notice.is_urgent && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-extrabold uppercase bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300 border border-red-300/60">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>Urgent Attention Required</span>
+              </span>
+            )}
           </div>
 
           {/* Notice Title & Published Date */}
@@ -91,7 +105,7 @@ export default function NoticeModal({ notice, isOpen, onClose }) {
           {/* Author Unit Sign-off */}
           <div className="pt-2">
             <p className="text-sm font-bold text-[#111827] dark:text-white">
-              {notice.author_unit || 'Admissions Unit'}
+              {notice.author_unit || 'NACOS Directorate'}
             </p>
           </div>
         </div>
