@@ -396,14 +396,16 @@ export async function handleAdminForgotPassword({ email, ipAddress = null }) {
     }
   } catch (_) {}
 
-  // 3. Invalidate any existing unused challenges for this administrator
-  // Ensures only ONE newly issued verification code is active at any time
+  // 3. Invalidate old expired challenges (> 15 minutes) for this administrator
+  // Retaining recent unverified challenges within the 15-minute window ensures that any code
+  // dispatched to this administrator's verified email can be accepted, preventing race conditions from email delivery delays.
   try {
+    const expiredCutoff = new Date(Date.now() - OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
     await supabase
       .from('otp_verifications')
       .update({ is_used: true })
       .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
-      .eq('is_used', false);
+      .lt('created_at', expiredCutoff);
   } catch (_) {}
 
   // 4. Generate secure 6-digit OTP
@@ -500,10 +502,10 @@ export async function handleAdminResetPassword({ email, otp, newPassword }) {
   // 3. Query recent verification records for this admin across all possible identification columns
   const { data: challenges, error: challengeErr } = await supabase
     .from('otp_verifications')
-    .select('id, registration_number, destination_full, otp_hash, is_used, expires_at, created_at, attempts, max_attempts')
+    .select('id, registration_number, destination_full, otp_hash, is_used, verified_at, expires_at, created_at, attempts, max_attempts')
     .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
     .order('created_at', { ascending: false })
-    .limit(25);
+    .limit(50);
 
   if (challengeErr) {
     console.error('[Admin Reset Password Challenge Query Error]:', challengeErr);
@@ -518,24 +520,13 @@ export async function handleAdminResetPassword({ email, otp, newPassword }) {
     return storedHash === candidateSalted || storedHash === cleanOtp || storedHash === candidateUnsalted;
   };
 
-  // Find candidate among active/unused challenges first
-  let matchedRecord = challengeList.find(r => !r.is_used && isMatch(r));
+  // Find candidate among records
+  const matchedRecord = challengeList.find(isMatch);
 
-  // If not found among active/unused, check if matched against an already used or expired record to give an informative error
   if (!matchedRecord) {
-    const historicalMatch = challengeList.find(isMatch);
-    if (historicalMatch) {
-      if (historicalMatch.is_used) {
-        return { success: false, error: 'This verification code has already been used. Please request a new code.' };
-      }
-      const expiryTime = historicalMatch.expires_at ? new Date(historicalMatch.expires_at).getTime() : 0;
-      if (expiryTime > 0 && nowMs > expiryTime + 10 * 60 * 1000) {
-        return { success: false, error: 'This verification code has expired. Please request a new code.' };
-      }
-    }
-
-    // If an active challenge exists, increment its attempts
-    const activeChallenge = challengeList.find(r => !r.is_used);
+    // Entered code does not match any record for this admin (typo or invalid code)
+    // Find the latest unverified challenge to register an attempt
+    const activeChallenge = challengeList.find(r => !r.verified_at && !r.is_used) || challengeList.find(r => !r.verified_at);
     if (activeChallenge) {
       const newAttempts = (activeChallenge.attempts || 0) + 1;
       const maxAtt = activeChallenge.max_attempts || 5;
@@ -555,34 +546,39 @@ export async function handleAdminResetPassword({ email, otp, newPassword }) {
       }
     }
 
-    return { success: false, error: 'Invalid or expired verification code. Please request a new one.' };
+    return { success: false, error: 'Invalid verification code. Please check your email or request a new code.' };
   }
 
-  // Check attempts on matched record
+  // 1. Has this code already been used to reset the password?
+  if (matchedRecord.verified_at) {
+    return { success: false, error: 'This verification code has already been used to reset your password. If you need to reset again, please request a new code.' };
+  }
+
+  // 2. Has this code exceeded max attempts?
   if ((matchedRecord.attempts || 0) >= (matchedRecord.max_attempts || 5)) {
     return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
   }
 
-  // Check expiration with 10-minute clock skew grace period
+  // 3. Check expiration (15 min standard + 10 min clock skew grace period)
   const expiryTime = matchedRecord.expires_at ? new Date(matchedRecord.expires_at).getTime() : 0;
   const isExpired = expiryTime > 0 && (nowMs > expiryTime + 10 * 60 * 1000);
   if (isExpired) {
     return { success: false, error: 'This verification code has expired. Please request a new code.' };
   }
 
-  // 4. Mark matched OTP as used & verified
+  // 4. Mark matched OTP as verified and used
   await supabase
     .from('otp_verifications')
     .update({ is_used: true, verified_at: nowIso })
     .eq('id', matchedRecord.id);
 
-  // Invalidate any other active challenges for this admin
+  // Invalidate any other active or unverified challenges for this admin
   try {
     await supabase
       .from('otp_verifications')
       .update({ is_used: true })
       .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
-      .eq('is_used', false);
+      .is('verified_at', null);
   } catch (_) {}
 
   // 5. Hash new password with PBKDF2

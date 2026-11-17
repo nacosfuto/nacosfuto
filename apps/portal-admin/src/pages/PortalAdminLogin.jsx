@@ -120,6 +120,7 @@ export const PortalAdminLogin = () => {
   // Step 1: Request Admin Reset OTP
   const handleRequestReset = async (e) => {
     e.preventDefault();
+    if (isResetLoading) return;
     const cleanEmail = resetEmail.trim().toLowerCase();
     if (!cleanEmail) {
       setResetError('Please enter your official administrator email address.');
@@ -153,6 +154,8 @@ export const PortalAdminLogin = () => {
   const handleResendResetOTP = async () => {
     if (resetCooldown > 0 || isResetLoading) return;
     const cleanEmail = resetEmail.trim().toLowerCase();
+    if (!cleanEmail) return;
+
     setIsResetLoading(true);
     setResetError('');
 
@@ -173,6 +176,8 @@ export const PortalAdminLogin = () => {
   // Step 2: Verify Code and Set New Password
   const handleConfirmReset = async (e) => {
     e.preventDefault();
+    if (isResetLoading) return;
+
     const cleanEmail = resetEmail.trim().toLowerCase();
     const cleanCode = otpCode.replace(/\D/g, '').trim();
 
