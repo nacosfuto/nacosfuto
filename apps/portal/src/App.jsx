@@ -17,6 +17,7 @@ const IdCard = lazy(() => import('./pages/IdCard'));
 const IdVerification = lazy(() => import('./pages/IdVerification'));
 const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
 const Notices = lazy(() => import('./pages/Notices'));
+const Events = lazy(() => import('./pages/Events'));
 const Receipt = lazy(() => import('./pages/Receipt'));
 const HackathonDetail = lazy(() => import('./pages/HackathonDetail'));
 const HackathonApply = lazy(() => import('./pages/HackathonApply'));
@@ -134,6 +135,7 @@ function PortalSEOHandler() {
       '/register': 'Create Account | NACOS FUTO Student Portal',
       '/forgot-password': 'Reset Password | NACOS FUTO Portal',
       '/dashboard': 'Student Dashboard | NACOS FUTO Portal',
+      '/events': 'Department Events & Summits | NACOS FUTO Portal',
       '/notices': 'Departmental Bulletins & Notices | NACOS FUTO Portal',
       '/bulletin': 'Departmental Bulletins | NACOS FUTO Portal',
       '/results': 'My Academic Results & CGPA | NACOS FUTO Portal',
@@ -178,6 +180,7 @@ function App() {
 
               {/* Core Student Academic Portal */}
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/events" element={<Events />} />
               <Route path="/notices" element={<Notices />} />
               <Route path="/bulletin" element={<Notices />} />
               <Route path="/results" element={<Results />} />

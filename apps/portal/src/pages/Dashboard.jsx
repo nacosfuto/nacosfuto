@@ -22,9 +22,11 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertTriangle,
-  Megaphone
+  Megaphone,
+  Calendar
 } from 'lucide-react';
 import PortalLayout from '../components/PortalLayout';
+import PortalEventsSection from '../components/PortalEventsSection';
 import { 
   supabase, 
   getLocalPaymentsDatabase, 
@@ -557,8 +559,35 @@ const Dashboard = () => {
               </div>
               <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors shrink-0" />
             </Link>
+
+            <Link
+              to="/events"
+              className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 hover:border-[#138601] dark:hover:border-[#138601] transition-all group shadow-xs"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-[#041801] flex items-center justify-center text-gray-700 dark:text-[#4bd043] group-hover:bg-[#138601] group-hover:text-white transition-colors shrink-0">
+                  <Calendar className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">Department Events & Summits</h4>
+                  <p className="text-[11px] sm:text-xs text-gray-500 dark:text-green-200/80 font-normal mt-0.5">Workshops, hackathons & symposiums</p>
+                </div>
+              </div>
+              <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-[#138601] dark:group-hover:text-[#4bd043] transition-colors shrink-0" />
+            </Link>
           </div>
         </div>
+
+        {/* Live Synchronized Events Section */}
+        <section id="events-section" className="pt-2">
+          <PortalEventsSection
+            limit={6}
+            showFilters={true}
+            showViewAllLink={true}
+            title="Department Events & Summits"
+            subtitle="Synchronized live with NACOS FUTO events calendar"
+          />
+        </section>
 
         {/* Feedback / Appraisal Banner (Moved to the bottom after everything) */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/30 flex items-start gap-3.5 shadow-xs">

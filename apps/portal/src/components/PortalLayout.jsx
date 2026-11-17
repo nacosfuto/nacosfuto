@@ -24,7 +24,8 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Calendar
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { hashPassword, isLocalEnvironment, enrichStudentProfile } from '@nacos/supabase/auth';
@@ -321,6 +322,7 @@ const PortalLayout = ({ children }) => {
     { label: 'ID Card Application', path: '/id-card', icon: ShieldCheck },
     { label: 'Registered Courses', path: '/courses', icon: BookOpen },
     { label: 'My Academic Results', path: '/results', icon: GraduationCap },
+    { label: 'Events & Summits', path: '/events', icon: Calendar },
     { label: 'Notices & Bulletin', path: '/notices', icon: Bell },
     { label: 'Student Profile', path: '/profile', icon: User }
   ];
