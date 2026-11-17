@@ -578,14 +578,16 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Live Synchronized Events Section */}
+        {/* Live Synchronized Events Section - Upcoming Events Only */}
         <section id="events-section" className="pt-2">
           <PortalEventsSection
             limit={6}
-            showFilters={true}
+            onlyUpcoming={true}
+            showFilters={false}
             showViewAllLink={true}
-            title="Department Events & Summits"
-            subtitle="Synchronized live with NACOS FUTO events calendar"
+            viewAllTo="/events"
+            title="Upcoming Department Events"
+            subtitle="Conferences, tech workshops, hackathons & student summits"
           />
         </section>
 

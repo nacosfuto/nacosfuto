@@ -13,12 +13,13 @@ import {
   ArrowUpRight
 } from 'lucide-react';
 import { fetchEventsFromSupabase, getEvents, supabase } from '@nacos/supabase';
-import { getAppUrls } from '@nacos/config/urls';
 
 export default function PortalEventsSection({
   limit = 6,
   showFilters = true,
-  showViewAllLink = true,
+  onlyUpcoming = false,
+  showViewAllLink = false,
+  viewAllTo = '/events',
   title = "Department Events & Gatherings",
   subtitle = "Live conferences, tech workshops, hackathons & student summits"
 }) {
@@ -95,15 +96,13 @@ export default function PortalEventsSection({
   const pastCount = events.filter(e => e.category === 'past' || e.category === 'recent').length;
 
   const filteredEvents = events.filter(e => {
+    if (onlyUpcoming) return e.category === 'upcoming';
     if (activeTab === 'upcoming') return e.category === 'upcoming';
     if (activeTab === 'past') return e.category === 'past' || e.category === 'recent';
     return true; // 'all'
   });
 
   const displayedEvents = limit ? filteredEvents.slice(0, limit) : filteredEvents;
-
-  const { website } = getAppUrls();
-  const mainWebsiteEventsUrl = `${website.replace(/\/+$/, '')}/events`;
 
   return (
     <div className="space-y-4">
@@ -133,7 +132,7 @@ export default function PortalEventsSection({
 
         {/* Tab Controls and View All */}
         <div className="flex items-center gap-2 flex-wrap">
-          {showFilters && (
+          {showFilters && !onlyUpcoming && (
             <div className="inline-flex items-center p-1 rounded-xl bg-gray-100 dark:bg-[#041801] border border-gray-200/80 dark:border-[#138601]/30 text-xs">
               <button
                 type="button"
@@ -172,15 +171,13 @@ export default function PortalEventsSection({
           )}
 
           {showViewAllLink && (
-            <a
-              href={mainWebsiteEventsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#138601]/30 bg-white dark:bg-[#083002] hover:border-[#138601] text-xs font-semibold text-gray-700 dark:text-green-200 hover:text-[#138601] dark:hover:text-[#4bd043] transition-all cursor-pointer shadow-2xs"
+            <Link
+              to={viewAllTo}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#138601]/30 bg-white dark:bg-[#083002] hover:border-[#138601] text-xs font-semibold text-gray-700 dark:text-green-200 hover:text-[#138601] dark:hover:text-[#4bd043] transition-all cursor-pointer shadow-2xs"
             >
-              <span>Main Events Hub</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+              <span>View All Events</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
           )}
         </div>
       </div>
@@ -208,18 +205,18 @@ export default function PortalEventsSection({
             <CalendarCheck2 className="w-6 h-6" />
           </div>
           <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-            {activeTab === 'upcoming'
+            {onlyUpcoming || activeTab === 'upcoming'
               ? 'No Upcoming Events Scheduled Yet'
               : activeTab === 'past'
               ? 'No Concluded Events Found'
               : 'No Department Events Published Yet'}
           </h4>
           <p className="text-xs text-gray-500 dark:text-green-200/70 max-w-md mx-auto">
-            {activeTab === 'upcoming'
+            {onlyUpcoming || activeTab === 'upcoming'
               ? 'Stay tuned! New technical workshops, symposiums, and departmental conferences will appear here once announced.'
               : 'All historical conferences, hackathons, and departmental symposiums will appear in this archive.'}
           </p>
-          {activeTab !== 'all' && events.length > 0 && (
+          {!onlyUpcoming && activeTab !== 'all' && events.length > 0 && (
             <button
               type="button"
               onClick={() => setActiveTab('all')}
@@ -227,6 +224,14 @@ export default function PortalEventsSection({
             >
               View all {events.length} department events &rarr;
             </button>
+          )}
+          {onlyUpcoming && events.length > 0 && (
+            <Link
+              to={viewAllTo}
+              className="inline-block text-xs font-semibold text-[#138601] dark:text-[#4bd043] hover:underline cursor-pointer pt-1"
+            >
+              Browse all department events in archive &rarr;
+            </Link>
           )}
         </div>
       ) : (
