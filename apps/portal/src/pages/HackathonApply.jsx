@@ -14,13 +14,16 @@ import {
   UserCheck,
   AlertCircle,
   ShieldCheck,
-  RefreshCw
+  RefreshCw,
+  MessageCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import HackathonNavbar from '../components/HackathonNavbar';
 import Footer from '../components/Footer';
+import { getActiveHackathon } from '../data/hackathons';
 
 const HackathonApply = () => {
+  const activeHackathon = getActiveHackathon();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -486,10 +489,23 @@ const HackathonApply = () => {
                 ) : (
                   <>Team <strong className="text-[#138601] dark:text-[#4bd043]">{formData.teamName || 'Innovators'}</strong> has been registered with Lead <strong>{leadFullNameDisplay}</strong>.</>
                 )}{' '}
-                An onboarding briefing and sprint guide has been dispatched to <span className="font-bold text-gray-900 dark:text-white">{formData.leadEmail || 'your email'}</span>. See you on <strong>December 11th, 2026</strong>!
+                You will be contacted with further details regarding your entry and sprint schedule. Join our official hackathon community on WhatsApp to receive real-time updates, announcements, and support!
               </p>
 
-              <div className="pt-6 flex flex-wrap items-center justify-center gap-4">
+              {/* WhatsApp Community Call-to-Action Button */}
+              <div className="pt-2 pb-1">
+                <a
+                  href={activeHackathon?.whatsappCommunityUrl || "https://chat.whatsapp.com/AgenticBuild2026"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 font-mono text-xs sm:text-sm font-bold uppercase tracking-wider text-white bg-[#25D366] hover:bg-[#20ba5a] rounded border-2 border-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_#138601] transition-all transform hover:-translate-y-0.5 cursor-pointer"
+                >
+                  <MessageCircle className="w-5 h-5 fill-current" />
+                  <span>Join Hackathon Community on WhatsApp</span>
+                </a>
+              </div>
+
+              <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
                 <Link
                   to="/hackathons/the-agentic-build"
                   className="px-6 py-3 font-mono text-xs font-bold uppercase text-gray-950 bg-amber-400 hover:bg-amber-500 rounded border-2 border-gray-900 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"

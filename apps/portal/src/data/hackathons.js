@@ -17,6 +17,7 @@ export const HACKATHONS = [
     hostDirectorate: "Department of Computer Science, NACOS FUTO",
     venue: "Department of Computer Science, FUTO",
     teamFormat: "Solo builders or teams of up to 5 members",
+    whatsappCommunityUrl: "https://chat.whatsapp.com/AgenticBuild2026",
     startDate: "2026-12-11T09:00:00Z",
     endDate: "2026-12-11T23:59:59Z",
     applicationDeadline: "2026-12-10T23:59:59Z",

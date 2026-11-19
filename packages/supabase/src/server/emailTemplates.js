@@ -1308,15 +1308,17 @@ export function renderHackathonConfirmationEmail({
   leadFirstName = '',
   leadLastName = '',
   projectTitle = '',
-  projectKind = 'Web Application'
+  projectKind = 'Web Application',
+  whatsappUrl = 'https://chat.whatsapp.com/AgenticBuild2026'
 }) {
   const safeName = sanitizeHtml(leadName || `${leadFirstName || ''} ${leadLastName || ''}`.trim() || 'Innovator');
   const safeTeam = sanitizeHtml(teamName || 'Solo Builder');
   const safeTitle = sanitizeHtml(projectTitle || 'Your Project');
   const safeKind = sanitizeHtml(projectKind || 'Software Application');
+  const safeWhatsappUrl = sanitizeHtml(whatsappUrl || 'https://chat.whatsapp.com/AgenticBuild2026');
   const isSolo = participationType === 'solo';
 
-  const preheader = `Your registration for The Agentic Build 2026 has been confirmed.`;
+  const preheader = `Your registration for The Agentic Build 2026 has been confirmed. You will be contacted with further details.`;
 
   const contentHtml = `
     <!-- Header Title -->
@@ -1335,9 +1337,23 @@ export function renderHackathonConfirmationEmail({
     <p style="color: #334155; margin: 0 0 16px; font-size: 14px; line-height: 1.6;">
       Hello <strong>${safeName}</strong>,
     </p>
-    <p style="color: #334155; margin: 0 0 20px; font-size: 14px; line-height: 1.6;">
+    <p style="color: #334155; margin: 0 0 16px; font-size: 14px; line-height: 1.6;">
       Your registration for <strong>The Agentic Build 2026</strong> has been officially received and recorded by the NACOS FUTO Directorate of ICT.
     </p>
+    <p style="color: #334155; margin: 0 0 20px; font-size: 14px; line-height: 1.6;">
+      <strong>You will be contacted</strong> with further details regarding your entry verification, workspace access, and sprint schedule. Join the official hackathon WhatsApp community to receive real-time announcements!
+    </p>
+
+    <!-- WhatsApp Community Call-to-Action Button -->
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 24px; text-align: center;">
+      <tr>
+        <td align="center">
+          <a href="${safeWhatsappUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #25D366; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 14px 28px; text-decoration: none; border: 1px solid #1ebe5d;">
+            💬 Join Hackathon Community on WhatsApp
+          </a>
+        </td>
+      </tr>
+    </table>
 
     <!-- Key Details Box -->
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 24px; border: 1px solid #e2e8f0; border-radius: 0; background-color: #f8fafc; font-size: 13px;">
@@ -1390,6 +1406,8 @@ export function renderHackathonConfirmationEmail({
       `WELCOME TO THE AGENTIC BUILD 2026`,
       `Hello ${safeName},`,
       `Your registration has been confirmed by the NACOS FUTO Directorate of ICT.`,
+      `You will be contacted with further details regarding your entry and sprint schedule.`,
+      `Join our WhatsApp Community for updates: ${safeWhatsappUrl}`,
       `Format: ${isSolo ? 'Solo Builder' : 'Team: ' + safeTeam}`,
       `Project Title: ${safeTitle}`,
       `Date: December 11th, 2026`,
