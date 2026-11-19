@@ -64,7 +64,31 @@ function verifyStudentNameMatch(inputFirst, inputLast, official) {
     ...toTokens(official.surname)
   ];
   const officialMiddleTokens = toTokens(official.middle_name);
-  const officialAllWords = toTokens(official.full_name);
+  const officialAllWords = Array.from(new Set([
+    ...toTokens(official.full_name),
+    ...officialFirstTokens,
+    ...officialLastTokens,
+    ...officialMiddleTokens
+  ]));
+
+  if (officialAllWords.length === 0) {
+    return false;
+  }
+
+  // STRICT SPELLING ENFORCEMENT:
+  // Every entered word must exactly match an official word in the database.
+  // Partial matches, missing letters, and extra letters are strictly rejected.
+  const allInputTokens = [...inputFirstTokens, ...inputLastTokens];
+  const allTokensValid = allInputTokens.every(token => officialAllWords.includes(token));
+  if (!allTokensValid) {
+    return false;
+  }
+
+  // First name and last name cannot share the same word
+  const hasOverlap = inputFirstTokens.some(ft => inputLastTokens.includes(ft));
+  if (hasOverlap && officialAllWords.length > 1) {
+    return false;
+  }
 
   // Fallbacks if columns are not split
   const effFirstTokens = officialFirstTokens.length > 0
@@ -75,43 +99,36 @@ function verifyStudentNameMatch(inputFirst, inputLast, official) {
     ? officialLastTokens
     : (officialAllWords.length > 0 ? [officialAllWords[0]] : []);
 
-  const matchToken = (inputToken, targetTokens) => {
-    return targetTokens.some(target => {
-      if (inputToken === target) return true;
-      if (inputToken.length >= 4 && target.length >= 4) {
-        if (target.startsWith(inputToken) || inputToken.startsWith(target)) {
-          if (Math.abs(inputToken.length - target.length) <= 2) return true;
-        }
-      }
-      return false;
-    });
-  };
-
   // Check 1: Normal Order (Input First matches Database First/Middle, Input Last matches Database Last)
-  const firstMatchesFirst = inputFirstTokens.some(it => matchToken(it, effFirstTokens) || matchToken(it, officialMiddleTokens));
-  const lastMatchesLast = inputLastTokens.some(it => matchToken(it, effLastTokens));
+  const firstMatchesFirst = inputFirstTokens.every(it => effFirstTokens.includes(it) || officialMiddleTokens.includes(it) || officialAllWords.includes(it)) &&
+                            inputFirstTokens.some(it => effFirstTokens.includes(it) || officialMiddleTokens.includes(it));
+  const lastMatchesLast = inputLastTokens.every(it => effLastTokens.includes(it) || officialAllWords.includes(it)) &&
+                          inputLastTokens.some(it => effLastTokens.includes(it));
 
   if (firstMatchesFirst && lastMatchesLast) {
     return true;
   }
 
   // Check 2: Swapped Order (Input First matches Database Last, Input Last matches Database First/Middle)
-  const firstMatchesLast = inputFirstTokens.some(it => matchToken(it, effLastTokens));
-  const lastMatchesFirst = inputLastTokens.some(it => matchToken(it, effFirstTokens) || matchToken(it, officialMiddleTokens));
+  const firstMatchesLast = inputFirstTokens.every(it => effLastTokens.includes(it) || officialAllWords.includes(it)) &&
+                           inputFirstTokens.some(it => effLastTokens.includes(it));
+  const lastMatchesFirst = inputLastTokens.every(it => effFirstTokens.includes(it) || officialMiddleTokens.includes(it) || officialAllWords.includes(it)) &&
+                           inputLastTokens.some(it => effFirstTokens.includes(it) || officialMiddleTokens.includes(it));
 
   if (firstMatchesLast && lastMatchesFirst) {
     return true;
   }
 
   // Check 3: Full Name matching across distinct words
-  if (officialAllWords.length >= 2) {
-    const firstMatchedWordIndex = officialAllWords.findIndex(w => inputFirstTokens.some(it => matchToken(it, [w])));
-    if (firstMatchedWordIndex !== -1) {
-      const remainingWords = officialAllWords.filter((_, idx) => idx !== firstMatchedWordIndex);
-      const lastMatched = inputLastTokens.some(it => matchToken(it, remainingWords));
-      if (lastMatched) {
-        return true;
-      }
+  const firstMatchesAnyOfficial = inputFirstTokens.every(it => officialAllWords.includes(it));
+  const lastMatchesAnyOfficial = inputLastTokens.every(it => officialAllWords.includes(it));
+
+  if (firstMatchesAnyOfficial && lastMatchesAnyOfficial && officialAllWords.length >= 2) {
+    const matchedFirstIndices = inputFirstTokens.map(it => officialAllWords.indexOf(it)).filter(idx => idx !== -1);
+    const matchedLastIndices = inputLastTokens.map(it => officialAllWords.indexOf(it)).filter(idx => idx !== -1);
+    const hasDisjointMatch = matchedFirstIndices.some(fi => !matchedLastIndices.includes(fi));
+    if (hasDisjointMatch) {
+      return true;
     }
   }
 
