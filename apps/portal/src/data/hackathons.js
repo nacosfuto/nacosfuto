@@ -129,6 +129,14 @@ export const HACKATHONS = [
         role: "Organizing Chapter",
         logoUrl: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569315/nacos/general/full-logo-light.png",
         description: "Nigeria Association of Computing Students, FUTO Chapter"
+      },
+      {
+        id: "niforix",
+        name: "Niforix",
+        shortName: "Niforix",
+        role: "Official Sponsor",
+        logoUrl: "https://res.cloudinary.com/a2mmcttn/image/upload/v1795117704/nacos/sponsors/niforix_logo.png",
+        description: "Official Sponsor of The Agentic Build Hackathon"
       }
     ]
   }

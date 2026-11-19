@@ -543,17 +543,17 @@ export const ProductLaunch = {
             </h2>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-6">
+          <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-6 max-w-4xl mx-auto">
             {hackathon.partners?.map((partner) => (
               <div 
                 key={partner.id} 
-                className="bg-white rounded-lg border-2 border-gray-900 dark:border-gray-800 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_#138601] p-6 flex items-center justify-center h-28 sm:h-36 transition-all duration-200 hover:-translate-y-1 hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]"
-                title={partner.name}
+                className="w-full sm:w-60 md:w-64 bg-white rounded-lg border-2 border-gray-900 dark:border-gray-800 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_#138601] p-6 flex items-center justify-center h-28 sm:h-36 transition-all duration-200 hover:-translate-y-1 hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]"
+                title={`${partner.name} • ${partner.role || 'Partner'}`}
               >
                 <img
                   src={partner.logoUrl}
                   alt={partner.name}
-                  className="max-h-16 sm:max-h-20 max-w-full w-auto object-contain"
+                  className="max-h-14 sm:max-h-16 max-w-[85%] w-auto object-contain"
                 />
               </div>
             ))}

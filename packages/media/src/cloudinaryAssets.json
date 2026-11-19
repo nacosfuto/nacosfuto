@@ -737,6 +737,15 @@
       "width": 259,
       "height": 194,
       "bytes": 12651
+    },
+    "niforix_logo": {
+      "publicId": "nacos/sponsors/niforix_logo",
+      "url": "https://res.cloudinary.com/a2mmcttn/image/upload/v1795117704/nacos/sponsors/niforix_logo.png",
+      "folder": "nacos/sponsors",
+      "category": "sponsors",
+      "width": 1024,
+      "height": 229,
+      "bytes": 19339
     }
   }
 }
