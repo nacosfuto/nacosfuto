@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { 
   ArrowRight, 
   CheckCircle2, 
@@ -726,21 +725,6 @@ const HackathonApply = () => {
                   <MessageCircle className="w-5 h-5 fill-current" />
                   <span>Join Hackathon Community on WhatsApp</span>
                 </a>
-              </div>
-
-              <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
-                <Link
-                  to="/hackathons/the-agentic-build"
-                  className="px-6 py-3 font-mono text-xs font-bold uppercase text-gray-950 bg-amber-400 hover:bg-amber-500 rounded border-2 border-gray-900 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
-                >
-                  Return to Hackathon Hub
-                </Link>
-                <Link
-                  to="/dashboard"
-                  className="px-6 py-3 font-mono text-xs font-bold uppercase text-white bg-[#138601] hover:bg-[#0f6c01] rounded border-2 border-gray-900 dark:border-white shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
-                >
-                  Go to Student Portal
-                </Link>
               </div>
             </div>
           ) : (
