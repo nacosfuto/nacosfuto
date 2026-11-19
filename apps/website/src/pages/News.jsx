@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fa';
 import { getLocalNewsArticles, fetchNewsArticles } from '@nacos/supabase';
 import { getCloudinaryAssetUrl } from '@nacos/media';
+import NewsArticleModal from '../components/News/NewsArticleModal';
 
 const HERO_IMAGE_URL = getCloudinaryAssetUrl('header') || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569326/nacos/homepage/header.png";
 
@@ -295,56 +296,10 @@ const News = ({ isArticlePage }) => {
         </section>
 
         {/* Modal for Full Article View - Full Screen */}
-        {activeArticleModal && (
-          <div className="fixed inset-0 z-50 bg-white dark:bg-[#083002] overflow-y-auto">
-            <div className="w-full min-h-screen flex flex-col bg-white dark:bg-[#083002]">
-              {/* Header Cover Banner */}
-              <div className="relative h-72 sm:h-96 md:h-[420px] w-full bg-gray-950 shrink-0">
-                <img
-                  src={activeArticleModal.cover_image_url || activeArticleModal.image || getCloudinaryAssetUrl('research') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569339/nacos/gallery/research.jpg'}
-                  alt={activeArticleModal.title}
-                  className="w-full h-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={handleCloseArticle}
-                  className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50 w-11 h-11 rounded-full bg-black/75 hover:bg-black text-white flex items-center justify-center text-2xl font-bold transition-all shadow-xl cursor-pointer hover:scale-105"
-                  title="Close"
-                  aria-label="Close"
-                >
-                  &times;
-                </button>
-                <div className="absolute bottom-4 left-4 sm:left-8 bg-[#138601] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow">
-                  {activeArticleModal.category}
-                </div>
-              </div>
-
-              {/* Formal Article Details & Body Content */}
-              <div className="p-6 sm:p-10 md:p-12 max-w-4xl w-full mx-auto space-y-4 flex-grow pb-24">
-                <div className="flex items-center gap-4 text-xs sm:text-sm text-black/60 dark:text-green-200/60 flex-wrap">
-                  <span>{activeArticleModal.date}</span>
-                  <span>&bull;</span>
-                  <span>{activeArticleModal.readTime || `${activeArticleModal.read_time_minutes || 3} min read`}</span>
-                  <span>&bull;</span>
-                  <span>By {activeArticleModal.author}</span>
-                </div>
-
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-black dark:text-white leading-tight">
-                  {activeArticleModal.title}
-                </h2>
-
-                <div className="text-base sm:text-lg leading-relaxed text-black/85 dark:text-green-100/85 space-y-4 pt-4 border-t border-[#138601]/15 dark:border-white/10">
-                  <p className="font-semibold text-black dark:text-white text-base sm:text-lg">
-                    {activeArticleModal.summary || activeArticleModal.excerpt}
-                  </p>
-                  <p className="whitespace-pre-line leading-relaxed">
-                    {activeArticleModal.content || activeArticleModal.summary || activeArticleModal.excerpt}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        <NewsArticleModal
+          article={activeArticleModal}
+          onClose={handleCloseArticle}
+        />
 
         {/* Full-Screen Article Not Found View */}
         {articleNotFound && (
