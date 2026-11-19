@@ -5,9 +5,7 @@ import {
   loginWebsiteAdmin, 
   getWebsiteAdminSession,
   requestAdminPasswordReset,
-  confirmAdminPasswordReset,
-  requestAdminAccessOtp,
-  verifyAdminAccessOtp
+  confirmAdminPasswordReset
 } from '@nacos/auth';
 import { getAppUrls } from '@nacos/config/urls';
 import logoDark from '../assets/full-logo-dark.png';
@@ -32,24 +30,12 @@ export const AdminLogin = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Authentication Mode: 'otp' (Email Verification Code) or 'password'
-  const [authMode, setAuthMode] = useState('otp');
-
   // Login form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Direct Email Access Code (OTP) login state
-  const [otpStep, setOtpStep] = useState(1); // 1 = Request Code, 2 = Enter Code & Verify
-  const [otpEmail, setOtpEmail] = useState('');
-  const [maskedOtpEmail, setMaskedOtpEmail] = useState('');
-  const [accessCode, setAccessCode] = useState('');
-  const [isOtpLoading, setIsOtpLoading] = useState(false);
-  const [otpError, setOtpError] = useState('');
-  const [otpCooldown, setOtpCooldown] = useState(0);
 
   // Password reset state
   const [isResetMode, setIsResetMode] = useState(false);
@@ -64,7 +50,7 @@ export const AdminLogin = () => {
   const [resetError, setResetError] = useState('');
   const [resetCooldown, setResetCooldown] = useState(0);
 
-  // Cooldown countdown timers
+  // Cooldown countdown timer
   useEffect(() => {
     let timer;
     if (resetCooldown > 0) {
@@ -72,14 +58,6 @@ export const AdminLogin = () => {
     }
     return () => clearTimeout(timer);
   }, [resetCooldown]);
-
-  useEffect(() => {
-    let timer;
-    if (otpCooldown > 0) {
-      timer = setTimeout(() => setOtpCooldown(otpCooldown - 1), 1000);
-    }
-    return () => clearTimeout(timer);
-  }, [otpCooldown]);
 
   // If already logged in with authorized scope, redirect immediately
   useEffect(() => {
@@ -122,100 +100,6 @@ export const AdminLogin = () => {
     } catch (err) {
       setIsLoading(false);
       setError('An unexpected error occurred during CMS authentication.');
-    }
-  };
-
-  // Step 1: Request Direct CMS Access Code (OTP)
-  const handleRequestAccessOtp = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    if (isOtpLoading) return;
-    const cleanEmail = (otpEmail || email).trim().toLowerCase();
-    if (!cleanEmail) {
-      setOtpError('Please enter your official administrator email address.');
-      return;
-    }
-
-    setIsOtpLoading(true);
-    setOtpError('');
-
-    try {
-      const res = await requestAdminAccessOtp(cleanEmail, 'website');
-      setIsOtpLoading(false);
-
-      if (res?.success) {
-        setMaskedOtpEmail(res.maskedEmail || cleanEmail);
-        setOtpCooldown(60);
-        setOtpStep(2);
-      } else {
-        if (res?.retryAfterSeconds) {
-          setOtpCooldown(res.retryAfterSeconds);
-        }
-        setOtpError(res?.error || 'Could not dispatch verification code. Please check your email.');
-      }
-    } catch (err) {
-      setIsOtpLoading(false);
-      setOtpError('A network or server error occurred. Please try again.');
-    }
-  };
-
-  // Resend Direct CMS Access Code
-  const handleResendAccessOtp = async () => {
-    if (otpCooldown > 0 || isOtpLoading) return;
-    const cleanEmail = (otpEmail || email).trim().toLowerCase();
-    if (!cleanEmail) return;
-
-    setIsOtpLoading(true);
-    setOtpError('');
-
-    try {
-      const res = await requestAdminAccessOtp(cleanEmail, 'website');
-      setIsOtpLoading(false);
-
-      if (res?.success) {
-        setOtpCooldown(60);
-      } else {
-        setOtpError(res?.error || 'Failed to resend verification code.');
-      }
-    } catch (err) {
-      setIsOtpLoading(false);
-      setOtpError('Failed to resend code. Please try again.');
-    }
-  };
-
-  // Step 2: Verify Direct CMS Access Code & Establish Session
-  const handleVerifyAccessOtp = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    if (isOtpLoading) return;
-
-    const cleanEmail = (otpEmail || email).trim().toLowerCase();
-    const cleanCode = accessCode.replace(/\D/g, '').trim();
-
-    if (!cleanCode) {
-      setOtpError('Please enter the 6-digit verification code.');
-      return;
-    }
-    if (cleanCode.length !== 6) {
-      setOtpError('Verification code must be exactly 6 digits.');
-      return;
-    }
-
-    setIsOtpLoading(true);
-    setOtpError('');
-
-    try {
-      const res = await verifyAdminAccessOtp(cleanEmail, cleanCode, 'website');
-      setIsOtpLoading(false);
-
-      if (res?.success && (res.session || res.admin)) {
-        const fromPath = location.state?.from?.pathname;
-        const destination = fromPath ? fromPath.replace(/^\/admin/, '') || '/' : '/';
-        navigate(destination, { replace: true });
-      } else {
-        setOtpError(res?.error || 'Invalid verification code. Please try again.');
-      }
-    } catch (err) {
-      setIsOtpLoading(false);
-      setOtpError('Failed to verify code. Please check your network and try again.');
     }
   };
 
@@ -613,284 +497,100 @@ export const AdminLogin = () => {
                   Sign In to Website CMS
                 </h1>
                 <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                  Authenticate with your official administrator email to access and manage CMS news, events, and media.
+                  Enter your authorized administrative credentials to manage public news, gallery, and media assets.
                 </p>
               </div>
 
-              {/* Authentication Mode Switcher */}
-              <div className="grid grid-cols-2 p-1 bg-gray-100 rounded-xl border border-gray-200">
+              {/* Feedback & Error Alerts */}
+              {error && (
+                <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5">
+                  <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="flex-1 leading-relaxed">
+                    <span>{error}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Core Login Form */}
+              <form onSubmit={handleLogin} className="space-y-4">
+                
+                {/* Email Address */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+                    Administrator Email Address
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      required
+                      placeholder="admin@nacos.org.ng"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 text-sm rounded-lg bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] font-normal transition-all"
+                    />
+                    <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+                    Administrative Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      placeholder="Enter administrative password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full pl-10 pr-11 py-3 text-sm rounded-lg bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] font-normal transition-all"
+                    />
+                    <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-3.5 text-gray-400 hover:text-gray-700 cursor-pointer"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Forgot Password Link */}
+                <div className="flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetEmail(email);
+                      setIsResetMode(true);
+                      setResetStep(1);
+                      setError('');
+                      setResetError('');
+                    }}
+                    className="text-xs font-semibold text-[#138601] hover:underline cursor-pointer"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+
+                {/* Primary Action Button */}
                 <button
-                  type="button"
-                  onClick={() => { setAuthMode('otp'); setError(''); setOtpError(''); }}
-                  className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                    authMode === 'otp'
-                      ? 'bg-white text-[#138601] shadow-xs'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full px-7 py-3 min-h-[44px] text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-60"
                 >
-                  <Mail className="w-3.5 h-3.5" />
-                  <span>Email Verification Code</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setAuthMode('password'); setError(''); setOtpError(''); }}
-                  className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                    authMode === 'password'
-                      ? 'bg-white text-[#138601] shadow-xs'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Password Login</span>
-                </button>
-              </div>
-
-              {/* ============================================================= */}
-              {/* MODE 1: DIRECT EMAIL VERIFICATION CODE (OTP) */}
-              {/* ============================================================= */}
-              {authMode === 'otp' ? (
-                <div className="space-y-4">
-                  {otpStep === 1 ? (
-                    <>
-                      {otpError && (
-                        <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5">
-                          <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
-                          <div className="flex-1 leading-relaxed">
-                            <span>{otpError}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      <form onSubmit={handleRequestAccessOtp} className="space-y-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
-                            Administrator Email Address
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="email"
-                              required
-                              placeholder="admin@nacos.org.ng"
-                              value={otpEmail || email}
-                              onChange={(e) => {
-                                setOtpEmail(e.target.value);
-                                setEmail(e.target.value);
-                              }}
-                              className="w-full pl-10 pr-4 py-3 text-sm rounded-lg bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] font-normal transition-all"
-                            />
-                            <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5 pointer-events-none" />
-                          </div>
-                          <p className="text-[11px] text-gray-500 mt-1.5">
-                            We will send a 6-digit access code to this official email address.
-                          </p>
-                        </div>
-
-                        <button
-                          type="submit"
-                          disabled={isOtpLoading}
-                          className="w-full px-7 py-3 min-h-[44px] text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-60"
-                        >
-                          {isOtpLoading ? (
-                            <>
-                              <Loader className="w-4 h-4 animate-spin" />
-                              <span>Dispatching Access Code...</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>Send Access Code</span>
-                              <ArrowRight className="w-4 h-4" />
-                            </>
-                          )}
-                        </button>
-                      </form>
-                    </>
+                  {isLoading ? (
+                    <span>Authenticating with Database...</span>
                   ) : (
                     <>
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => { setOtpStep(1); setOtpError(''); }}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-[#138601] transition-colors mb-2 cursor-pointer"
-                        >
-                          <ArrowLeft className="w-3.5 h-3.5" />
-                          <span>Change Email Address</span>
-                        </button>
-                        <p className="text-xs text-gray-600">
-                          We sent a 6-digit verification code to <strong className="text-gray-900">{maskedOtpEmail}</strong>. Enter it below to sign in:
-                        </p>
-                      </div>
-
-                      {otpError && (
-                        <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5">
-                          <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
-                          <div className="flex-1 leading-relaxed">
-                            <span>{otpError}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      <form onSubmit={handleVerifyAccessOtp} className="space-y-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider text-center">
-                            6-Digit Verification Code
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              required
-                              inputMode="numeric"
-                              autoComplete="one-time-code"
-                              maxLength={6}
-                              placeholder="123456"
-                              value={accessCode}
-                              onChange={(e) => {
-                                const val = e.target.value.replace(/\D/g, '').slice(0, 6);
-                                setAccessCode(val);
-                              }}
-                              onPaste={(e) => {
-                                e.preventDefault();
-                                const pasted = e.clipboardData?.getData('text') || '';
-                                const digits = pasted.replace(/\D/g, '').slice(0, 6);
-                                setAccessCode(digits);
-                              }}
-                              className="w-full py-3.5 text-2xl font-mono tracking-widest rounded-lg bg-white text-gray-900 placeholder-gray-300 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] text-center font-bold"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
-                          <span>Didn't receive the code?</span>
-                          <button
-                            type="button"
-                            onClick={handleResendAccessOtp}
-                            disabled={otpCooldown > 0 || isOtpLoading}
-                            className="text-[#138601] font-semibold hover:underline disabled:opacity-50 cursor-pointer"
-                          >
-                            {otpCooldown > 0 ? `Resend code in ${otpCooldown}s` : 'Resend Code'}
-                          </button>
-                        </div>
-
-                        <button
-                          type="submit"
-                          disabled={isOtpLoading || accessCode.length !== 6}
-                          className="w-full px-7 py-3 min-h-[44px] text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-60"
-                        >
-                          {isOtpLoading ? (
-                            <>
-                              <Loader className="w-4 h-4 animate-spin" />
-                              <span>Verifying Code &amp; Access...</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>Verify &amp; Access CMS</span>
-                              <CirclePower className="w-4 h-4" />
-                            </>
-                          )}
-                        </button>
-                      </form>
+                      <span>Sign In to Website CMS</span>
+                      <CirclePower className="w-4 h-4" />
                     </>
                   )}
-                </div>
-              ) : (
-                /* ============================================================= */
-                /* MODE 2: PASSWORD LOGIN */
-                /* ============================================================= */
-                <>
-                  {/* Feedback & Error Alerts */}
-                  {error && (
-                    <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5">
-                      <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
-                      <div className="flex-1 leading-relaxed">
-                        <span>{error}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Core Login Form */}
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    
-                    {/* Email Address */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
-                        Administrator Email Address
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="email"
-                          required
-                          placeholder="admin@nacos.org.ng"
-                          value={email}
-                          onChange={(e) => {
-                            setEmail(e.target.value);
-                            setOtpEmail(e.target.value);
-                          }}
-                          className="w-full pl-10 pr-4 py-3 text-sm rounded-lg bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] font-normal transition-all"
-                        />
-                        <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5 pointer-events-none" />
-                      </div>
-                    </div>
-
-                    {/* Password */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
-                        Administrative Password
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          required
-                          placeholder="Enter administrative password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="w-full pl-10 pr-11 py-3 text-sm rounded-lg bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] font-normal transition-all"
-                        />
-                        <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5 pointer-events-none" />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3.5 top-3.5 text-gray-400 hover:text-gray-700 cursor-pointer"
-                          title={showPassword ? 'Hide password' : 'Show password'}
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Forgot Password Link */}
-                    <div className="flex items-center justify-end">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setResetEmail(email);
-                          setIsResetMode(true);
-                          setResetStep(1);
-                          setError('');
-                          setResetError('');
-                        }}
-                        className="text-xs font-semibold text-[#138601] hover:underline cursor-pointer"
-                      >
-                        Forgot password?
-                      </button>
-                    </div>
-
-                    {/* Primary Action Button */}
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full px-7 py-3 min-h-[44px] text-sm font-semibold text-white bg-[#138601] hover:bg-[#0f6c01] rounded-lg shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-2 disabled:opacity-60"
-                    >
-                      {isLoading ? (
-                        <span>Authenticating with Database...</span>
-                      ) : (
-                        <>
-                          <span>Sign In to Website CMS</span>
-                          <CirclePower className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
-                  </form>
-                </>
-              )}
+                </button>
+              </form>
 
               {/* Standard Navigation Links */}
               <div className="pt-4 border-t border-gray-100 flex items-center justify-center text-xs text-gray-500">
