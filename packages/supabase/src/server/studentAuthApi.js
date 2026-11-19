@@ -116,6 +116,7 @@ export function maskPhone(phone) {
 async function getOfficialStudentRecord(registrationNumber) {
   const cleanReg = registrationNumber.trim().toUpperCase();
   const strippedReg = cleanReg.replace(/[^a-zA-Z0-9]/g, '');
+  const slashReg = cleanReg.length === 11 && /^\d{11}$/.test(cleanReg) ? `${cleanReg.slice(0, 4)}/${cleanReg.slice(4)}` : cleanReg;
 
   // 1. Try Supabase verified_students table
   if (supabase) {
@@ -123,7 +124,7 @@ async function getOfficialStudentRecord(registrationNumber) {
       const { data, error } = await supabase
         .from('verified_students')
         .select('id, registration_number, full_name, email, phone_number, department, faculty, level, admission_year, programme, programme_duration, academic_session, status, has_registered, is_registered, auth_user_id, registered_at, created_at, updated_at, first_name, last_name, surname, middle_name')
-        .or(`registration_number.eq.${cleanReg},registration_number.ilike.${cleanReg},registration_number.eq.${strippedReg},registration_number.ilike.${strippedReg}`)
+        .or(`registration_number.eq.${cleanReg},registration_number.ilike.${cleanReg},registration_number.eq.${strippedReg},registration_number.ilike.${strippedReg},registration_number.eq.${slashReg}`)
         .limit(1)
         .maybeSingle();
 
@@ -136,11 +137,10 @@ async function getOfficialStudentRecord(registrationNumber) {
   // 2. Try Supabase profiles table
   if (supabase) {
     try {
-      const strippedReg = cleanReg.replace(/[^a-zA-Z0-9]/g, '');
       const { data: prof } = await supabase
         .from('profiles')
         .select('id, registration_number, matric_number, full_name, first_name, last_name, surname, department, faculty, programme, programme_duration, admission_year, email, phone_number, role, is_active, gender, date_of_birth, residential_address, bio, campus_zone, cloudinary_public_id, profile_photo_url, avatar_url, photo_alt, created_at, updated_at')
-        .or(`registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg},matric_number.ilike.${cleanReg},matric_number.ilike.${strippedReg}`)
+        .or(`registration_number.ilike.${cleanReg},registration_number.ilike.${strippedReg},matric_number.ilike.${cleanReg},matric_number.ilike.${strippedReg},registration_number.ilike.${slashReg},matric_number.ilike.${slashReg}`)
         .limit(1)
         .maybeSingle();
 
@@ -1227,6 +1227,103 @@ export async function handleAdminDeleteStudent({ registrationNumber, studentId, 
   }
 }
 
+export function verifyStudentNameMatch(inputFirst, inputLast, official) {
+  if (!official) return false;
+
+  const cleanInputFirst = String(inputFirst || '').trim().toLowerCase();
+  const cleanInputLast = String(inputLast || '').trim().toLowerCase();
+
+  // Both first name and last name must be provided
+  if (!cleanInputFirst || !cleanInputLast) {
+    return false;
+  }
+
+  // Prevent entering the exact same name for both fields unless official is a single name
+  if (cleanInputFirst === cleanInputLast && (official.full_name || '').trim().split(/\s+/).length > 1) {
+    return false;
+  }
+
+  const toTokens = (str) => {
+    if (!str || typeof str !== 'string') return [];
+    return str
+      .toLowerCase()
+      .replace(/[-_.,\/#!$%\^&\*;:{}=`~()]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .filter(t => t.length > 0);
+  };
+
+  const inputFirstTokens = toTokens(cleanInputFirst);
+  const inputLastTokens = toTokens(cleanInputLast);
+
+  if (inputFirstTokens.length === 0 || inputLastTokens.length === 0) {
+    return false;
+  }
+
+  // Official names from database
+  const officialFirstTokens = toTokens(official.first_name);
+  const officialLastTokens = [
+    ...toTokens(official.last_name),
+    ...toTokens(official.surname)
+  ];
+  const officialMiddleTokens = toTokens(official.middle_name);
+  const officialAllWords = toTokens(official.full_name);
+
+  // Fallbacks if columns are not split
+  const effFirstTokens = officialFirstTokens.length > 0
+    ? officialFirstTokens
+    : (officialAllWords.length > 1 ? [officialAllWords[1]] : officialAllWords);
+
+  const effLastTokens = officialLastTokens.length > 0
+    ? officialLastTokens
+    : (officialAllWords.length > 0 ? [officialAllWords[0]] : []);
+
+  const matchToken = (inputToken, targetTokens) => {
+    return targetTokens.some(target => {
+      if (inputToken === target) return true;
+      if (inputToken.length >= 4 && target.length >= 4) {
+        if (target.startsWith(inputToken) || inputToken.startsWith(target)) {
+          if (Math.abs(inputToken.length - target.length) <= 2) return true;
+        }
+      }
+      return false;
+    });
+  };
+
+  // Check 1: Normal Order (Input First matches Database First/Middle, Input Last matches Database Last)
+  const firstMatchesFirst = inputFirstTokens.some(it => matchToken(it, effFirstTokens) || matchToken(it, officialMiddleTokens));
+  const lastMatchesLast = inputLastTokens.some(it => matchToken(it, effLastTokens));
+
+  if (firstMatchesFirst && lastMatchesLast) {
+    return true;
+  }
+
+  // Check 2: Swapped Order (Input First matches Database Last, Input Last matches Database First/Middle)
+  const firstMatchesLast = inputFirstTokens.some(it => matchToken(it, effLastTokens));
+  const lastMatchesFirst = inputLastTokens.some(it => matchToken(it, effFirstTokens) || matchToken(it, officialMiddleTokens));
+
+  if (firstMatchesLast && lastMatchesFirst) {
+    return true;
+  }
+
+  // Check 3: Full Name matching across distinct words
+  if (officialAllWords.length >= 2) {
+    const firstMatchedWordIndex = officialAllWords.findIndex(w => inputFirstTokens.some(it => matchToken(it, [w])));
+    if (firstMatchedWordIndex !== -1) {
+      const remainingWords = officialAllWords.filter((_, idx) => idx !== firstMatchedWordIndex);
+      const lastMatched = inputLastTokens.some(it => matchToken(it, remainingWords));
+      if (lastMatched) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+export const checkStudentNameMatch = verifyStudentNameMatch;
+
 /**
  * Verifies that a student exists in the official departmental database,
  * is enrolled in Computer Science, and that their entered first and last name match.
@@ -1266,31 +1363,23 @@ export async function handleVerifyHackathonStudent({ registrationNumber, firstNa
     };
   }
 
-  // 3. Name Verification (First Name and Last Name)
-  if (firstName && String(firstName).trim() && lastName && String(lastName).trim()) {
-    const normInputFirst = normalizeName(firstName);
-    const normInputLast = normalizeName(lastName);
+  // 3. Name Verification: First Name and Last Name must match official database record
+  if (!firstName || !String(firstName).trim() || !lastName || !String(lastName).trim()) {
+    return {
+      success: false,
+      error: 'Please enter both your First Name and Last Name.'
+    };
+  }
 
-    const normOfficialFirst = normalizeName(officialRecord.first_name || '');
-    const normOfficialLast = normalizeName(officialRecord.last_name || officialRecord.surname || '');
-    const normOfficialFull = normalizeName(officialRecord.full_name || '');
-    const words = normOfficialFull.split(' ').filter(Boolean);
+  const isNameMatch = verifyStudentNameMatch(firstName, lastName, officialRecord);
 
-    const firstMatches = normInputFirst === normOfficialFirst ||
-      normInputFirst === normOfficialLast ||
-      words.includes(normInputFirst);
-
-    const lastMatches = normInputLast === normOfficialLast ||
-      normInputLast === normOfficialFirst ||
-      words.includes(normInputLast);
-
-    if (!firstMatches || !lastMatches) {
-      return {
-        success: false,
-        nameMismatch: true,
-        error: `The name "${firstName} ${lastName}" does not match the departmental records for ${cleanReg}. Please verify your spelling.`
-      };
-    }
+  if (!isNameMatch) {
+    const enteredName = `${firstName || ''} ${lastName || ''}`.trim();
+    return {
+      success: false,
+      nameMismatch: true,
+      error: `The name "${enteredName}" does not match the departmental records for ${cleanReg}. Please verify your spelling.`
+    };
   }
 
   // 4. Derive authoritative dynamic academic level (avoids stale historical levels like 100L for 300L students)

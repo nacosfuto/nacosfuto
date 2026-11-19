@@ -40,6 +40,8 @@ const AdminHub = lazy(() => import("./pages/AdminHub"));
 const HealthServices = lazy(() => import("./pages/HealthServices"));
 const Events = lazy(() => import("./pages/Events"));
 const YellowPages = lazy(() => import("./pages/YellowPages"));
+const HackathonDetail = lazy(() => import("./pages/HackathonDetail"));
+const HackathonApply = lazy(() => import("./pages/HackathonApply"));
 
 const UpskillCourseRedirect = () => {
   const location = useLocation();
@@ -287,9 +289,22 @@ function App() {
               <Route path="/portal-admin/*" element={<PortalAdminRedirect />} />
               <Route path="/portal-admin" element={<PortalAdminRedirect />} />
 
-              {/* Student Portal, Hackathons & Payment Redirects */}
-              <Route path="/hackathons" element={<PortalPassThroughRedirect />} />
-              <Route path="/hackathons/*" element={<PortalPassThroughRedirect />} />
+              {/* Dedicated Hackathon Module: The Agentic Build (Office of the Director of ICT, NACOS FUTO) */}
+              <Route path="/hackathons" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
+              <Route path="/hackathons/the-agentic-build" element={<HackathonDetail />} />
+              <Route path="/hackathons/the-agentic-build/apply" element={<HackathonApply />} />
+              <Route path="/hackathons/agentic-build" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
+              <Route path="/hackathons/agentic-build/apply" element={<Navigate to="/hackathons/the-agentic-build/apply" replace />} />
+              <Route path="/hackathons/BuildXNACOS" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
+              <Route path="/hackathons/BuildXNACOS/apply" element={<Navigate to="/hackathons/the-agentic-build/apply" replace />} />
+
+              {/* Seamless inward redirects from legacy /portal/hackathons URLs to canonical /hackathons URLs */}
+              <Route path="/portal/hackathons" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
+              <Route path="/portal/hackathons/the-agentic-build" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
+              <Route path="/portal/hackathons/the-agentic-build/apply" element={<Navigate to="/hackathons/the-agentic-build/apply" replace />} />
+              <Route path="/portal/hackathons/*" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
+
+              {/* Student Portal & Payment Redirects */}
               <Route path="/id-card" element={<PortalPassThroughRedirect />} />
               <Route path="/id-card/*" element={<PortalPassThroughRedirect />} />
               <Route path="/id" element={<PortalPassThroughRedirect />} />

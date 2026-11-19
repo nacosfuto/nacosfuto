@@ -18,9 +18,107 @@ import {
   MessageCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { supabase } from '@nacos/supabase';
 import HackathonNavbar from '../components/HackathonNavbar';
 import Footer from '../components/Footer';
 import { getActiveHackathon } from '../data/hackathons';
+
+function verifyStudentNameMatch(inputFirst, inputLast, official) {
+  if (!official) return false;
+
+  const cleanInputFirst = String(inputFirst || '').trim().toLowerCase();
+  const cleanInputLast = String(inputLast || '').trim().toLowerCase();
+
+  // Both first name and last name must be provided
+  if (!cleanInputFirst || !cleanInputLast) {
+    return false;
+  }
+
+  // Prevent entering the exact same name for both fields unless official is a single name
+  if (cleanInputFirst === cleanInputLast && (official.full_name || '').trim().split(/\s+/).length > 1) {
+    return false;
+  }
+
+  const toTokens = (str) => {
+    if (!str || typeof str !== 'string') return [];
+    return str
+      .toLowerCase()
+      .replace(/[-_.,\/#!$%\^&\*;:{}=`~()]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .filter(t => t.length > 0);
+  };
+
+  const inputFirstTokens = toTokens(cleanInputFirst);
+  const inputLastTokens = toTokens(cleanInputLast);
+
+  if (inputFirstTokens.length === 0 || inputLastTokens.length === 0) {
+    return false;
+  }
+
+  // Official names from database
+  const officialFirstTokens = toTokens(official.first_name);
+  const officialLastTokens = [
+    ...toTokens(official.last_name),
+    ...toTokens(official.surname)
+  ];
+  const officialMiddleTokens = toTokens(official.middle_name);
+  const officialAllWords = toTokens(official.full_name);
+
+  // Fallbacks if columns are not split
+  const effFirstTokens = officialFirstTokens.length > 0
+    ? officialFirstTokens
+    : (officialAllWords.length > 1 ? [officialAllWords[1]] : officialAllWords);
+
+  const effLastTokens = officialLastTokens.length > 0
+    ? officialLastTokens
+    : (officialAllWords.length > 0 ? [officialAllWords[0]] : []);
+
+  const matchToken = (inputToken, targetTokens) => {
+    return targetTokens.some(target => {
+      if (inputToken === target) return true;
+      if (inputToken.length >= 4 && target.length >= 4) {
+        if (target.startsWith(inputToken) || inputToken.startsWith(target)) {
+          if (Math.abs(inputToken.length - target.length) <= 2) return true;
+        }
+      }
+      return false;
+    });
+  };
+
+  // Check 1: Normal Order (Input First matches Database First/Middle, Input Last matches Database Last)
+  const firstMatchesFirst = inputFirstTokens.some(it => matchToken(it, effFirstTokens) || matchToken(it, officialMiddleTokens));
+  const lastMatchesLast = inputLastTokens.some(it => matchToken(it, effLastTokens));
+
+  if (firstMatchesFirst && lastMatchesLast) {
+    return true;
+  }
+
+  // Check 2: Swapped Order (Input First matches Database Last, Input Last matches Database First/Middle)
+  const firstMatchesLast = inputFirstTokens.some(it => matchToken(it, effLastTokens));
+  const lastMatchesFirst = inputLastTokens.some(it => matchToken(it, effFirstTokens) || matchToken(it, officialMiddleTokens));
+
+  if (firstMatchesLast && lastMatchesFirst) {
+    return true;
+  }
+
+  // Check 3: Full Name matching across distinct words
+  if (officialAllWords.length >= 2) {
+    const firstMatchedWordIndex = officialAllWords.findIndex(w => inputFirstTokens.some(it => matchToken(it, [w])));
+    if (firstMatchedWordIndex !== -1) {
+      const remainingWords = officialAllWords.filter((_, idx) => idx !== firstMatchedWordIndex);
+      const lastMatched = inputLastTokens.some(it => matchToken(it, remainingWords));
+      if (lastMatched) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+const checkClientNameMatch = verifyStudentNameMatch;
 
 const HackathonApply = () => {
   const activeHackathon = getActiveHackathon();
@@ -77,23 +175,131 @@ const HackathonApply = () => {
     return level || 'Undergraduate';
   };
 
-  // Verification Helper API Caller
+  // Resilient Verification Helper: calls backend API first, with direct Supabase fallback
   const verifyStudentApi = async (regNo, firstName, lastName) => {
+    const cleanReg = String(regNo || '').trim().toUpperCase();
+    const cleanFirst = String(firstName || '').trim();
+    const cleanLast = String(lastName || '').trim();
+
+    // 1. Try server verification API endpoint first
     try {
       const res = await fetch('/api/hackathons/verify-student', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          registrationNumber: regNo,
-          firstName: firstName,
-          lastName: lastName
+          registrationNumber: cleanReg,
+          firstName: cleanFirst,
+          lastName: cleanLast
         })
       });
-      const data = await res.json().catch(() => ({}));
-      return data;
-    } catch (err) {
-      return { success: false, error: err.message || 'Unable to connect to verification server' };
+
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data && (data.success || data.error)) {
+          return data;
+        }
+      } else {
+        const errData = await res.json().catch(() => null);
+        if (errData && errData.error) {
+          return errData;
+        }
+      }
+    } catch (apiErr) {
+      console.warn('[HackathonApply] Server API unavailable, verifying directly via Supabase client:', apiErr.message);
     }
+
+    // 2. Direct Supabase Client Verification Fallback (resilient against port or proxy issues)
+    try {
+      if (supabase) {
+        const strippedReg = cleanReg.replace(/[^a-zA-Z0-9]/g, '');
+        const slashReg = cleanReg.length === 11 && /^\d{11}$/.test(cleanReg) ? `${cleanReg.slice(0, 4)}/${cleanReg.slice(4)}` : cleanReg;
+
+        // Query verified_students
+        let { data: student } = await supabase
+          .from('verified_students')
+          .select('id, registration_number, full_name, email, phone_number, department, level, first_name, last_name, surname, middle_name')
+          .or(`registration_number.eq.${cleanReg},registration_number.ilike.${cleanReg},registration_number.eq.${strippedReg},registration_number.ilike.${strippedReg},registration_number.eq.${slashReg}`)
+          .limit(1)
+          .maybeSingle();
+
+        // Fallback to profiles table if not found in verified_students
+        if (!student) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('id, registration_number, matric_number, full_name, first_name, last_name, surname, department, email, phone_number')
+            .or(`registration_number.eq.${cleanReg},registration_number.ilike.${cleanReg},matric_number.eq.${cleanReg},registration_number.eq.${strippedReg},matric_number.eq.${strippedReg},registration_number.eq.${slashReg}`)
+            .limit(1)
+            .maybeSingle();
+
+          if (prof) {
+            student = {
+              id: prof.id,
+              registration_number: prof.registration_number || prof.matric_number,
+              full_name: prof.full_name,
+              first_name: prof.first_name || (prof.full_name ? prof.full_name.split(' ')[0] : ''),
+              last_name: prof.last_name || prof.surname || '',
+              department: prof.department || 'Computer Science',
+              email: prof.email
+            };
+          }
+        }
+
+        if (student) {
+          // Check Department (Exclusively Computer Science)
+          const dept = (student.department || '').trim();
+          const normDept = dept.toLowerCase();
+          const isCSC = !dept || normDept.includes('computer science') || normDept.includes('csc') || normDept.includes('computing') || normDept === 'cs';
+
+          if (!isCSC) {
+            return {
+              success: false,
+              notComputerScience: true,
+              error: `Ineligible: Student is registered under "${dept}". The Agentic Build hackathon is exclusively open to students of the Department of Computer Science.`
+            };
+          }
+
+          // Check Name Match
+          const isMatch = checkClientNameMatch(cleanFirst, cleanLast, student);
+          if (!isMatch) {
+            return {
+              success: false,
+              nameMismatch: true,
+              error: `The name "${cleanFirst} ${cleanLast}" does not match the departmental records for ${cleanReg}. Please verify your spelling.`
+            };
+          }
+
+          // Authoritative level derivation
+          let level = student.level || '300 Level';
+          if (cleanReg.startsWith('2024')) level = '300 Level';
+          else if (cleanReg.startsWith('2023')) level = '400 Level';
+          else if (cleanReg.startsWith('2022')) level = '500 Level';
+          else if (cleanReg.startsWith('2025')) level = '200 Level';
+          else if (cleanReg.startsWith('2026')) level = '100 Level';
+
+          return {
+            success: true,
+            verified: true,
+            student: {
+              registrationNumber: student.registration_number || cleanReg,
+              fullName: student.full_name || `${cleanFirst} ${cleanLast}`.trim(),
+              firstName: student.first_name || cleanFirst,
+              lastName: student.last_name || student.surname || cleanLast,
+              department: student.department || 'Computer Science',
+              level: level,
+              email: student.email || ''
+            }
+          };
+        }
+      }
+    } catch (directErr) {
+      console.warn('[HackathonApply] Direct Supabase verification fallback error:', directErr.message);
+    }
+
+    return {
+      success: false,
+      notFound: true,
+      error: `Registration number "${cleanReg}" was not found in the departmental database. Please check your reg number or contact NACOS ICT.`
+    };
   };
 
   // Lead / Solo Builder Verification

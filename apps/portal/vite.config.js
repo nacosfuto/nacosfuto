@@ -363,7 +363,7 @@ function cloudinaryDevPlugin() {
           });
           return;
         }
-        if (req.url === '/api/hackathons/register' && req.method === 'POST') {
+        if (req.url?.startsWith('/api/hackathons/register') && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });
           req.on('end', async () => {
@@ -423,7 +423,7 @@ function cloudinaryDevPlugin() {
           });
           return;
         }
-        if (req.url === '/api/hackathons/verify-student' && req.method === 'POST') {
+        if (req.url?.startsWith('/api/hackathons/verify-student') && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });
           req.on('end', async () => {

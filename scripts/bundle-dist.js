@@ -47,6 +47,21 @@ function copyAssetsToRoot(sourceDir, label) {
 if (fs.existsSync(websiteDist)) {
   console.log('[bundle-dist] 1/5 Copying apps/website/dist -> dist (Main Website)...');
   fs.cpSync(websiteDist, targetDist, { recursive: true });
+
+  const websiteIndex = path.join(websiteDist, 'index.html');
+  if (fs.existsSync(websiteIndex)) {
+    // Generate authoritative pre-rendered hackathon.html from the main website for crawler previews
+    try {
+      const rawWebsiteHtml = fs.readFileSync(websiteIndex, 'utf-8');
+      const hackathonHtml = transformToHackathonHtml(rawWebsiteHtml);
+      fs.writeFileSync(path.join(targetDist, 'hackathon.html'), hackathonHtml, 'utf-8');
+      fs.writeFileSync(path.join(targetDist, 'hackathons.html'), hackathonHtml, 'utf-8');
+      fs.writeFileSync(path.join(websiteDist, 'hackathon.html'), hackathonHtml, 'utf-8');
+      console.log('[bundle-dist] Generated authoritative pre-rendered hackathon.html from website bundle');
+    } catch (err) {
+      console.warn('[bundle-dist] Warning: Failed to generate hackathon.html for website:', err.message);
+    }
+  }
 } else {
   console.warn('[bundle-dist] Warning: apps/website/dist was not found.');
 }
@@ -72,16 +87,15 @@ if (fs.existsSync(portalDist)) {
   if (fs.existsSync(portalIndex)) {
     fs.copyFileSync(portalIndex, path.join(targetDist, 'portal.html'));
 
-    // Generate authoritative pre-rendered hackathon.html for crawler previews
+    // Generate legacy portal hackathon.html if requested directly
     try {
       const rawPortalHtml = fs.readFileSync(portalIndex, 'utf-8');
       const hackathonHtml = transformToHackathonHtml(rawPortalHtml);
       fs.writeFileSync(path.join(targetPortalDist, 'hackathon.html'), hackathonHtml, 'utf-8');
-      fs.writeFileSync(path.join(targetDist, 'hackathons.html'), hackathonHtml, 'utf-8');
       fs.writeFileSync(path.join(portalDist, 'hackathon.html'), hackathonHtml, 'utf-8');
-      console.log('[bundle-dist] Generated pre-rendered hackathon.html with Open Graph / Twitter SEO preview tags');
+      console.log('[bundle-dist] Generated fallback hackathon.html for portal dist');
     } catch (err) {
-      console.warn('[bundle-dist] Warning: Failed to generate hackathon.html:', err.message);
+      console.warn('[bundle-dist] Warning: Failed to generate portal hackathon.html:', err.message);
     }
   }
 

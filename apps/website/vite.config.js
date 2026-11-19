@@ -2,15 +2,100 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { dispatchEmail } from '../../packages/supabase/src/server/emailDispatcher.js';
+import { handleVerifyHackathonStudent } from '../../packages/supabase/src/server/studentAuthApi.js';
+import { transformToHackathonHtml } from '../../scripts/generateHackathonHtml.js';
+
+function hackathonHtmlPlugin() {
+  return {
+    name: 'hackathon-html-plugin',
+    closeBundle() {
+      try {
+        const distDir = path.resolve(__dirname, 'dist');
+        const indexPath = path.join(distDir, 'index.html');
+        if (fs.existsSync(indexPath)) {
+          const rawHtml = fs.readFileSync(indexPath, 'utf-8');
+          const hackathonHtml = transformToHackathonHtml(rawHtml);
+          fs.writeFileSync(path.join(distDir, 'hackathon.html'), hackathonHtml, 'utf-8');
+          console.log('[website-vite] Generated hackathon.html in apps/website/dist');
+        }
+      } catch (err) {
+        console.warn('[website-vite] Warning: Could not generate hackathon.html:', err.message);
+      }
+    }
+  };
+}
 
 function cloudinaryDevPlugin() {
   return {
     name: 'cloudinary-dev-server',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
+        if (req.url?.startsWith('/api/hackathons/verify-student') && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const data = JSON.parse(body || '{}');
+              const result = await handleVerifyHackathonStudent(data);
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = result.success ? 200 : 400;
+              res.end(JSON.stringify(result));
+            } catch (e) {
+              console.error('[Website Dev Hackathon Verify Student Error]:', e);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: e.message }));
+            }
+          });
+          return;
+        }
+
+        if (req.url?.startsWith('/api/hackathons/register') && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const rootEnv = loadEnv('development', path.resolve(__dirname, '../../'), '');
+              const localEnv = loadEnv('development', process.cwd(), '');
+              const env = { ...process.env, ...rootEnv, ...localEnv };
+
+              const data = JSON.parse(body || '{}');
+              const recipient = 'ict.nacosfuto@gmail.com';
+
+              const result = await dispatchEmail({
+                type: 'hackathon_registration',
+                to: recipient,
+                ...data,
+                replyTo: data.leadEmail || recipient
+              }, env);
+
+              if (data.leadEmail && data.leadEmail.includes('@')) {
+                try {
+                  await dispatchEmail({
+                    type: 'hackathon_confirmation',
+                    to: data.leadEmail,
+                    ...data,
+                    replyTo: recipient
+                  }, env);
+                } catch (_) {}
+              }
+
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: true, result }));
+            } catch (e) {
+              console.error('[Website Dev Hackathon Registration Error]:', e);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: e.message }));
+            }
+          });
+          return;
+        }
+
         if (req.url === '/api/contact' && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });
@@ -246,7 +331,8 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     react(),
-    cloudinaryDevPlugin()
+    cloudinaryDevPlugin(),
+    hackathonHtmlPlugin()
   ],
   resolve: {
     alias: {
