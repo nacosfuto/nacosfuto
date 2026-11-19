@@ -522,6 +522,24 @@
       "height": 222,
       "bytes": 227351
     },
+    "the-agentic-build-logo-light": {
+      "publicId": "nacos/general/the-agentic-build-logo-light",
+      "url": "https://res.cloudinary.com/a2mmcttn/image/upload/v1795114029/nacos/general/the-agentic-build-logo-light.png",
+      "folder": "nacos/general",
+      "category": "general"
+    },
+    "the-agentic-build-logo-dark": {
+      "publicId": "nacos/general/the-agentic-build-logo-dark",
+      "url": "https://res.cloudinary.com/a2mmcttn/image/upload/v1795114029/nacos/general/the-agentic-build-logo-dark.png",
+      "folder": "nacos/general",
+      "category": "general"
+    },
+    "office-director-ict-seal": {
+      "publicId": "nacos/general/office-director-ict-seal",
+      "url": "https://res.cloudinary.com/a2mmcttn/image/upload/v1795114030/nacos/general/office-director-ict-seal.png",
+      "folder": "nacos/general",
+      "category": "general"
+    },
     "gallery_dept_front": {
       "publicId": "nacos/gallery/gallery_dept_front",
       "url": "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569317/nacos/gallery/gallery_dept_front.jpg",

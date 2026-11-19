@@ -1749,7 +1749,7 @@ const AdminStudents = () => {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Anyanwu"
+                      placeholder="e.g. Okafor"
                       value={newRosterStudent.surname}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -1764,7 +1764,7 @@ const AdminStudents = () => {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Nestor"
+                      placeholder="e.g. Chukwudi"
                       value={newRosterStudent.firstName}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -1808,7 +1808,7 @@ const AdminStudents = () => {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. 20241429481"
+                    placeholder="e.g. 20241400001"
                     value={newRosterStudent.matricNumber}
                     onChange={(e) => setNewRosterStudent({ ...newRosterStudent, matricNumber: e.target.value })}
                     className="w-full px-3 py-2 rounded border border-gray-300 dark:border-[#138601]/40 bg-white dark:bg-[#041801] text-gray-900 dark:text-white font-mono"

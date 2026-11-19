@@ -23,5 +23,8 @@ export {
   recordAdminAction,
   getAdminAuditLogs,
   AVAILABLE_ADMIN_FEATURES,
-  hasAdminFeature
+  hasAdminFeature,
+  requestAdminAccessOtp,
+  verifyAdminAccessOtp,
+  superAdminUpdateAdminPermissions
 } from '@nacos/supabase/adminAuth';

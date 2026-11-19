@@ -75,7 +75,7 @@ const Events = () => {
               Department <span className="text-[#4bd043]">Events</span>
             </h1>
             <p className="text-base sm:text-lg md:text-xl text-gray-100 max-w-2xl drop-shadow font-normal leading-relaxed text-center">
-              Explore our tech workshops, hackathons, regional coding competitions, and upcoming academic conferences.
+              Explore our tech workshops, hackathons, coding competitions, and upcoming academic conferences.
             </p>
           </div>
         </section>

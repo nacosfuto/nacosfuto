@@ -37,7 +37,7 @@ const TechTeamSection = () => {
                     Developed by the <span className="text-[#138601] dark:text-[#4bd043]">ICT Team</span>
                 </h2>
                 <p className="text-base text-gray-700 dark:text-gray-300 max-w-2xl mx-auto mb-12 leading-relaxed">
-                    Built with passion by the NACOS Synergy ICT Developers 2025/2026.
+                    Built with passion by the NACOS Synergy ICT Team 2025/2026.
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto justify-items-center">

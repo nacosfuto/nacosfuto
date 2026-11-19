@@ -10,9 +10,12 @@ import {
   handleVerifyAdminSession,
   handleAdminForgotPassword,
   handleAdminResetPassword,
+  handleAdminRequestAccessOtp,
+  handleAdminVerifyAccessOtp,
   handleGetAdminUsers,
   handleCreateAdminUser,
   handleUpdateAdminStatus,
+  handleUpdateAdminPermissions,
   handleDeleteAdminUser,
   handleResendAdminInvite
 } from '../../packages/supabase/src/server/adminAuthApi.js';
@@ -136,6 +139,13 @@ function cloudinaryDevPlugin() {
               } else if (pathname === '/api/admin/auth/reset-password' && req.method === 'POST') {
                 result = await handleAdminResetPassword(data);
                 status = result.success ? 200 : 400;
+              } else if (pathname === '/api/admin/auth/request-otp' && req.method === 'POST') {
+                const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
+                result = await handleAdminRequestAccessOtp({ ...data, ipAddress: clientIp });
+                status = result.success ? 200 : 400;
+              } else if (pathname === '/api/admin/auth/verify-otp' && req.method === 'POST') {
+                result = await handleAdminVerifyAccessOtp(data);
+                status = result.success ? 200 : 400;
               } else if (pathname === '/api/admin/users' && req.method === 'GET') {
                 result = await handleGetAdminUsers({ token, requesterEmail: url.searchParams.get('requesterEmail') || url.searchParams.get('email') });
                 status = result.success ? 200 : 403;
@@ -153,6 +163,16 @@ function cloudinaryDevPlugin() {
                   token, 
                   requesterEmail: data.requesterEmail || data.requester_email,
                   ...data 
+                });
+                status = result.success ? 200 : 400;
+              } else if (pathname === '/api/admin/users/permissions' && req.method === 'POST') {
+                result = await handleUpdateAdminPermissions({
+                  token,
+                  requesterEmail: data.requesterEmail || data.requester_email,
+                  adminId: data.adminId || data.admin_id,
+                  permissions: data.permissions,
+                  scope: data.scope,
+                  role: data.role
                 });
                 status = result.success ? 200 : 400;
               } else if (pathname === '/api/admin/users/delete' && req.method === 'POST') {

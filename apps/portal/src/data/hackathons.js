@@ -5,7 +5,7 @@ export const HACKATHONS = [
     title: "THE AGENTIC BUILD",
     theme: "The Agentic Build",
     subtitle: "Build any product idea using AI tools. Follow standard SDLC.",
-    badge: "NACOS FUTO Grand Hackathon",
+    badge: "NACOS FUTO Hackathon",
     tagline: "Build any product with AI tools. Follow standard SDLC and showcase your workflow.",
     mode: "Department of Computer Science, FUTO & Virtual",
     status: "Active", // "Active", "Upcoming", "Completed"
@@ -23,19 +23,19 @@ export const HACKATHONS = [
     stats: {
       eventDate: "December 11, 2026",
       location: "Department of Computer Science, FUTO",
-      prizePool: "100 dollar pool",
+      prizePool: "Cash Prizes",
       applyBefore: "December 10, 2026",
       registeredStudents: 380,
       activeTeams: 42,
       submissionsCount: 18
     },
     prizePoolDetails: {
-      title: "100 dollar pool",
-      description: "Unified prize pool awarded to the winning products, alongside developer credits, incubation mentorship, trophy, and certificates.",
+      title: "Prize",
+      description: "Unified prize pool awarded to the winning products, alongside mentorship, peer learning, trophy, and certificates.",
       perks: [
-        "100 dollar pool cash rewards",
-        "Cloud development credits & dev tools perks",
-        "Incubation mentorship & technical guidance",
+        "Cash rewards",
+        "Mentorship & technical guidance",
+        "Peer learning & collaborative building",
         "Grand innovation trophy & technical excellence certificates"
       ]
     },
@@ -57,7 +57,7 @@ export const HACKATHONS = [
       },
       {
         date: "December 11, 2026",
-        title: "Grand Hackathon Event Day & Live Pitches",
+        title: "Hackathon Event Day & Live Pitches",
         description: "Product demonstration, live pitches explaining AI workflow and SDLC implementation, and awards ceremony at the Department of Computer Science, FUTO."
       }
     ],
@@ -106,11 +106,29 @@ export const HACKATHONS = [
       },
       {
         question: "What is the prize pool?",
-        answer: "The hackathon features a 100 dollar pool, alongside developer credits, incubation mentorship, trophies, and certificates for the top winning projects."
+        answer: "The hackathon features cash rewards, alongside mentorship, peer learning, trophies, and certificates for the top winning projects."
       },
       {
         question: "Is there any registration fee?",
         answer: "No. Participation is 100% free, organized by NACOS FUTO."
+      }
+    ],
+    partners: [
+      {
+        id: "dict-futo",
+        name: "Office of the Director of ICT",
+        shortName: "DICT FUTO",
+        role: "Lead Directorate & Host",
+        logoUrl: "https://res.cloudinary.com/a2mmcttn/image/upload/v1795114143/nacos/general/office-of-the-director-of-ict.png",
+        description: "Directorate of Information & Communication Technology, FUTO"
+      },
+      {
+        id: "nacos-futo",
+        name: "NACOS FUTO",
+        shortName: "NACOS FUTO",
+        role: "Organizing Chapter",
+        logoUrl: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569315/nacos/general/full-logo-light.png",
+        description: "Nigeria Association of Computing Students, FUTO Chapter"
       }
     ]
   }

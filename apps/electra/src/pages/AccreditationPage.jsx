@@ -471,7 +471,7 @@ export default function AccreditationPage({ voter, onConnectVoter, election: pro
               </label>
               <input
                 type="text"
-                placeholder="e.g. 20201012948"
+                placeholder="e.g. 20241400001"
                 value={registrationNumber}
                 onChange={(e) => {
                   setRegistrationNumber(e.target.value);

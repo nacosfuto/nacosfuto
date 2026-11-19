@@ -31,18 +31,116 @@ export function isSuperAdminScope(admin) {
 }
 
 export const AVAILABLE_ADMIN_FEATURES = [
+  // Website CMS Granular Features
+  { key: 'feature:news', label: 'News & Journal Management', platform: 'website', description: 'Draft, publish, edit, and categorize departmental news and articles' },
+  { key: 'feature:events', label: 'Event Management & Flyers', platform: 'website', description: 'Schedule departmental hackathons, tech conferences, mixers, and event flyers' },
+  { key: 'feature:media_library', label: 'Media Asset Library', platform: 'website', description: 'Upload and manage Cloudinary media assets, folders, and banners' },
+  { key: 'feature:gallery', label: 'Campus Gallery', platform: 'website', description: 'Curate campus photos, lab images, and student life gallery collections' },
+  { key: 'feature:yellow_pages', label: 'Yellow Pages Directory', platform: 'website', description: 'Review, approve, and manage indigenous student business listings' },
+  { key: 'feature:campus_clubs', label: 'Campus Clubs & Communities', platform: 'website', description: 'Manage departmental student tech clubs, affiliations, and community leaders' },
+  { key: 'feature:spiritual_life', label: 'Spiritual Life & Fellowships', platform: 'website', description: 'Publish and manage campus Christian fellowship and prayer group details' },
+  { key: 'feature:alumni_management', label: 'Alumni Network & Spotlights', platform: 'website', description: 'Approve alumni memberships, highlight hall of fame, and spotlight graduates' },
+  { key: 'feature:executives', label: 'NACOS Executives Directory', platform: 'website', description: 'Update executive council members, department leaders, and tenure rosters' },
+  { key: 'feature:administration', label: 'Department Administration', platform: 'website', description: 'Manage HOD, Faculty, Staff Advisers, and administrative profiles' },
+  { key: 'feature:homepage', label: 'Homepage & Hero Carousel', platform: 'website', description: 'Edit homepage hero slides, announcement badges, and featured spotlight sections' },
+  { key: 'feature:website_settings', label: 'Website Settings & Configuration', platform: 'website', description: 'Configure site-wide preferences, contact mailboxes, and SEO metadata' },
+
+  // Portal Features
   { key: 'feature:student_registry', label: 'Student Registry & Profiles', platform: 'portal', description: 'Search, verify, and manage departmental student profiles' },
   { key: 'feature:results_management', label: 'Results & Grades (Course Adviser)', platform: 'portal', description: 'Upload, compute CGPA, and approve semester student results' },
   { key: 'feature:id_management', label: 'ID Card Applications & Verification', platform: 'portal', description: 'Review student ID applications, approve, and generate official cards' },
   { key: 'feature:resource_management', label: 'Academic Resource Hub (Backblaze B2)', platform: 'shared', description: 'Upload, manage handouts, past questions, and video courses in B2' },
   { key: 'feature:course_management', label: 'Academic Curriculum & Courses', platform: 'portal', description: 'Manage course units, semester allocations, and curriculum' },
-  { key: 'feature:yellow_pages', label: 'Yellow Pages Business Directory', platform: 'website', description: 'Review, approve, reject, and manage indigenous student businesses' },
-  { key: 'feature:campus_clubs', label: 'Campus Clubs & Tech Communities', platform: 'website', description: 'Approve student tech clubs, communities, and leadership links' },
-  { key: 'feature:alumni_management', label: 'Alumni Network & Spotlights', platform: 'website', description: 'Review alumni join requests, spotlights, and graduate records' },
-  { key: 'feature:news_events', label: 'News & Event Flyers CMS', platform: 'website', description: 'Publish departmental announcements, hackathons, and social mixers' },
-  { key: 'feature:media_library', label: 'Cloudinary Media Asset Library', platform: 'shared', description: 'Manage CDN image uploads, folders, and banners' },
   { key: 'feature:election_management', label: 'Elections & Ballot Vetting (Electra)', platform: 'electra', description: 'Configure departmental elections, vet candidates, monitor ballots' }
 ];
+
+export const PERMISSION_ALIASES = {
+  // News
+  'main_website.news': ['main_website.news', 'feature:news', 'news', 'feature:news_events'],
+  'feature:news': ['main_website.news', 'feature:news', 'news'],
+  'news': ['main_website.news', 'feature:news', 'news'],
+
+  // Events
+  'main_website.events': ['main_website.events', 'feature:events', 'events', 'feature:news_events'],
+  'feature:events': ['main_website.events', 'feature:events', 'events'],
+  'events': ['main_website.events', 'feature:events', 'events'],
+
+  // Combined legacy news_events
+  'feature:news_events': ['main_website.news', 'main_website.events', 'feature:news_events', 'feature:news', 'feature:events', 'news', 'events'],
+
+  // Media Library
+  'main_website.media': ['main_website.media', 'feature:media', 'feature:media_library', 'media'],
+  'feature:media': ['main_website.media', 'feature:media', 'feature:media_library', 'media'],
+  'feature:media_library': ['main_website.media', 'feature:media', 'feature:media_library', 'media'],
+  'media': ['main_website.media', 'feature:media', 'feature:media_library', 'media'],
+
+  // Campus Gallery
+  'main_website.gallery': ['main_website.gallery', 'feature:gallery', 'gallery'],
+  'feature:gallery': ['main_website.gallery', 'feature:gallery', 'gallery'],
+  'gallery': ['main_website.gallery', 'feature:gallery', 'gallery'],
+
+  // Yellow Pages
+  'main_website.yellow_pages': ['main_website.yellow_pages', 'feature:yellow_pages', 'yellow_pages'],
+  'feature:yellow_pages': ['main_website.yellow_pages', 'feature:yellow_pages', 'yellow_pages'],
+  'yellow_pages': ['main_website.yellow_pages', 'feature:yellow_pages', 'yellow_pages'],
+
+  // Campus Clubs
+  'main_website.clubs': ['main_website.clubs', 'feature:campus_clubs', 'feature:clubs', 'clubs'],
+  'feature:campus_clubs': ['main_website.clubs', 'feature:campus_clubs', 'feature:clubs', 'clubs'],
+  'feature:clubs': ['main_website.clubs', 'feature:campus_clubs', 'feature:clubs', 'clubs'],
+  'clubs': ['main_website.clubs', 'feature:campus_clubs', 'feature:clubs', 'clubs'],
+
+  // Spiritual Life
+  'main_website.spiritual': ['main_website.spiritual', 'main_website.spiritual_life', 'feature:spiritual_life', 'main_website.clubs', 'feature:campus_clubs', 'spiritual_life'],
+  'main_website.spiritual_life': ['main_website.spiritual', 'main_website.spiritual_life', 'feature:spiritual_life', 'main_website.clubs', 'feature:campus_clubs', 'spiritual_life'],
+  'feature:spiritual_life': ['main_website.spiritual', 'main_website.spiritual_life', 'feature:spiritual_life', 'main_website.clubs', 'feature:campus_clubs', 'spiritual_life'],
+  'spiritual_life': ['main_website.spiritual', 'main_website.spiritual_life', 'feature:spiritual_life', 'main_website.clubs', 'feature:campus_clubs', 'spiritual_life'],
+
+  // Alumni Network
+  'main_website.alumni': ['main_website.alumni', 'feature:alumni', 'feature:alumni_management', 'alumni'],
+  'feature:alumni': ['main_website.alumni', 'feature:alumni', 'feature:alumni_management', 'alumni'],
+  'feature:alumni_management': ['main_website.alumni', 'feature:alumni', 'feature:alumni_management', 'alumni'],
+  'alumni': ['main_website.alumni', 'feature:alumni', 'feature:alumni_management', 'alumni'],
+
+  // Executives
+  'main_website.executives': ['main_website.executives', 'feature:executives', 'main_website.homepage', 'executives'],
+  'feature:executives': ['main_website.executives', 'feature:executives', 'main_website.homepage', 'executives'],
+  'executives': ['main_website.executives', 'feature:executives', 'main_website.homepage', 'executives'],
+
+  // Administration
+  'main_website.administration': ['main_website.administration', 'feature:administration', 'main_website.homepage', 'administration'],
+  'feature:administration': ['main_website.administration', 'feature:administration', 'main_website.homepage', 'administration'],
+  'administration': ['main_website.administration', 'feature:administration', 'main_website.homepage', 'administration'],
+
+  // Homepage Content & Hero Carousel
+  'main_website.homepage': ['main_website.homepage', 'feature:homepage', 'homepage'],
+  'feature:homepage': ['main_website.homepage', 'feature:homepage', 'homepage'],
+  'homepage': ['main_website.homepage', 'feature:homepage', 'homepage'],
+
+  // Website Settings
+  'main_website.settings': ['main_website.settings', 'feature:website_settings', 'feature:settings', 'settings'],
+  'feature:website_settings': ['main_website.settings', 'feature:website_settings', 'feature:settings', 'settings'],
+  'settings': ['main_website.settings', 'feature:website_settings', 'feature:settings', 'settings'],
+
+  // View / Audit Trail
+  'main_website.view': ['main_website.view', 'view', 'feature:audit_logs', 'audit_logs'],
+  'feature:audit_logs': ['main_website.view', 'feature:audit_logs', 'audit_logs'],
+
+  // Portal Features
+  'student_portal.students': ['student_portal.students', 'feature:student_registry', 'students'],
+  'feature:student_registry': ['student_portal.students', 'feature:student_registry', 'students'],
+  'student_portal.results': ['student_portal.results', 'feature:results_management', 'results'],
+  'feature:results_management': ['student_portal.results', 'feature:results_management', 'results'],
+  'student_portal.id_cards': ['student_portal.id_cards', 'feature:id_management', 'id_cards'],
+  'feature:id_management': ['student_portal.id_cards', 'feature:id_management', 'id_cards'],
+  'student_portal.courses': ['student_portal.courses', 'feature:course_management', 'courses'],
+  'feature:course_management': ['student_portal.courses', 'feature:course_management', 'courses'],
+  'student_portal.resources': ['student_portal.resources', 'feature:resource_management', 'resources'],
+  'feature:resource_management': ['student_portal.resources', 'feature:resource_management', 'resources'],
+
+  // Electoral
+  'feature:election_management': ['feature:election_management', 'elections']
+};
 
 /**
  * Record an administrative action in the audit log
@@ -211,6 +309,8 @@ export async function verifyLiveAdminSession(targetPlatform = 'website') {
   const session = targetPlatform === 'website' ? getWebsiteAdminSession() : getPortalAdminSession();
   if (!session) return { valid: false, error: 'No active session.' };
 
+  const storageKey = targetPlatform === 'website' ? ADMIN_SESSION_STORAGE_KEY : PORTAL_ADMIN_SESSION_KEY;
+
   // 1. Try serverless verification endpoint
   try {
     const token = session.token;
@@ -229,26 +329,58 @@ export async function verifyLiveAdminSession(targetPlatform = 'website') {
         clearAdminStorage();
         return { valid: false, error: data.error || 'Session revoked by administrator.' };
       }
-      return { valid: true, admin: data.admin };
+      if (data.admin) {
+        const updated = { ...session, ...data.admin };
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(updated));
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('nacos_admin_session_updated', { detail: updated }));
+          }
+        } catch (_) {}
+        return { valid: true, admin: updated };
+      }
+      return { valid: true, admin: data.admin || session };
     }
   } catch (_) {
     // If running in development without API server, check Supabase directly
   }
 
-  // 2. Direct Supabase database status check
-  if (supabase && session.id) {
+  // 2. Direct Supabase database status and permissions check
+  if (supabase && (session.id || session.email)) {
     try {
       const { data: dbAdmin, error } = await supabase
         .from('admin_scopes')
-        .select('id, is_active, role, scope')
-        .eq('id', session.id)
+        .select('id, email, full_name, role, scope, permissions, assigned_level, is_active')
+        .or(`id.eq.${session.id},email.eq.${session.email}`)
         .maybeSingle();
 
       if (error || !dbAdmin || dbAdmin.is_active === false) {
         clearAdminStorage();
         return { valid: false, error: 'Account suspended or removed from database.' };
       }
-      return { valid: true, admin: session };
+
+      const updated = {
+        ...session,
+        id: dbAdmin.id,
+        user_id: dbAdmin.id,
+        email: dbAdmin.email,
+        full_name: dbAdmin.full_name,
+        name: dbAdmin.full_name,
+        role: dbAdmin.role,
+        scope: dbAdmin.scope,
+        assigned_level: dbAdmin.assigned_level || 'all',
+        permissions: dbAdmin.permissions || [],
+        is_super_admin: isSuperAdminScope(dbAdmin)
+      };
+
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('nacos_admin_session_updated', { detail: updated }));
+        }
+      } catch (_) {}
+
+      return { valid: true, admin: updated };
     } catch (_) {}
   }
 
@@ -526,36 +658,35 @@ export async function logoutPortalAdmin() {
 
 export function hasPermission(admin, permission) {
   if (!admin) return false;
-  if (admin.is_super_admin || admin.scope === 'super_admin' || admin.role === 'super_admin') return true;
-  if (admin.permissions?.includes('*')) return true;
-  return Array.isArray(admin.permissions) && admin.permissions.includes(permission);
+  if (isSuperAdminScope(admin)) return true;
+
+  const perms = Array.isArray(admin.permissions) ? admin.permissions : [];
+  if (perms.includes('*') || perms.includes('all')) return true;
+
+  if (!permission || permission === 'main_website.view' || permission === 'dashboard') {
+    return true;
+  }
+
+  // Exact match
+  if (perms.includes(permission)) return true;
+
+  // Direct check: Does user have permission or any equivalent alias of permission?
+  const targetEquivalents = PERMISSION_ALIASES[permission] || [permission];
+  if (targetEquivalents.some(eq => perms.includes(eq))) return true;
+
+  // Reverse check: For each granted permission, does it expand to permission?
+  for (const granted of perms) {
+    const grantedEquivalents = PERMISSION_ALIASES[granted];
+    if (grantedEquivalents && grantedEquivalents.includes(permission)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function hasAdminFeature(admin, featureKey) {
-  if (!admin) return false;
-  if (admin.is_super_admin || admin.scope === 'super_admin' || admin.role === 'super_admin') return true;
-  if (admin.permissions?.includes('*')) return true;
-
-  const isWebsiteAdmin = admin.scope === 'main_website' || admin.role === 'website_admin';
-  const isPortalAdmin = admin.scope === 'student_portal' || admin.role === 'portal_admin';
-
-  if (isWebsiteAdmin && ['feature:yellow_pages', 'feature:campus_clubs', 'feature:alumni_management', 'feature:news_events', 'feature:media_library', 'feature:resource_management'].includes(featureKey)) {
-    return true;
-  }
-
-  if (isPortalAdmin && ['feature:student_registry', 'feature:results_management', 'feature:id_management', 'feature:course_management', 'feature:resource_management', 'feature:media_library'].includes(featureKey)) {
-    return true;
-  }
-
-  if (admin.role === 'course_adviser' && ['feature:results_management', 'feature:student_registry', 'feature:course_management'].includes(featureKey)) {
-    return true;
-  }
-
-  return Array.isArray(admin.permissions) && (
-    admin.permissions.includes(featureKey) || 
-    admin.permissions.includes(featureKey.replace('feature:', '')) ||
-    admin.permissions.some(p => p.startsWith(featureKey) || featureKey.startsWith(p))
-  );
+  return hasPermission(admin, featureKey);
 }
 
 // =============================================================================
@@ -1122,4 +1253,283 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
   }
 
   return { success: true, message: 'Your administrator password has been updated successfully. You can now log in.' };
+}
+
+/**
+ * Request single-use 6-digit access OTP for administrator login / verification.
+ */
+export async function requestAdminAccessOtp(adminEmail, targetPlatform = 'website') {
+  if (!adminEmail || !adminEmail.trim()) {
+    return { success: false, error: 'Please enter your administrator email address.' };
+  }
+
+  const cleanEmail = adminEmail.trim().toLowerCase();
+
+  // 1. Try serverless endpoint first
+  try {
+    const res = await fetch('/api/admin/auth/request-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: cleanEmail, targetPlatform })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      return { success: true, maskedEmail: data.maskedEmail, expiresAt: data.expiresAt };
+    }
+    if (data.error) {
+      return { success: false, error: data.error, retryAfterSeconds: data.retryAfterSeconds };
+    }
+  } catch (_) {}
+
+  // 2. Direct Supabase Fallback
+  if (!supabase) return { success: false, error: 'Database service offline.' };
+
+  const { data: adminRecord } = await supabase
+    .from('admin_scopes')
+    .select('id, email, full_name, role, scope, is_active')
+    .ilike('email', cleanEmail)
+    .maybeSingle();
+
+  if (!adminRecord) {
+    return { success: false, error: 'No administrator account found with that email address. Contact the Super Administrator.' };
+  }
+
+  if (adminRecord.is_active === false) {
+    return { success: false, error: 'Account Suspended: Your administrative privileges have been revoked.' };
+  }
+
+  const masked = maskEmail(cleanEmail);
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+  let otpHash = otpCode;
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      const enc = new TextEncoder();
+      const buf = await crypto.subtle.digest('SHA-256', enc.encode(otpCode + 'nacos_otp_salt_2026'));
+      otpHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
+    } catch (_) {}
+  }
+
+  await supabase.from('otp_verifications').insert([{
+    registration_number: `ADMIN-${adminRecord.id}`,
+    channel: 'email',
+    destination: masked,
+    destination_full: cleanEmail,
+    otp_hash: otpHash,
+    expires_at: expiresAt,
+    attempts: 0,
+    max_attempts: 5,
+    is_used: false,
+    created_at: new Date().toISOString()
+  }]);
+
+  try {
+    await fetch('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'admin_otp',
+        to: cleanEmail,
+        code: otpCode,
+        adminName: adminRecord.full_name || 'Administrator',
+        roleTitle: adminRecord.role || 'Admin Officer',
+        scope: adminRecord.scope || 'main_website',
+        expiryMinutes: 15
+      })
+    });
+  } catch (_) {}
+
+  return { success: true, maskedEmail: masked, expiresAt };
+}
+
+/**
+ * Verify 6-digit access OTP and establish 1-hour administrator session.
+ */
+export async function verifyAdminAccessOtp(adminEmail, otpCode, targetPlatform = 'website') {
+  if (!adminEmail || !otpCode) {
+    return { success: false, error: 'Email and verification code are required.' };
+  }
+
+  const cleanEmail = adminEmail.trim().toLowerCase();
+  const cleanOtp = String(otpCode || '').replace(/\D/g, '').trim();
+
+  if (!cleanOtp || cleanOtp.length !== 6) {
+    return { success: false, error: 'Please enter a valid 6-digit verification code.' };
+  }
+
+  // 1. Try serverless endpoint first
+  try {
+    const res = await fetch('/api/admin/auth/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: cleanEmail, otp: cleanOtp, targetPlatform })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success && data.session) {
+      const storageKey = targetPlatform === 'website' ? ADMIN_SESSION_STORAGE_KEY : PORTAL_ADMIN_SESSION_KEY;
+      localStorage.setItem(storageKey, JSON.stringify(data.session));
+      await recordAdminAction('otp_login', 'admin_session', data.session.id, {
+        email: data.session.email,
+        scope: data.session.scope,
+        role: data.session.role
+      });
+      return { success: true, session: data.session, admin: data.session };
+    }
+    if (data && data.error) {
+      return { success: false, error: data.error };
+    }
+  } catch (_) {}
+
+  // 2. Direct Supabase Fallback
+  if (!supabase) return { success: false, error: 'Database service offline.' };
+
+  const { data: adminRecord } = await supabase
+    .from('admin_scopes')
+    .select('id, email, full_name, role, scope, permissions, assigned_level, is_active')
+    .ilike('email', cleanEmail)
+    .maybeSingle();
+
+  if (!adminRecord) {
+    return { success: false, error: 'No administrator account found with that email address.' };
+  }
+
+  if (adminRecord.is_active === false) {
+    return { success: false, error: 'Account Suspended: Your administrative privileges have been revoked.' };
+  }
+
+  let candidateSalted = cleanOtp;
+  let candidateUnsalted = cleanOtp;
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      const enc = new TextEncoder();
+      const bufSalted = await crypto.subtle.digest('SHA-256', enc.encode(cleanOtp + 'nacos_otp_salt_2026'));
+      candidateSalted = Array.from(new Uint8Array(bufSalted)).map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
+      const bufUnsalted = await crypto.subtle.digest('SHA-256', enc.encode(cleanOtp));
+      candidateUnsalted = Array.from(new Uint8Array(bufUnsalted)).map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
+    } catch (_) {}
+  }
+
+  const { data: challenges } = await supabase
+    .from('otp_verifications')
+    .select('id, registration_number, destination_full, otp_hash, is_used, verified_at, expires_at, created_at, attempts, max_attempts')
+    .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  const challengeList = challenges || [];
+  const isMatch = (c) => {
+    const stored = (c.otp_hash || '').trim().toLowerCase();
+    return stored === candidateSalted || stored === cleanOtp || stored === candidateUnsalted;
+  };
+
+  const matched = challengeList.find(isMatch);
+  if (!matched) {
+    const activeChallenge = challengeList.find(c => !c.verified_at && !c.is_used) || challengeList.find(c => !c.verified_at);
+    if (activeChallenge) {
+      const newAttempts = (activeChallenge.attempts || 0) + 1;
+      const maxAtt = activeChallenge.max_attempts || 5;
+      await supabase.from('otp_verifications').update({ attempts: newAttempts, is_used: newAttempts >= maxAtt }).eq('id', activeChallenge.id);
+      const remaining = Math.max(0, maxAtt - newAttempts);
+      return { success: false, error: remaining > 0 ? `Invalid verification code. ${remaining} attempt(s) remaining.` : 'Too many incorrect attempts on this code. Please request a new verification code.' };
+    }
+    return { success: false, error: 'Invalid verification code. Please check your email or request a new code.' };
+  }
+
+  if (matched.verified_at) {
+    return { success: false, error: 'This verification code has already been used. Please request a new code.' };
+  }
+  if ((matched.attempts || 0) >= (matched.max_attempts || 5)) {
+    return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
+  }
+  const expiryTime = matched.expires_at ? new Date(matched.expires_at).getTime() : 0;
+  if (expiryTime > 0 && Date.now() > expiryTime + 10 * 60 * 1000) {
+    return { success: false, error: 'This verification code has expired. Please request a new code.' };
+  }
+
+  const nowIso = new Date().toISOString();
+  await supabase.from('otp_verifications').update({ is_used: true, verified_at: nowIso }).eq('id', matched.id);
+  await supabase.from('admin_scopes').update({ last_login_at: nowIso, updated_at: nowIso }).eq('id', adminRecord.id);
+
+  const sessionData = {
+    token: adminRecord.id,
+    user_id: adminRecord.id,
+    id: adminRecord.id,
+    email: adminRecord.email,
+    full_name: adminRecord.full_name,
+    name: adminRecord.full_name,
+    scope: adminRecord.scope,
+    role: adminRecord.role,
+    assigned_level: adminRecord.assigned_level || 'all',
+    permissions: adminRecord.permissions || [],
+    is_super_admin: isSuperAdminScope(adminRecord),
+    logged_in_at: nowIso,
+    expires_at: Date.now() + ONE_HOUR_MS
+  };
+
+  const storageKey = targetPlatform === 'website' ? ADMIN_SESSION_STORAGE_KEY : PORTAL_ADMIN_SESSION_KEY;
+  localStorage.setItem(storageKey, JSON.stringify(sessionData));
+  await recordAdminAction('otp_login', 'admin_session', adminRecord.id, {
+    email: adminRecord.email,
+    scope: adminRecord.scope,
+    role: adminRecord.role
+  });
+
+  return { success: true, session: sessionData, admin: sessionData };
+}
+
+/**
+ * Super Admin: Update administrator permissions and capabilities in database.
+ */
+export async function superAdminUpdateAdminPermissions(adminId, { permissions = [], role = null, scope = null, assignedLevel = null }) {
+  const current = getWebsiteAdminSession() || getPortalAdminSession();
+  const token = current?.token || current?.id;
+
+  // 1. Try serverless endpoint first
+  try {
+    const res = await fetch('/api/admin/users/permissions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        token,
+        requesterEmail: current?.email,
+        adminId,
+        permissions,
+        role,
+        scope,
+        assignedLevel
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      return { success: true, message: data.message || 'Permissions updated successfully.' };
+    }
+    if (data.error) {
+      return { success: false, error: data.error };
+    }
+  } catch (_) {}
+
+  // 2. Direct Supabase Fallback
+  if (!supabase) return { success: false, error: 'Database service offline.' };
+
+  const updateData = {
+    permissions: Array.isArray(permissions) ? permissions : [],
+    updated_at: new Date().toISOString()
+  };
+  if (role) updateData.role = role;
+  if (scope) updateData.scope = scope;
+  if (assignedLevel) updateData.assigned_level = assignedLevel;
+
+  const { error } = await supabase.from('admin_scopes').update(updateData).eq('id', adminId);
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, message: 'Administrator permissions updated successfully.' };
 }

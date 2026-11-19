@@ -32,7 +32,7 @@ import {
   Building2
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import { getWebsiteAdminSession, logoutWebsiteAdmin, hasPermission } from '@nacos/auth';
+import { getWebsiteAdminSession, logoutWebsiteAdmin, hasPermission, verifyLiveAdminSession } from '@nacos/auth';
 import { getAppUrls } from '@nacos/config/urls';
 import { 
   getAdminNotifications, 
@@ -58,10 +58,21 @@ export const WebsiteAdminLayout = ({ children, title, subtitle }) => {
   }, [location.pathname]);
 
   useEffect(() => {
-    const session = getWebsiteAdminSession();
-    if (session) {
-      setAdmin(session);
-    }
+    const refreshSession = async () => {
+      const session = getWebsiteAdminSession();
+      if (session) {
+        setAdmin(session);
+      }
+      try {
+        const live = await verifyLiveAdminSession('website');
+        if (live && live.valid && live.admin) {
+          setAdmin(live.admin);
+        }
+      } catch (_) {}
+    };
+    refreshSession();
+    window.addEventListener('nacos_admin_session_updated', refreshSession);
+    return () => window.removeEventListener('nacos_admin_session_updated', refreshSession);
   }, []);
 
   useEffect(() => {
@@ -99,10 +110,10 @@ export const WebsiteAdminLayout = ({ children, title, subtitle }) => {
     { label: 'Dashboard', path: '/', icon: LayoutDashboard, exact: true },
     { label: 'Yellow Pages', path: '/yellow-pages', icon: Store, permission: 'main_website.yellow_pages' },
     { label: 'Campus Clubs', path: '/clubs', icon: Users, permission: 'main_website.clubs' },
-    { label: 'Spiritual Life', path: '/spiritual-life', icon: Heart, permission: 'main_website.clubs' },
+    { label: 'Spiritual Life', path: '/spiritual-life', icon: Heart, permission: 'main_website.spiritual' },
     { label: 'Alumni Network', path: '/alumni', icon: GraduationCap, permission: 'main_website.alumni' },
-    { label: 'NACOS Executives', path: '/executives', icon: Award, permission: 'main_website.homepage' },
-    { label: 'Administration', path: '/administration', icon: Building2, permission: 'main_website.homepage' },
+    { label: 'NACOS Executives', path: '/executives', icon: Award, permission: 'main_website.executives' },
+    { label: 'Administration', path: '/administration', icon: Building2, permission: 'main_website.administration' },
     { label: 'Media Library', path: '/media', icon: ImageIcon, permission: 'main_website.media' },
     { label: 'Campus Gallery', path: '/gallery', icon: Camera, permission: 'main_website.gallery' },
     { label: 'News & Journal', path: '/news', icon: Newspaper, permission: 'main_website.news' },

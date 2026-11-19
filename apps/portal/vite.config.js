@@ -24,7 +24,8 @@ import {
   handleCompleteResetPassword,
   handleSensitiveActionRequest,
   handleSensitiveActionVerify,
-  handleSensitiveActionVerifyPassword
+  handleSensitiveActionVerifyPassword,
+  handleVerifyHackathonStudent
 } from '../../packages/supabase/src/server/studentAuthApi.js';
 import { handleStorageRequest } from '../../packages/supabase/src/server/b2StorageDispatcher.js';
 
@@ -473,6 +474,25 @@ function cloudinaryDevPlugin() {
               res.end(JSON.stringify({ success: true, result }));
             } catch (e) {
               console.error('[Dev Hackathon Registration Error]:', e);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: e.message }));
+            }
+          });
+          return;
+        }
+        if (req.url === '/api/hackathons/verify-student' && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const data = JSON.parse(body || '{}');
+              const result = await handleVerifyHackathonStudent(data);
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = result.success ? 200 : 400;
+              res.end(JSON.stringify(result));
+            } catch (e) {
+              console.error('[Dev Hackathon Verify Student Error]:', e);
               res.statusCode = 500;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ error: e.message }));

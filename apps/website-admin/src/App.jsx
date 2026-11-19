@@ -163,23 +163,23 @@ function App() {
             <Route path="/admin/hero-carousel" element={<AdminProtectedRoute requiredPermission="main_website.homepage"><AdminHeroCarousel /></AdminProtectedRoute>} />
 
             {/* Yellow Pages, Clubs, Alumni Directories */}
-            <Route path="/yellow-pages" element={<AdminProtectedRoute><AdminYellowPages /></AdminProtectedRoute>} />
-            <Route path="/admin/yellow-pages" element={<AdminProtectedRoute><AdminYellowPages /></AdminProtectedRoute>} />
+            <Route path="/yellow-pages" element={<AdminProtectedRoute requiredPermission="main_website.yellow_pages"><AdminYellowPages /></AdminProtectedRoute>} />
+            <Route path="/admin/yellow-pages" element={<AdminProtectedRoute requiredPermission="main_website.yellow_pages"><AdminYellowPages /></AdminProtectedRoute>} />
 
-            <Route path="/clubs" element={<AdminProtectedRoute><AdminClubs /></AdminProtectedRoute>} />
-            <Route path="/admin/clubs" element={<AdminProtectedRoute><AdminClubs /></AdminProtectedRoute>} />
+            <Route path="/clubs" element={<AdminProtectedRoute requiredPermission="main_website.clubs"><AdminClubs /></AdminProtectedRoute>} />
+            <Route path="/admin/clubs" element={<AdminProtectedRoute requiredPermission="main_website.clubs"><AdminClubs /></AdminProtectedRoute>} />
 
-            <Route path="/spiritual-life" element={<AdminProtectedRoute><AdminSpiritualLife /></AdminProtectedRoute>} />
-            <Route path="/admin/spiritual-life" element={<AdminProtectedRoute><AdminSpiritualLife /></AdminProtectedRoute>} />
+            <Route path="/spiritual-life" element={<AdminProtectedRoute requiredPermission="main_website.spiritual"><AdminSpiritualLife /></AdminProtectedRoute>} />
+            <Route path="/admin/spiritual-life" element={<AdminProtectedRoute requiredPermission="main_website.spiritual"><AdminSpiritualLife /></AdminProtectedRoute>} />
 
-            <Route path="/alumni" element={<AdminProtectedRoute><AdminAlumni /></AdminProtectedRoute>} />
-            <Route path="/admin/alumni" element={<AdminProtectedRoute><AdminAlumni /></AdminProtectedRoute>} />
+            <Route path="/alumni" element={<AdminProtectedRoute requiredPermission="main_website.alumni"><AdminAlumni /></AdminProtectedRoute>} />
+            <Route path="/admin/alumni" element={<AdminProtectedRoute requiredPermission="main_website.alumni"><AdminAlumni /></AdminProtectedRoute>} />
 
-            <Route path="/executives" element={<AdminProtectedRoute><AdminExecutives /></AdminProtectedRoute>} />
-            <Route path="/admin/executives" element={<AdminProtectedRoute><AdminExecutives /></AdminProtectedRoute>} />
+            <Route path="/executives" element={<AdminProtectedRoute requiredPermission="main_website.executives"><AdminExecutives /></AdminProtectedRoute>} />
+            <Route path="/admin/executives" element={<AdminProtectedRoute requiredPermission="main_website.executives"><AdminExecutives /></AdminProtectedRoute>} />
 
-            <Route path="/administration" element={<AdminProtectedRoute><AdminAdministration /></AdminProtectedRoute>} />
-            <Route path="/admin/administration" element={<AdminProtectedRoute><AdminAdministration /></AdminProtectedRoute>} />
+            <Route path="/administration" element={<AdminProtectedRoute requiredPermission="main_website.administration"><AdminAdministration /></AdminProtectedRoute>} />
+            <Route path="/admin/administration" element={<AdminProtectedRoute requiredPermission="main_website.administration"><AdminAdministration /></AdminProtectedRoute>} />
 
             <Route path="/audit-logs" element={<AdminProtectedRoute requiredPermission="main_website.view"><AdminAuditLogs /></AdminProtectedRoute>} />
             <Route path="/admin/audit-logs" element={<AdminProtectedRoute requiredPermission="main_website.view"><AdminAuditLogs /></AdminProtectedRoute>} />

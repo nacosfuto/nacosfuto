@@ -936,3 +936,118 @@ export function renderAdminSecurityCodeEmail({
     text
   };
 }
+
+/**
+ * Incoming Website Contact Form Notification Template
+ * Clean, structured, quotation/receipt table formatting with brand identity,
+ * preserved message line breaks, and responsive layout.
+ */
+export function renderContactEnquiryEmail({
+  name = 'Website Visitor',
+  email = '',
+  subject = 'New Website Enquiry',
+  message = '',
+  phone = '',
+  receivedAt = new Date().toISOString()
+}) {
+  const safeName = sanitizeHtml(name || 'Website Visitor');
+  const safeEmail = sanitizeHtml(email || 'Not provided');
+  const safeSubject = sanitizeHtml(subject || 'General Enquiry');
+  const safePhone = sanitizeHtml(phone || '');
+  const safeMessage = sanitizeHtml(message || '').replace(/\r\n|\r|\n/g, '<br/>');
+
+  const dateFormatted = new Date(receivedAt).toLocaleString('en-NG', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Africa/Lagos'
+  });
+
+  const preheader = `New website message from ${safeName}: "${safeSubject}"`;
+
+  const contentHtml = `
+    <h2 style="color: #0f172a; margin: 0 0 8px; font-size: 18px; font-weight: 700;">New Website Enquiry</h2>
+    <p style="color: #475569; margin: 0 0 20px; font-size: 13px; line-height: 1.5;">
+      A new enquiry was submitted through the official NACOS FUTO website contact form.
+    </p>
+
+    <!-- Sender Information Table (Sharp Corners, Structured Presentation) -->
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 22px; border: 1px solid #e2e8f0; border-radius: 0; background-color: #ffffff; font-size: 13px;">
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0; width: 35%;">Full Name:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #e2e8f0;">${safeName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Email Address:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">
+          <a href="mailto:${safeEmail}" style="color: #15803d; text-decoration: none; font-weight: 600;">${safeEmail}</a>
+        </td>
+      </tr>
+      ${safePhone ? `
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Phone Number:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">
+          <a href="tel:${safePhone}" style="color: #0f172a; text-decoration: none;">${safePhone}</a>
+        </td>
+      </tr>` : ''}
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Subject:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">${safeSubject}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b;">Date &amp; Time Received:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 600;">${dateFormatted} (WAT)</td>
+      </tr>
+    </table>
+
+    <!-- Message Content Header -->
+    <p style="color: #0f172a; margin: 0 0 8px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+      Message Content
+    </p>
+
+    <!-- Message Block (Preserved formatting, clean left accent) -->
+    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #138601; padding: 18px 20px; margin: 0 0 24px; font-size: 14px; line-height: 1.6; color: #1e293b; white-space: pre-wrap; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+${safeMessage}
+    </div>
+
+    <!-- Quick Action: Reply to Visitor -->
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 0 0 16px;">
+      <tr>
+        <td align="center" style="background-color: #138601;">
+          <a href="mailto:${safeEmail}?subject=Re:%20${encodeURIComponent(subject)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 11px 24px; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            Reply to ${safeName}
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    <p style="color: #64748b; margin: 0; font-size: 12px; line-height: 1.5;">
+      <em>Note: This message was submitted via the public contact form at <a href="https://nacosfuto.com.ng/contact" style="color: #15803d; text-decoration: none;">nacosfuto.com.ng/contact</a>.</em>
+    </p>
+  `;
+
+  const text = [
+    'NEW WEBSITE ENQUIRY - NACOS FUTO',
+    '================================',
+    '',
+    `Full Name:     ${name}`,
+    `Email Address: ${email}`,
+    phone ? `Phone Number:  ${phone}` : null,
+    `Subject:       ${subject}`,
+    `Date & Time:   ${dateFormatted} (WAT)`,
+    '',
+    'MESSAGE CONTENT:',
+    '----------------',
+    message,
+    '',
+    '----------------',
+    `Reply directly to: ${email}`,
+    '',
+    renderEmailFooterText()
+  ].filter(Boolean).join('\n');
+
+  return {
+    subject: `[Website Enquiry] ${safeSubject} — from ${safeName}`,
+    html: buildBaseEmailLayout({ title: 'New Website Enquiry', preheader, contentHtml }),
+    text
+  };
+}

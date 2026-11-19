@@ -17,6 +17,7 @@ import crypto from 'crypto';
 import { supabase } from '../client.js';
 import { dispatchEmail } from './emailDispatcher.js';
 import { renderEmailFooterHtml } from './emailTemplates.js';
+import { calculateAcademicProgression, getActiveAcademicSession } from '@nacos/config/academic';
 
 const AUTH_SECRET = process.env.SESSION_SECRET || process.env.VITE_SUPABASE_ANON_KEY || 'nacos_futo_auth_signature_key_2026';
 const SALT = 'nacos_futo_salt_2026';
@@ -114,6 +115,7 @@ export function maskPhone(phone) {
 
 async function getOfficialStudentRecord(registrationNumber) {
   const cleanReg = registrationNumber.trim().toUpperCase();
+  const strippedReg = cleanReg.replace(/[^a-zA-Z0-9]/g, '');
 
   // 1. Try Supabase verified_students table
   if (supabase) {
@@ -121,7 +123,7 @@ async function getOfficialStudentRecord(registrationNumber) {
       const { data, error } = await supabase
         .from('verified_students')
         .select('id, registration_number, full_name, email, phone_number, department, faculty, level, admission_year, programme, programme_duration, academic_session, status, has_registered, is_registered, auth_user_id, registered_at, created_at, updated_at, first_name, last_name, surname, middle_name')
-        .or(`registration_number.eq.${cleanReg},registration_number.ilike.${cleanReg}`)
+        .or(`registration_number.eq.${cleanReg},registration_number.ilike.${cleanReg},registration_number.eq.${strippedReg},registration_number.ilike.${strippedReg}`)
         .limit(1)
         .maybeSingle();
 
@@ -1241,5 +1243,148 @@ export async function handleAdminDeleteStudent({ registrationNumber, studentId, 
       error: err.message || 'Database deletion failed. Please try again.'
     };
   }
+}
+
+/**
+ * Verifies that a student exists in the official departmental database,
+ * is enrolled in Computer Science, and that their entered first and last name match.
+ */
+export async function handleVerifyHackathonStudent({ registrationNumber, firstName, lastName }) {
+  if (!registrationNumber || !String(registrationNumber).trim()) {
+    return { success: false, error: 'Registration number is required.' };
+  }
+
+  const cleanReg = String(registrationNumber).trim().toUpperCase();
+
+  // 1. Fetch official student record from database
+  const officialRecord = await getOfficialStudentRecord(cleanReg);
+  if (!officialRecord) {
+    return {
+      success: false,
+      notFound: true,
+      error: `Registration number "${cleanReg}" was not found in the departmental database. Please check your reg number or contact NACOS ICT.`
+    };
+  }
+
+  // 2. Departmental Eligibility Check (Exclusively Computer Science)
+  const dept = (officialRecord.department || '').trim();
+  const normDept = dept.toLowerCase();
+  const isComputerScience = !dept ||
+    normDept.includes('computer science') ||
+    normDept.includes('csc') ||
+    normDept.includes('computing') ||
+    normDept === 'cs';
+
+  if (!isComputerScience) {
+    return {
+      success: false,
+      notComputerScience: true,
+      department: dept,
+      error: `Ineligible: Student is registered under "${dept}". The Agentic Build hackathon is exclusively open to students of the Department of Computer Science.`
+    };
+  }
+
+  // 3. Name Verification (First Name and Last Name)
+  if (firstName && String(firstName).trim() && lastName && String(lastName).trim()) {
+    const normInputFirst = normalizeName(firstName);
+    const normInputLast = normalizeName(lastName);
+
+    const normOfficialFirst = normalizeName(officialRecord.first_name || '');
+    const normOfficialLast = normalizeName(officialRecord.last_name || officialRecord.surname || '');
+    const normOfficialFull = normalizeName(officialRecord.full_name || '');
+    const words = normOfficialFull.split(' ').filter(Boolean);
+
+    const firstMatches = normInputFirst === normOfficialFirst ||
+      normInputFirst === normOfficialLast ||
+      words.includes(normInputFirst);
+
+    const lastMatches = normInputLast === normOfficialLast ||
+      normInputLast === normOfficialFirst ||
+      words.includes(normInputLast);
+
+    if (!firstMatches || !lastMatches) {
+      return {
+        success: false,
+        nameMismatch: true,
+        error: `The name "${firstName} ${lastName}" does not match the departmental records for ${cleanReg}. Please verify your spelling.`
+      };
+    }
+  }
+
+  // 4. Derive authoritative dynamic academic level (avoids stale historical levels like 100L for 300L students)
+  const authoritativeLevel = resolveAuthoritativeStudentLevel(officialRecord);
+
+  // Synchronize database if record is stale
+  if (officialRecord.id && supabase && officialRecord.level !== authoritativeLevel) {
+    supabase
+      .from('verified_students')
+      .update({
+        level: authoritativeLevel,
+        academic_session: getActiveAcademicSession(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', officialRecord.id)
+      .then(() => {})
+      .catch(() => {});
+  }
+
+  return {
+    success: true,
+    verified: true,
+    student: {
+      registrationNumber: officialRecord.registration_number || cleanReg,
+      fullName: officialRecord.full_name || `${firstName || ''} ${lastName || ''}`.trim(),
+      firstName: officialRecord.first_name || firstName,
+      lastName: officialRecord.last_name || officialRecord.surname || lastName,
+      department: officialRecord.department || 'Computer Science',
+      level: authoritativeLevel,
+      email: officialRecord.email || ''
+    }
+  };
+}
+
+/**
+ * Resolves authoritative student level dynamically from admission year and current session.
+ * Ensures students in 300 level never show as 100 level due to stale historical DB values.
+ */
+export function resolveAuthoritativeStudentLevel(student) {
+  if (!student) return 'Undergraduate';
+
+  // 1. Calculate dynamic progression based on current academic session (2026/2027)
+  const progression = calculateAcademicProgression(student);
+
+  // 2. Extract numeric levels if present
+  let storedNumericLevel = null;
+  const rawStored = String(student.level || student.current_level || '').trim();
+  const match = rawStored.match(/(\d{3})/);
+  if (match) {
+    storedNumericLevel = parseInt(match[1], 10);
+  }
+
+  // If progression is valid and produced a numeric level
+  if (progression && progression.valid && progression.numericLevel) {
+    const progLevelNum = progression.numericLevel * 100;
+    
+    // If student has a stored level that is higher than standard progression (e.g., Direct Entry started at 200L),
+    // respect the higher level so Direct Entry students are not downgraded.
+    // If stored level is lower than progression (e.g., stale "100 Level" for a 2024 admit who is now in 300L),
+    // use the updated progression level!
+    if (storedNumericLevel && storedNumericLevel > progLevelNum) {
+      return `${storedNumericLevel} Level`;
+    }
+
+    if (progression.isGraduated) {
+      return 'Graduated';
+    }
+
+    return progression.levelString || `${progLevelNum} Level`;
+  }
+
+  // 3. Fallback to stored level if progression could not be computed
+  if (rawStored) {
+    return rawStored.includes('Level') ? rawStored : `${rawStored} Level`;
+  }
+
+  return 'Undergraduate';
 }
 

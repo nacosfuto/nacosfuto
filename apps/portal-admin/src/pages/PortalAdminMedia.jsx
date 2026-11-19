@@ -598,7 +598,7 @@ const AdminMedia = () => {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. 20241429481 or event-masked-affairs"
+                    placeholder="e.g. 20241400001 or event-masked-affairs"
                     value={newAssetEntity}
                     onChange={(e) => setNewAssetEntity(e.target.value)}
                     className="w-full px-3 py-2 rounded bg-gray-50 dark:bg-[#041801] border border-gray-300 dark:border-[#138601]/40 text-gray-900 dark:text-white font-mono"

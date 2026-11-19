@@ -44,7 +44,8 @@ import {
   handleSensitiveActionRequest,
   handleSensitiveActionVerify,
   handleSensitiveActionVerifyPassword,
-  handleAdminDeleteStudent
+  handleAdminDeleteStudent,
+  handleVerifyHackathonStudent
 } from '../packages/supabase/src/server/studentAuthApi.js';
 import {
   handleElectoralAccreditation,
@@ -59,9 +60,12 @@ import {
   handleVerifyAdminSession,
   handleAdminForgotPassword,
   handleAdminResetPassword,
+  handleAdminRequestAccessOtp,
+  handleAdminVerifyAccessOtp,
   handleGetAdminUsers,
   handleCreateAdminUser,
   handleUpdateAdminStatus,
+  handleUpdateAdminPermissions,
   handleDeleteAdminUser,
   handleResendAdminInvite,
   handleAdminDeleteElection,
@@ -883,6 +887,64 @@ export default async function handler(req, res) {
     }
 
     // =========================================================================
+    // 5B-2. HACKATHON STUDENT ELIGIBILITY VERIFICATION (/api/hackathons/verify-student)
+    // =========================================================================
+    if (route === '/api/hackathons/verify-student' && method === 'POST') {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      try {
+        const body = await parseRequestBody(req);
+        const result = await handleVerifyHackathonStudent(body);
+        if (result.success) {
+          return res.status(200).json(result);
+        } else {
+          return res.status(400).json(result);
+        }
+      } catch (err) {
+        console.error('[Hackathon Verify Student Error]:', err);
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+
+    // =========================================================================
+    // 5c. PUBLIC CONTACT FORM SUBMISSION (/api/contact)
+    // =========================================================================
+    if (route === '/api/contact' && method === 'POST') {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      try {
+        const body = await parseRequestBody(req);
+        const name = body.name || body.fullName || 'Website Visitor';
+        const email = body.email || '';
+        const phone = body.phone || '';
+        const subject = body.subject || 'Website General Enquiry';
+        const message = body.message || '';
+
+        if (!email || !message) {
+          return res.status(400).json({ success: false, error: 'Email and message are required fields' });
+        }
+
+        const emailResult = await dispatchEmail({
+          to: 'nacosfuto.org.ng@gmail.com',
+          subject: `New Website Enquiry: ${subject}`,
+          replyTo: email,
+          type: 'contact_enquiry',
+          name,
+          email,
+          phone,
+          message
+        });
+
+        return res.status(200).json({
+          success: true,
+          message: 'Your enquiry has been received successfully. We will get back to you shortly.',
+          emailResult
+        });
+      } catch (contactErr) {
+        console.error('[Contact Form Email Error]:', contactErr);
+        return res.status(500).json({ success: false, error: contactErr.message || 'Failed to send enquiry' });
+      }
+    }
+
+    // =========================================================================
     // 6. STUDENT AUTH & IDENTITY VERIFICATION SYSTEM (/api/auth/student/*)
     // =========================================================================
     if (route.startsWith('/api/auth/student/')) {
@@ -1119,6 +1181,21 @@ export default async function handler(req, res) {
         return res.status(result.success ? 200 : 400).json(result);
       }
 
+      // 9d-2. Admin Request Access Code OTP (Direct OTP authentication via Resend)
+      if (route === '/api/admin/auth/request-otp' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
+        const result = await handleAdminRequestAccessOtp({ ...body, ipAddress: clientIp });
+        return res.status(result.success ? 200 : 400).json(result);
+      }
+
+      // 9d-3. Admin Verify Access Code OTP (Verify OTP & Issue Session)
+      if (route === '/api/admin/auth/verify-otp' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const result = await handleAdminVerifyAccessOtp(body);
+        return res.status(result.success ? 200 : 400).json(result);
+      }
+
       // 9e. Get All Admin Users (Super Admin Only)
       if (route === '/api/admin/users' && method === 'GET') {
         const token = bearerToken || fullUrl.searchParams.get('token');
@@ -1159,6 +1236,22 @@ export default async function handler(req, res) {
           requesterEmail,
           adminId: body.adminId || body.admin_id,
           isActive: body.isActive !== undefined ? body.isActive : body.is_active
+        });
+        return res.status(result.success ? 200 : 400).json(result);
+      }
+
+      // 9g-2. Update Administrator Permissions & Scopes (Super Admin Only)
+      if (route === '/api/admin/users/permissions' && method === 'POST') {
+        const body = await parseRequestBody(req);
+        const token = bearerToken || body.token;
+        const requesterEmail = body.requesterEmail || body.requester_email;
+        const result = await handleUpdateAdminPermissions({
+          token,
+          requesterEmail,
+          adminId: body.adminId || body.admin_id,
+          permissions: body.permissions,
+          scope: body.scope,
+          role: body.role
         });
         return res.status(result.success ? 200 : 400).json(result);
       }

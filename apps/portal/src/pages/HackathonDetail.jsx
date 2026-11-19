@@ -42,7 +42,7 @@ const HackathonDetail = () => {
       <HackathonNavbar />
 
       {/* ─── HERO SECTION: DIRECT RETRO-DIGITAL INSPIRATION FROM FLYER ─── */}
-      <section id="theme" className="relative pt-8 pb-16 md:pt-12 md:pb-20 overflow-hidden border-b border-gray-200 dark:border-[#138601]/25">
+      <section id="theme" className="relative pt-10 pb-16 md:pt-14 md:pb-20 overflow-hidden border-b border-gray-200 dark:border-[#138601]/25">
         
         {/* Subtle Pixel Dot Pattern */}
         <div className="absolute inset-0 pointer-events-none opacity-[0.05] dark:opacity-[0.12]" 
@@ -53,13 +53,6 @@ const HackathonDetail = () => {
         </div>
 
         <div className="site-container relative z-10">
-          
-          {/* Top Header Text in Glitch Font (Just text, no icons) */}
-          <div className="text-center mb-8">
-            <h2 className="font-['Rubik_Glitch',_'Silkscreen',_cursive] text-2xl sm:text-3xl md:text-4xl tracking-widest text-gray-950 dark:text-amber-400 uppercase select-none">
-              NACOS FUTO
-            </h2>
-          </div>
 
           {/* ─── RETRO OS WINDOW HERO CARD ─── */}
           <div className="relative mx-auto max-w-4xl">
@@ -81,20 +74,20 @@ const HackathonDetail = () => {
               <div className="p-6 sm:p-12 md:p-14 relative bg-white dark:bg-[#072402]">
                 
                 {/* Main Pixelated Theme Title */}
-                <div className="mb-10 mt-2">
-                  <h1 className="font-['Silkscreen',_'Press_Start_2P',_monospace] text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-gray-950 dark:text-white leading-[1.1] uppercase">
+                <div className="mb-8 mt-2 text-center sm:text-left">
+                  <h1 className="font-minecraft text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-gray-950 dark:text-white leading-[1.1] uppercase">
                     The Agentic Build
                   </h1>
                 </div>
 
                 {/* Split Bottom Content (Matching Flyer Structure) */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-end">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 items-end">
                   
                   {/* Left Yellow Highlight Card */}
-                  <div className="md:col-span-7">
+                  <div className="md:col-span-7 text-left">
                     <div className="p-5 rounded-md bg-amber-400 text-gray-950 border-2 border-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                       <p className="text-xs sm:text-sm font-bold leading-relaxed">
-                        A premier innovation hackathon empowering students to build next-generation products with AI. Any product idea is accepted — from campus tech and fintech to healthcare and open innovation.
+                        A premier innovation hackathon by the Office of the Director of ICT, NACOS FUTO, empowering students to build next-generation products with AI. Any product idea is accepted — from campus tech and fintech to healthcare and open innovation.
                       </p>
                       <div className="mt-3 font-mono text-[11px] font-black uppercase tracking-wider text-gray-900">
                         Solo or Teams up to 5 • TheAgenticBuild '26
@@ -103,12 +96,12 @@ const HackathonDetail = () => {
                   </div>
 
                   {/* Right Subtitle Text */}
-                  <div className="md:col-span-5 md:text-right">
+                  <div className="md:col-span-5 md:text-right text-left">
                     <p className="font-mono text-sm sm:text-base font-bold text-gray-900 dark:text-white">
-                      5-Day Bootcamp &amp; Regional Hackathon
+                      Office of the Director of ICT
                     </p>
                     <p className="font-mono text-xs text-gray-500 dark:text-green-300 mt-1">
-                      NACOS FUTO Grand Hackathon
+                      NACOS FUTO Hackathon
                     </p>
                   </div>
 
@@ -215,7 +208,7 @@ const HackathonDetail = () => {
                   </button>
                 </div>
                 <span className="text-[11px] font-mono text-gray-500 dark:text-gray-400">
-                  100 dollar pool • 100% Free Entry
+                  Cash Prizes • 100% Free Entry
                 </span>
               </div>
 
@@ -231,12 +224,8 @@ const HackathonDetail = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center max-w-5xl mx-auto">
             
             <div className="lg:col-span-6 space-y-4">
-              <p className="text-xs font-mono font-bold tracking-widest text-[#138601] dark:text-[#4bd043] uppercase">
-                ANY PRODUCT IDEA IS ACCEPTED
-              </p>
-
-              <h2 className="text-2xl sm:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight leading-tight">
-                Build Any Product Idea <span className="text-[#138601] dark:text-[#4bd043]">Powered by AI</span>.
+              <h2 className="font-minecraft text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight leading-tight uppercase">
+                Build Any Product Idea <span className="text-[#138601] dark:text-[#4bd043]">Powered by AI</span>
               </h2>
 
               <p className="text-sm sm:text-base text-gray-700 dark:text-green-100/90 leading-relaxed font-normal">
@@ -331,16 +320,10 @@ export const ProductLaunch = {
       <section id="categories" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-[#f8fafc] dark:bg-[#041801]">
         <div className="site-container">
           
-          <div className="text-center max-w-2xl mx-auto mb-10 space-y-2">
-            <p className="text-xs font-mono font-bold tracking-widest text-amber-600 dark:text-amber-400 uppercase">
-              COMPLETE CREATIVE FREEDOM
-            </p>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <h2 className="font-minecraft text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight uppercase">
               No Restrictive Tracks
             </h2>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-green-100/80 font-normal">
-              Build whatever software problem excites you. Solo builders and teams indicate their kind of project during registration.
-            </p>
           </div>
 
           <div className="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -402,16 +385,10 @@ export const ProductLaunch = {
       <section id="prizes" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-white dark:bg-[#051c01]">
         <div className="site-container max-w-4xl mx-auto">
           
-          <div className="text-center mb-10 space-y-2">
-            <p className="text-xs font-mono font-bold tracking-widest text-amber-600 dark:text-amber-400 uppercase">
-              REWARDS &amp; RECOGNITION
-            </p>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-              100 dollar pool
+          <div className="text-center mb-10">
+            <h2 className="font-minecraft text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight uppercase">
+              Prize
             </h2>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-green-100/80 font-normal">
-              Awarded to the top winning AI products, alongside developer credits, incubation mentorship, trophy, and technical certificates.
-            </p>
           </div>
 
           <div className="p-8 sm:p-12 rounded-lg bg-gradient-to-br from-amber-400 via-amber-500 to-amber-400 text-gray-950 border-[3px] border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-center relative overflow-hidden">
@@ -419,22 +396,22 @@ export const ProductLaunch = {
               <span className="font-mono text-xs font-black uppercase tracking-wider bg-gray-950 text-amber-300 px-3.5 py-1 rounded inline-block">
                 OFFICIAL HACKATHON PRIZE
               </span>
-              <div className="font-['Silkscreen',_'Press_Start_2P',_monospace] text-4xl sm:text-6xl font-black text-gray-950 tracking-tight">
-                100 dollar pool
+              <div className="font-minecraft text-4xl sm:text-6xl font-bold text-gray-950 tracking-tight">
+                Prize
               </div>
               <p className="font-sans text-sm sm:text-base font-bold text-gray-900 leading-relaxed">
-                Cash rewards + Cloud development credits, ecosystem incubation mentorship, grand trophy, and technical certificates for the top winning projects.
+                Cash rewards + Mentorship, peer learning, grand trophy, and technical certificates for the top winning projects.
               </p>
               
               <div className="pt-4 flex flex-wrap items-center justify-center gap-3 font-mono text-xs font-bold text-gray-950">
                 <span className="bg-amber-300 px-3 py-1.5 rounded border-2 border-gray-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                  ✓ 100 Dollar Pool Prize
+                  ✓ Cash Prizes
                 </span>
                 <span className="bg-amber-300 px-3 py-1.5 rounded border-2 border-gray-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                  ✓ Cloud &amp; AI Tools Perks
+                  ✓ Mentorship
                 </span>
                 <span className="bg-amber-300 px-3 py-1.5 rounded border-2 border-gray-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                  ✓ Incubation &amp; Mentorship
+                  ✓ Peer Learning
                 </span>
                 <span className="bg-amber-300 px-3 py-1.5 rounded border-2 border-gray-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                   ✓ Grand Innovation Trophy
@@ -450,16 +427,10 @@ export const ProductLaunch = {
       <section id="timeline" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-[#f8fafc] dark:bg-[#041801]">
         <div className="site-container">
           
-          <div className="text-center max-w-2xl mx-auto mb-12 space-y-2">
-            <p className="text-xs font-mono font-bold tracking-widest text-[#138601] dark:text-[#4bd043] uppercase">
-              SCHEDULE &amp; PHASES
-            </p>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <h2 className="font-minecraft text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight uppercase">
               The Agentic Sprint Roadmap
             </h2>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-green-100/80 font-normal">
-              Structured sprint phases from technical orientation to live demo day at the Department of Computer Science, FUTO.
-            </p>
           </div>
 
           <div className="max-w-3xl mx-auto space-y-4">
@@ -495,11 +466,8 @@ export const ProductLaunch = {
       <section id="rules" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-white dark:bg-[#051c01]">
         <div className="site-container max-w-4xl">
           
-          <div className="text-center mb-10 space-y-2">
-            <p className="text-xs font-mono font-bold tracking-widest text-amber-600 dark:text-amber-400 uppercase">
-              FAIR PLAY &amp; TECHNICAL INTEGRITY
-            </p>
-            <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white">
+          <div className="text-center mb-10">
+            <h2 className="font-minecraft text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight uppercase">
               Hackathon Rules &amp; Guidelines
             </h2>
           </div>
@@ -520,15 +488,6 @@ export const ProductLaunch = {
               <div className="text-xs font-mono text-gray-600 dark:text-green-300">
                 Judged by: Office of the Director of ICT, FUTO Computer Science Faculty &amp; Industry Tech Leads.
               </div>
-              <a
-                href="https://hack.nacos.org.ng/BuildXNACOS"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-[#138601] dark:text-[#4bd043] hover:underline"
-              >
-                <span>Reference: NACOS National Guidelines</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
             </div>
           </div>
 
@@ -539,11 +498,8 @@ export const ProductLaunch = {
       <section id="faqs" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-[#f8fafc] dark:bg-[#041801]">
         <div className="site-container max-w-4xl">
           
-          <div className="text-center mb-10 space-y-2">
-            <p className="text-xs font-mono font-bold tracking-widest text-[#138601] dark:text-[#4bd043] uppercase">
-              GOT QUESTIONS?
-            </p>
-            <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white">
+          <div className="text-center mb-10">
+            <h2 className="font-minecraft text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight uppercase">
               Frequently Asked Questions
             </h2>
           </div>
@@ -577,17 +533,46 @@ export const ProductLaunch = {
         </div>
       </section>
 
+      {/* ─── PARTNERS & COLLABORATORS ─── */}
+      <section id="partners" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-white dark:bg-[#051c01]">
+        <div className="site-container max-w-5xl mx-auto">
+          
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <h2 className="font-minecraft text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight uppercase">
+              Our Partners &amp; Sponsors
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-6">
+            {hackathon.partners?.map((partner) => (
+              <div 
+                key={partner.id} 
+                className="bg-white rounded-lg border-2 border-gray-900 dark:border-gray-800 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_#138601] p-6 flex items-center justify-center h-28 sm:h-36 transition-all duration-200 hover:-translate-y-1 hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]"
+                title={partner.name}
+              >
+                <img
+                  src={partner.logoUrl}
+                  alt={partner.name}
+                  className="max-h-16 sm:max-h-20 max-w-full w-auto object-contain"
+                />
+              </div>
+            ))}
+          </div>
+
+        </div>
+      </section>
+
       {/* ─── BOTTOM FULL-WIDTH CALL TO ACTION ─── */}
       <section className="py-16 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 border-t-[3px] border-gray-900 text-gray-950">
         <div className="site-container text-center space-y-5 max-w-3xl">
           <p className="font-mono text-xs font-black uppercase tracking-widest text-gray-950">
             OFFICE OF THE DIRECTOR OF ICT • NACOS FUTO
           </p>
-          <h2 className="font-['Silkscreen',_'Press_Start_2P',_monospace] text-2xl sm:text-4xl md:text-5xl font-black uppercase tracking-tight text-black">
+          <h2 className="font-minecraft text-2xl sm:text-4xl md:text-5xl font-bold uppercase tracking-tight text-black">
             Ready to Build The Future?
           </h2>
           <p className="font-sans text-sm sm:text-base font-semibold max-w-xl mx-auto text-gray-950/90">
-            Register as a solo builder or form a team of up to 5 members. Any product idea built with AI is accepted. Compete for the 100 dollar pool, developer perks, and recognition.
+            Register as a solo builder or form a team of up to 5 members. Any product idea built with AI is accepted. Compete for prizes, mentorship, peer learning, and recognition.
           </p>
           <div className="pt-2 flex flex-wrap items-center justify-center gap-4">
             <Link

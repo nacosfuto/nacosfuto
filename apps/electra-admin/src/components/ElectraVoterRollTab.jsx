@@ -597,7 +597,7 @@ export default function ElectraVoterRollTab({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 20241429481"
+                  placeholder="e.g. 20241400001"
                   value={addForm.registration_number}
                   onChange={(e) => setAddForm({ ...addForm, registration_number: e.target.value })}
                   className="w-full px-3 py-2 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-300 dark:border-white/10 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601]"
@@ -612,7 +612,7 @@ export default function ElectraVoterRollTab({
                   <input
                     type="text"
                     required
-                    placeholder="Nestor"
+                    placeholder="Chukwudi"
                     value={addForm.first_name}
                     onChange={(e) => setAddForm({ ...addForm, first_name: e.target.value })}
                     className="w-full px-3 py-2 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-300 dark:border-white/10 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601]"
@@ -637,7 +637,7 @@ export default function ElectraVoterRollTab({
                   <input
                     type="text"
                     required
-                    placeholder="Anyanwu"
+                    placeholder="Okafor"
                     value={addForm.last_name}
                     onChange={(e) => setAddForm({ ...addForm, last_name: e.target.value })}
                     className="w-full px-3 py-2 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-300 dark:border-white/10 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601]"

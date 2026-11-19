@@ -1230,7 +1230,7 @@ export default function PortalAdminDues() {
                     type="text"
                     value={clearanceForm.studentName}
                     onChange={(e) => setClearanceForm({ ...clearanceForm, studentName: e.target.value })}
-                    placeholder="Chukwuebuka Anyanwu"
+                    placeholder="Chukwuebuka Okafor"
                     className="w-full px-3.5 py-2 rounded-xl text-xs font-semibold bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 focus:border-[#138601] focus:outline-none"
                   />
                 </div>

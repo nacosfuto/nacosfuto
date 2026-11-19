@@ -15,7 +15,8 @@ import {
   FaWater,
 } from "react-icons/fa";
 import ScrollToTopLink from "../components/ScrollToTopLink";
-const departmentImage = '';
+import { getCloudinaryAssetUrl } from "@nacos/media";
+const departmentImage = getCloudinaryAssetUrl('department') || 'https://res.cloudinary.com/a2mmcttn/image/upload/v1788569287/nacos/gallery/department.webp';
 import DepartmentStats from "../components/Home/DepartmentStats";
 
 const About = () => {

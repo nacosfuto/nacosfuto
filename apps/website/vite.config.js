@@ -11,6 +11,55 @@ function cloudinaryDevPlugin() {
     name: 'cloudinary-dev-server',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
+        if (req.url === '/api/contact' && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const rootEnv = loadEnv('development', path.resolve(__dirname, '../../'), '');
+              const localEnv = loadEnv('development', process.cwd(), '');
+              const env = { ...process.env, ...rootEnv, ...localEnv };
+
+              const data = JSON.parse(body || '{}');
+              const name = data.name || data.fullName || 'Website Visitor';
+              const email = data.email || '';
+              const phone = data.phone || '';
+              const subject = data.subject || 'Website General Enquiry';
+              const message = data.message || '';
+
+              if (!email || !message) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: false, error: 'Email and message are required fields' }));
+                return;
+              }
+
+              const result = await dispatchEmail({
+                to: 'nacosfuto.org.ng@gmail.com',
+                subject: `New Website Enquiry: ${subject}`,
+                replyTo: email,
+                type: 'contact_enquiry',
+                name,
+                email,
+                phone,
+                message
+              }, env);
+
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({
+                success: true,
+                message: 'Your enquiry has been received successfully. We will get back to you shortly.',
+                result
+              }));
+            } catch (e) {
+              console.error('[Website Dev Server Contact Error]:', e);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: false, error: e.message }));
+            }
+          });
+          return;
+        }
         if (req.url === '/api/email/send' && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });

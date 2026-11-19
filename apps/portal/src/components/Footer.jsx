@@ -98,7 +98,7 @@ const Footer = () => {
 
           {/* Contact Info */}
           <div>
-            <h4 className="text-base font-bold mb-4 text-white uppercase tracking-wider">Contact Department</h4>
+            <h4 className="text-base font-bold mb-4 text-white uppercase tracking-wider">Contact</h4>
             <div className="space-y-3.5 text-sm text-white/90">
               <div className="flex items-start gap-3">
                 <FaMapMarkerAlt className="mt-1 text-green-400 flex-shrink-0" />

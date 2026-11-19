@@ -604,6 +604,300 @@ export async function handleAdminResetPassword({ email, otp, newPassword }) {
   };
 }
 
+/**
+ * Initiates direct administrative access via 6-digit Email OTP.
+ * Dispatches a single-use authorization code to the administrator's official email.
+ */
+export async function handleAdminRequestAccessOtp({ email, ipAddress = null, targetPlatform = 'website' }) {
+  if (!email || !email.trim()) {
+    return { success: false, error: 'Please enter your administrator email address.' };
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+
+  if (!supabase) {
+    return { success: false, error: 'Database service unavailable.' };
+  }
+
+  // 1. Verify admin exists in database
+  const { data: adminRecord, error: dbErr } = await supabase
+    .from('admin_scopes')
+    .select(ADMIN_SCOPE_FIELDS)
+    .ilike('email', cleanEmail)
+    .maybeSingle();
+
+  if (dbErr) {
+    console.error('[Admin Request Access OTP DB Error]:', dbErr);
+    return { success: false, error: 'Database query error during administrator verification.' };
+  }
+
+  if (!adminRecord) {
+    return {
+      success: false,
+      error: 'No administrator account found with that email address. Contact the Super Administrator.'
+    };
+  }
+
+  if (adminRecord.is_active === false) {
+    return {
+      success: false,
+      error: 'Account Suspended: Your administrative privileges have been revoked or deactivated. Contact the Super Administrator.'
+    };
+  }
+
+  // Platform Scoping Check
+  const isSuper = isSuperAdminScope(adminRecord);
+  const role = (adminRecord.role || '').toLowerCase();
+  const scope = (adminRecord.scope || '').toLowerCase();
+
+  let isAllowed = isSuper;
+  if (!isAllowed) {
+    if (targetPlatform === 'website' || targetPlatform === 'main_website' || targetPlatform === 'cms') {
+      isAllowed = scope === 'main_website' || scope === 'website' || scope === 'cms' || scope === 'all' || role === 'website_admin' || role === 'cms_admin' || role === 'admin';
+    } else if (targetPlatform === 'portal' || targetPlatform === 'student_portal') {
+      isAllowed = scope === 'student_portal' || scope === 'portal' || scope === 'electoral_admin' || scope === 'electra_admin' || scope === 'electra' || scope === 'all' || role === 'portal_admin' || role === 'electoral_admin' || role === 'isec_admin' || role === 'course_adviser' || role === 'hod' || role === 'dean' || role === 'admin';
+    } else {
+      isAllowed = true;
+    }
+  }
+
+  if (!isAllowed) {
+    return {
+      success: false,
+      error: `Access Denied: Your account holds the '${adminRecord.scope || adminRecord.role}' scope and is not authorized to access the ${targetPlatform} administration console.`
+    };
+  }
+
+  // Rate limiting check
+  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString();
+  try {
+    const { count } = await supabase
+      .from('otp_verifications')
+      .select('id', { count: 'exact', head: true })
+      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+      .gte('created_at', windowStart);
+
+    if (count >= RATE_LIMIT_MAX_ATTEMPTS) {
+      return {
+        success: false,
+        error: 'Too many access requests. Please wait 15 minutes before retrying.',
+        retryAfterSeconds: 900
+      };
+    }
+  } catch (_) {}
+
+  // Invalidate old expired challenges (> 15 minutes)
+  try {
+    const expiredCutoff = new Date(Date.now() - OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
+    await supabase
+      .from('otp_verifications')
+      .update({ is_used: true })
+      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+      .lt('created_at', expiredCutoff);
+  } catch (_) {}
+
+  // Generate 6-digit OTP
+  const randomBytes = crypto.randomBytes(3);
+  const otpCode = ((randomBytes.readUIntBE(0, 3) % 900000) + 100000).toString();
+  const otpHash = hashOtpServer(otpCode);
+  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
+
+  // Store in otp_verifications
+  await supabase.from('otp_verifications').insert([{
+    registration_number: `ADMIN-${adminRecord.id}`,
+    channel: 'email',
+    destination: maskEmail(cleanEmail),
+    destination_full: cleanEmail,
+    otp_hash: otpHash,
+    expires_at: expiresAt,
+    attempts: 0,
+    max_attempts: 5,
+    is_used: false,
+    ip_address: JSON.stringify({ purpose: 'ADMIN_ACCESS_OTP', clientIp: ipAddress, adminId: adminRecord.id, platform: targetPlatform }),
+    created_at: new Date().toISOString()
+  }]);
+
+  // Dispatch email via Resend
+  const adminName = adminRecord.full_name || 'Administrator';
+  const roleTitle = adminRecord.role || 'Admin Officer';
+
+  try {
+    await dispatchEmail({
+      type: 'admin_otp',
+      to: cleanEmail,
+      code: otpCode,
+      adminName,
+      roleTitle,
+      scope: adminRecord.scope || 'main_website',
+      expiryMinutes: OTP_EXPIRY_MINUTES
+    });
+  } catch (emailErr) {
+    console.error('[Admin Access OTP Email Error]:', emailErr);
+  }
+
+  return {
+    success: true,
+    maskedEmail: maskEmail(cleanEmail),
+    expiresAt
+  };
+}
+
+/**
+ * Validates the 6-digit verification code and establishes a live 1-hour admin session.
+ * If the code is correct, returns the signed session token and permissions.
+ * If the code is incorrect, decrements remaining attempts and returns an informative error.
+ */
+export async function handleAdminVerifyAccessOtp({ email, otp, targetPlatform = 'website' }) {
+  if (!email || !otp) {
+    return { success: false, error: 'Email and verification code are required.' };
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanOtp = String(otp || '').replace(/\D/g, '').trim();
+
+  if (!cleanOtp || cleanOtp.length !== 6) {
+    return { success: false, error: 'Please enter a valid 6-digit verification code.' };
+  }
+
+  if (!supabase) {
+    return { success: false, error: 'Database service unavailable.' };
+  }
+
+  // 1. Fetch live admin record
+  const { data: adminRecord, error: adminErr } = await supabase
+    .from('admin_scopes')
+    .select(ADMIN_SCOPE_FIELDS)
+    .ilike('email', cleanEmail)
+    .maybeSingle();
+
+  if (adminErr || !adminRecord) {
+    return { success: false, error: 'No administrator account found with that email address. Contact the Super Administrator.' };
+  }
+
+  if (adminRecord.is_active === false) {
+    return { success: false, error: 'Account Suspended: Your administrative privileges have been revoked or deactivated.' };
+  }
+
+  // 2. Prepare candidate match formats
+  const candidateSalted = hashOtpServer(cleanOtp).toLowerCase();
+  const candidateUnsalted = crypto.createHash('sha256').update(cleanOtp).digest('hex').toLowerCase();
+
+  const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
+
+  // 3. Query recent verification records for this admin
+  const { data: challenges, error: challengeErr } = await supabase
+    .from('otp_verifications')
+    .select('id, registration_number, destination_full, otp_hash, is_used, verified_at, expires_at, created_at, attempts, max_attempts')
+    .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (challengeErr) {
+    console.error('[Admin Verify Access OTP Query Error]:', challengeErr);
+    return { success: false, error: 'Database query error while verifying code.' };
+  }
+
+  const challengeList = challenges || [];
+
+  const isMatch = (r) => {
+    const storedHash = (r.otp_hash || '').trim().toLowerCase();
+    return storedHash === candidateSalted || storedHash === cleanOtp || storedHash === candidateUnsalted;
+  };
+
+  const matchedRecord = challengeList.find(isMatch);
+
+  if (!matchedRecord) {
+    // Code did NOT match: Find active challenge and decrement attempts
+    const activeChallenge = challengeList.find(r => !r.verified_at && !r.is_used) || challengeList.find(r => !r.verified_at);
+    if (activeChallenge) {
+      const newAttempts = (activeChallenge.attempts || 0) + 1;
+      const maxAtt = activeChallenge.max_attempts || 5;
+      await supabase
+        .from('otp_verifications')
+        .update({
+          attempts: newAttempts,
+          is_used: newAttempts >= maxAtt
+        })
+        .eq('id', activeChallenge.id);
+
+      const remaining = Math.max(0, maxAtt - newAttempts);
+      if (remaining > 0) {
+        return { success: false, error: `Invalid verification code. ${remaining} attempt(s) remaining.` };
+      } else {
+        return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
+      }
+    }
+
+    return { success: false, error: 'Invalid verification code. Please check your email or request a new code.' };
+  }
+
+  // Check if code was already used
+  if (matchedRecord.verified_at) {
+    return { success: false, error: 'This verification code has already been used. Please request a new code.' };
+  }
+
+  // Check max attempts
+  if ((matchedRecord.attempts || 0) >= (matchedRecord.max_attempts || 5)) {
+    return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
+  }
+
+  // Check expiration (15 min standard + 10 min clock skew grace period)
+  const expiryTime = matchedRecord.expires_at ? new Date(matchedRecord.expires_at).getTime() : 0;
+  const isExpired = expiryTime > 0 && (nowMs > expiryTime + 10 * 60 * 1000);
+  if (isExpired) {
+    return { success: false, error: 'This verification code has expired. Please request a new code.' };
+  }
+
+  // Mark matched OTP as verified and used
+  await supabase
+    .from('otp_verifications')
+    .update({ is_used: true, verified_at: nowIso })
+    .eq('id', matchedRecord.id);
+
+  // Invalidate any other unverified challenges for this admin
+  try {
+    await supabase
+      .from('otp_verifications')
+      .update({ is_used: true })
+      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+      .is('verified_at', null);
+  } catch (_) {}
+
+  // Update last_login_at in database
+  await supabase
+    .from('admin_scopes')
+    .update({ last_login_at: nowIso, updated_at: nowIso })
+    .eq('id', adminRecord.id);
+
+  // Sign 1-hour session token with authoritative database permissions
+  const isSuper = isSuperAdminScope(adminRecord);
+  const { token, expiresAt } = signAdminToken(adminRecord, ONE_HOUR_MS);
+
+  const sessionData = {
+    token,
+    user_id: adminRecord.user_id || adminRecord.id,
+    id: adminRecord.id,
+    email: adminRecord.email,
+    full_name: adminRecord.full_name,
+    name: adminRecord.full_name,
+    scope: adminRecord.scope,
+    role: adminRecord.role,
+    assigned_level: adminRecord.assigned_level || 'all',
+    permissions: adminRecord.permissions || [],
+    is_super_admin: isSuper,
+    logged_in_at: nowIso,
+    expires_at: expiresAt
+  };
+
+  return {
+    success: true,
+    session: sessionData,
+    admin: sessionData,
+    token
+  };
+}
+
 // =============================================================================
 // 4. SUPER ADMIN USER MANAGEMENT (Add, List, Suspend, Reactivate, Delete)
 // =============================================================================
@@ -826,6 +1120,81 @@ export async function handleUpdateAdminStatus({ token, requesterEmail = null, ad
   return {
     success: true,
     message: `Administrator status changed to ${isActive ? 'Active' : 'Suspended'}.`
+  };
+}
+
+/**
+ * Updates administrator permissions, role, scope, or assigned level in admin_scopes.
+ * Strictly enforces Super Administrator authorization.
+ */
+export async function handleUpdateAdminPermissions({
+  token,
+  requesterEmail = null,
+  adminId,
+  permissions = [],
+  role = null,
+  scope = null,
+  assignedLevel = null
+}) {
+  const authCheck = await requireSuperAdmin(token, requesterEmail);
+  if (!authCheck.authorized) {
+    return { success: false, error: authCheck.error };
+  }
+
+  if (!adminId) {
+    return { success: false, error: 'Administrator ID is required.' };
+  }
+
+  if (!supabase) {
+    return { success: false, error: 'Database service offline.' };
+  }
+
+  // Fetch current admin record
+  const { data: targetAdmin, error: fetchErr } = await supabase
+    .from('admin_scopes')
+    .select('id, email, full_name, role, scope, permissions')
+    .eq('id', adminId)
+    .maybeSingle();
+
+  if (fetchErr || !targetAdmin) {
+    return { success: false, error: 'Administrator not found in database.' };
+  }
+
+  // Safeguard: Cannot demote the last super admin
+  if (isSuperAdminScope(targetAdmin) && (!isSuperAdminScope({ role, scope, permissions }))) {
+    const { count } = await supabase
+      .from('admin_scopes')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_active', true)
+      .or('scope.eq.super_admin,role.eq.super_admin,scope.eq.all');
+
+    if (count <= 1) {
+      return { success: false, error: 'Safeguard: Cannot remove Super Administrator privileges from the only active Super Admin.' };
+    }
+  }
+
+  const updateData = {
+    permissions: Array.isArray(permissions) ? permissions : [],
+    updated_at: new Date().toISOString()
+  };
+
+  if (role) updateData.role = role;
+  if (scope) updateData.scope = scope;
+  if (assignedLevel) updateData.assigned_level = assignedLevel;
+
+  const { error: updateErr } = await supabase
+    .from('admin_scopes')
+    .update(updateData)
+    .eq('id', adminId);
+
+  if (updateErr) {
+    return { success: false, error: `Failed to update permissions: ${updateErr.message}` };
+  }
+
+  return {
+    success: true,
+    message: `Permissions updated for ${targetAdmin.full_name || targetAdmin.email}.`,
+    permissions: updateData.permissions
   };
 }
 

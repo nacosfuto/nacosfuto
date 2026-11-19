@@ -38,16 +38,134 @@ export const PERMISSIONS = {
   ALL: '*'
 };
 
+export const PERMISSION_ALIASES = {
+  // News
+  'main_website.news': ['main_website.news', 'feature:news', 'news', 'feature:news_events'],
+  'feature:news': ['main_website.news', 'feature:news', 'news'],
+  'news': ['main_website.news', 'feature:news', 'news'],
+
+  // Events
+  'main_website.events': ['main_website.events', 'feature:events', 'events', 'feature:news_events'],
+  'feature:events': ['main_website.events', 'feature:events', 'events'],
+  'events': ['main_website.events', 'feature:events', 'events'],
+
+  // Combined legacy news_events
+  'feature:news_events': ['main_website.news', 'main_website.events', 'feature:news_events', 'feature:news', 'feature:events', 'news', 'events'],
+
+  // Media Library
+  'main_website.media': ['main_website.media', 'feature:media', 'feature:media_library', 'media'],
+  'feature:media': ['main_website.media', 'feature:media', 'feature:media_library', 'media'],
+  'feature:media_library': ['main_website.media', 'feature:media', 'feature:media_library', 'media'],
+  'media': ['main_website.media', 'feature:media', 'feature:media_library', 'media'],
+
+  // Campus Gallery
+  'main_website.gallery': ['main_website.gallery', 'feature:gallery', 'gallery'],
+  'feature:gallery': ['main_website.gallery', 'feature:gallery', 'gallery'],
+  'gallery': ['main_website.gallery', 'feature:gallery', 'gallery'],
+
+  // Yellow Pages
+  'main_website.yellow_pages': ['main_website.yellow_pages', 'feature:yellow_pages', 'yellow_pages'],
+  'feature:yellow_pages': ['main_website.yellow_pages', 'feature:yellow_pages', 'yellow_pages'],
+  'yellow_pages': ['main_website.yellow_pages', 'feature:yellow_pages', 'yellow_pages'],
+
+  // Campus Clubs
+  'main_website.clubs': ['main_website.clubs', 'feature:campus_clubs', 'feature:clubs', 'clubs'],
+  'feature:campus_clubs': ['main_website.clubs', 'feature:campus_clubs', 'feature:clubs', 'clubs'],
+  'feature:clubs': ['main_website.clubs', 'feature:campus_clubs', 'feature:clubs', 'clubs'],
+  'clubs': ['main_website.clubs', 'feature:campus_clubs', 'feature:clubs', 'clubs'],
+
+  // Spiritual Life
+  'main_website.spiritual': ['main_website.spiritual', 'main_website.spiritual_life', 'feature:spiritual_life', 'main_website.clubs', 'feature:campus_clubs', 'spiritual_life'],
+  'main_website.spiritual_life': ['main_website.spiritual', 'main_website.spiritual_life', 'feature:spiritual_life', 'main_website.clubs', 'feature:campus_clubs', 'spiritual_life'],
+  'feature:spiritual_life': ['main_website.spiritual', 'main_website.spiritual_life', 'feature:spiritual_life', 'main_website.clubs', 'feature:campus_clubs', 'spiritual_life'],
+  'spiritual_life': ['main_website.spiritual', 'main_website.spiritual_life', 'feature:spiritual_life', 'main_website.clubs', 'feature:campus_clubs', 'spiritual_life'],
+
+  // Alumni Network
+  'main_website.alumni': ['main_website.alumni', 'feature:alumni', 'feature:alumni_management', 'alumni'],
+  'feature:alumni': ['main_website.alumni', 'feature:alumni', 'feature:alumni_management', 'alumni'],
+  'feature:alumni_management': ['main_website.alumni', 'feature:alumni', 'feature:alumni_management', 'alumni'],
+  'alumni': ['main_website.alumni', 'feature:alumni', 'feature:alumni_management', 'alumni'],
+
+  // Executives
+  'main_website.executives': ['main_website.executives', 'feature:executives', 'main_website.homepage', 'executives'],
+  'feature:executives': ['main_website.executives', 'feature:executives', 'main_website.homepage', 'executives'],
+  'executives': ['main_website.executives', 'feature:executives', 'main_website.homepage', 'executives'],
+
+  // Administration
+  'main_website.administration': ['main_website.administration', 'feature:administration', 'main_website.homepage', 'administration'],
+  'feature:administration': ['main_website.administration', 'feature:administration', 'main_website.homepage', 'administration'],
+  'administration': ['main_website.administration', 'feature:administration', 'main_website.homepage', 'administration'],
+
+  // Homepage Content & Hero Carousel
+  'main_website.homepage': ['main_website.homepage', 'feature:homepage', 'homepage'],
+  'feature:homepage': ['main_website.homepage', 'feature:homepage', 'homepage'],
+  'homepage': ['main_website.homepage', 'feature:homepage', 'homepage'],
+
+  // Website Settings
+  'main_website.settings': ['main_website.settings', 'feature:website_settings', 'feature:settings', 'settings'],
+  'feature:website_settings': ['main_website.settings', 'feature:website_settings', 'feature:settings', 'settings'],
+  'settings': ['main_website.settings', 'feature:website_settings', 'feature:settings', 'settings'],
+
+  // View / Audit Trail
+  'main_website.view': ['main_website.view', 'view', 'feature:audit_logs', 'audit_logs'],
+  'feature:audit_logs': ['main_website.view', 'feature:audit_logs', 'audit_logs'],
+
+  // Portal Features
+  'student_portal.students': ['student_portal.students', 'feature:student_registry', 'students'],
+  'feature:student_registry': ['student_portal.students', 'feature:student_registry', 'students'],
+  'student_portal.results': ['student_portal.results', 'feature:results_management', 'results'],
+  'feature:results_management': ['student_portal.results', 'feature:results_management', 'results'],
+  'student_portal.id_cards': ['student_portal.id_cards', 'feature:id_management', 'id_cards'],
+  'feature:id_management': ['student_portal.id_cards', 'feature:id_management', 'id_cards'],
+  'student_portal.courses': ['student_portal.courses', 'feature:course_management', 'courses'],
+  'feature:course_management': ['student_portal.courses', 'feature:course_management', 'courses'],
+  'student_portal.resources': ['student_portal.resources', 'feature:resource_management', 'resources'],
+  'feature:resource_management': ['student_portal.resources', 'feature:resource_management', 'resources'],
+
+  // Electoral
+  'feature:election_management': ['feature:election_management', 'elections']
+};
+
 export function hasPermission(adminSession, requiredPermission) {
   if (!adminSession) return false;
-  if (adminSession.scope === ADMIN_SCOPES.SUPER_ADMIN || adminSession.role === 'super_admin') {
+  const role = String(adminSession.role || '').toLowerCase().trim();
+  const scope = String(adminSession.scope || '').toLowerCase().trim();
+  const perms = Array.isArray(adminSession.permissions) ? adminSession.permissions : [];
+
+  if (
+    adminSession.is_super_admin === true ||
+    scope === 'super_admin' ||
+    scope === 'superadmin' ||
+    scope === 'all' ||
+    role === 'super_admin' ||
+    role === 'superadmin' ||
+    role === 'super admin' ||
+    perms.includes('*') ||
+    perms.includes('all')
+  ) {
     return true;
   }
-  if (adminSession.permissions?.includes('*')) {
+
+  if (!requiredPermission || requiredPermission === 'main_website.view' || requiredPermission === 'dashboard') {
     return true;
   }
-  if (!requiredPermission) return true;
-  return Array.isArray(adminSession.permissions) && adminSession.permissions.includes(requiredPermission);
+
+  // Exact match
+  if (perms.includes(requiredPermission)) return true;
+
+  // Direct check: Does user have requiredPermission or any equivalent alias of requiredPermission?
+  const targetEquivalents = PERMISSION_ALIASES[requiredPermission] || [requiredPermission];
+  if (targetEquivalents.some(eq => perms.includes(eq))) return true;
+
+  // Reverse check: For each granted permission, does it expand to requiredPermission?
+  for (const granted of perms) {
+    const grantedEquivalents = PERMISSION_ALIASES[granted];
+    if (grantedEquivalents && grantedEquivalents.includes(requiredPermission)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function validateScope(adminSession, expectedScope) {

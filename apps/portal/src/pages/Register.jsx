@@ -547,7 +547,7 @@ const Register = () => {
                     autoComplete="username"
                     aria-required="true"
                     aria-invalid={Boolean(error)}
-                    placeholder="e.g. 20241429481 or 20241450682"
+                    placeholder="e.g. 20241400001 or 20251400002"
                     value={regNumber}
                     onChange={(e) => setRegNumber(e.target.value.toUpperCase())}
                     className="w-full px-4 py-3 text-sm rounded bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] font-mono tracking-wider transition-all"
@@ -600,7 +600,7 @@ const Register = () => {
                   required
                   autoComplete="given-name"
                   aria-required="true"
-                  placeholder="e.g. Nestor"
+                  placeholder="e.g. Chukwudi"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   className="w-full px-4 py-2.5 text-sm rounded bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] transition-all"
@@ -618,7 +618,7 @@ const Register = () => {
                   required
                   autoComplete="family-name"
                   aria-required="true"
-                  placeholder="e.g. Anyanwu"
+                  placeholder="e.g. Okafor"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   className="w-full px-4 py-2.5 text-sm rounded bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] transition-all"

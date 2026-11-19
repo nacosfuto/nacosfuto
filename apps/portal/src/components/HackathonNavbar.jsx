@@ -2,8 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import logoDark from '../assets/full-logo-dark.png';
-import logoLight from '../assets/full-logo-light.png';
+import hackathonLogoDark from '../assets/hackathon-logo-dark.png';
+import hackathonLogoLight from '../assets/hackathon-logo-light.png';
 
 const HackathonNavbar = () => {
   const { theme } = useTheme();
@@ -15,9 +15,13 @@ const HackathonNavbar = () => {
     }`}>
       <div className="site-container h-16 flex items-center justify-between">
         
-        {/* Left: Logo only */}
-        <Link to="/" className="flex items-center group">
-          <img src={isDark ? logoDark : logoLight} alt="NACOS FUTO Logo" className="h-8 md:h-10 w-auto object-contain" />
+        {/* Left: Logo returns to Hackathon Home */}
+        <Link to="/hackathons/the-agentic-build" className="flex items-center group">
+          <img 
+            src={isDark ? hackathonLogoDark : hackathonLogoLight} 
+            alt="The Agentic Build - Office of the Director of ICT" 
+            className="h-9 md:h-11 w-auto object-contain transition-transform group-hover:scale-[1.02]" 
+          />
         </Link>
 
         {/* Right: Register Button only */}

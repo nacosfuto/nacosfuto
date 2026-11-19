@@ -33,7 +33,7 @@ export default function GuidelinesPage() {
     {
       step: 3,
       title: 'Enter your FUTO Registration Number',
-      detail: 'Type in your official FUTO Matriculation or Registration Number (e.g. 20201012948) to look up your student record.',
+      detail: 'Type in your official FUTO Matriculation or Registration Number (e.g. 20241400001) to look up your student record.',
       icon: <FileText className="w-5 h-5 text-[#138601]" />
     },
     {

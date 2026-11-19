@@ -2,6 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Minecraft Font Family (The Agentic Build Hackathon) ─── */
+@font-face {
+  font-family: 'Minecraft';
+  src: url('/fonts/minecraft/1_MinecraftRegular1.woff') format('woff'),
+       url('/fonts/minecraft/1_MinecraftRegular1.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Minecraft';
+  src: url('/fonts/minecraft/2_MinecraftItalic1.woff') format('woff'),
+       url('/fonts/minecraft/2_MinecraftItalic1.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Minecraft';
+  src: url('/fonts/minecraft/3_MinecraftBold1.woff') format('woff'),
+       url('/fonts/minecraft/3_MinecraftBold1.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Minecraft';
+  src: url('/fonts/minecraft/4_MinecraftBoldItalic1.woff') format('woff'),
+       url('/fonts/minecraft/4_MinecraftBoldItalic1.otf') format('opentype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Minecraft Regular';
+  src: url('/fonts/minecraft/1_MinecraftRegular1.woff') format('woff'),
+       url('/fonts/minecraft/1_MinecraftRegular1.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Minecraft Bold';
+  src: url('/fonts/minecraft/3_MinecraftBold1.woff') format('woff'),
+       url('/fonts/minecraft/3_MinecraftBold1.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Standard responsive layout reset */
 *,
 *::before,

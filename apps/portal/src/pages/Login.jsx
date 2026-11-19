@@ -242,7 +242,7 @@ const Login = () => {
                 required
                 autoComplete="username"
                 aria-required="true"
-                placeholder="e.g. 20241450682 or name@futo.edu.ng"
+                placeholder="e.g. 20241400001 or name@futo.edu.ng"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 className="w-full px-4 py-3 text-sm sm:text-base rounded bg-white text-gray-900 placeholder-gray-400 border border-gray-300 focus:outline-none focus:border-[#138601] focus:ring-1 focus:ring-[#138601] font-normal transition-all"

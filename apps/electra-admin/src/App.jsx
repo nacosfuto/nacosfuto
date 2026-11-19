@@ -2000,7 +2000,7 @@ export default function App() {
                     required
                     value={candidateForm.name}
                     onChange={(e) => setCandidateForm({ ...candidateForm, name: e.target.value })}
-                    placeholder="e.g. Chukwuebuka Anyanwu"
+                    placeholder="e.g. Chukwuebuka Okafor"
                     className="w-full min-h-[44px] px-3.5 py-2.5 sm:py-2 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-white/10 text-base sm:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601]"
                   />
                 </div>
@@ -2076,7 +2076,7 @@ export default function App() {
                     type="text"
                     value={candidateForm.matricNumber}
                     onChange={(e) => setCandidateForm({ ...candidateForm, matricNumber: e.target.value })}
-                    placeholder="e.g. 20231429810"
+                    placeholder="e.g. 20241400001"
                     className="w-full min-h-[44px] px-3.5 py-2.5 sm:py-2 rounded-[5px] bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-white/10 text-base sm:text-sm font-mono text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#138601]"
                   />
                 </div>

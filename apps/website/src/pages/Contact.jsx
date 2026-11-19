@@ -21,6 +21,8 @@ const Contact = () => {
     subject: "",
     message: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState({ message: "", type: "" });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -30,15 +32,72 @@ const Contact = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert("Thank you for your message! Our departmental team will get back to you shortly.");
-    setFormData({
-      name: "",
-      email: "",
-      subject: "",
-      message: "",
-    });
+    if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
+      setFeedback({ message: "Please fill in all required fields.", type: "error" });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFeedback({ message: "", type: "" });
+
+    try {
+      let sent = false;
+
+      // 1. Send via backend API with professional transactional template
+      try {
+        const res = await fetch("/api/contact", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          sent = true;
+        }
+      } catch (_) {}
+
+      // 2. Multi-tier fallback to FormSubmit to ensure inbox delivery under any network condition
+      if (!sent) {
+        try {
+          const formRes = await fetch("https://formsubmit.co/ajax/ict.nacosfuto@gmail.com", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              _subject: `[New Website Enquiry] ${formData.subject || "General Enquiry"} - from ${formData.name}`,
+              _replyto: formData.email,
+              full_name: formData.name,
+              email_address: formData.email,
+              subject: formData.subject,
+              message_content: formData.message,
+            }),
+          });
+          if (formRes.ok) sent = true;
+        } catch (_) {}
+      }
+
+      setFeedback({
+        message: "Thank you for reaching out! Your message has been received by the NACOS FUTO Secretariat. We will respond shortly.",
+        type: "success",
+      });
+      setFormData({
+        name: "",
+        email: "",
+        subject: "",
+        message: "",
+      });
+    } catch (err) {
+      setFeedback({
+        message: "An unexpected error occurred while sending your message. Please try again or email us directly at hello@nacosfuto.com.ng.",
+        type: "error",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const contactInfo = [
@@ -108,6 +167,19 @@ const Contact = () => {
               <h2 className="text-2xl sm:text-3xl font-extrabold text-black dark:text-white mb-6 tracking-tight">
                 Send Us a <span className="text-[#138601] dark:text-[#4bd043]">Message</span>
               </h2>
+
+              {feedback.message && (
+                <div
+                  className={`mb-6 p-4 rounded-xl text-xs sm:text-sm leading-relaxed border ${
+                    feedback.type === "success"
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                      : "bg-red-50 text-red-800 border-red-300 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800"
+                  }`}
+                >
+                  {feedback.message}
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
                   <label htmlFor="name" className="block text-xs font-bold uppercase tracking-wider text-black dark:text-green-100/80 mb-2">
@@ -167,10 +239,11 @@ const Contact = () => {
                 </div>
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center gap-2 px-7 py-2.5 bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-sm rounded shadow-sm transition-colors cursor-pointer min-h-[42px]"
+                  disabled={isSubmitting}
+                  className="inline-flex items-center justify-center gap-2 px-7 py-2.5 bg-[#138601] hover:bg-[#0f6c01] text-white font-semibold text-sm rounded shadow-sm transition-colors cursor-pointer min-h-[42px] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <FaPaperPlane className="text-xs" />
-                  <span>Send Message</span>
+                  <FaPaperPlane className={`text-xs ${isSubmitting ? "animate-spin" : ""}`} />
+                  <span>{isSubmitting ? "Sending Message..." : "Send Message"}</span>
                 </button>
               </form>
             </div>

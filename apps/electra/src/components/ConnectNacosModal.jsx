@@ -279,7 +279,7 @@ export default function ConnectNacosModal({ isOpen, onClose, onConnect }) {
               </label>
               <input
                 type="text"
-                placeholder="e.g. 20201012948"
+                placeholder="e.g. 20241400001"
                 value={registrationNumber}
                 onChange={(e) => setRegistrationNumber(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-[5px] bg-slate-50 border border-slate-300 text-slate-900 text-sm font-mono placeholder:text-slate-400 focus:outline-none focus:border-[#138601] transition-colors"

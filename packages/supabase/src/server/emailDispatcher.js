@@ -22,7 +22,8 @@ import {
   formatPaymentCategoryName,
   renderRecoveryNotificationEmail,
   renderAdminAssignmentEmail,
-  renderAdminSecurityCodeEmail
+  renderAdminSecurityCodeEmail,
+  renderContactEnquiryEmail
 } from './emailTemplates.js';
 
 let cachedResendInstance = null;
@@ -746,6 +747,27 @@ export async function dispatchEmail(payload = {}, overrideEnv = {}) {
       currency: payment.currency,
       paidAt: payment.paidAt,
       replyTo
+    }, overrideEnv);
+  }
+
+  // INCOMING WEBSITE CONTACT FORM ENQUIRY
+  if (type === 'contact_enquiry' || type === 'contact') {
+    const template = renderContactEnquiryEmail({
+      name: payload.name || payload.fullName || studentName || 'Website Visitor',
+      email: payload.email || payload.senderEmail || '',
+      subject: payload.subject || 'Website Enquiry',
+      message: payload.message || payload.content || '',
+      phone: payload.phone || '',
+      receivedAt: payload.receivedAt || new Date().toISOString()
+    });
+    return sendEmail({
+      to,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+      replyTo: payload.email || replyTo,
+      emailType: 'contact_enquiry',
+      tags: [{ name: 'category', value: 'contact_enquiry' }]
     }, overrideEnv);
   }
 
