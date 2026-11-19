@@ -158,3 +158,25 @@ h1, h2, h3, h4, h5, h6, .font-heading, .font-display {
   background: rgba(19, 134, 1, 0.7);
 }
 
+/* Top Announcement Ticker Banner Animations */
+@keyframes tickerMarquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-ticker {
+  display: flex;
+  width: max-content;
+  animation: tickerMarquee 32s linear infinite;
+  will-change: transform;
+}
+
+.animate-ticker:hover,
+.ticker-wrapper:hover .animate-ticker {
+  animation-play-state: paused !important;
+}
+

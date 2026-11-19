@@ -447,3 +447,25 @@ footer a:hover {
 .animate-fadeInUp {
   animation: fadeInUp 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
+
+/* Top Announcement Ticker Banner Animations */
+@keyframes tickerMarquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-ticker {
+  display: flex;
+  width: max-content;
+  animation: tickerMarquee 32s linear infinite;
+  will-change: transform;
+}
+
+.animate-ticker:hover,
+.ticker-wrapper:hover .animate-ticker {
+  animation-play-state: paused !important;
+}

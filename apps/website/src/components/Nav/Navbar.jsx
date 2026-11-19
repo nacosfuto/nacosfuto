@@ -8,6 +8,7 @@ import logoLight from '../../assets/full-logo-light.png';
 import logoDark from '../../assets/full-logo-dark.png';
 import ScrollToTopLink from '../ScrollToTopLink';
 import { FiMenu, FiX } from 'react-icons/fi';
+import AnnouncementTicker from './AnnouncementTicker';
 
 const Navbar = () => {
   const { theme, toggleTheme } = useTheme();
@@ -42,6 +43,7 @@ const Navbar = () => {
             : 'bg-[#083002] border-[#138601]/25 text-white'
         }`}
       >
+        <AnnouncementTicker />
         <div className="flex items-center justify-between md:justify-start h-16 site-container w-full">
           <div className="flex items-center flex-shrink-0 mr-8">
             <ScrollToTopLink to="/" className="flex items-center">

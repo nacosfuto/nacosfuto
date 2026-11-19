@@ -58,17 +58,6 @@ const Home = () => {
     <div className="min-h-screen flex flex-col bg-white dark:bg-[#041801] text-black dark:text-white transition-colors duration-200">
       <Navbar />
 
-      {cmsContent.announcement_active && cmsContent.announcement_text && (
-        <div className="bg-[#138601] text-white px-4 py-2.5 text-xs sm:text-sm font-medium text-center flex items-center justify-center gap-2 relative z-20 shadow-sm">
-          <span>📢 {cmsContent.announcement_text}</span>
-          {cmsContent.announcement_link && (
-            <ScrollToTopLink to={cmsContent.announcement_link} className="underline font-bold hover:text-green-200 ml-1">
-              Learn More →
-            </ScrollToTopLink>
-          )}
-        </div>
-      )}
-      
       <main className="flex-grow">
         {/* Dynamic Database-Driven Hero Carousel */}
         <HeroCarousel cmsContent={cmsContent} />
