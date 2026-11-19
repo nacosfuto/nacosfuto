@@ -535,8 +535,8 @@ function cloudinaryDevPlugin() {
 
                 const data = typeof rawBody === 'object' ? rawBody : JSON.parse(rawBody || '{}');
                 const cloudName = env.CLOUDINARY_CLOUD_NAME || env.VITE_CLOUDINARY_CLOUD_NAME || 'a2mmcttn';
-                const apiKey = env.CLOUDINARY_API_KEY || '722252495954777';
-                const apiSecret = env.CLOUDINARY_API_SECRET || 'S8lEKNI2XO6bcGGylYWivj05xUA';
+                const apiKey = env.CLOUDINARY_API_KEY || '412556172117636';
+                const apiSecret = env.CLOUDINARY_API_SECRET || '97tDoNGX7I72PWGoM64hpprsgfg';
                 const timestamp = Math.round(Date.now() / 1000);
                 const paramsToSign = {};
                 if (data.folder) paramsToSign.folder = data.folder;

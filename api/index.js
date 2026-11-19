@@ -950,8 +950,8 @@ export default async function handler(req, res) {
       if (method === 'POST') {
         const data = await parseRequestBody(req);
         const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.VITE_CLOUDINARY_CLOUD_NAME || 'a2mmcttn';
-        const apiKey = process.env.CLOUDINARY_API_KEY || '722252495954777';
-        const apiSecret = process.env.CLOUDINARY_API_SECRET || 'S8lEKNI2XO6bcGGylYWivj05xUA';
+        const apiKey = process.env.CLOUDINARY_API_KEY || '412556172117636';
+        const apiSecret = process.env.CLOUDINARY_API_SECRET || '97tDoNGX7I72PWGoM64hpprsgfg';
         const timestamp = Math.round(Date.now() / 1000);
         const paramsToSign = {};
         if (data.folder) paramsToSign.folder = data.folder;

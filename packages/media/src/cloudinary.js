@@ -354,11 +354,21 @@ export async function uploadMedia(file, options = {}) {
     if (publicId) signPayload.public_id = publicId;
     if (tags) signPayload.tags = tags;
 
-    const signRes = await fetch('/api/cloudinary/sign', {
+    let signRes = await fetch('/api/cloudinary/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(signPayload)
     });
+
+    if (!signRes.ok && signRes.status >= 500) {
+      // Automatic retry for transient serverless cold-start or momentary gateway blip
+      await new Promise(r => setTimeout(r, 600));
+      signRes = await fetch('/api/cloudinary/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(signPayload)
+      }).catch(() => signRes);
+    }
 
     if (signRes.ok) {
       const signData = await signRes.json();
@@ -390,8 +400,11 @@ export async function uploadMedia(file, options = {}) {
         lastError = 'Signing endpoint returned incomplete credentials';
       }
     } else {
-      const errText = await signRes.text().catch(() => '');
-      lastError = `Server signing endpoint returned status ${signRes.status}: ${errText}`;
+      const rawText = await signRes.text().catch(() => '');
+      const cleanErr = rawText.includes('FUNCTION_INVOCATION_FAILED')
+        ? 'Server signature generator is temporarily unavailable. Please retry in a moment.'
+        : rawText.replace(/<[^>]*>?/gm, '').trim().slice(0, 180);
+      lastError = `Server signing endpoint returned status ${signRes.status}${cleanErr ? `: ${cleanErr}` : ''}`;
     }
   } catch (signErr) {
     lastError = signErr.message || 'Server signing endpoint unreachable';
