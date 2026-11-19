@@ -287,7 +287,9 @@ function App() {
               <Route path="/portal-admin/*" element={<PortalAdminRedirect />} />
               <Route path="/portal-admin" element={<PortalAdminRedirect />} />
 
-              {/* Student Portal & Payment Redirects */}
+              {/* Student Portal, Hackathons & Payment Redirects */}
+              <Route path="/hackathons" element={<PortalPassThroughRedirect />} />
+              <Route path="/hackathons/*" element={<PortalPassThroughRedirect />} />
               <Route path="/id-card" element={<PortalPassThroughRedirect />} />
               <Route path="/id-card/*" element={<PortalPassThroughRedirect />} />
               <Route path="/id" element={<PortalPassThroughRedirect />} />

@@ -52,6 +52,7 @@ const Footer = () => {
               <li><ScrollToTopLink to="/about/nacos-executives" className="text-white hover:text-[#4bd043] transition-colors">NACOS Executives</ScrollToTopLink></li>
               <li><ScrollToTopLink to="/news" className="text-white hover:text-[#4bd043] transition-colors">News & Journal</ScrollToTopLink></li>
               <li><ScrollToTopLink to="/events" className="text-white hover:text-[#4bd043] transition-colors">Department Events</ScrollToTopLink></li>
+              <li><ScrollToTopLink to="/hackathons/the-agentic-build" className="text-amber-300 font-semibold hover:text-white transition-colors">The Agentic Build (Hackathon)</ScrollToTopLink></li>
               <li><ScrollToTopLink to="/about/alumni" className="text-white hover:text-[#4bd043] transition-colors">Alumni Network</ScrollToTopLink></li>
             </ul>
           </div>

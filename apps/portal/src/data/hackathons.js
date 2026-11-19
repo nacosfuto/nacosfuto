@@ -1,180 +1,119 @@
 export const HACKATHONS = [
   {
-    id: "BuildXNACOS",
-    slug: "BuildXNACOS",
-    title: "BUILDX NACOS",
-    subtitle: "Turn an idea into working national impact.",
-    badge: "NACOS National Hackathon",
-    tagline: "Unleash Innovation. Build Next-Gen Technology for Nigeria & Beyond.",
-    mode: "Virtual",
+    id: "the-agentic-build",
+    slug: "the-agentic-build",
+    title: "THE AGENTIC BUILD",
+    theme: "The Agentic Build",
+    subtitle: "Build any product idea using AI tools. Follow standard SDLC.",
+    badge: "NACOS FUTO Grand Hackathon",
+    tagline: "Build any product with AI tools. Follow standard SDLC and showcase your workflow.",
+    mode: "Department of Computer Science, FUTO & Virtual",
     status: "Active", // "Active", "Upcoming", "Completed"
-    organizer: "NACOS National",
-    coOrganizers: ["FUTO Chapter", "National Innovation Directorate"],
-    startDate: "2026-09-08T09:00:00Z",
-    endDate: "2026-09-28T23:59:59Z",
-    applicationDeadline: "2026-09-20T23:59:59Z",
-    stats: {
-      eventDate: "Sep 8, 2026",
-      location: "Virtual (Online)",
-      prizePool: "₦1,000,000",
-      applyBefore: "Sep 20, 2026",
-      registeredStudents: 420,
-      activeTeams: 38,
-      submissionsCount: 14
-    },
-    prizes: [
-      {
-        rank: "1st Place",
-        title: "Grand Champion",
-        amount: "₦500,000",
-        perks: ["Cloud Credits ($2,000)", "Direct Incubation Mentorship", "National Recognition Trophy", "Fast-track Internship Interviews"],
-        badgeColor: "from-amber-400 to-amber-600",
-        textColor: "text-amber-500",
-        border: "border-amber-400/30"
-      },
-      {
-        rank: "2nd Place",
-        title: "First Runner-up",
-        amount: "₦300,000",
-        perks: ["Cloud Credits ($1,000)", "Mentorship Access", "Silver Plaque", "Resume Spotlight with Hiring Partners"],
-        badgeColor: "from-slate-300 to-slate-500",
-        textColor: "text-slate-400",
-        border: "border-slate-400/30"
-      },
-      {
-        rank: "3rd Place",
-        title: "Second Runner-up",
-        amount: "₦200,000",
-        perks: ["Cloud Credits ($500)", "Bronze Plaque", "NACOS Swag Bag", "Certificate of Technical Excellence"],
-        badgeColor: "from-amber-600 to-amber-800",
-        textColor: "text-amber-700 dark:text-amber-600",
-        border: "border-amber-700/30"
-      }
+    organizer: "NACOS FUTO",
+    coOrganizers: [
+      "Department of Computer Science FUTO",
+      "NACOS FUTO Executive Council"
     ],
+    hostDirectorate: "Department of Computer Science, NACOS FUTO",
+    venue: "Department of Computer Science, FUTO",
+    teamFormat: "Solo builders or teams of up to 5 members",
+    startDate: "2026-12-11T09:00:00Z",
+    endDate: "2026-12-11T23:59:59Z",
+    applicationDeadline: "2026-12-10T23:59:59Z",
+    stats: {
+      eventDate: "December 11, 2026",
+      location: "Department of Computer Science, FUTO",
+      prizePool: "100 dollar pool",
+      applyBefore: "December 10, 2026",
+      registeredStudents: 380,
+      activeTeams: 42,
+      submissionsCount: 18
+    },
+    prizePoolDetails: {
+      title: "100 dollar pool",
+      description: "Unified prize pool awarded to the winning products, alongside developer credits, incubation mentorship, trophy, and certificates.",
+      perks: [
+        "100 dollar pool cash rewards",
+        "Cloud development credits & dev tools perks",
+        "Incubation mentorship & technical guidance",
+        "Grand innovation trophy & technical excellence certificates"
+      ]
+    },
     timeline: [
       {
-        date: "September 8, 2026",
-        title: "Hackathon Launch & Registration Opens",
-        description: "Official kickoff, problem track releases, and team registration on the NACOS portal."
+        date: "November 25, 2026",
+        title: "Launch & Applications Open",
+        description: "Registration opens for solo developers and teams. Developer resources and SDLC guidelines go live."
       },
       {
-        date: "September 20, 2026",
-        title: "Registration Closes & Team Verification",
-        description: "Chapter presidents verify institutional member rosters. Teams finalized."
+        date: "December 5, 2026",
+        title: "SDLC & Building with AI Tools Workshop",
+        description: "Technical orientation covering standard SDLC phases, leveraging AI coding assistants effectively, and structuring documentation."
       },
       {
-        date: "September 21, 2026",
-        title: "Hacking & Mentorship Sprints",
-        description: "Intensive 7-day development period with live office hours from industry mentors."
+        date: "December 10, 2026",
+        title: "Application Deadline & Verification",
+        description: "Registration closes. Verification of solo builders, team rosters, and product proposals."
       },
       {
-        date: "September 26, 2026",
-        title: "Project Submission Deadline (11:59 PM)",
-        description: "GitHub repository URL, demo video link (3 mins), and pitch slide deck submission."
-      },
-      {
-        date: "September 28, 2026",
-        title: "Grand Finale & Live Demo Day",
-        description: "Top 10 finalist pitches in front of executive jury and prize ceremony."
+        date: "December 11, 2026",
+        title: "Grand Hackathon Event Day & Live Pitches",
+        description: "Product demonstration, live pitches explaining AI workflow and SDLC implementation, and awards ceremony at the Department of Computer Science, FUTO."
       }
     ],
-    tracks: [
-      {
-        id: "fintech",
-        title: "Open Payments & FinTech",
-        icon: "Wallet",
-        color: "emerald",
-        description: "Build frictionless financial infrastructure, student micro-payments, escrow systems, and transparent decentralized treasury solutions for institutions.",
-        ideas: [
-          "Campus Micro-Payments & Dues Automation",
-          "Decentralized student loan & grant escrow",
-          "Offline-first payment rail for remote campuses"
-        ]
-      },
-      {
-        id: "ai",
-        title: "Artificial Intelligence & Automation",
-        icon: "Cpu",
-        color: "cyan",
-        description: "Harness modern LLMs, autonomous agents, and computer vision to solve critical challenges in education, healthcare diagnostics, and agriculture in Africa.",
-        ideas: [
-          "Local-dialect AI STEM tutoring companion",
-          "Automated exam grading & plagiarism detector",
-          "Agri-tech crop disease diagnosis from phone photos"
-        ]
-      },
-      {
-        id: "digital",
-        title: "Digital Innovation & Civic Tech",
-        icon: "Globe",
-        color: "blue",
-        description: "Engineer scalable digital public goods, secure e-voting, verifiable academic credentials, and decentralized alumni trust networks.",
-        ideas: [
-          "Blockchain-verified degree & transcript certification",
-          "Tamper-proof student union election portal",
-          "Community emergency & campus safety response system"
-        ]
-      }
-    ],
-    criteria: [
-      {
-        title: "Innovation & Originality",
-        percentage: 20,
-        description: "How novel and groundbreaking is the approach compared to existing solutions?"
-      },
-      {
-        title: "Problem Understanding & Relevance",
-        percentage: 15,
-        description: "Does the solution address a genuine, well-researched pain point in Nigeria / Africa?"
-      },
-      {
-        title: "Technical Implementation & Architecture",
-        percentage: 20,
-        description: "Quality of code, robustness, architecture scalability, security, and use of modern tooling."
-      },
-      {
-        title: "Impact & Feasibility",
-        percentage: 20,
-        description: "Market viability, business or social sustainability, and potential to scale nationally."
-      },
-      {
-        title: "User Experience & Design",
-        percentage: 10,
-        description: "Intuitive UI/UX design, accessibility, responsiveness, and polished visual appeal."
-      },
-      {
-        title: "Demo & Pitch Presentation",
-        percentage: 15,
-        description: "Clarity of the 3-minute video demo, effective storytelling, and live working prototype."
-      }
+    projectTypes: [
+      "Web Application",
+      "Mobile Application (iOS / Android)",
+      "Campus & Student Life Tech",
+      "Developer Tools & SaaS",
+      "FinTech & Digital Commerce",
+      "Civic Tech, Health & Social Impact",
+      "Other Innovative Product"
     ],
     rules: [
-      "All team members must be active, verified students of an accredited tertiary institution in Nigeria.",
-      "Teams must consist of 3 to 6 members (cross-institutional collaboration is encouraged).",
-      "All code submitted must be written during the hackathon. Open-source libraries and APIs are permitted, but preexisting complete codebases will lead to immediate disqualification.",
-      "Projects must be hosted in a public GitHub repository with an open-source license and clear README installation instructions.",
-      "Submissions must include a 3-minute Loom / YouTube walkthrough demo and working live deployment URL.",
-      "Every team must submit their application before the September 20, 2026 deadline.",
-      "Plagiarism, intellectual property infringement, or unethical scraping is strictly prohibited.",
-      "Judges' decisions regarding shortlisting and winner selection are final and transparent."
+      "No rigid tracks: any product idea is accepted across web, mobile, desktop, or cloud software.",
+      "It is NOT a must that your product itself has AI. Products can incorporate AI directly OR be built using modern AI tools (e.g. Cursor, Copilot, ChatGPT, Claude, LLM code workflows).",
+      "Teams must follow standard SDLC (Software Development Life Cycle) practices: requirement definition, system architecture/design, implementation, testing, and deployment.",
+      "During the final presentation, teams must be able to clearly explain their workflow and how they utilized AI tools throughout their development cycle.",
+      "Open to solo builders or teams of up to 5 members.",
+      "All code submitted must be newly authored during the hackathon sprint window. Pre-existing projects are disqualified.",
+      "Each team or solo builder must submit a public GitHub repository, a deployed live demo link or clear local run instructions, and a 3-minute video presentation."
     ],
     faqs: [
       {
-        q: "Who is eligible to participate in BUILDX NACOS?",
-        a: "Any undergraduate or postgraduate student registered in an accredited Nigerian higher institution (University, Polytechnic, College of Education). Members do not have to be strictly Computer Science majors—designers, product managers, and engineers are welcome!"
+        question: "Are there specific tracks to choose from?",
+        answer: "No, there are no fixed tracks! You have full creative freedom to build any kind of software product. During registration, you simply indicate what kind of project you and your team are building."
       },
       {
-        q: "Is there any registration fee?",
-        a: "No! Participation in BUILDX NACOS is 100% free of charge, sponsored by NACOS National and industry partners."
+        question: "Does my product have to feature AI directly?",
+        answer: "No! It is NOT a must that your product contains AI features. Any product idea is accepted (web app, mobile app, API, utility). Your product can either feature AI directly or simply be built using modern AI tools to accelerate your engineering workflow."
       },
       {
-        q: "How will mentoring and support work?",
-        a: "Mentors will be available in dedicated Discord/Slack channels throughout the hacking sprints to offer architecture reviews, pitch refinement, and technical unblocking."
+        question: "What is required during the demo presentation?",
+        answer: "You must be able to explain your development flow in using AI tools, demonstrate a working product, and show adherence to standard SDLC (requirements, architecture, implementation, and testing)."
       },
       {
-        q: "Can solo participants enter?",
-        a: "We strongly encourage team formation (minimum 3 members). If you don't have a team, join the NACOS community Discord to meet team members during the team-matching sessions."
+        question: "What does following standard SDLC mean for this hackathon?",
+        answer: "It means following sound software engineering fundamentals: having a clearly defined problem and requirements, clean modular architecture, version-controlled code, basic testing/validation, and a runnable deployment."
+      },
+      {
+        question: "Where is the venue?",
+        answer: "The hackathon takes place at the Department of Computer Science, FUTO on December 11th, 2026."
+      },
+      {
+        question: "Can I participate alone as a solo builder?",
+        answer: "Yes! You can register either as an individual solo builder or in a team of up to 5 members."
+      },
+      {
+        question: "What is the prize pool?",
+        answer: "The hackathon features a 100 dollar pool, alongside developer credits, incubation mentorship, trophies, and certificates for the top winning projects."
+      },
+      {
+        question: "Is there any registration fee?",
+        answer: "No. Participation is 100% free, organized by NACOS FUTO."
       }
     ]
   }
 ];
+
+export const getActiveHackathon = () => HACKATHONS[0];

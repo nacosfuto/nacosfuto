@@ -147,8 +147,12 @@ function PortalSEOHandler() {
       '/id/view': 'View Student ID Card | NACOS FUTO Portal',
       '/receipt': 'Official Payment Receipt | NACOS FUTO Portal',
       '/admin-hub': 'Administrative Control Gateway | NACOS FUTO',
-      '/hackathons/BuildXNACOS': 'BuildX NACOS National Hackathon | NACOS FUTO',
-      '/hackathons/BuildXNACOS/apply': 'Apply - BuildX NACOS Hackathon | NACOS FUTO'
+      '/hackathons': 'The Agentic Build | Grand Hackathon 2026 | Office of the Director of ICT NACOS FUTO',
+      '/hackathons/the-agentic-build': 'The Agentic Build | Grand Hackathon 2026 | Office of the Director of ICT NACOS FUTO',
+      '/hackathons/the-agentic-build/apply': 'Apply - The Agentic Build | Team Registration | Office of the Director of ICT NACOS FUTO',
+      '/hackathons/agentic-build': 'The Agentic Build | Office of the Director of ICT NACOS FUTO',
+      '/hackathons/BuildXNACOS': 'The Agentic Build | Office of the Director of ICT NACOS FUTO',
+      '/hackathons/BuildXNACOS/apply': 'Apply - The Agentic Build | NACOS FUTO'
     };
 
     const title = titles[location.pathname] || 'NACOS FUTO Portal | Student Academic & Clearance Hub';
@@ -221,10 +225,14 @@ function App() {
               {/* Public Verification Route */}
               <Route path="/verify/id/:id" element={<IdVerification />} />
 
-              {/* Dedicated National Hackathon Module (Accessible via button/link without cluttering student portal) */}
-              <Route path="/hackathons" element={<Navigate to="/hackathons/BuildXNACOS" replace />} />
-              <Route path="/hackathons/BuildXNACOS" element={<HackathonDetail />} />
-              <Route path="/hackathons/BuildXNACOS/apply" element={<HackathonApply />} />
+              {/* Dedicated Hackathon Module: The Agentic Build (Office of the Director of ICT, NACOS FUTO) */}
+              <Route path="/hackathons" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
+              <Route path="/hackathons/the-agentic-build" element={<HackathonDetail />} />
+              <Route path="/hackathons/the-agentic-build/apply" element={<HackathonApply />} />
+              <Route path="/hackathons/agentic-build" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
+              <Route path="/hackathons/agentic-build/apply" element={<Navigate to="/hackathons/the-agentic-build/apply" replace />} />
+              <Route path="/hackathons/BuildXNACOS" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
+              <Route path="/hackathons/BuildXNACOS/apply" element={<Navigate to="/hackathons/the-agentic-build/apply" replace />} />
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
