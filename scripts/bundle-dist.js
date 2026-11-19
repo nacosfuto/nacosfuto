@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { transformToHackathonHtml } from './generateHackathonHtml.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,6 +71,18 @@ if (fs.existsSync(portalDist)) {
   const portalIndex = path.join(portalDist, 'index.html');
   if (fs.existsSync(portalIndex)) {
     fs.copyFileSync(portalIndex, path.join(targetDist, 'portal.html'));
+
+    // Generate authoritative pre-rendered hackathon.html for crawler previews
+    try {
+      const rawPortalHtml = fs.readFileSync(portalIndex, 'utf-8');
+      const hackathonHtml = transformToHackathonHtml(rawPortalHtml);
+      fs.writeFileSync(path.join(targetPortalDist, 'hackathon.html'), hackathonHtml, 'utf-8');
+      fs.writeFileSync(path.join(targetDist, 'hackathons.html'), hackathonHtml, 'utf-8');
+      fs.writeFileSync(path.join(portalDist, 'hackathon.html'), hackathonHtml, 'utf-8');
+      console.log('[bundle-dist] Generated pre-rendered hackathon.html with Open Graph / Twitter SEO preview tags');
+    } catch (err) {
+      console.warn('[bundle-dist] Warning: Failed to generate hackathon.html:', err.message);
+    }
   }
 
   const gatewayRedirect = path.join(portalDist, 'gateway-redirect.html');

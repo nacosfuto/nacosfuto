@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/hackathons",
+      "destination": "/hackathon.html"
+    },
+    {
+      "source": "/hackathons/((?!.*\\.).*)",
+      "destination": "/hackathon.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

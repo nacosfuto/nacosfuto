@@ -2,7 +2,9 @@ import '../../packages/supabase/src/server/loadEnv.js';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
+import { transformToHackathonHtml } from '../../scripts/generateHackathonHtml.js';
 import { dispatchEmail } from '../../packages/supabase/src/server/emailDispatcher.js';
 import {
   createPaymentCheckout,
@@ -739,11 +741,31 @@ function cloudinaryDevPlugin() {
   };
 }
 
+function hackathonHtmlPlugin() {
+  return {
+    name: 'hackathon-html-plugin',
+    closeBundle() {
+      try {
+        const distDir = path.resolve(__dirname, 'dist');
+        const indexPath = path.join(distDir, 'index.html');
+        if (fs.existsSync(indexPath)) {
+          const rawHtml = fs.readFileSync(indexPath, 'utf-8');
+          const hackathonHtml = transformToHackathonHtml(rawHtml);
+          fs.writeFileSync(path.join(distDir, 'hackathon.html'), hackathonHtml, 'utf-8');
+          console.log('[portal-vite] Generated hackathon.html in apps/portal/dist');
+        }
+      } catch (err) {
+        console.warn('[portal-vite] Warning: Could not generate hackathon.html:', err.message);
+      }
+    }
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   envDir: path.resolve(__dirname, '../../'),
   base: process.env.VITE_BASE_PATH || (process.env.NODE_ENV === 'production' ? '/portal/' : '/'),
-  plugins: [react(), cloudinaryDevPlugin()],
+  plugins: [react(), cloudinaryDevPlugin(), hackathonHtmlPlugin()],
   resolve: {
     alias: {
       '@nacos/media': path.resolve(__dirname, '../../packages/media/src/index.js'),

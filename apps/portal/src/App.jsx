@@ -125,10 +125,39 @@ const ElectraAdminRedirect = () => {
   );
 };
 
+const HACKATHON_OG_IMAGE = 'https://res.cloudinary.com/a2mmcttn/image/upload/b_rgb:041801,c_pad,w_1200,h_630/v1795114029/nacos/general/the-agentic-build-logo-dark.png';
+const DEFAULT_PORTAL_OG_IMAGE = 'https://nacosfuto.com/logo.png';
+const BASE_DOMAIN = 'https://nacosfuto.com';
+
+function setMetaTag(selector, attrName, attrValue, content) {
+  if (typeof document === 'undefined') return;
+  let el = document.querySelector(selector);
+  if (!el) {
+    el = document.createElement('meta');
+    el.setAttribute(attrName, attrValue);
+    document.head.appendChild(el);
+  }
+  el.setAttribute('content', content);
+}
+
+function setLinkTag(rel, href) {
+  if (typeof document === 'undefined') return;
+  let el = document.querySelector(`link[rel="${rel}"]`);
+  if (!el) {
+    el = document.createElement('link');
+    el.setAttribute('rel', rel);
+    document.head.appendChild(el);
+  }
+  el.setAttribute('href', href);
+}
+
 function PortalSEOHandler() {
   const location = useLocation();
 
   useEffect(() => {
+    const isHackathonApply = location.pathname.endsWith('/apply');
+    const isHackathon = location.pathname.startsWith('/hackathon');
+
     const titles = {
       '/': 'Student Login | NACOS FUTO Portal',
       '/login': 'Student Login | NACOS FUTO Portal',
@@ -147,16 +176,62 @@ function PortalSEOHandler() {
       '/id/view': 'View Student ID Card | NACOS FUTO Portal',
       '/receipt': 'Official Payment Receipt | NACOS FUTO Portal',
       '/admin-hub': 'Administrative Control Gateway | NACOS FUTO',
-      '/hackathons': 'The Agentic Build | Grand Hackathon 2026 | Office of the Director of ICT NACOS FUTO',
-      '/hackathons/the-agentic-build': 'The Agentic Build | Grand Hackathon 2026 | Office of the Director of ICT NACOS FUTO',
-      '/hackathons/the-agentic-build/apply': 'Apply - The Agentic Build | Team Registration | Office of the Director of ICT NACOS FUTO',
-      '/hackathons/agentic-build': 'The Agentic Build | Office of the Director of ICT NACOS FUTO',
-      '/hackathons/BuildXNACOS': 'The Agentic Build | Office of the Director of ICT NACOS FUTO',
-      '/hackathons/BuildXNACOS/apply': 'Apply - The Agentic Build | NACOS FUTO'
+      '/hackathons': 'The Agentic Build 2026 | NACOS FUTO Grand Hackathon',
+      '/hackathons/the-agentic-build': 'The Agentic Build 2026 | NACOS FUTO Grand Hackathon',
+      '/hackathons/the-agentic-build/apply': 'Register - The Agentic Build 2026 | NACOS FUTO Hackathon',
+      '/hackathons/agentic-build': 'The Agentic Build 2026 | NACOS FUTO Grand Hackathon',
+      '/hackathons/agentic-build/apply': 'Register - The Agentic Build 2026 | NACOS FUTO Hackathon',
+      '/hackathons/BuildXNACOS': 'The Agentic Build 2026 | NACOS FUTO Grand Hackathon',
+      '/hackathons/BuildXNACOS/apply': 'Register - The Agentic Build 2026 | NACOS FUTO Hackathon'
     };
 
-    const title = titles[location.pathname] || 'NACOS FUTO Portal | Student Academic & Clearance Hub';
+    let title = titles[location.pathname];
+    let description = 'Official student academic portal for FUTO Computer Science. Register courses, pay departmental dues, generate verified digital student ID cards, view semester results, and track departmental clearances.';
+    let image = DEFAULT_PORTAL_OG_IMAGE;
+    let siteName = 'NACOS FUTO Student Portal';
+
+    if (isHackathon) {
+      siteName = 'NACOS FUTO - The Agentic Build';
+      image = HACKATHON_OG_IMAGE;
+      if (isHackathonApply) {
+        title = title || 'Register - The Agentic Build 2026 | NACOS FUTO Hackathon';
+        description = 'Register for The Agentic Build 2026 Hackathon. Open to Computer Science students at FUTO. Compete solo or form a team of up to 5 members to build innovative AI-assisted software.';
+      } else {
+        title = title || 'The Agentic Build 2026 | NACOS FUTO Grand Hackathon';
+        description = 'Official Hackathon organized by the Department of Computer Science & Office of the Director of ICT, NACOS FUTO. Build any product idea using AI tools and standard SDLC. Register solo or as a team for cash prizes, mentorship, and certificates.';
+      }
+    } else {
+      title = title || 'NACOS FUTO Portal | Student Academic & Clearance Hub';
+    }
+
+    const canonicalPath = location.pathname.startsWith('/portal') 
+      ? location.pathname 
+      : (isHackathon ? location.pathname : `/portal${location.pathname}`);
+    const canonicalUrl = `${BASE_DOMAIN}${canonicalPath}`;
+
+    // 1. Update Document Title
     document.title = title;
+
+    // 2. Primary Meta Tags
+    setMetaTag('meta[name="title"]', 'name', 'title', title);
+    setMetaTag('meta[name="description"]', 'name', 'description', description);
+    setLinkTag('canonical', canonicalUrl);
+
+    // 3. Open Graph Tags
+    setMetaTag('meta[property="og:type"]', 'property', 'og:type', 'website');
+    setMetaTag('meta[property="og:site_name"]', 'property', 'og:site_name', siteName);
+    setMetaTag('meta[property="og:title"]', 'property', 'og:title', title);
+    setMetaTag('meta[property="og:description"]', 'property', 'og:description', description);
+    setMetaTag('meta[property="og:url"]', 'property', 'og:url', canonicalUrl);
+    setMetaTag('meta[property="og:image"]', 'property', 'og:image', image);
+
+    // 4. Twitter Cards
+    setMetaTag('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image');
+    setMetaTag('meta[name="twitter:site"]', 'name', 'twitter:site', '@nacosfuto');
+    setMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', title);
+    setMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', description);
+    setMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', image);
+    setMetaTag('meta[name="twitter:url"]', 'name', 'twitter:url', canonicalUrl);
   }, [location.pathname]);
 
   return null;

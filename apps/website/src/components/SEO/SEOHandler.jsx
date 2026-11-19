@@ -101,10 +101,26 @@ const ROUTE_SEO_MAP = {
   '/faqs': {
     title: 'Frequently Asked Questions (FAQs) | NACOS FUTO',
     description: 'Answers to common questions regarding course registration, clearance, student portal access, departmental dues, and student life.'
+  },
+  '/hackathons': {
+    title: 'The Agentic Build 2026 | NACOS FUTO Grand Hackathon',
+    description: 'Official Hackathon of the Department of Computer Science & Office of the Director of ICT, NACOS FUTO. Build any product idea using AI tools and standard SDLC. Register solo or as a team for cash prizes and mentorship.',
+    image: 'https://res.cloudinary.com/a2mmcttn/image/upload/b_rgb:041801,c_pad,w_1200,h_630/v1795114029/nacos/general/the-agentic-build-logo-dark.png'
+  },
+  '/hackathons/the-agentic-build': {
+    title: 'The Agentic Build 2026 | NACOS FUTO Grand Hackathon',
+    description: 'Official Hackathon of the Department of Computer Science & Office of the Director of ICT, NACOS FUTO. Build any product idea using AI tools and standard SDLC. Register solo or as a team for cash prizes and mentorship.',
+    image: 'https://res.cloudinary.com/a2mmcttn/image/upload/b_rgb:041801,c_pad,w_1200,h_630/v1795114029/nacos/general/the-agentic-build-logo-dark.png'
+  },
+  '/hackathons/the-agentic-build/apply': {
+    title: 'Register - The Agentic Build 2026 | NACOS FUTO Hackathon',
+    description: 'Register for The Agentic Build 2026 Hackathon. Open to Computer Science students at FUTO. Compete solo or form a team of up to 5 members to build innovative AI-assisted software.',
+    image: 'https://res.cloudinary.com/a2mmcttn/image/upload/b_rgb:041801,c_pad,w_1200,h_630/v1795114029/nacos/general/the-agentic-build-logo-dark.png'
   }
 };
 
 const BASE_DOMAIN = 'https://nacosfuto.com';
+const DEFAULT_WEBSITE_IMAGE = 'https://nacosfuto.com/logo.png';
 
 export default function SEOHandler() {
   const location = useLocation();
@@ -131,10 +147,20 @@ export default function SEOHandler() {
       }
     }
 
+    const pageImage = config.image || DEFAULT_WEBSITE_IMAGE;
+
     // 1. Update Document Title
     document.title = config.title;
 
-    // 2. Update Meta Description
+    // 2. Update Meta Description & Title
+    let metaTitle = document.querySelector('meta[name="title"]');
+    if (!metaTitle) {
+      metaTitle = document.createElement('meta');
+      metaTitle.name = 'title';
+      document.head.appendChild(metaTitle);
+    }
+    metaTitle.content = config.title;
+
     let metaDesc = document.querySelector('meta[name="description"]');
     if (!metaDesc) {
       metaDesc = document.createElement('meta');
@@ -162,12 +188,23 @@ export default function SEOHandler() {
     let ogUrl = document.querySelector('meta[property="og:url"]');
     if (ogUrl) ogUrl.content = `${BASE_DOMAIN}${path}`;
 
+    let ogImage = document.querySelector('meta[property="og:image"]');
+    if (ogImage) ogImage.content = pageImage;
+
+    let ogSiteName = document.querySelector('meta[property="og:site_name"]');
+    if (ogSiteName && path.startsWith('/hackathon')) {
+      ogSiteName.content = 'NACOS FUTO - The Agentic Build';
+    }
+
     // 5. Update Twitter Meta Tags
     let twitterTitle = document.querySelector('meta[name="twitter:title"]');
     if (twitterTitle) twitterTitle.content = config.title;
 
     let twitterDesc = document.querySelector('meta[name="twitter:description"]');
     if (twitterDesc) twitterDesc.content = config.description;
+
+    let twitterImage = document.querySelector('meta[name="twitter:image"]');
+    if (twitterImage) twitterImage.content = pageImage;
   }, [location.pathname]);
 
   return null;
