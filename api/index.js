@@ -704,179 +704,31 @@ export default async function handler(req, res) {
     // 5B. HACKATHON REGISTRATION EMAIL DISPATCH (/api/hackathons/register)
     // =========================================================================
     if (route === '/api/hackathons/register' && method === 'POST') {
-      const body = await parseRequestBody(req);
-      const {
-        participationType,
-        teamName,
-        chapter,
-        projectKind,
-        leadName,
-        leadEmail,
-        leadMatric,
-        leadPhone,
-        projectTitle,
-        problemStatement,
-        proposedSolution,
-        techStack,
-        githubRepo,
-        members = []
-      } = body;
-
-      const recipient = 'ict.nacosfuto@gmail.com';
-      const entityName = participationType === 'solo' ? (leadName || 'Solo Builder') : (teamName || 'Team');
-      const subject = `[The Agentic Build 2026] New Registration: ${entityName} (${projectKind || 'Software'})`;
-
-      const membersHtml = members.length > 0
-        ? members.map((m, idx) => `
-            <tr>
-              <td style="padding: 8px; border: 1px solid #ddd;">${idx + 2}</td>
-              <td style="padding: 8px; border: 1px solid #ddd;"><strong>${m.name || 'N/A'}</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">${m.email || 'N/A'}</td>
-              <td style="padding: 8px; border: 1px solid #ddd;">${m.matric || 'N/A'}</td>
-              <td style="padding: 8px; border: 1px solid #ddd;">${m.role || 'N/A'}</td>
-            </tr>
-          `).join('')
-        : '<tr><td colspan="5" style="padding: 10px; text-align: center; color: #666;">Solo Builder (No additional members)</td></tr>';
-
-      const emailHtml = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 650px; margin: 0 auto; background: #ffffff; border: 2px solid #138601; border-radius: 8px; overflow: hidden; color: #111827;">
-          <div style="background: #138601; color: #ffffff; padding: 24px; text-align: center;">
-            <h1 style="margin: 0; font-size: 22px; text-transform: uppercase; letter-spacing: 1px;">The Agentic Build 2026</h1>
-            <p style="margin: 6px 0 0 0; font-size: 13px; opacity: 0.9;">NACOS FUTO Grand Hackathon • New Registration Submission</p>
-          </div>
-
-          <div style="padding: 24px;">
-            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 14px; margin-bottom: 20px;">
-              <h2 style="margin: 0 0 8px 0; font-size: 16px; color: #138601;">
-                ${participationType === 'solo' ? '👤 Solo Builder Registration' : '👥 Team Registration: ' + (teamName || 'Unnamed Team')}
-              </h2>
-              <p style="margin: 0; font-size: 13px; color: #374151;">
-                <strong>Project Kind:</strong> ${projectKind || 'Web Application'} &nbsp;|&nbsp;
-                <strong>Chapter:</strong> ${chapter || 'FUTO'} &nbsp;|&nbsp;
-                <strong>Date:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'Africa/Lagos' })} (WAT)
-              </p>
-            </div>
-
-            <h3 style="margin: 16px 0 8px 0; font-size: 14px; text-transform: uppercase; color: #138601; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px;">
-              ${participationType === 'solo' ? 'Builder Information' : 'Team Lead (Primary Contact)'}
-            </h3>
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px;">
-              <tr>
-                <td style="padding: 6px 0; width: 35%; color: #6b7280;">Full Name:</td>
-                <td style="padding: 6px 0; font-weight: bold;">${leadName || 'N/A'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 6px 0; color: #6b7280;">Email Address:</td>
-                <td style="padding: 6px 0;"><a href="mailto:${leadEmail}" style="color: #138601;">${leadEmail || 'N/A'}</a></td>
-              </tr>
-              <tr>
-                <td style="padding: 6px 0; color: #6b7280;">Matric / Reg No:</td>
-                <td style="padding: 6px 0; font-weight: bold; font-family: monospace;">${leadMatric || 'N/A'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 6px 0; color: #6b7280;">WhatsApp / Phone:</td>
-                <td style="padding: 6px 0;"><a href="tel:${leadPhone}" style="color: #138601;">${leadPhone || 'N/A'}</a></td>
-              </tr>
-            </table>
-
-            <h3 style="margin: 16px 0 8px 0; font-size: 14px; text-transform: uppercase; color: #138601; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px;">
-              Product Pitch & Concept
-            </h3>
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px;">
-              <tr>
-                <td style="padding: 6px 0; width: 35%; color: #6b7280;">Working Title:</td>
-                <td style="padding: 6px 0; font-weight: bold; font-size: 14px;">${projectTitle || 'N/A'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 6px 0; color: #6b7280;">Product Type:</td>
-                <td style="padding: 6px 0; font-weight: bold;">${projectKind || 'N/A'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 6px 0; color: #6b7280; vertical-align: top;">Problem Statement:</td>
-                <td style="padding: 6px 0; line-height: 1.5;">${problemStatement ? problemStatement.replace(/\n/g, '<br/>') : 'N/A'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 6px 0; color: #6b7280; vertical-align: top;">Solution & AI Workflow:</td>
-                <td style="padding: 6px 0; line-height: 1.5;">${proposedSolution ? proposedSolution.replace(/\n/g, '<br/>') : 'N/A'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 6px 0; color: #6b7280;">Tech Stack:</td>
-                <td style="padding: 6px 0; font-family: monospace;">${techStack || 'N/A'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 6px 0; color: #6b7280;">GitHub Repository:</td>
-                <td style="padding: 6px 0;">${githubRepo ? `<a href="${githubRepo}" target="_blank" style="color: #138601;">${githubRepo}</a>` : 'Not provided yet'}</td>
-              </tr>
-            </table>
-
-            <h3 style="margin: 16px 0 8px 0; font-size: 14px; text-transform: uppercase; color: #138601; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px;">
-              Team Roster (${participationType === 'solo' ? '1 member' : (members.length + 1) + ' members'})
-            </h3>
-            <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">
-              <thead>
-                <tr style="background: #f9fafb;">
-                  <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">#</th>
-                  <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Name</th>
-                  <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Email</th>
-                  <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Matric No</th>
-                  <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Role</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style="padding: 8px; border: 1px solid #ddd;">1 (Lead)</td>
-                  <td style="padding: 8px; border: 1px solid #ddd;"><strong>${leadName || 'N/A'}</strong></td>
-                  <td style="padding: 8px; border: 1px solid #ddd;">${leadEmail || 'N/A'}</td>
-                  <td style="padding: 8px; border: 1px solid #ddd;">${leadMatric || 'N/A'}</td>
-                  <td style="padding: 8px; border: 1px solid #ddd;">${participationType === 'solo' ? 'Solo Builder' : 'Team Lead'}</td>
-                </tr>
-                ${membersHtml}
-              </tbody>
-            </table>
-          </div>
-
-          <div style="background: #f3f4f6; padding: 14px; text-align: center; font-size: 11px; color: #6b7280; border-top: 1px solid #e5e7eb;">
-            Office of the Director of ICT • NACOS FUTO Grand Hackathon 2026<br/>
-            Event Date: December 11th, 2026 • Department of Computer Science, FUTO
-          </div>
-        </div>
-      `;
-
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
       try {
+        const body = await parseRequestBody(req);
+        const recipient = 'ict.nacosfuto@gmail.com';
+
+        // 1. Send clean, minimal notification to Directorate of ICT
         const emailResult = await dispatchEmail({
+          type: 'hackathon_registration',
           to: recipient,
-          subject,
-          html: emailHtml,
-          replyTo: leadEmail || 'ict.nacosfuto@gmail.com',
-          type: 'hackathon_registration'
+          ...body,
+          replyTo: body.leadEmail || recipient
         });
 
-        // Optionally send receipt confirmation copy to the applicant
-        if (leadEmail && leadEmail.includes('@')) {
+        // 2. Send clean, minimal receipt confirmation to the applicant lead
+        if (body.leadEmail && body.leadEmail.includes('@')) {
           try {
             await dispatchEmail({
-              to: leadEmail,
-              subject: `Registration Confirmed: The Agentic Build 2026 (${entityName})`,
-              html: `
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
-                  <h2 style="color: #138601; margin-top: 0;">Welcome to The Agentic Build!</h2>
-                  <p>Hello <strong>${leadName || 'Innovator'}</strong>,</p>
-                  <p>Your registration for <strong>The Agentic Build 2026</strong> has been received by the NACOS FUTO Directorate of ICT.</p>
-                  <div style="background: #f9fafb; padding: 14px; border-radius: 6px; margin: 16px 0;">
-                    <p style="margin: 4px 0;"><strong>Format:</strong> ${participationType === 'solo' ? 'Solo Builder' : 'Team: ' + (teamName || 'Unnamed')}</p>
-                    <p style="margin: 4px 0;"><strong>Project Title:</strong> ${projectTitle || 'N/A'}</p>
-                    <p style="margin: 4px 0;"><strong>Kind of Project:</strong> ${projectKind || 'Web Application'}</p>
-                    <p style="margin: 4px 0;"><strong>Event Date:</strong> December 11th, 2026</p>
-                    <p style="margin: 4px 0;"><strong>Venue:</strong> Department of Computer Science, FUTO</p>
-                  </div>
-                  <p>Remember that all projects must follow standard SDLC practices and teams should be prepared to explain their AI-assisted workflow during live pitches.</p>
-                  <p style="color: #6b7280; font-size: 12px; margin-top: 24px;">Office of the Director of ICT • NACOS FUTO</p>
-                </div>
-              `,
-              replyTo: 'ict.nacosfuto@gmail.com',
-              type: 'hackathon_confirmation'
+              type: 'hackathon_confirmation',
+              to: body.leadEmail,
+              ...body,
+              replyTo: recipient
             });
-          } catch (_) {}
+          } catch (confirmErr) {
+            console.warn('[Hackathon Applicant Confirmation Notice]:', confirmErr.message);
+          }
         }
 
         return res.status(200).json({ success: true, message: 'Registration submitted successfully', emailResult });
@@ -884,6 +736,7 @@ export default async function handler(req, res) {
         console.error('[Hackathon Registration Email Error]:', err);
         return res.status(500).json({ success: false, error: err.message });
       }
+    }
     }
 
     // =========================================================================

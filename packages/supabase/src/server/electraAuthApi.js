@@ -17,7 +17,7 @@ import './loadEnv.js';
 import crypto from 'crypto';
 import { supabase } from '../client.js';
 import { dispatchEmail, isValidEmail } from './emailDispatcher.js';
-import { renderEmailFooterHtml } from './emailTemplates.js';
+import { renderEmailFooterHtml, buildBaseEmailLayout } from './emailTemplates.js';
 import { calculateAcademicProgression } from '@nacos/config/academic';
 
 const ELECTRA_AUTH_SECRET = process.env.SESSION_SECRET || process.env.VITE_SUPABASE_ANON_KEY || 'nacos_electra_futo_auth_key_2026';
@@ -886,55 +886,28 @@ export async function handleSendElectoralCode({ accreditationToken, email, ipAdd
   await saveAccreditationRecord(updatedAccreditation);
 
   // 5. Dispatch branded electoral email via Resend
-  const emailHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Electoral Verification Code</title>
-      <style>
-        * { border-radius: 0 !important; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a; margin: 0; padding: 24px 12px; }
-        .card { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 0; border: 1px solid #e2e8f0; }
-        .header { padding: 24px 24px 16px; border-bottom: 1px solid #f1f5f9; text-align: left; }
-        .content { padding: 24px; font-size: 14px; line-height: 1.5; color: #334155; }
-        .otp-container { background: #f0fdf4; border: 1px solid #86efac; border-left: 4px solid #138601; border-radius: 0; padding: 18px 20px; text-align: left; margin: 20px 0; }
-        .otp-code { font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #0f172a; margin: 0; }
-        .notice { font-size: 13px; color: #64748b; line-height: 1.5; margin-top: 16px; }
-        .footer { text-align: left; font-size: 11px; color: #94a3b8; padding: 16px 24px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; line-height: 1.5; }
-        @media only screen and (max-width: 600px) {
-          .card { width: 100% !important; }
-          .otp-code { font-size: 28px !important; letter-spacing: 6px !important; }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="card">
-        <div class="header">
-          <img src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791331612/nacos/general/full-logo-light.png" alt="NACOS FUTO" width="160" style="display: block; width: 160px; max-width: 180px; height: auto; border: 0;" />
-        </div>
-        <div class="content">
-          <h2 style="color: #0f172a; margin: 0 0 12px; font-size: 18px; font-weight: 700;">Voter Verification Code</h2>
-          <p style="margin: 0 0 16px;">Dear <strong>${studentName}</strong>,</p>
-          <p style="margin: 0 0 20px;">
-            Here is your single-use verification code to access your ballot for the <strong>NACOS FUTO General Elections</strong>:
-          </p>
-          
-          <div class="otp-container">
-            <span style="color: #15803d; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 6px;">Voter Code</span>
-            <div class="otp-code">${rawCode}</div>
-          </div>
+  const contentHtml = `
+    <h2 style="color: #0f172a; margin: 0 0 12px; font-size: 18px; font-weight: 700;">Voter Verification Code</h2>
+    <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.5; color: #334155;">Dear <strong>${studentName}</strong>,</p>
+    <p style="margin: 0 0 20px; font-size: 14px; line-height: 1.5; color: #334155;">
+      Here is your single-use verification code to access your ballot for the <strong>NACOS FUTO General Elections</strong>:
+    </p>
+    
+    <div style="background: #f0fdf4; border: 1px solid #86efac; border-left: 4px solid #138601; border-radius: 0; padding: 18px 20px; text-align: left; margin: 20px 0;">
+      <span style="color: #15803d; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 6px;">Voter Code</span>
+      <div style="font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #0f172a; margin: 0;">${rawCode}</div>
+    </div>
 
-          <p class="notice">
-            Valid for <strong>${OTP_EXPIRY_MINUTES} minutes</strong>. Single use only. Do not share this code with anyone.
-          </p>
-        </div>
-        ${renderEmailFooterHtml()}
-      </div>
-    </body>
-    </html>
+    <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin-top: 16px;">
+      Valid for <strong>${OTP_EXPIRY_MINUTES} minutes</strong>. Single use only. Do not share this code with anyone.
+    </p>
   `;
+
+  const emailHtml = buildBaseEmailLayout({
+    title: 'Your Voter Verification Code - ELECTRA NACOS FUTO',
+    preheader: `Your voter verification code is ${rawCode}. Valid for ${OTP_EXPIRY_MINUTES} minutes.`,
+    contentHtml
+  });
 
   const emailResult = await dispatchEmail({
     to: targetEmail,

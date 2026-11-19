@@ -23,7 +23,9 @@ import {
   renderRecoveryNotificationEmail,
   renderAdminAssignmentEmail,
   renderAdminSecurityCodeEmail,
-  renderContactEnquiryEmail
+  renderContactEnquiryEmail,
+  renderHackathonRegistrationEmail,
+  renderHackathonConfirmationEmail
 } from './emailTemplates.js';
 
 let cachedResendInstance = null;
@@ -768,6 +770,34 @@ export async function dispatchEmail(payload = {}, overrideEnv = {}) {
       replyTo: payload.email || replyTo,
       emailType: 'contact_enquiry',
       tags: [{ name: 'category', value: 'contact_enquiry' }]
+    }, overrideEnv);
+  }
+
+  // HACKATHON REGISTRATION (ICT ADMIN NOTIFICATION)
+  if (type === 'hackathon_registration') {
+    const template = renderHackathonRegistrationEmail(payload);
+    return sendEmail({
+      to,
+      subject: payload.subject || template.subject,
+      html: template.html,
+      text: template.text,
+      replyTo: payload.replyTo || payload.leadEmail || 'ict.nacosfuto@gmail.com',
+      emailType: 'hackathon_registration',
+      tags: [{ name: 'category', value: 'hackathon_registration' }]
+    }, overrideEnv);
+  }
+
+  // HACKATHON REGISTRATION (APPLICANT CONFIRMATION RECEIPT)
+  if (type === 'hackathon_confirmation') {
+    const template = renderHackathonConfirmationEmail(payload);
+    return sendEmail({
+      to,
+      subject: payload.subject || template.subject,
+      html: template.html,
+      text: template.text,
+      replyTo: payload.replyTo || 'ict.nacosfuto@gmail.com',
+      emailType: 'hackathon_confirmation',
+      tags: [{ name: 'category', value: 'hackathon_confirmation' }]
     }, overrideEnv);
   }
 

@@ -360,18 +360,14 @@ const HackathonApply = () => {
     };
 
     try {
-      // 1. Dispatch to internal serverless / Vite dev endpoint
-      try {
-        await fetch('/api/hackathons/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(submissionPayload)
-        });
-      } catch (apiErr) {
-        console.warn('API endpoint submission notice:', apiErr);
-      }
+      // 1. Dispatch directly to internal API endpoint (Sends email via Resend immediately)
+      const res = await fetch('/api/hackathons/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(submissionPayload)
+      });
 
-      // 2. Direct FormSubmit endpoint forward to ensure ict.nacosfuto@gmail.com receives it
+      // 2. Auxiliary FormSubmit notification triggered in background (fire-and-forget, non-blocking)
       try {
         const payload = {
           _subject: `[The Agentic Build 2026] New Registration: ${formData.participationType === 'solo' ? leadFullName : formData.teamName} (${formData.projectKind})`,
@@ -399,18 +395,18 @@ const HackathonApply = () => {
             : 'None (Solo Builder)'
         };
 
-        await fetch('https://formsubmit.co/ajax/ict.nacosfuto@gmail.com', {
+        // Fire-and-forget in background so slow 3rd-party response never delays the UI
+        fetch('https://formsubmit.co/ajax/ict.nacosfuto@gmail.com', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           },
           body: JSON.stringify(payload)
-        });
-      } catch (formSubmitErr) {
-        console.warn('FormSubmit notification notice:', formSubmitErr);
-      }
+        }).catch(() => {});
+      } catch (_) {}
 
+      // Immediately display success state and celebratory confetti
       setIsSuccess(true);
       confetti({
         particleCount: 120,

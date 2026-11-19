@@ -389,86 +389,26 @@ function cloudinaryDevPlugin() {
               } = data;
 
               const recipient = 'ict.nacosfuto@gmail.com';
-              const entityName = participationType === 'solo' ? (leadName || 'Solo Builder') : (teamName || 'Team');
-              const subject = `[The Agentic Build 2026] New Registration: ${entityName} (${projectKind || 'Software'})`;
 
-              const membersHtml = members.length > 0
-                ? members.map((m, idx) => `
-                    <tr>
-                      <td style="padding: 8px; border: 1px solid #ddd;">${idx + 2}</td>
-                      <td style="padding: 8px; border: 1px solid #ddd;"><strong>${m.name || 'N/A'}</strong></td>
-                      <td style="padding: 8px; border: 1px solid #ddd;">${m.email || 'N/A'}</td>
-                      <td style="padding: 8px; border: 1px solid #ddd;">${m.matric || 'N/A'}</td>
-                      <td style="padding: 8px; border: 1px solid #ddd;">${m.role || 'N/A'}</td>
-                    </tr>
-                  `).join('')
-                : '<tr><td colspan="5" style="padding: 10px; text-align: center; color: #666;">Solo Builder (No additional members)</td></tr>';
-
-              const emailHtml = `
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 650px; margin: 0 auto; background: #ffffff; border: 2px solid #138601; border-radius: 8px; overflow: hidden; color: #111827;">
-                  <div style="background: #138601; color: #ffffff; padding: 24px; text-align: center;">
-                    <h1 style="margin: 0; font-size: 22px; text-transform: uppercase; letter-spacing: 1px;">The Agentic Build 2026</h1>
-                    <p style="margin: 6px 0 0 0; font-size: 13px; opacity: 0.9;">NACOS FUTO Grand Hackathon • New Registration Submission</p>
-                  </div>
-                  <div style="padding: 24px;">
-                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 14px; margin-bottom: 20px;">
-                      <h2 style="margin: 0 0 8px 0; font-size: 16px; color: #138601;">
-                        ${participationType === 'solo' ? '👤 Solo Builder Registration' : '👥 Team Registration: ' + (teamName || 'Unnamed Team')}
-                      </h2>
-                      <p style="margin: 0; font-size: 13px; color: #374151;">
-                        <strong>Project Kind:</strong> ${projectKind || 'Web Application'} &nbsp;|&nbsp;
-                        <strong>Chapter:</strong> ${chapter || 'FUTO'}
-                      </p>
-                    </div>
-                    <h3 style="margin: 16px 0 8px 0; font-size: 14px; text-transform: uppercase; color: #138601;">
-                      ${participationType === 'solo' ? 'Builder Information' : 'Team Lead'}
-                    </h3>
-                    <p style="font-size: 13px; margin: 4px 0;"><strong>Name:</strong> ${leadName || 'N/A'}</p>
-                    <p style="font-size: 13px; margin: 4px 0;"><strong>Email:</strong> ${leadEmail || 'N/A'}</p>
-                    <p style="font-size: 13px; margin: 4px 0;"><strong>Matric No:</strong> ${leadMatric || 'N/A'}</p>
-                    <p style="font-size: 13px; margin: 4px 0;"><strong>Phone:</strong> ${leadPhone || 'N/A'}</p>
-                    
-                    <h3 style="margin: 16px 0 8px 0; font-size: 14px; text-transform: uppercase; color: #138601;">Product Pitch</h3>
-                    <p style="font-size: 13px; margin: 4px 0;"><strong>Title:</strong> ${projectTitle || 'N/A'}</p>
-                    <p style="font-size: 13px; margin: 4px 0;"><strong>Kind:</strong> ${projectKind || 'N/A'}</p>
-                    <p style="font-size: 13px; margin: 4px 0;"><strong>Problem:</strong> ${problemStatement || 'N/A'}</p>
-                    <p style="font-size: 13px; margin: 4px 0;"><strong>Solution & AI:</strong> ${proposedSolution || 'N/A'}</p>
-                    <p style="font-size: 13px; margin: 4px 0;"><strong>Tech Stack:</strong> ${techStack || 'N/A'}</p>
-                    <p style="font-size: 13px; margin: 4px 0;"><strong>Repo:</strong> ${githubRepo || 'N/A'}</p>
-
-                    <h3 style="margin: 16px 0 8px 0; font-size: 14px; text-transform: uppercase; color: #138601;">Roster</h3>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                      <thead>
-                        <tr style="background: #f9fafb;">
-                          <th style="padding: 6px; border: 1px solid #ddd;">#</th>
-                          <th style="padding: 6px; border: 1px solid #ddd;">Name</th>
-                          <th style="padding: 6px; border: 1px solid #ddd;">Email</th>
-                          <th style="padding: 6px; border: 1px solid #ddd;">Matric</th>
-                          <th style="padding: 6px; border: 1px solid #ddd;">Role</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td style="padding: 6px; border: 1px solid #ddd;">1</td>
-                          <td style="padding: 6px; border: 1px solid #ddd;">${leadName || 'N/A'}</td>
-                          <td style="padding: 6px; border: 1px solid #ddd;">${leadEmail || 'N/A'}</td>
-                          <td style="padding: 6px; border: 1px solid #ddd;">${leadMatric || 'N/A'}</td>
-                          <td style="padding: 6px; border: 1px solid #ddd;">Lead</td>
-                        </tr>
-                        ${membersHtml}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              `;
-
+              // 1. Send clean minimal notification to Directorate of ICT
               const result = await dispatchEmail({
+                type: 'hackathon_registration',
                 to: recipient,
-                subject,
-                html: emailHtml,
-                replyTo: leadEmail || 'ict.nacosfuto@gmail.com',
-                type: 'hackathon_registration'
+                ...data,
+                replyTo: data.leadEmail || recipient
               }, env);
+
+              // 2. Send receipt confirmation to applicant lead
+              if (data.leadEmail && data.leadEmail.includes('@')) {
+                try {
+                  await dispatchEmail({
+                    type: 'hackathon_confirmation',
+                    to: data.leadEmail,
+                    ...data,
+                    replyTo: recipient
+                  }, env);
+                } catch (_) {}
+              }
 
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ success: true, result }));

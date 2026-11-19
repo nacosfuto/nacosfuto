@@ -28,7 +28,7 @@ export const NACOS_EMAIL_ASSETS = {
 
 /**
  * Standard Branded Email Footer (HTML)
- * Displays "CONNECT WITH US", social + email icons row, chapter name, and department address.
+ * Displays "CONNECT WITH US", social + website + email icons row, department name, and university address.
  */
 export function renderEmailFooterHtml() {
   const { icons, links } = NACOS_EMAIL_ASSETS;
@@ -36,51 +36,60 @@ export function renderEmailFooterHtml() {
   return `
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border-top: 1px solid #e2e8f0;">
       <tr>
-        <td class="footer-padding" align="center" style="padding: 24px 20px 24px; text-align: center;">
+        <td class="footer-padding" align="center" style="padding: 26px 20px 24px; text-align: center;">
           <!-- CONNECT WITH US Header -->
           <p style="margin: 0 0 14px 0; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 1.5px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             CONNECT WITH US
           </p>
 
           <!-- Social & Email Icons Row -->
-          <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 16px auto;">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 14px auto;">
             <tr>
-              <td align="center" valign="middle" style="padding: 0 6px;">
+              <td align="center" valign="middle" style="padding: 0 8px;">
                 <a href="${links.website}" target="_blank" rel="noopener noreferrer" title="NACOS FUTO Website" style="text-decoration: none; display: inline-block;">
-                  <img src="${icons.website}" alt="Website" width="26" height="26" style="display: block; width: 26px; height: 26px; border: 0;" />
+                  <img src="${icons.website}" alt="Website" width="24" height="24" style="display: block; width: 24px; height: 24px; border: 0;" />
                 </a>
               </td>
-              <td align="center" valign="middle" style="padding: 0 6px;">
+              <td align="center" valign="middle" style="padding: 0 8px;">
                 <a href="${links.email}" title="Email NACOS FUTO" style="text-decoration: none; display: inline-block;">
-                  <img src="${icons.email}" alt="Email Us" width="26" height="26" style="display: block; width: 26px; height: 26px; border: 0;" />
+                  <img src="${icons.email}" alt="Email Us" width="24" height="24" style="display: block; width: 24px; height: 24px; border: 0;" />
                 </a>
               </td>
-              <td align="center" valign="middle" style="padding: 0 6px;">
+              <td align="center" valign="middle" style="padding: 0 8px;">
                 <a href="${links.linkedin}" target="_blank" rel="noopener noreferrer" title="NACOS FUTO LinkedIn" style="text-decoration: none; display: inline-block;">
-                  <img src="${icons.linkedin}" alt="LinkedIn" width="26" height="26" style="display: block; width: 26px; height: 26px; border: 0;" />
+                  <img src="${icons.linkedin}" alt="LinkedIn" width="24" height="24" style="display: block; width: 24px; height: 24px; border: 0;" />
                 </a>
               </td>
-              <td align="center" valign="middle" style="padding: 0 6px;">
+              <td align="center" valign="middle" style="padding: 0 8px;">
                 <a href="${links.instagram}" target="_blank" rel="noopener noreferrer" title="NACOS FUTO Instagram" style="text-decoration: none; display: inline-block;">
-                  <img src="${icons.instagram}" alt="Instagram" width="26" height="26" style="display: block; width: 26px; height: 26px; border: 0;" />
+                  <img src="${icons.instagram}" alt="Instagram" width="24" height="24" style="display: block; width: 24px; height: 24px; border: 0;" />
                 </a>
               </td>
-              <td align="center" valign="middle" style="padding: 0 6px;">
+              <td align="center" valign="middle" style="padding: 0 8px;">
                 <a href="${links.facebook}" target="_blank" rel="noopener noreferrer" title="NACOS FUTO Facebook" style="text-decoration: none; display: inline-block;">
-                  <img src="${icons.facebook}" alt="Facebook" width="26" height="26" style="display: block; width: 26px; height: 26px; border: 0;" />
+                  <img src="${icons.facebook}" alt="Facebook" width="24" height="24" style="display: block; width: 24px; height: 24px; border: 0;" />
                 </a>
               </td>
             </tr>
           </table>
 
-          <!-- Chapter Title -->
-          <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 700; color: #1e293b; text-align: center; line-height: 1.4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            Nigeria Association of Computing Students (NACOS) &mdash; FUTO Chapter
+          <!-- Clickable Text Links Row (Ensures visibility if image icons are blocked by client) -->
+          <p style="margin: 0 0 12px 0; font-size: 12px; color: #64748b; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <a href="${links.website}" target="_blank" rel="noopener noreferrer" style="color: #15803d; text-decoration: none; font-weight: 600;">nacosfuto.com.ng</a>
+            &nbsp;&bull;&nbsp;
+            <a href="${links.email}" style="color: #475569; text-decoration: none;">hello@nacosfuto.com.ng</a>
           </p>
 
-          <!-- Address & Copyright -->
-          <p style="margin: 0 auto; max-width: 440px; font-size: 11px; line-height: 1.5; color: #64748b; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            &copy; 2026 Department of Computer Science, Federal University of Technology, PMB 1526, Owerri, Imo State, Nigeria.
+          <!-- Department & Chapter Title -->
+          <p style="margin: 0 0 4px 0; font-size: 13px; font-weight: 700; color: #1e293b; text-align: center; line-height: 1.4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            Department of Computer Science &bull; NACOS FUTO Chapter
+          </p>
+
+          <!-- University Address & Copyright -->
+          <p style="margin: 0 auto; max-width: 480px; font-size: 11px; line-height: 1.5; color: #64748b; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            School of Information and Communication Technology (SICT)<br/>
+            Federal University of Technology, PMB 1526, Owerri, Imo State, Nigeria.<br/>
+            &copy; 2026 NACOS FUTO. All rights reserved.
           </p>
         </td>
       </tr>
@@ -1049,5 +1058,344 @@ ${safeMessage}
     subject: `[Website Enquiry] ${safeSubject} — from ${safeName}`,
     html: buildBaseEmailLayout({ title: 'New Website Enquiry', preheader, contentHtml }),
     text
+  };
+}
+
+/**
+ * The Agentic Build 2026 - Hackathon Registration Notification (Sent to ICT Directorate)
+ * Clean, minimal, sharp edges, structured tables, and standard branded footer.
+ */
+export function renderHackathonRegistrationEmail({
+  participationType = 'solo',
+  teamName = '',
+  chapter = 'FUTO',
+  projectKind = 'Web Application',
+  leadName = '',
+  leadFirstName = '',
+  leadLastName = '',
+  leadEmail = '',
+  leadMatric = '',
+  leadPhone = '',
+  leadDepartment = 'Computer Science',
+  projectTitle = '',
+  problemStatement = '',
+  proposedSolution = '',
+  techStack = '',
+  githubRepo = '',
+  members = [],
+  submittedAt = new Date().toISOString()
+}) {
+  const safeLeadName = sanitizeHtml(leadName || `${leadFirstName || ''} ${leadLastName || ''}`.trim() || 'Solo Builder');
+  const safeLeadEmail = sanitizeHtml(leadEmail || 'N/A');
+  const safeLeadMatric = sanitizeHtml(leadMatric || 'N/A');
+  const safeLeadPhone = sanitizeHtml(leadPhone || 'N/A');
+  const safeLeadDept = sanitizeHtml(leadDepartment || 'Computer Science');
+  const safeTeamName = sanitizeHtml(teamName || 'N/A');
+  const safeProjectTitle = sanitizeHtml(projectTitle || 'Untitled Pitch');
+  const safeProjectKind = sanitizeHtml(projectKind || 'Software Application');
+  const safeChapter = sanitizeHtml(chapter || 'FUTO');
+  const safeTechStack = sanitizeHtml(techStack || 'Not specified');
+  const safeGithubRepo = sanitizeHtml(githubRepo || '');
+  const safeProblem = sanitizeHtml(problemStatement || '').replace(/\r\n|\r|\n/g, '<br/>');
+  const safeSolution = sanitizeHtml(proposedSolution || '').replace(/\r\n|\r|\n/g, '<br/>');
+
+  const isSolo = participationType === 'solo';
+  const entityLabel = isSolo ? `Solo Builder: ${safeLeadName}` : `Team: ${safeTeamName}`;
+  const totalCount = isSolo ? 1 : (members.length + 1);
+
+  const dateFormatted = new Date(submittedAt).toLocaleString('en-NG', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Africa/Lagos'
+  });
+
+  const preheader = `[The Agentic Build 2026] New Registration: ${entityLabel} (${safeProjectKind})`;
+
+  const membersRows = members.length > 0
+    ? members.map((m, idx) => `
+        <tr>
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #475569;">#${idx + 2}</td>
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 700; color: #0f172a;">${sanitizeHtml(m.name || `${m.firstName || ''} ${m.lastName || ''}`.trim() || 'N/A')}</td>
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; color: #334155;">
+            <a href="mailto:${sanitizeHtml(m.email)}" style="color: #15803d; text-decoration: none;">${sanitizeHtml(m.email || 'N/A')}</a>
+          </td>
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-weight: 600; color: #0f172a;">${sanitizeHtml(m.matric || 'N/A')}</td>
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; color: #475569;">${sanitizeHtml(m.role || 'Builder')}</td>
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; color: #475569;">${sanitizeHtml(m.department || 'Computer Science')}</td>
+        </tr>
+      `).join('')
+    : `
+        <tr>
+          <td colspan="6" style="padding: 14px; text-align: center; color: #64748b; font-style: italic;">
+            Solo Builder &mdash; No additional team members.
+          </td>
+        </tr>
+      `;
+
+  const contentHtml = `
+    <!-- Header Title -->
+    <div style="border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 20px;">
+      <span style="display: inline-block; background-color: #f0fdf4; border: 1px solid #86efac; color: #15803d; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; padding: 3px 8px; margin-bottom: 8px;">
+        Hackathon Registration Submission
+      </span>
+      <h1 style="color: #0f172a; margin: 0 0 6px; font-size: 20px; font-weight: 800; letter-spacing: -0.3px;">
+        The Agentic Build 2026
+      </h1>
+      <p style="color: #64748b; margin: 0; font-size: 13px;">
+        Office of the Director of ICT &bull; Department of Computer Science, FUTO
+      </p>
+    </div>
+
+    <!-- Registration Overview -->
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 24px; border: 1px solid #e2e8f0; border-radius: 0; background-color: #ffffff; font-size: 13px;">
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0; width: 35%;">Format:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #e2e8f0;">
+          ${isSolo ? '👤 Solo Builder (1 Person)' : `👥 Team (${totalCount} Members)`}
+        </td>
+      </tr>
+      ${!isSolo ? `
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Team Name:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 800; border-bottom: 1px solid #e2e8f0;">${safeTeamName}</td>
+      </tr>` : ''}
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Project Kind:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">${safeProjectKind}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Institution / Chapter:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">${safeChapter}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b;">Submitted At:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 600;">${dateFormatted} (WAT)</td>
+      </tr>
+    </table>
+
+    <!-- Lead / Builder Information -->
+    <h3 style="color: #0f172a; margin: 0 0 10px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+      ${isSolo ? 'Builder Details' : 'Team Lead (Primary Contact)'}
+    </h3>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 24px; border: 1px solid #e2e8f0; border-radius: 0; background-color: #ffffff; font-size: 13px;">
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0; width: 35%;">Full Legal Name:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #e2e8f0;">${safeLeadName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Registration / Matric No:</td>
+        <td align="right" style="padding: 10px 16px; font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-weight: 700; color: #0f172a; border-bottom: 1px solid #e2e8f0;">${safeLeadMatric}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Department:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">${safeLeadDept}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Email Address:</td>
+        <td align="right" style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0;">
+          <a href="mailto:${safeLeadEmail}" style="color: #15803d; text-decoration: none; font-weight: 600;">${safeLeadEmail}</a>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b;">WhatsApp / Phone:</td>
+        <td align="right" style="padding: 10px 16px;">
+          <a href="tel:${safeLeadPhone}" style="color: #0f172a; text-decoration: none; font-weight: 600;">${safeLeadPhone}</a>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Product Pitch & Concept -->
+    <h3 style="color: #0f172a; margin: 0 0 10px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+      Product Pitch &amp; Technical Concept
+    </h3>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 24px; border: 1px solid #e2e8f0; border-radius: 0; background-color: #ffffff; font-size: 13px;">
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0; width: 35%;">Working Title:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 700; font-size: 14px; border-bottom: 1px solid #e2e8f0;">${safeProjectTitle}</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding: 12px 16px 4px; color: #64748b; font-weight: 600;">Problem Statement:</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding: 0 16px 14px; color: #1e293b; line-height: 1.6; border-bottom: 1px solid #e2e8f0;">
+          ${safeProblem || 'N/A'}
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding: 12px 16px 4px; color: #64748b; font-weight: 600;">Proposed Solution &amp; AI Workflow:</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding: 0 16px 14px; color: #1e293b; line-height: 1.6; border-bottom: 1px solid #e2e8f0;">
+          ${safeSolution || 'N/A'}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Tech Stack:</td>
+        <td align="right" style="padding: 10px 16px; font-family: 'SFMono-Regular', Consolas, Menlo, monospace; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">${safeTechStack}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b;">GitHub Repository:</td>
+        <td align="right" style="padding: 10px 16px;">
+          ${safeGithubRepo ? `<a href="${safeGithubRepo}" target="_blank" rel="noopener noreferrer" style="color: #15803d; text-decoration: none; font-weight: 600;">${safeGithubRepo}</a>` : '<span style="color: #94a3b8;">Not provided yet</span>'}
+        </td>
+      </tr>
+    </table>
+
+    <!-- Team Roster -->
+    <h3 style="color: #0f172a; margin: 0 0 10px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+      Team Roster (${totalCount} Total)
+    </h3>
+    <div style="overflow-x: auto; margin-bottom: 24px;">
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border: 1px solid #e2e8f0; border-radius: 0; background-color: #ffffff; font-size: 12px;">
+        <thead>
+          <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+            <th align="left" style="padding: 10px 12px; font-weight: 700; color: #475569; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">#</th>
+            <th align="left" style="padding: 10px 12px; font-weight: 700; color: #475569; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Full Name</th>
+            <th align="left" style="padding: 10px 12px; font-weight: 700; color: #475569; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Email</th>
+            <th align="left" style="padding: 10px 12px; font-weight: 700; color: #475569; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Matric No</th>
+            <th align="left" style="padding: 10px 12px; font-weight: 700; color: #475569; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Role</th>
+            <th align="left" style="padding: 10px 12px; font-weight: 700; color: #475569; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Dept</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #475569;">#1 (Lead)</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 700; color: #0f172a;">${safeLeadName}</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; color: #334155;">
+              <a href="mailto:${safeLeadEmail}" style="color: #15803d; text-decoration: none;">${safeLeadEmail}</a>
+            </td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-weight: 600; color: #0f172a;">${safeLeadMatric}</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; color: #475569;">${isSolo ? 'Solo Builder' : 'Team Lead'}</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; color: #475569;">${safeLeadDept}</td>
+          </tr>
+          ${membersRows}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  return {
+    subject: `[The Agentic Build 2026] New Registration: ${entityLabel} (${safeProjectKind})`,
+    html: buildBaseEmailLayout({
+      title: `Hackathon Registration: ${entityLabel}`,
+      preheader,
+      contentHtml
+    }),
+    text: [
+      `THE AGENTIC BUILD 2026 - NEW REGISTRATION`,
+      `Format: ${isSolo ? 'Solo Builder' : 'Team: ' + safeTeamName}`,
+      `Lead: ${safeLeadName} (${safeLeadMatric}) - ${safeLeadEmail}`,
+      `Project Title: ${safeProjectTitle}`,
+      `Kind: ${safeProjectKind}`,
+      `Tech Stack: ${safeTechStack}`,
+      `GitHub: ${safeGithubRepo || 'N/A'}`,
+      `Problem: ${problemStatement || 'N/A'}`,
+      `Solution: ${proposedSolution || 'N/A'}`,
+      '',
+      renderEmailFooterText()
+    ].join('\n')
+  };
+}
+
+/**
+ * The Agentic Build 2026 - Hackathon Registration Confirmation (Sent to Applicant Lead)
+ * Clean, minimal, encouraging confirmation receipt with event details and SDLC rules.
+ */
+export function renderHackathonConfirmationEmail({
+  participationType = 'solo',
+  teamName = '',
+  leadName = '',
+  leadFirstName = '',
+  leadLastName = '',
+  projectTitle = '',
+  projectKind = 'Web Application'
+}) {
+  const safeName = sanitizeHtml(leadName || `${leadFirstName || ''} ${leadLastName || ''}`.trim() || 'Innovator');
+  const safeTeam = sanitizeHtml(teamName || 'Solo Builder');
+  const safeTitle = sanitizeHtml(projectTitle || 'Your Project');
+  const safeKind = sanitizeHtml(projectKind || 'Software Application');
+  const isSolo = participationType === 'solo';
+
+  const preheader = `Your registration for The Agentic Build 2026 has been confirmed.`;
+
+  const contentHtml = `
+    <!-- Header Title -->
+    <div style="border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 20px;">
+      <span style="display: inline-block; background-color: #f0fdf4; border: 1px solid #86efac; color: #15803d; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; padding: 3px 8px; margin-bottom: 8px;">
+        Registration Confirmed
+      </span>
+      <h1 style="color: #0f172a; margin: 0 0 6px; font-size: 20px; font-weight: 800; letter-spacing: -0.3px;">
+        Welcome to The Agentic Build 2026
+      </h1>
+      <p style="color: #64748b; margin: 0; font-size: 13px;">
+        Office of the Director of ICT &bull; Department of Computer Science, FUTO
+      </p>
+    </div>
+
+    <p style="color: #334155; margin: 0 0 16px; font-size: 14px; line-height: 1.6;">
+      Hello <strong>${safeName}</strong>,
+    </p>
+    <p style="color: #334155; margin: 0 0 20px; font-size: 14px; line-height: 1.6;">
+      Your registration for <strong>The Agentic Build 2026</strong> has been officially received and recorded by the NACOS FUTO Directorate of ICT.
+    </p>
+
+    <!-- Key Details Box -->
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 24px; border: 1px solid #e2e8f0; border-radius: 0; background-color: #f8fafc; font-size: 13px;">
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0; width: 35%;">Format:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #e2e8f0;">
+          ${isSolo ? 'Solo Builder (1 Person)' : `Team: ${safeTeam}`}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Project Title:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #e2e8f0;">${safeTitle}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Product Kind:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;">${safeKind}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Event Date:</td>
+        <td align="right" style="padding: 10px 16px; color: #15803d; font-weight: 800; border-bottom: 1px solid #e2e8f0;">December 11th, 2026</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 16px; color: #64748b;">Venue:</td>
+        <td align="right" style="padding: 10px 16px; color: #0f172a; font-weight: 700;">Department of Computer Science, FUTO</td>
+      </tr>
+    </table>
+
+    <div style="background-color: #ffffff; border: 1px solid #e2e8f0; padding: 16px; margin: 0 0 24px;">
+      <h4 style="margin: 0 0 8px; color: #0f172a; font-size: 13px; font-weight: 700; text-transform: uppercase;">Next Steps &amp; Guidelines</h4>
+      <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #475569; line-height: 1.6;">
+        <li>Follow standard SDLC practices throughout your product development.</li>
+        <li>Ensure your git repository is active and ready for commits.</li>
+        <li>During pitch day, be prepared to demonstrate both your working product and your AI workflow.</li>
+      </ul>
+    </div>
+
+    <p style="color: #64748b; font-size: 13px; margin: 0; line-height: 1.5;">
+      If you have questions or need to make amendments to your roster, please contact us at <a href="mailto:ict@nacosfuto.com.ng" style="color: #15803d; font-weight: 600; text-decoration: none;">ict@nacosfuto.com.ng</a>.
+    </p>
+  `;
+
+  return {
+    subject: `Registration Confirmed: The Agentic Build 2026 (${isSolo ? safeName : safeTeam})`,
+    html: buildBaseEmailLayout({
+      title: 'Registration Confirmed - The Agentic Build 2026',
+      preheader,
+      contentHtml
+    }),
+    text: [
+      `WELCOME TO THE AGENTIC BUILD 2026`,
+      `Hello ${safeName},`,
+      `Your registration has been confirmed by the NACOS FUTO Directorate of ICT.`,
+      `Format: ${isSolo ? 'Solo Builder' : 'Team: ' + safeTeam}`,
+      `Project Title: ${safeTitle}`,
+      `Date: December 11th, 2026`,
+      `Venue: Department of Computer Science, FUTO`,
+      '',
+      renderEmailFooterText()
+    ].join('\n')
   };
 }

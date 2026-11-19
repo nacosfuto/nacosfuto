@@ -11,12 +11,16 @@ import {
   renderVerificationEmail,
   renderPasswordResetEmail,
   renderPaymentConfirmationEmail,
-  renderRecoveryNotificationEmail
+  renderRecoveryNotificationEmail,
+  renderHackathonRegistrationEmail,
+  renderHackathonConfirmationEmail
 } from './server/emailTemplates.js';
 
 export {
   renderVerificationEmail as buildVerificationEmailHTML,
-  renderPasswordResetEmail as buildPasswordResetEmailHTML
+  renderPasswordResetEmail as buildPasswordResetEmailHTML,
+  renderHackathonRegistrationEmail,
+  renderHackathonConfirmationEmail
 };
 
 /**

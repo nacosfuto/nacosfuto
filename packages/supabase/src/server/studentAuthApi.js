@@ -16,7 +16,7 @@ import './loadEnv.js';
 import crypto from 'crypto';
 import { supabase } from '../client.js';
 import { dispatchEmail } from './emailDispatcher.js';
-import { renderEmailFooterHtml } from './emailTemplates.js';
+import { renderEmailFooterHtml, buildBaseEmailLayout } from './emailTemplates.js';
 import { calculateAcademicProgression, getActiveAcademicSession } from '@nacos/config/academic';
 
 const AUTH_SECRET = process.env.SESSION_SECRET || process.env.VITE_SUPABASE_ANON_KEY || 'nacos_futo_auth_signature_key_2026';
@@ -506,44 +506,26 @@ export async function handleSendOtp({ stepToken, channel = 'email', purpose = 'S
       ? 'Reset Your NACOS Password'
       : 'NACOS Security Verification Code';
 
-    const emailHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          * { border-radius: 0 !important; }
-          @media only screen and (max-width: 600px) {
-            .container { width: 100% !important; padding: 20px 16px !important; }
-            .otp-code { font-size: 28px !important; letter-spacing: 6px !important; }
-          }
-        </style>
-      </head>
-      <body style="margin: 0; padding: 24px 12px; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a;">
-        <div class="container" style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 0;">
-          <div style="padding: 24px 24px 16px; border-bottom: 1px solid #f1f5f9; text-align: left;">
-            <img src="https://res.cloudinary.com/a2mmcttn/image/upload/v1791331612/nacos/general/full-logo-light.png" alt="NACOS FUTO" width="160" style="display: block; width: 160px; max-width: 180px; height: auto; border: 0;" />
-          </div>
-          <div style="padding: 24px;">
-            <h2 style="color: #0f172a; margin: 0 0 12px; font-size: 18px; font-weight: 700;">Verification Code</h2>
-            <p style="font-size: 14px; line-height: 1.5; color: #334155; margin: 0 0 16px;">Hello <strong>${studentName}</strong>,</p>
-            <p style="font-size: 14px; line-height: 1.5; color: #334155; margin: 0 0 20px;">
-              Here is your verification code to complete your <strong>${purpose.replace(/_/g, ' ')}</strong> request:
-            </p>
-            <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-left: 4px solid #16a34a; border-radius: 0; padding: 18px 20px; text-align: left; margin: 0 0 20px;">
-              <span style="color: #15803d; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 6px;">Verification Code</span>
-              <span class="otp-code" style="font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #0f172a; display: block;">${otpCode}</span>
-            </div>
-            <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin: 0;">
-              Valid for <strong>15 minutes</strong>. If you did not initiate this request, you can safely ignore this email.
-            </p>
-          </div>
-          ${renderEmailFooterHtml()}
-        </div>
-      </body>
-      </html>
+    const contentHtml = `
+      <h2 style="color: #0f172a; margin: 0 0 12px; font-size: 18px; font-weight: 700;">Account Verification</h2>
+      <p style="font-size: 14px; line-height: 1.5; color: #334155; margin: 0 0 16px;">Hello <strong>${studentName}</strong>,</p>
+      <p style="font-size: 14px; line-height: 1.5; color: #334155; margin: 0 0 20px;">
+        Here is your verification code to complete your <strong>${purpose.replace(/_/g, ' ')}</strong> request:
+      </p>
+      <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-left: 4px solid #16a34a; border-radius: 0; padding: 18px 20px; text-align: left; margin: 0 0 20px;">
+        <span style="color: #15803d; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 6px;">Verification Code</span>
+        <span class="otp-code" style="font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #0f172a; display: block;">${otpCode}</span>
+      </div>
+      <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin: 0;">
+        Valid for <strong>15 minutes</strong>. If you did not initiate this request, you can safely ignore this email.
+      </p>
     `;
+
+    const emailHtml = buildBaseEmailLayout({
+      title: emailSubject,
+      preheader: `Your verification code is ${otpCode}. Valid for 15 minutes.`,
+      contentHtml
+    });
 
     try {
       await dispatchEmail({
