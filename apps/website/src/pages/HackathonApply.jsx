@@ -13,9 +13,9 @@ import {
   UserCheck,
   AlertCircle,
   ShieldCheck,
-  RefreshCw,
-  MessageCircle
+  RefreshCw
 } from 'lucide-react';
+import { FaWhatsapp } from 'react-icons/fa';
 import confetti from 'canvas-confetti';
 import { supabase } from '@nacos/supabase';
 import HackathonNavbar from '../components/HackathonNavbar';
@@ -722,7 +722,7 @@ const HackathonApply = () => {
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 font-mono text-xs sm:text-sm font-bold uppercase tracking-wider text-white bg-[#25D366] hover:bg-[#20ba5a] rounded border-2 border-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_#138601] transition-all transform hover:-translate-y-0.5 cursor-pointer"
                 >
-                  <MessageCircle className="w-5 h-5 fill-current" />
+                  <FaWhatsapp className="w-5 h-5 shrink-0 text-white fill-current" />
                   <span>Join Hackathon Community on WhatsApp</span>
                 </a>
               </div>
