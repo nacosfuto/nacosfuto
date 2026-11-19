@@ -86,17 +86,6 @@ if (fs.existsSync(portalDist)) {
   const portalIndex = path.join(portalDist, 'index.html');
   if (fs.existsSync(portalIndex)) {
     fs.copyFileSync(portalIndex, path.join(targetDist, 'portal.html'));
-
-    // Generate legacy portal hackathon.html if requested directly
-    try {
-      const rawPortalHtml = fs.readFileSync(portalIndex, 'utf-8');
-      const hackathonHtml = transformToHackathonHtml(rawPortalHtml);
-      fs.writeFileSync(path.join(targetPortalDist, 'hackathon.html'), hackathonHtml, 'utf-8');
-      fs.writeFileSync(path.join(portalDist, 'hackathon.html'), hackathonHtml, 'utf-8');
-      console.log('[bundle-dist] Generated fallback hackathon.html for portal dist');
-    } catch (err) {
-      console.warn('[bundle-dist] Warning: Failed to generate portal hackathon.html:', err.message);
-    }
   }
 
   const gatewayRedirect = path.join(portalDist, 'gateway-redirect.html');

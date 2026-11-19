@@ -4,7 +4,6 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import { transformToHackathonHtml } from '../../scripts/generateHackathonHtml.js';
 import { dispatchEmail } from '../../packages/supabase/src/server/emailDispatcher.js';
 import {
   createPaymentCheckout,
@@ -26,8 +25,7 @@ import {
   handleCompleteResetPassword,
   handleSensitiveActionRequest,
   handleSensitiveActionVerify,
-  handleSensitiveActionVerifyPassword,
-  handleVerifyHackathonStudent
+  handleSensitiveActionVerifyPassword
 } from '../../packages/supabase/src/server/studentAuthApi.js';
 import { handleStorageRequest } from '../../packages/supabase/src/server/b2StorageDispatcher.js';
 
@@ -363,85 +361,6 @@ function cloudinaryDevPlugin() {
           });
           return;
         }
-        if (req.url?.startsWith('/api/hackathons/register') && req.method === 'POST') {
-          let body = '';
-          req.on('data', chunk => { body += chunk; });
-          req.on('end', async () => {
-            try {
-              const rootEnv = loadEnv('development', path.resolve(__dirname, '../../'), '');
-              const localEnv = loadEnv('development', process.cwd(), '');
-              const env = { ...process.env, ...rootEnv, ...localEnv };
-
-              const data = JSON.parse(body || '{}');
-              const {
-                participationType,
-                teamName,
-                chapter,
-                projectKind,
-                leadName,
-                leadEmail,
-                leadMatric,
-                leadPhone,
-                projectTitle,
-                problemStatement,
-                proposedSolution,
-                techStack,
-                githubRepo,
-                members = []
-              } = data;
-
-              const recipient = 'ict.nacosfuto@gmail.com';
-
-              // 1. Send clean minimal notification to Directorate of ICT
-              const result = await dispatchEmail({
-                type: 'hackathon_registration',
-                to: recipient,
-                ...data,
-                replyTo: data.leadEmail || recipient
-              }, env);
-
-              // 2. Send receipt confirmation to applicant lead
-              if (data.leadEmail && data.leadEmail.includes('@')) {
-                try {
-                  await dispatchEmail({
-                    type: 'hackathon_confirmation',
-                    to: data.leadEmail,
-                    ...data,
-                    replyTo: recipient
-                  }, env);
-                } catch (_) {}
-              }
-
-              res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ success: true, result }));
-            } catch (e) {
-              console.error('[Dev Hackathon Registration Error]:', e);
-              res.statusCode = 500;
-              res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ error: e.message }));
-            }
-          });
-          return;
-        }
-        if (req.url?.startsWith('/api/hackathons/verify-student') && req.method === 'POST') {
-          let body = '';
-          req.on('data', chunk => { body += chunk; });
-          req.on('end', async () => {
-            try {
-              const data = JSON.parse(body || '{}');
-              const result = await handleVerifyHackathonStudent(data);
-              res.setHeader('Content-Type', 'application/json');
-              res.statusCode = result.success ? 200 : 400;
-              res.end(JSON.stringify(result));
-            } catch (e) {
-              console.error('[Dev Hackathon Verify Student Error]:', e);
-              res.statusCode = 500;
-              res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ error: e.message }));
-            }
-          });
-          return;
-        }
         if (req.url === '/api/sms/send' && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });
@@ -741,31 +660,11 @@ function cloudinaryDevPlugin() {
   };
 }
 
-function hackathonHtmlPlugin() {
-  return {
-    name: 'hackathon-html-plugin',
-    closeBundle() {
-      try {
-        const distDir = path.resolve(__dirname, 'dist');
-        const indexPath = path.join(distDir, 'index.html');
-        if (fs.existsSync(indexPath)) {
-          const rawHtml = fs.readFileSync(indexPath, 'utf-8');
-          const hackathonHtml = transformToHackathonHtml(rawHtml);
-          fs.writeFileSync(path.join(distDir, 'hackathon.html'), hackathonHtml, 'utf-8');
-          console.log('[portal-vite] Generated hackathon.html in apps/portal/dist');
-        }
-      } catch (err) {
-        console.warn('[portal-vite] Warning: Could not generate hackathon.html:', err.message);
-      }
-    }
-  };
-}
-
 // https://vite.dev/config/
 export default defineConfig({
   envDir: path.resolve(__dirname, '../../'),
   base: process.env.VITE_BASE_PATH || (process.env.NODE_ENV === 'production' ? '/portal/' : '/'),
-  plugins: [react(), cloudinaryDevPlugin(), hackathonHtmlPlugin()],
+  plugins: [react(), cloudinaryDevPlugin()],
   resolve: {
     alias: {
       '@nacos/media': path.resolve(__dirname, '../../packages/media/src/index.js'),

@@ -78,7 +78,7 @@ const Footer = () => {
               <li><a href={toWeb('/about/nacos-executives')} className="text-white hover:text-[#4bd043] transition-colors">NACOS Executives</a></li>
               <li><a href={toWeb('/news')} className="text-white hover:text-[#4bd043] transition-colors">News & Journal</a></li>
               <li><a href={toWeb('/events')} className="text-white hover:text-[#4bd043] transition-colors">Department Events</a></li>
-              <li><Link to="/hackathons/the-agentic-build" className="text-amber-300 font-semibold hover:text-white transition-colors">The Agentic Build (Hackathon)</Link></li>
+              <li><a href={toWeb('/hackathons/the-agentic-build')} className="text-amber-300 font-semibold hover:text-white transition-colors">The Agentic Build (Hackathon)</a></li>
               <li><a href={toWeb('/about/alumni')} className="text-white hover:text-[#4bd043] transition-colors">Alumni Network</a></li>
             </ul>
           </div>

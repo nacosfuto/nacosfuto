@@ -19,8 +19,6 @@ const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
 const Notices = lazy(() => import('./pages/Notices'));
 const Events = lazy(() => import('./pages/Events'));
 const Receipt = lazy(() => import('./pages/Receipt'));
-const HackathonDetail = lazy(() => import('./pages/HackathonDetail'));
-const HackathonApply = lazy(() => import('./pages/HackathonApply'));
 const AdminHub = lazy(() => import('./pages/AdminHub'));
 import { getAppUrls } from '@nacos/config/urls';
 import { initAcademicSessionSync } from '@nacos/supabase';
@@ -125,7 +123,6 @@ const ElectraAdminRedirect = () => {
   );
 };
 
-const HACKATHON_OG_IMAGE = 'https://res.cloudinary.com/a2mmcttn/image/upload/b_rgb:041801,c_pad,w_1200,h_630/v1795114029/nacos/general/the-agentic-build-logo-dark.png';
 const DEFAULT_PORTAL_OG_IMAGE = 'https://nacosfuto.com/logo.png';
 const BASE_DOMAIN = 'https://nacosfuto.com';
 
@@ -155,9 +152,6 @@ function PortalSEOHandler() {
   const location = useLocation();
 
   useEffect(() => {
-    const isHackathonApply = location.pathname.endsWith('/apply');
-    const isHackathon = location.pathname.startsWith('/hackathon');
-
     const titles = {
       '/': 'Student Login | NACOS FUTO Portal',
       '/login': 'Student Login | NACOS FUTO Portal',
@@ -175,38 +169,17 @@ function PortalSEOHandler() {
       '/id-card/view': 'View Student ID Card | NACOS FUTO Portal',
       '/id/view': 'View Student ID Card | NACOS FUTO Portal',
       '/receipt': 'Official Payment Receipt | NACOS FUTO Portal',
-      '/admin-hub': 'Administrative Control Gateway | NACOS FUTO',
-      '/hackathons': 'The Agentic Build 2026 | NACOS FUTO Grand Hackathon',
-      '/hackathons/the-agentic-build': 'The Agentic Build 2026 | NACOS FUTO Grand Hackathon',
-      '/hackathons/the-agentic-build/apply': 'Register - The Agentic Build 2026 | NACOS FUTO Hackathon',
-      '/hackathons/agentic-build': 'The Agentic Build 2026 | NACOS FUTO Grand Hackathon',
-      '/hackathons/agentic-build/apply': 'Register - The Agentic Build 2026 | NACOS FUTO Hackathon',
-      '/hackathons/BuildXNACOS': 'The Agentic Build 2026 | NACOS FUTO Grand Hackathon',
-      '/hackathons/BuildXNACOS/apply': 'Register - The Agentic Build 2026 | NACOS FUTO Hackathon'
+      '/admin-hub': 'Administrative Control Gateway | NACOS FUTO'
     };
 
-    let title = titles[location.pathname];
-    let description = 'Official student academic portal for FUTO Computer Science. Register courses, pay departmental dues, generate verified digital student ID cards, view semester results, and track departmental clearances.';
-    let image = DEFAULT_PORTAL_OG_IMAGE;
-    let siteName = 'NACOS FUTO Student Portal';
-
-    if (isHackathon) {
-      siteName = 'NACOS FUTO - The Agentic Build';
-      image = HACKATHON_OG_IMAGE;
-      if (isHackathonApply) {
-        title = title || 'Register - The Agentic Build 2026 | NACOS FUTO Hackathon';
-        description = 'Register for The Agentic Build 2026 Hackathon. Open to Computer Science students at FUTO. Compete solo or form a team of up to 5 members to build innovative AI-assisted software.';
-      } else {
-        title = title || 'The Agentic Build 2026 | NACOS FUTO Grand Hackathon';
-        description = 'Official Hackathon organized by the Department of Computer Science & Office of the Director of ICT, NACOS FUTO. Build any product idea using AI tools and standard SDLC. Register solo or as a team for cash prizes, mentorship, and certificates.';
-      }
-    } else {
-      title = title || 'NACOS FUTO Portal | Student Academic & Clearance Hub';
-    }
+    const title = titles[location.pathname] || 'NACOS FUTO Portal | Student Academic & Clearance Hub';
+    const description = 'Official student academic portal for FUTO Computer Science. Register courses, pay departmental dues, generate verified digital student ID cards, view semester results, and track departmental clearances.';
+    const image = DEFAULT_PORTAL_OG_IMAGE;
+    const siteName = 'NACOS FUTO Student Portal';
 
     const canonicalPath = location.pathname.startsWith('/portal') 
       ? location.pathname 
-      : (isHackathon ? location.pathname : `/portal${location.pathname}`);
+      : `/portal${location.pathname}`;
     const canonicalUrl = `${BASE_DOMAIN}${canonicalPath}`;
 
     // 1. Update Document Title
@@ -299,15 +272,6 @@ function App() {
 
               {/* Public Verification Route */}
               <Route path="/verify/id/:id" element={<IdVerification />} />
-
-              {/* Dedicated Hackathon Module: The Agentic Build (Office of the Director of ICT, NACOS FUTO) */}
-              <Route path="/hackathons" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
-              <Route path="/hackathons/the-agentic-build" element={<HackathonDetail />} />
-              <Route path="/hackathons/the-agentic-build/apply" element={<HackathonApply />} />
-              <Route path="/hackathons/agentic-build" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
-              <Route path="/hackathons/agentic-build/apply" element={<Navigate to="/hackathons/the-agentic-build/apply" replace />} />
-              <Route path="/hackathons/BuildXNACOS" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
-              <Route path="/hackathons/BuildXNACOS/apply" element={<Navigate to="/hackathons/the-agentic-build/apply" replace />} />
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />

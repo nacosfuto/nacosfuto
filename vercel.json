@@ -27,14 +27,6 @@
       "destination": "/admin/index.html"
     },
     {
-      "source": "/portal/hackathons",
-      "destination": "/portal/hackathon.html"
-    },
-    {
-      "source": "/portal/hackathons/((?!.*\\.).*)",
-      "destination": "/portal/hackathon.html"
-    },
-    {
       "source": "/hackathons",
       "destination": "/hackathon.html"
     },
