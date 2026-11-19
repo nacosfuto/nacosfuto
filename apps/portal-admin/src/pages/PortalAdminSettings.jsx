@@ -24,7 +24,8 @@ import {
   History,
   Trash2,
   AlertTriangle,
-  Loader
+  Loader,
+  KeyRound
 } from 'lucide-react';
 import { 
   getIdCardSettings, 
@@ -58,7 +59,9 @@ import {
   getPortalAdminSession,
   createPortalAdmin,
   togglePortalAdminStatus,
-  deletePortalAdmin
+  deletePortalAdmin,
+  superAdminUpdateAdminPermissions,
+  AVAILABLE_ADMIN_FEATURES
 } from '@nacos/auth';
 
 export const PortalAdminSettings = () => {
@@ -102,6 +105,15 @@ export const PortalAdminSettings = () => {
     password: ''
   });
   const [deleteAdminModal, setDeleteAdminModal] = useState({ isOpen: false, admin: null, isDeleting: false });
+  const [editAdminModal, setEditAdminModal] = useState({
+    isOpen: false,
+    admin: null,
+    role: '',
+    scope: '',
+    assignedLevel: 'all',
+    permissions: [],
+    isSaving: false
+  });
 
   useEffect(() => {
     // 1. Authoritative fetch directly from Supabase database
@@ -333,6 +345,76 @@ export const PortalAdminSettings = () => {
     } finally {
       setDeleteAdminModal({ isOpen: false, admin: null, isDeleting: false });
       setTimeout(() => setAdminUpdateMsg(''), 4000);
+    }
+  };
+
+  const openEditAdminModal = (admin) => {
+    setEditAdminModal({
+      isOpen: true,
+      admin,
+      role: admin.role || 'portal_admin',
+      scope: admin.scope || 'student_portal',
+      assignedLevel: admin.assigned_level || admin.assignedLevel || 'all',
+      permissions: Array.isArray(admin.permissions) ? [...admin.permissions] : [],
+      isSaving: false
+    });
+  };
+
+  const handleToggleEditPermission = (permKey) => {
+    setEditAdminModal(prev => {
+      const perms = Array.isArray(prev.permissions) ? prev.permissions : [];
+      const exists = perms.includes(permKey);
+      return {
+        ...prev,
+        permissions: exists ? perms.filter(p => p !== permKey) : [...perms, permKey]
+      };
+    });
+  };
+
+  const handleSelectAllPortalPermissions = () => {
+    const portalKeys = (AVAILABLE_ADMIN_FEATURES || [])
+      .filter(f => f.platform === 'portal' || f.platform === 'shared')
+      .map(f => f.key);
+    setEditAdminModal(prev => ({
+      ...prev,
+      permissions: Array.from(new Set([...(prev.permissions || []), ...portalKeys, 'student_portal.view', 'student_portal.students', 'student_portal.results']))
+    }));
+  };
+
+  const handleClearAllEditPermissions = () => {
+    setEditAdminModal(prev => ({
+      ...prev,
+      permissions: []
+    }));
+  };
+
+  const handleSaveAdminPermissions = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!editAdminModal.admin) return;
+    setEditAdminModal(prev => ({ ...prev, isSaving: true }));
+
+    try {
+      const res = await superAdminUpdateAdminPermissions({
+        adminId: editAdminModal.admin.id,
+        permissions: Array.isArray(editAdminModal.permissions) ? editAdminModal.permissions : [],
+        scope: editAdminModal.scope,
+        role: editAdminModal.role,
+        assignedLevel: editAdminModal.assignedLevel || 'all'
+      });
+
+      if (res?.error) {
+        setAdminUpdateMsg(`Error: ${res.error}`);
+        setEditAdminModal(prev => ({ ...prev, isSaving: false }));
+      } else {
+        setAdminUpdateMsg(`Permissions and scopes updated for ${editAdminModal.admin.full_name || editAdminModal.admin.email}!`);
+        setEditAdminModal({ isOpen: false, admin: null, role: '', scope: '', assignedLevel: 'all', permissions: [], isSaving: false });
+        const refreshed = await fetchPortalAdminsFromSupabase();
+        setPortalAdmins(refreshed);
+      }
+      setTimeout(() => setAdminUpdateMsg(''), 4000);
+    } catch (err) {
+      setAdminUpdateMsg(`Failed to update permissions: ${err.message}`);
+      setEditAdminModal(prev => ({ ...prev, isSaving: false }));
     }
   };
 
@@ -790,6 +872,16 @@ export const PortalAdminSettings = () => {
                           <option value="500">500 Level (Course Adviser)</option>
                         </select>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => openEditAdminModal(admin)}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-purple-300 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors cursor-pointer flex items-center gap-1"
+                        title="Edit Role, Scope, Level & Capabilities"
+                      >
+                        <KeyRound className="w-3 h-3" />
+                        <span>Edit Scopes</span>
+                      </button>
 
                       <button
                         type="button"
@@ -1260,6 +1352,158 @@ export const PortalAdminSettings = () => {
                   <span>{deleteAdminModal.isDeleting ? 'Deleting...' : 'Delete Permanently'}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Edit Administrator Scopes, Roles & Permissions */}
+        {editAdminModal.isOpen && editAdminModal.admin && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="w-full max-w-2xl rounded-2xl bg-white dark:bg-[#083002] border border-gray-200 dark:border-[#138601]/40 p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-[#138601]/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950/80 flex items-center justify-center text-purple-600 dark:text-purple-300">
+                    <KeyRound className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                      Edit Administrator Capabilities &amp; Scopes
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Managing permissions for: <span className="font-semibold text-gray-800 dark:text-gray-200">{editAdminModal.admin.full_name}</span> ({editAdminModal.admin.email})
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditAdminModal({ isOpen: false, admin: null, role: '', scope: '', assignedLevel: 'all', permissions: [], isSaving: false })}
+                  className="text-gray-400 hover:text-gray-700 dark:hover:text-white cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveAdminPermissions} className="space-y-4 text-xs">
+                {/* Role, Scope and Academic Level Configuration */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-semibold mb-1 text-gray-700 dark:text-green-200">
+                      Administrative Role
+                    </label>
+                    <select
+                      value={editAdminModal.role}
+                      onChange={(e) => setEditAdminModal(prev => ({ ...prev, role: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 font-semibold text-gray-900 dark:text-white"
+                    >
+                      <option value="portal_admin">Portal Administrator</option>
+                      <option value="course_adviser">Course Adviser (Results &amp; Registry)</option>
+                      <option value="website_admin">Website Administrator</option>
+                      <option value="electoral_admin">Electoral Commissioner (Electra)</option>
+                      <option value="super_admin">Super Administrator (Universal)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold mb-1 text-gray-700 dark:text-green-200">
+                      Platform Scope
+                    </label>
+                    <select
+                      value={editAdminModal.scope}
+                      onChange={(e) => setEditAdminModal(prev => ({ ...prev, scope: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 font-semibold text-gray-900 dark:text-white"
+                    >
+                      <option value="student_portal">Student Portal</option>
+                      <option value="main_website">Main Website</option>
+                      <option value="electoral_admin">Electra Electoral System</option>
+                      <option value="super_admin">Universal All Platforms</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold mb-1 text-gray-700 dark:text-green-200">
+                      Assigned Level
+                    </label>
+                    <select
+                      value={editAdminModal.assignedLevel || 'all'}
+                      onChange={(e) => setEditAdminModal(prev => ({ ...prev, assignedLevel: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 font-semibold text-gray-900 dark:text-white"
+                    >
+                      <option value="all">Full Access (All Levels)</option>
+                      <option value="100">100 Level</option>
+                      <option value="200">200 Level</option>
+                      <option value="300">300 Level</option>
+                      <option value="400">400 Level</option>
+                      <option value="500">500 Level</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Granular Capabilities & Feature Checklist */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="font-bold text-gray-700 dark:text-green-200">
+                      Assigned Capabilities &amp; Features ({(editAdminModal.permissions || []).length} active)
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSelectAllPortalPermissions}
+                        className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                      >
+                        Select All Portal
+                      </button>
+                      <span className="text-gray-300 dark:text-gray-600">&bull;</span>
+                      <button
+                        type="button"
+                        onClick={handleClearAllEditPermissions}
+                        className="text-[11px] font-semibold text-gray-500 hover:underline cursor-pointer"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-gray-50 dark:bg-[#041801] p-3 rounded-xl border border-gray-200 dark:border-[#138601]/25 max-h-64 overflow-y-auto">
+                    {(AVAILABLE_ADMIN_FEATURES || []).map(feat => {
+                      const isChecked = (editAdminModal.permissions || []).includes(feat.key);
+
+                      return (
+                        <label key={feat.key} className="flex items-start gap-2 p-1.5 rounded hover:bg-white dark:hover:bg-white/5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleEditPermission(feat.key)}
+                            className="mt-0.5 w-3.5 h-3.5 text-emerald-600 rounded focus:ring-emerald-500"
+                          />
+                          <div>
+                            <span className="font-semibold text-gray-900 dark:text-white block leading-tight">{feat.label}</span>
+                            <span className="text-[10px] text-gray-400 block">{feat.description}</span>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 dark:border-[#138601]/20">
+                  <button
+                    type="button"
+                    onClick={() => setEditAdminModal({ isOpen: false, admin: null, role: '', scope: '', assignedLevel: 'all', permissions: [], isSaving: false })}
+                    disabled={editAdminModal.isSaving}
+                    className="px-4 py-2 rounded-lg text-gray-600 bg-gray-100 dark:bg-white/10 dark:text-gray-300 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editAdminModal.isSaving}
+                    className="px-5 py-2 rounded-lg font-bold text-white bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 shadow-sm transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                  >
+                    {editAdminModal.isSaving ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
+                    <span>{editAdminModal.isSaving ? 'Saving Permissions...' : 'Save Permissions to Database'}</span>
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

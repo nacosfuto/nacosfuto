@@ -18,7 +18,9 @@ import {
   superAdminDeleteAdmin,
   superAdminResendInvite,
   requestAdminPasswordReset,
-  confirmAdminPasswordReset
+  confirmAdminPasswordReset,
+  superAdminUpdateAdminPermissions,
+  AVAILABLE_ADMIN_FEATURES
 } from '@nacos/supabase/adminAuth';
 
 const STUDENT_USER_SESSION_KEY = 'nacos_user';
@@ -30,7 +32,9 @@ export {
   verifyLiveAdminSession,
   superAdminResendInvite,
   requestAdminPasswordReset,
-  confirmAdminPasswordReset
+  confirmAdminPasswordReset,
+  superAdminUpdateAdminPermissions,
+  AVAILABLE_ADMIN_FEATURES
 };
 
 export function getStudentSession() {

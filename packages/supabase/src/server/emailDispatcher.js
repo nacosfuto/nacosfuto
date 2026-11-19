@@ -182,50 +182,8 @@ const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_EMAILS_PER_WINDOW = 5;             // Max 5 emails per recipient in 15 mins
 const MIN_COOLDOWN_MS = 30 * 1000;           // 30 seconds cooldown between consecutive sends
 
+// Rate limiting disabled per user operational requirement so users can receive codes without lockout
 export function checkServerEmailRateLimit({ email, ip }) {
-  const now = Date.now();
-  const cleanEmail = (email || '').trim().toLowerCase();
-  const key = cleanEmail || `ip_${ip || 'unknown'}`;
-
-  // Purge expired records periodically
-  if (rateLimitCache.size > 2000) {
-    for (const [k, v] of rateLimitCache.entries()) {
-      if (now - v.lastRequestTime > RATE_LIMIT_WINDOW_MS) {
-        rateLimitCache.delete(k);
-      }
-    }
-  }
-
-  const record = rateLimitCache.get(key);
-  if (!record) {
-    return { allowed: true, retryAfterSeconds: 0 };
-  }
-
-  // 1. Enforce minimum consecutive send cooldown
-  const timeSinceLast = now - record.lastRequestTime;
-  if (timeSinceLast < MIN_COOLDOWN_MS) {
-    const retryAfter = Math.ceil((MIN_COOLDOWN_MS - timeSinceLast) / 1000);
-    return {
-      allowed: false,
-      reason: 'cooldown',
-      error: `Please wait ${retryAfter}s before requesting another email.`,
-      retryAfterSeconds: retryAfter
-    };
-  }
-
-  // 2. Enforce sliding window max count
-  const validTimestamps = record.timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
-  if (validTimestamps.length >= MAX_EMAILS_PER_WINDOW) {
-    const oldest = validTimestamps[0];
-    const retryAfter = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - oldest)) / 1000);
-    return {
-      allowed: false,
-      reason: 'window_limit',
-      error: `Too many email requests. Please wait ${Math.ceil(retryAfter / 60)} minute(s) before trying again.`,
-      retryAfterSeconds: retryAfter
-    };
-  }
-
   return { allowed: true, retryAfterSeconds: 0 };
 }
 

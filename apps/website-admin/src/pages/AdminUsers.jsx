@@ -256,21 +256,23 @@ const AdminUsers = () => {
     setEditModal({
       isOpen: true,
       admin,
-      permissions: Array.isArray(admin.permissions) ? [...admin.permissions] : [],
-      role: admin.role || 'website_admin',
-      scope: admin.scope || 'main_website',
+      permissions: Array.isArray(admin?.permissions) ? [...admin.permissions] : [],
+      role: admin?.role || 'website_admin',
+      scope: admin?.scope || 'main_website',
+      assignedLevel: admin?.assigned_level || admin?.assignedLevel || 'all',
       isSaving: false
     });
   };
 
   const handleToggleEditPermission = (permKey) => {
     setEditModal(prev => {
-      const exists = prev.permissions.includes(permKey);
+      const perms = Array.isArray(prev?.permissions) ? prev.permissions : [];
+      const exists = perms.includes(permKey);
       return {
         ...prev,
         permissions: exists
-          ? prev.permissions.filter(p => p !== permKey)
-          : [...prev.permissions, permKey]
+          ? perms.filter(p => p !== permKey)
+          : [...perms, permKey]
       };
     });
   };
@@ -279,16 +281,32 @@ const AdminUsers = () => {
     const websiteKeys = AVAILABLE_ADMIN_FEATURES
       .filter(f => f.platform === 'website' || f.platform === 'shared')
       .map(f => f.key);
-    setEditModal(prev => ({
-      ...prev,
-      permissions: Array.from(new Set([...prev.permissions, ...websiteKeys, 'main_website.view', 'main_website.news', 'main_website.events', 'main_website.media']))
-    }));
+    setEditModal(prev => {
+      const perms = Array.isArray(prev?.permissions) ? prev.permissions : [];
+      return {
+        ...prev,
+        permissions: Array.from(new Set([...perms, ...websiteKeys, 'main_website.view', 'main_website.news', 'main_website.events', 'main_website.media']))
+      };
+    });
+  };
+
+  const handleSelectAllPortalPermissions = () => {
+    const portalKeys = AVAILABLE_ADMIN_FEATURES
+      .filter(f => f.platform === 'portal' || f.platform === 'shared')
+      .map(f => f.key);
+    setEditModal(prev => {
+      const perms = Array.isArray(prev?.permissions) ? prev.permissions : [];
+      return {
+        ...prev,
+        permissions: Array.from(new Set([...perms, ...portalKeys, 'student_portal.view', 'student_portal.students', 'student_portal.results']))
+      };
+    });
   };
 
   const handleClearAllEditPermissions = () => {
     setEditModal(prev => ({
       ...prev,
-      permissions: ['main_website.view']
+      permissions: []
     }));
   };
 
@@ -300,9 +318,10 @@ const AdminUsers = () => {
     try {
       const res = await superAdminUpdateAdminPermissions({
         adminId: editModal.admin.id,
-        permissions: editModal.permissions,
+        permissions: Array.isArray(editModal.permissions) ? editModal.permissions : [],
         scope: editModal.scope,
-        role: editModal.role
+        role: editModal.role,
+        assignedLevel: editModal.assignedLevel || editModal.admin.assigned_level || 'all'
       });
 
       if (res?.error) {
@@ -310,7 +329,7 @@ const AdminUsers = () => {
         setEditModal(prev => ({ ...prev, isSaving: false }));
       } else {
         showNotification(`Permissions and scope updated for ${editModal.admin.full_name || editModal.admin.email}!`, 'success');
-        setEditModal({ isOpen: false, admin: null, permissions: [], role: '', scope: '', isSaving: false });
+        setEditModal({ isOpen: false, admin: null, permissions: [], role: '', scope: '', assignedLevel: 'all', isSaving: false });
         await loadAdmins();
       }
     } catch (err) {
@@ -787,8 +806,8 @@ const AdminUsers = () => {
               </div>
 
               <form onSubmit={handleSavePermissions} className="space-y-4 text-xs">
-                {/* Role and Scope Configuration */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Role, Scope and Academic Level Configuration */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block font-semibold mb-1 text-gray-700 dark:text-green-200">
                       Administrative Role
@@ -821,13 +840,31 @@ const AdminUsers = () => {
                       <option value="super_admin">Universal All Platforms</option>
                     </select>
                   </div>
+
+                  <div>
+                    <label className="block font-semibold mb-1 text-gray-700 dark:text-green-200">
+                      Assigned Level
+                    </label>
+                    <select
+                      value={editModal.assignedLevel || 'all'}
+                      onChange={(e) => setEditModal(prev => ({ ...prev, assignedLevel: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-[#041801] border border-gray-200 dark:border-[#138601]/30 font-semibold text-gray-900 dark:text-white"
+                    >
+                      <option value="all">Full Access (All Levels)</option>
+                      <option value="100">100 Level</option>
+                      <option value="200">200 Level</option>
+                      <option value="300">300 Level</option>
+                      <option value="400">400 Level</option>
+                      <option value="500">500 Level</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Granular Capabilities & Feature Checklist */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="font-bold text-gray-700 dark:text-green-200">
-                      Assigned Capabilities &amp; Features ({editModal.permissions.length} active)
+                      Assigned Capabilities &amp; Features ({(editModal.permissions || []).length} active)
                     </label>
                     <div className="flex gap-2">
                       <button
@@ -840,20 +877,28 @@ const AdminUsers = () => {
                       <span className="text-gray-300 dark:text-gray-600">&bull;</span>
                       <button
                         type="button"
+                        onClick={handleSelectAllPortalPermissions}
+                        className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                      >
+                        Select All Portal
+                      </button>
+                      <span className="text-gray-300 dark:text-gray-600">&bull;</span>
+                      <button
+                        type="button"
                         onClick={handleClearAllEditPermissions}
                         className="text-[11px] font-semibold text-gray-500 hover:underline cursor-pointer"
                       >
-                        Reset to View
+                        Clear All
                       </button>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-gray-50 dark:bg-[#041801] p-3 rounded-xl border border-gray-200 dark:border-[#138601]/25 max-h-64 overflow-y-auto">
                     {AVAILABLE_ADMIN_FEATURES.map(feat => {
-                      const isChecked = editModal.permissions.includes(feat.key) || 
-                        (feat.key === 'feature:news' && editModal.permissions.includes('main_website.news')) ||
-                        (feat.key === 'feature:events' && editModal.permissions.includes('main_website.events')) ||
-                        (feat.key === 'feature:media_library' && editModal.permissions.includes('main_website.media'));
+                      const isChecked = (editModal.permissions || []).includes(feat.key) || 
+                        (feat.key === 'feature:news' && (editModal.permissions || []).includes('main_website.news')) ||
+                        (feat.key === 'feature:events' && (editModal.permissions || []).includes('main_website.events')) ||
+                        (feat.key === 'feature:media_library' && (editModal.permissions || []).includes('main_website.media'));
 
                       return (
                         <label key={feat.key} className="flex items-start gap-2 p-1.5 rounded hover:bg-white dark:hover:bg-white/5 cursor-pointer">

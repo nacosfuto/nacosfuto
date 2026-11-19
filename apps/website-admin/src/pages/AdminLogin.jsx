@@ -122,7 +122,7 @@ export const AdminLogin = () => {
 
       if (result.success) {
         setMaskedResetEmail(result.maskedEmail || cleanEmail);
-        setResetCooldown(60);
+        setResetCooldown(10);
         setResetStep(2);
       } else {
         if (result.retryAfterSeconds) {
@@ -149,7 +149,7 @@ export const AdminLogin = () => {
       const result = await requestAdminPasswordReset(cleanEmail);
       setIsResetLoading(false);
       if (result.success) {
-        setResetCooldown(60);
+        setResetCooldown(10);
       } else {
         setResetError(result.error || 'Failed to resend verification code.');
       }

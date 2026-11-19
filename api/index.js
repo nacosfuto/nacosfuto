@@ -1103,7 +1103,8 @@ export default async function handler(req, res) {
           adminId: body.adminId || body.admin_id,
           permissions: body.permissions,
           scope: body.scope,
-          role: body.role
+          role: body.role,
+          assignedLevel: body.assignedLevel || body.assigned_level
         });
         return res.status(result.success ? 200 : 400).json(result);
       }

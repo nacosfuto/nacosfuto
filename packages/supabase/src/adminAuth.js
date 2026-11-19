@@ -993,6 +993,12 @@ export async function superAdminResendInvite(adminId) {
 // ADMIN PASSWORD RESET VIA EMAIL & OTP
 // =============================================================================
 
+export function getAdminOtpRegNumber(adminId) {
+  if (!adminId) return 'ADMIN';
+  const clean = String(adminId).replace(/^admin-/, '');
+  return `ADM-${clean}`.slice(0, 30);
+}
+
 export async function requestAdminPasswordReset(adminEmail) {
   if (!adminEmail || !adminEmail.trim()) {
     return { success: false, error: 'Please enter your administrator email address.' };
@@ -1039,6 +1045,8 @@ export async function requestAdminPasswordReset(adminEmail) {
   const maskedEmail = maskEmail(cleanEmail);
   const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  const adminReg = getAdminOtpRegNumber(adminRecord.id);
+  const legacyReg = `ADMIN-${adminRecord.id}`.slice(0, 30);
 
   // Invalidate older expired challenges (> 15 minutes) for this administrator
   // Retaining recent unverified challenges within the 15-minute window prevents race conditions from email delivery delays
@@ -1047,7 +1055,7 @@ export async function requestAdminPasswordReset(adminEmail) {
     await supabase
       .from('otp_verifications')
       .update({ is_used: true })
-      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.${adminReg},registration_number.ilike.${legacyReg},registration_number.ilike.${cleanEmail}`)
       .lt('created_at', expiredCutoff);
   } catch (_) {}
 
@@ -1062,14 +1070,14 @@ export async function requestAdminPasswordReset(adminEmail) {
   }
 
   await supabase.from('otp_verifications').insert([{
-    registration_number: `ADMIN-${adminRecord.id}`,
+    registration_number: adminReg,
     channel: 'email',
     destination: maskedEmail,
     destination_full: cleanEmail,
     otp_hash: otpHash,
     expires_at: expiresAt,
     attempts: 0,
-    max_attempts: 5,
+    max_attempts: 15,
     is_used: false,
     created_at: new Date().toISOString()
   }]);
@@ -1170,10 +1178,13 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
     } catch (_) {}
   }
 
+  const adminReg = getAdminOtpRegNumber(adminRecord.id);
+  const legacyReg = `ADMIN-${adminRecord.id}`.slice(0, 30);
+
   const { data: challenges, error: fetchErr } = await supabase
     .from('otp_verifications')
     .select('id, registration_number, destination_full, otp_hash, is_used, verified_at, expires_at, created_at, attempts, max_attempts')
-    .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+    .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.${adminReg},registration_number.ilike.${legacyReg},registration_number.ilike.${cleanEmail}`)
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -1197,7 +1208,7 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
     const activeChallenge = challengeList.find(c => !c.verified_at && !c.is_used) || challengeList.find(c => !c.verified_at);
     if (activeChallenge) {
       const newAttempts = (activeChallenge.attempts || 0) + 1;
-      const maxAtt = activeChallenge.max_attempts || 5;
+      const maxAtt = activeChallenge.max_attempts || 15;
       await supabase
         .from('otp_verifications')
         .update({
@@ -1220,7 +1231,7 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
     return { success: false, error: 'This verification code has already been used to reset your password. Please request a new code.' };
   }
 
-  if ((matched.attempts || 0) >= (matched.max_attempts || 5)) {
+  if ((matched.attempts || 0) >= (matched.max_attempts || 15)) {
     return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
   }
 
@@ -1238,7 +1249,7 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
     await supabase
       .from('otp_verifications')
       .update({ is_used: true })
-      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.${adminReg},registration_number.ilike.${legacyReg},registration_number.ilike.${cleanEmail}`)
       .is('verified_at', null);
   } catch (_) {}
 
@@ -1302,6 +1313,7 @@ export async function requestAdminAccessOtp(adminEmail, targetPlatform = 'websit
   const masked = maskEmail(cleanEmail);
   const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  const adminReg = getAdminOtpRegNumber(adminRecord.id);
 
   let otpHash = otpCode;
   if (typeof crypto !== 'undefined' && crypto.subtle) {
@@ -1313,14 +1325,14 @@ export async function requestAdminAccessOtp(adminEmail, targetPlatform = 'websit
   }
 
   await supabase.from('otp_verifications').insert([{
-    registration_number: `ADMIN-${adminRecord.id}`,
+    registration_number: adminReg,
     channel: 'email',
     destination: masked,
     destination_full: cleanEmail,
     otp_hash: otpHash,
     expires_at: expiresAt,
     attempts: 0,
-    max_attempts: 5,
+    max_attempts: 15,
     is_used: false,
     created_at: new Date().toISOString()
   }]);
@@ -1412,10 +1424,13 @@ export async function verifyAdminAccessOtp(adminEmail, otpCode, targetPlatform =
     } catch (_) {}
   }
 
+  const adminReg = getAdminOtpRegNumber(adminRecord.id);
+  const legacyReg = `ADMIN-${adminRecord.id}`.slice(0, 30);
+
   const { data: challenges } = await supabase
     .from('otp_verifications')
     .select('id, registration_number, destination_full, otp_hash, is_used, verified_at, expires_at, created_at, attempts, max_attempts')
-    .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+    .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.${adminReg},registration_number.ilike.${legacyReg},registration_number.ilike.${cleanEmail}`)
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -1430,7 +1445,7 @@ export async function verifyAdminAccessOtp(adminEmail, otpCode, targetPlatform =
     const activeChallenge = challengeList.find(c => !c.verified_at && !c.is_used) || challengeList.find(c => !c.verified_at);
     if (activeChallenge) {
       const newAttempts = (activeChallenge.attempts || 0) + 1;
-      const maxAtt = activeChallenge.max_attempts || 5;
+      const maxAtt = activeChallenge.max_attempts || 15;
       await supabase.from('otp_verifications').update({ attempts: newAttempts, is_used: newAttempts >= maxAtt }).eq('id', activeChallenge.id);
       const remaining = Math.max(0, maxAtt - newAttempts);
       return { success: false, error: remaining > 0 ? `Invalid verification code. ${remaining} attempt(s) remaining.` : 'Too many incorrect attempts on this code. Please request a new verification code.' };
@@ -1441,7 +1456,7 @@ export async function verifyAdminAccessOtp(adminEmail, otpCode, targetPlatform =
   if (matched.verified_at) {
     return { success: false, error: 'This verification code has already been used. Please request a new code.' };
   }
-  if ((matched.attempts || 0) >= (matched.max_attempts || 5)) {
+  if ((matched.attempts || 0) >= (matched.max_attempts || 15)) {
     return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
   }
   const expiryTime = matched.expires_at ? new Date(matched.expires_at).getTime() : 0;
@@ -1482,8 +1497,36 @@ export async function verifyAdminAccessOtp(adminEmail, otpCode, targetPlatform =
 
 /**
  * Super Admin: Update administrator permissions and capabilities in database.
+ * Supports both signatures:
+ *   1. superAdminUpdateAdminPermissions({ adminId, permissions, role, scope, assignedLevel })
+ *   2. superAdminUpdateAdminPermissions(adminId, { permissions, role, scope, assignedLevel })
  */
-export async function superAdminUpdateAdminPermissions(adminId, { permissions = [], role = null, scope = null, assignedLevel = null }) {
+export async function superAdminUpdateAdminPermissions(arg1, arg2 = {}) {
+  let adminId;
+  let permissions = [];
+  let role = null;
+  let scope = null;
+  let assignedLevel = null;
+
+  if (arg1 && typeof arg1 === 'object') {
+    adminId = arg1.adminId || arg1.id;
+    permissions = Array.isArray(arg1.permissions) ? arg1.permissions : [];
+    role = arg1.role || null;
+    scope = arg1.scope || null;
+    assignedLevel = arg1.assignedLevel || arg1.assigned_level || null;
+  } else {
+    adminId = arg1;
+    const opts = (arg2 && typeof arg2 === 'object') ? arg2 : {};
+    permissions = Array.isArray(opts.permissions) ? opts.permissions : [];
+    role = opts.role || null;
+    scope = opts.scope || null;
+    assignedLevel = opts.assignedLevel || opts.assigned_level || null;
+  }
+
+  if (!adminId) {
+    return { success: false, error: 'Administrator ID is required.' };
+  }
+
   const current = getWebsiteAdminSession() || getPortalAdminSession();
   const token = current?.token || current?.id;
 

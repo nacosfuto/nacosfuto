@@ -31,6 +31,15 @@ const RATE_LIMIT_MAX_ATTEMPTS = 5;
 const ADMIN_SCOPE_FIELDS = 'id, user_id, email, password_hash, full_name, role, scope, permissions, assigned_level, is_active, created_at, updated_at, last_login_at';
 
 /**
+ * Returns a deterministic registration_number for otp_verifications that strictly satisfies VARCHAR(30)
+ */
+export function getAdminOtpRegNumber(adminId) {
+  if (!adminId) return 'ADMIN';
+  const clean = String(adminId).replace(/^admin-/, '');
+  return `ADM-${clean}`.slice(0, 30);
+}
+
+/**
  * Authoritatively determines if an administrator record or session holds Super Admin privileges.
  */
 export function isSuperAdminScope(admin) {
@@ -378,23 +387,9 @@ export async function handleAdminForgotPassword({ email, ipAddress = null }) {
     };
   }
 
-  // 2. Check rate limit in otp_verifications
-  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString();
-  try {
-    const { count } = await supabase
-      .from('otp_verifications')
-      .select('id', { count: 'exact', head: true })
-      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
-      .gte('created_at', windowStart);
-
-    if (count >= RATE_LIMIT_MAX_ATTEMPTS) {
-      return {
-        success: false,
-        error: 'Too many reset requests. Please wait 15 minutes before retrying.',
-        retryAfterSeconds: 900
-      };
-    }
-  } catch (_) {}
+  // 2. Rate limiting check removed per operational requirements so administrators can receive codes reliably without lockout.
+  const adminReg = getAdminOtpRegNumber(adminRecord.id);
+  const legacyReg = `ADMIN-${adminRecord.id}`.slice(0, 30);
 
   // 3. Invalidate old expired challenges (> 15 minutes) for this administrator
   // Retaining recent unverified challenges within the 15-minute window ensures that any code
@@ -404,7 +399,7 @@ export async function handleAdminForgotPassword({ email, ipAddress = null }) {
     await supabase
       .from('otp_verifications')
       .update({ is_used: true })
-      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.${adminReg},registration_number.ilike.${legacyReg},registration_number.ilike.${cleanEmail}`)
       .lt('created_at', expiredCutoff);
   } catch (_) {}
 
@@ -414,20 +409,24 @@ export async function handleAdminForgotPassword({ email, ipAddress = null }) {
   const otpHash = hashOtpServer(otpCode);
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
 
-  // 5. Save to otp_verifications table
-  await supabase.from('otp_verifications').insert([{
-    registration_number: `ADMIN-${adminRecord.id}`,
+  // 5. Save to otp_verifications table with registration_number fitting VARCHAR(30)
+  const { error: insertErr } = await supabase.from('otp_verifications').insert([{
+    registration_number: adminReg,
     channel: 'email',
     destination: maskEmail(cleanEmail),
     destination_full: cleanEmail,
     otp_hash: otpHash,
     expires_at: expiresAt,
     attempts: 0,
-    max_attempts: 5,
+    max_attempts: 15,
     is_used: false,
     ip_address: JSON.stringify({ purpose: 'ADMIN_PASSWORD_RESET', clientIp: ipAddress, adminId: adminRecord.id }),
     created_at: new Date().toISOString()
   }]);
+
+  if (insertErr) {
+    console.error('[Admin Forgot Password OTP Insert Error]:', insertErr);
+  }
 
   // 6. Dispatch transactional email via Resend
   const adminName = adminRecord.full_name || 'Administrator';
@@ -499,11 +498,14 @@ export async function handleAdminResetPassword({ email, otp, newPassword }) {
   const nowIso = new Date().toISOString();
   const nowMs = Date.now();
 
+  const adminReg = getAdminOtpRegNumber(adminRecord.id);
+  const legacyReg = `ADMIN-${adminRecord.id}`.slice(0, 30);
+
   // 3. Query recent verification records for this admin across all possible identification columns
   const { data: challenges, error: challengeErr } = await supabase
     .from('otp_verifications')
     .select('id, registration_number, destination_full, otp_hash, is_used, verified_at, expires_at, created_at, attempts, max_attempts')
-    .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+    .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.${adminReg},registration_number.ilike.${legacyReg},registration_number.ilike.${cleanEmail}`)
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -529,7 +531,7 @@ export async function handleAdminResetPassword({ email, otp, newPassword }) {
     const activeChallenge = challengeList.find(r => !r.verified_at && !r.is_used) || challengeList.find(r => !r.verified_at);
     if (activeChallenge) {
       const newAttempts = (activeChallenge.attempts || 0) + 1;
-      const maxAtt = activeChallenge.max_attempts || 5;
+      const maxAtt = activeChallenge.max_attempts || 15;
       await supabase
         .from('otp_verifications')
         .update({
@@ -555,7 +557,7 @@ export async function handleAdminResetPassword({ email, otp, newPassword }) {
   }
 
   // 2. Has this code exceeded max attempts?
-  if ((matchedRecord.attempts || 0) >= (matchedRecord.max_attempts || 5)) {
+  if ((matchedRecord.attempts || 0) >= (matchedRecord.max_attempts || 15)) {
     return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
   }
 
@@ -577,7 +579,7 @@ export async function handleAdminResetPassword({ email, otp, newPassword }) {
     await supabase
       .from('otp_verifications')
       .update({ is_used: true })
-      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.${adminReg},registration_number.ilike.${legacyReg},registration_number.ilike.${cleanEmail}`)
       .is('verified_at', null);
   } catch (_) {}
 
@@ -668,23 +670,9 @@ export async function handleAdminRequestAccessOtp({ email, ipAddress = null, tar
     };
   }
 
-  // Rate limiting check
-  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString();
-  try {
-    const { count } = await supabase
-      .from('otp_verifications')
-      .select('id', { count: 'exact', head: true })
-      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
-      .gte('created_at', windowStart);
-
-    if (count >= RATE_LIMIT_MAX_ATTEMPTS) {
-      return {
-        success: false,
-        error: 'Too many access requests. Please wait 15 minutes before retrying.',
-        retryAfterSeconds: 900
-      };
-    }
-  } catch (_) {}
+  // Rate limiting check removed per operational requirements so administrators can receive codes reliably without lockout.
+  const adminReg = getAdminOtpRegNumber(adminRecord.id);
+  const legacyReg = `ADMIN-${adminRecord.id}`.slice(0, 30);
 
   // Invalidate old expired challenges (> 15 minutes)
   try {
@@ -692,7 +680,7 @@ export async function handleAdminRequestAccessOtp({ email, ipAddress = null, tar
     await supabase
       .from('otp_verifications')
       .update({ is_used: true })
-      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.${adminReg},registration_number.ilike.${legacyReg},registration_number.ilike.${cleanEmail}`)
       .lt('created_at', expiredCutoff);
   } catch (_) {}
 
@@ -702,16 +690,16 @@ export async function handleAdminRequestAccessOtp({ email, ipAddress = null, tar
   const otpHash = hashOtpServer(otpCode);
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
 
-  // Store in otp_verifications
+  // Store in otp_verifications with registration_number fitting VARCHAR(30)
   await supabase.from('otp_verifications').insert([{
-    registration_number: `ADMIN-${adminRecord.id}`,
+    registration_number: adminReg,
     channel: 'email',
     destination: maskEmail(cleanEmail),
     destination_full: cleanEmail,
     otp_hash: otpHash,
     expires_at: expiresAt,
     attempts: 0,
-    max_attempts: 5,
+    max_attempts: 15,
     is_used: false,
     ip_address: JSON.stringify({ purpose: 'ADMIN_ACCESS_OTP', clientIp: ipAddress, adminId: adminRecord.id, platform: targetPlatform }),
     created_at: new Date().toISOString()
@@ -785,11 +773,14 @@ export async function handleAdminVerifyAccessOtp({ email, otp, targetPlatform = 
   const nowIso = new Date().toISOString();
   const nowMs = Date.now();
 
+  const adminReg = getAdminOtpRegNumber(adminRecord.id);
+  const legacyReg = `ADMIN-${adminRecord.id}`.slice(0, 30);
+
   // 3. Query recent verification records for this admin
   const { data: challenges, error: challengeErr } = await supabase
     .from('otp_verifications')
     .select('id, registration_number, destination_full, otp_hash, is_used, verified_at, expires_at, created_at, attempts, max_attempts')
-    .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+    .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.${adminReg},registration_number.ilike.${legacyReg},registration_number.ilike.${cleanEmail}`)
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -812,7 +803,7 @@ export async function handleAdminVerifyAccessOtp({ email, otp, targetPlatform = 
     const activeChallenge = challengeList.find(r => !r.verified_at && !r.is_used) || challengeList.find(r => !r.verified_at);
     if (activeChallenge) {
       const newAttempts = (activeChallenge.attempts || 0) + 1;
-      const maxAtt = activeChallenge.max_attempts || 5;
+      const maxAtt = activeChallenge.max_attempts || 15;
       await supabase
         .from('otp_verifications')
         .update({
@@ -838,7 +829,7 @@ export async function handleAdminVerifyAccessOtp({ email, otp, targetPlatform = 
   }
 
   // Check max attempts
-  if ((matchedRecord.attempts || 0) >= (matchedRecord.max_attempts || 5)) {
+  if ((matchedRecord.attempts || 0) >= (matchedRecord.max_attempts || 15)) {
     return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
   }
 
@@ -860,7 +851,7 @@ export async function handleAdminVerifyAccessOtp({ email, otp, targetPlatform = 
     await supabase
       .from('otp_verifications')
       .update({ is_used: true })
-      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.ADMIN-${adminRecord.id},registration_number.ilike.${cleanEmail}`)
+      .or(`destination_full.ilike.${cleanEmail},registration_number.ilike.${adminReg},registration_number.ilike.${legacyReg},registration_number.ilike.${cleanEmail}`)
       .is('verified_at', null);
   } catch (_) {}
 
