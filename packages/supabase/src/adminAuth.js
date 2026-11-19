@@ -1202,10 +1202,19 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
     return storedHash === candidateSalted || storedHash === cleanOtp || storedHash === candidateUnsalted;
   };
 
+  const isRecentChallenge = (c) => {
+    if (!c) return false;
+    const expiryMs = c.expires_at ? new Date(c.expires_at).getTime() : 0;
+    const createdMs = c.created_at ? new Date(c.created_at).getTime() : 0;
+    if (expiryMs > 0 && nowMs > expiryMs + 15 * 60 * 1000) return false;
+    if (createdMs > 0 && nowMs - createdMs > 60 * 60 * 1000) return false;
+    return true;
+  };
+
   const matched = challengeList.find(isMatch);
 
   if (!matched) {
-    const activeChallenge = challengeList.find(c => !c.verified_at && !c.is_used) || challengeList.find(c => !c.verified_at);
+    const activeChallenge = challengeList.find(c => !c.verified_at && !c.is_used && isRecentChallenge(c));
     if (activeChallenge) {
       const newAttempts = (activeChallenge.attempts || 0) + 1;
       const maxAtt = activeChallenge.max_attempts || 15;
@@ -1224,7 +1233,7 @@ export async function confirmAdminPasswordReset(adminEmail, otpCode, newPassword
         return { success: false, error: 'Too many incorrect attempts on this code. Please request a new verification code.' };
       }
     }
-    return { success: false, error: 'Invalid verification code. Please check your email or request a new code.' };
+    return { success: false, error: 'Invalid or expired verification code. Please check your email or request a new code.' };
   }
 
   if (matched.verified_at) {
@@ -1440,9 +1449,19 @@ export async function verifyAdminAccessOtp(adminEmail, otpCode, targetPlatform =
     return stored === candidateSalted || stored === cleanOtp || stored === candidateUnsalted;
   };
 
+  const isRecentChallenge = (c) => {
+    if (!c) return false;
+    const expiryMs = c.expires_at ? new Date(c.expires_at).getTime() : 0;
+    const createdMs = c.created_at ? new Date(c.created_at).getTime() : 0;
+    const nowMs = Date.now();
+    if (expiryMs > 0 && nowMs > expiryMs + 15 * 60 * 1000) return false;
+    if (createdMs > 0 && nowMs - createdMs > 60 * 60 * 1000) return false;
+    return true;
+  };
+
   const matched = challengeList.find(isMatch);
   if (!matched) {
-    const activeChallenge = challengeList.find(c => !c.verified_at && !c.is_used) || challengeList.find(c => !c.verified_at);
+    const activeChallenge = challengeList.find(c => !c.verified_at && !c.is_used && isRecentChallenge(c));
     if (activeChallenge) {
       const newAttempts = (activeChallenge.attempts || 0) + 1;
       const maxAtt = activeChallenge.max_attempts || 15;
@@ -1450,7 +1469,7 @@ export async function verifyAdminAccessOtp(adminEmail, otpCode, targetPlatform =
       const remaining = Math.max(0, maxAtt - newAttempts);
       return { success: false, error: remaining > 0 ? `Invalid verification code. ${remaining} attempt(s) remaining.` : 'Too many incorrect attempts on this code. Please request a new verification code.' };
     }
-    return { success: false, error: 'Invalid verification code. Please check your email or request a new code.' };
+    return { success: false, error: 'Invalid or expired verification code. Please check your email or request a new code.' };
   }
 
   if (matched.verified_at) {
