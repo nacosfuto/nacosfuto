@@ -28,7 +28,7 @@ export const NACOS_EMAIL_ASSETS = {
 
 /**
  * Standard Branded Email Footer (HTML)
- * Displays "CONNECT WITH US", social + website + email icons row, department name, and university address.
+ * Displays "CONNECT WITH US", social + website + email icons row, and university department address.
  */
 export function renderEmailFooterHtml() {
   const { icons, links } = NACOS_EMAIL_ASSETS;
@@ -42,8 +42,8 @@ export function renderEmailFooterHtml() {
             CONNECT WITH US
           </p>
 
-          <!-- Social & Email Icons Row -->
-          <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 14px auto;">
+          <!-- Social & Website Icons Row -->
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 16px auto;">
             <tr>
               <td align="center" valign="middle" style="padding: 0 8px;">
                 <a href="${links.website}" target="_blank" rel="noopener noreferrer" title="NACOS FUTO Website" style="text-decoration: none; display: inline-block;">
@@ -73,23 +73,9 @@ export function renderEmailFooterHtml() {
             </tr>
           </table>
 
-          <!-- Clickable Text Links Row (Ensures visibility if image icons are blocked by client) -->
-          <p style="margin: 0 0 12px 0; font-size: 12px; color: #64748b; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <a href="${links.website}" target="_blank" rel="noopener noreferrer" style="color: #15803d; text-decoration: none; font-weight: 600;">nacosfuto.com.ng</a>
-            &nbsp;&bull;&nbsp;
-            <a href="${links.email}" style="color: #475569; text-decoration: none;">hello@nacosfuto.com.ng</a>
-          </p>
-
-          <!-- Department & Chapter Title -->
-          <p style="margin: 0 0 4px 0; font-size: 13px; font-weight: 700; color: #1e293b; text-align: center; line-height: 1.4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            Department of Computer Science &bull; NACOS FUTO Chapter
-          </p>
-
-          <!-- University Address & Copyright -->
+          <!-- Department & University Address -->
           <p style="margin: 0 auto; max-width: 480px; font-size: 11px; line-height: 1.5; color: #64748b; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            School of Information and Communication Technology (SICT)<br/>
-            Federal University of Technology, PMB 1526, Owerri, Imo State, Nigeria.<br/>
-            &copy; 2026 NACOS FUTO. All rights reserved.
+            Department of Computer Science, Federal University of Technology, PMB 1526, Owerri, Imo State.
           </p>
         </td>
       </tr>
@@ -106,13 +92,11 @@ export function renderEmailFooterText() {
     '---------------------------------',
     'CONNECT WITH US:',
     `Website:   ${links.website}`,
-    'Email:     hello@nacosfuto.com.ng',
     `LinkedIn:  ${links.linkedin}`,
     `Instagram: ${links.instagram}`,
     `Facebook:  ${links.facebook}`,
     '',
-    'Nigeria Association of Computing Students (NACOS) — FUTO Chapter',
-    '© 2026 Department of Computer Science, Federal University of Technology, PMB 1526, Owerri, Imo State, Nigeria.'
+    'Department of Computer Science, Federal University of Technology, PMB 1526, Owerri, Imo State.'
   ].join('\n');
 }
 
