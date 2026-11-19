@@ -1,6 +1,7 @@
 import React from 'react';
-import { FaCalendarAlt, FaMapMarkerAlt, FaClock } from 'react-icons/fa';
+import { FaCalendarAlt, FaMapMarkerAlt, FaClock, FaArrowRight } from 'react-icons/fa';
 import { FiUserCheck, FiCheckCircle, FiExternalLink } from 'react-icons/fi';
+import ScrollToTopLink from '../ScrollToTopLink';
 
 const BADGE_CONFIG = {
   upcoming: {
@@ -17,9 +18,55 @@ const BADGE_CONFIG = {
   }
 };
 
+const resolveRegistrationUrl = (event) => {
+  const explicit = event.registration_link || event.registrationLink || event.link;
+  if (explicit && typeof explicit === 'string' && explicit.trim()) {
+    let clean = explicit.trim();
+    clean = clean.replace(/\/portal\/hackathons\//g, '/hackathons/');
+    return clean;
+  }
+  if (event.slug === 'the-agentic-build' || event.title?.toLowerCase().includes('agentic build')) {
+    return '/hackathons/the-agentic-build';
+  }
+  return 'https://forms.gle/nacosfutoregistration';
+};
+
+const isInternalUrl = (url) => {
+  if (!url) return false;
+  if (url.startsWith('/')) return true;
+  try {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.nacosfuto.com.ng';
+    const parsed = new URL(url, origin);
+    const hostname = parsed.hostname.toLowerCase();
+    return (
+      hostname === 'www.nacosfuto.com.ng' ||
+      hostname === 'nacosfuto.com.ng' ||
+      hostname === 'nacosfuto.com' ||
+      hostname === 'www.nacosfuto.com' ||
+      (typeof window !== 'undefined' && hostname === window.location.hostname)
+    );
+  } catch {
+    return false;
+  }
+};
+
+const getInternalPath = (url) => {
+  if (url.startsWith('/')) return url;
+  try {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.nacosfuto.com.ng';
+    const parsed = new URL(url, origin);
+    return parsed.pathname + parsed.search + parsed.hash;
+  } catch {
+    return url;
+  }
+};
+
 export const EventCard = ({ event, type = 'upcoming', theme = 'light', onAction }) => {
   const isPast = type === 'past';
   const badge = BADGE_CONFIG[type] || BADGE_CONFIG.upcoming;
+  const regUrl = resolveRegistrationUrl(event);
+  const internal = isInternalUrl(regUrl);
+  const internalPath = internal ? getInternalPath(regUrl) : '';
 
   return (
     <div
@@ -82,9 +129,18 @@ export const EventCard = ({ event, type = 'upcoming', theme = 'light', onAction 
               <FiCheckCircle className="text-sm text-gray-400 dark:text-gray-500" />
               <span>Event Concluded</span>
             </button>
+          ) : internal ? (
+            <ScrollToTopLink
+              to={internalPath}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-[5px] bg-[#138601] hover:bg-[#0f6b01] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm hover:shadow transition-all cursor-pointer"
+            >
+              <FiUserCheck className="text-sm" />
+              <span>Register for Event</span>
+              <FaArrowRight className="text-xs opacity-90" />
+            </ScrollToTopLink>
           ) : (
             <a
-              href={event.registrationLink || event.registration_link || event.link || "https://forms.gle/nacosfutoregistration"}
+              href={regUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto px-5 py-2.5 rounded-[5px] bg-[#138601] hover:bg-[#0f6b01] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm hover:shadow transition-all cursor-pointer"
