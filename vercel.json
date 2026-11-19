@@ -1,18 +1,6 @@
 {
   "outputDirectory": "dist",
   "cleanUrls": false,
-  "redirects": [
-    {
-      "source": "/portal/hackathons",
-      "destination": "/hackathons/the-agentic-build",
-      "permanent": false
-    },
-    {
-      "source": "/portal/hackathons/:match*",
-      "destination": "/hackathons/:match*",
-      "permanent": false
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
@@ -40,11 +28,11 @@
     },
     {
       "source": "/portal/hackathons",
-      "destination": "/hackathon.html"
+      "destination": "/portal/hackathon.html"
     },
     {
       "source": "/portal/hackathons/((?!.*\\.).*)",
-      "destination": "/hackathon.html"
+      "destination": "/portal/hackathon.html"
     },
     {
       "source": "/hackathons",

@@ -125,30 +125,6 @@ const ElectraAdminRedirect = () => {
   );
 };
 
-const HackathonWebsiteRedirect = () => {
-  const location = useLocation();
-  const { website } = getAppUrls();
-
-  useEffect(() => {
-    const baseUrl = (website || '/').replace(/\/+$/, '');
-    let cleanPath = location.pathname;
-    if (cleanPath.startsWith('/portal')) {
-      cleanPath = cleanPath.replace(/^\/portal/, '') || '/';
-    }
-    const cleanSearch = location.search || '';
-    const destination = `${baseUrl}${cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`}${cleanSearch}`;
-    if (window.location.href !== destination) {
-      window.location.replace(destination);
-    }
-  }, [location, website]);
-
-  return (
-    <div className="min-h-screen flex items-center justify-center p-8 bg-[#041801]">
-      <div className="w-8 h-8 border-3 border-[#138601] border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
-};
-
 const HACKATHON_OG_IMAGE = 'https://res.cloudinary.com/a2mmcttn/image/upload/b_rgb:041801,c_pad,w_1200,h_630/v1795114029/nacos/general/the-agentic-build-logo-dark.png';
 const DEFAULT_PORTAL_OG_IMAGE = 'https://nacosfuto.com/logo.png';
 const BASE_DOMAIN = 'https://nacosfuto.com';
@@ -324,9 +300,14 @@ function App() {
               {/* Public Verification Route */}
               <Route path="/verify/id/:id" element={<IdVerification />} />
 
-              {/* Dedicated Hackathon Module: Canonical Website Redirect */}
-              <Route path="/hackathons" element={<HackathonWebsiteRedirect />} />
-              <Route path="/hackathons/*" element={<HackathonWebsiteRedirect />} />
+              {/* Dedicated Hackathon Module: The Agentic Build (Office of the Director of ICT, NACOS FUTO) */}
+              <Route path="/hackathons" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
+              <Route path="/hackathons/the-agentic-build" element={<HackathonDetail />} />
+              <Route path="/hackathons/the-agentic-build/apply" element={<HackathonApply />} />
+              <Route path="/hackathons/agentic-build" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
+              <Route path="/hackathons/agentic-build/apply" element={<Navigate to="/hackathons/the-agentic-build/apply" replace />} />
+              <Route path="/hackathons/BuildXNACOS" element={<Navigate to="/hackathons/the-agentic-build" replace />} />
+              <Route path="/hackathons/BuildXNACOS/apply" element={<Navigate to="/hackathons/the-agentic-build/apply" replace />} />
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
