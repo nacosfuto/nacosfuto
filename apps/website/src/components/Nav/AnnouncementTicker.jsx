@@ -153,13 +153,13 @@ const AnnouncementTicker = () => {
   // Ticker content item
   const renderItemContent = (keyPrefix) => {
     const content = (
-      <span className="inline-flex items-center gap-3">
+      <span className="inline-flex items-center gap-2.5">
         <span className="font-medium text-white tracking-wide text-xs sm:text-[13px]">
           {tickerData.text}
         </span>
 
         {tickerData.link && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 hover:bg-white text-white hover:text-[#083002] text-[11px] font-bold transition-all shadow-xs shrink-0 cursor-pointer border border-white/25">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white text-[#138601] hover:bg-green-50 text-[11px] font-bold transition-all shadow-xs shrink-0 cursor-pointer border border-white">
             <span>{tickerData.linkText || 'Learn More'}</span>
             {isExternalLink ? (
               <ExternalLink className="w-3 h-3" />
@@ -179,7 +179,7 @@ const AnnouncementTicker = () => {
             href={tickerData.link}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 text-white hover:text-green-100 transition-colors shrink-0"
+            className="inline-flex items-center gap-2.5 text-white hover:text-green-100 transition-colors shrink-0"
           >
             {content}
           </a>
@@ -189,7 +189,7 @@ const AnnouncementTicker = () => {
         <ScrollToTopLink
           key={keyPrefix}
           to={tickerData.link}
-          className="inline-flex items-center gap-3 text-white hover:text-green-100 transition-colors shrink-0"
+          className="inline-flex items-center gap-2.5 text-white hover:text-green-100 transition-colors shrink-0"
         >
           {content}
         </ScrollToTopLink>
@@ -197,68 +197,93 @@ const AnnouncementTicker = () => {
     }
 
     return (
-      <div key={keyPrefix} className="inline-flex items-center gap-3 shrink-0">
+      <div key={keyPrefix} className="inline-flex items-center gap-2.5 shrink-0">
         {content}
       </div>
     );
   };
 
   return (
-    <div
-      role="region"
-      aria-label="Top Announcement Ticker"
-      className="relative z-50 w-full bg-gradient-to-r from-[#083002] via-[#138601] to-[#041801] text-white border-b border-white/10 shadow-sm overflow-hidden select-none ticker-wrapper"
-    >
-      <div className="flex items-center h-9 sm:h-10 px-2 sm:px-4">
-        
-        {/* Left Badge: Pinned Announcement Pill */}
-        <div className="relative z-10 flex items-center gap-1.5 bg-[#083002]/95 border border-[#4bd043]/40 px-2.5 py-1 rounded-full shadow-md shrink-0 mr-3">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4bd043] opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4bd043]"></span>
-          </span>
-          <Megaphone className="w-3.5 h-3.5 text-[#4bd043]" />
-          <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-green-200">
-            Latest
-          </span>
-        </div>
+    <>
+      {/* Self-contained keyframes guarantee animation runs across all build environments */}
+      <style>{`
+        @keyframes nacosTickerScroll {
+          0% {
+            transform: translate3d(0, 0, 0);
+          }
+          100% {
+            transform: translate3d(-50%, 0, 0);
+          }
+        }
+        .nacos-ticker-active-track {
+          display: inline-flex !important;
+          white-space: nowrap !important;
+          width: max-content !important;
+          animation: nacosTickerScroll 30s linear infinite !important;
+          will-change: transform;
+        }
+        .nacos-ticker-active-track:hover {
+          animation-play-state: paused !important;
+        }
+      `}</style>
 
-        {/* Middle: Continuous Scrolling Ticker */}
-        <div className="relative flex-1 overflow-hidden h-full flex items-center">
-          {/* Subtle gradient fades at the edges for smooth entry/exit */}
-          <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#083002] to-transparent z-5 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#041801] to-transparent z-5 pointer-events-none" />
+      <div
+        role="region"
+        aria-label="Top Announcement Ticker"
+        className="relative z-50 w-full bg-[#138601] text-white border-b border-[#0f6c01] shadow-xs overflow-hidden select-none"
+      >
+        <div className="flex items-center h-9 sm:h-10 px-2 sm:px-4">
+          
+          {/* Left Badge: Pinned Solid Badge */}
+          <div className="relative z-10 flex items-center gap-1.5 bg-[#0a4800] border border-white/20 px-2.5 py-0.5 rounded-full shadow-xs shrink-0 mr-3">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4bd043] opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4bd043]"></span>
+            </span>
+            <Megaphone className="w-3.5 h-3.5 text-[#4bd043]" />
+            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-white">
+              Latest
+            </span>
+          </div>
 
-          <div className="animate-ticker flex items-center gap-14 whitespace-nowrap">
-            {/* Duplicated items create a seamless infinite marquee */}
-            <div className="flex items-center gap-14 shrink-0">
-              {renderItemContent('ticker-a1')}
-              <span className="text-green-300/40 text-xs select-none">✦</span>
-              {renderItemContent('ticker-a2')}
-              <span className="text-green-300/40 text-xs select-none">✦</span>
-            </div>
-            <div className="flex items-center gap-14 shrink-0">
-              {renderItemContent('ticker-b1')}
-              <span className="text-green-300/40 text-xs select-none">✦</span>
-              {renderItemContent('ticker-b2')}
-              <span className="text-green-300/40 text-xs select-none">✦</span>
+          {/* Middle: Continuous Animated Scrolling Ticker */}
+          <div className="relative flex-1 overflow-hidden h-full flex items-center">
+            <div className="nacos-ticker-active-track flex items-center gap-10 whitespace-nowrap">
+              {/* Duplicate set 1 */}
+              <div className="flex items-center gap-10 shrink-0">
+                {renderItemContent('ticker-a1')}
+                <span className="text-white/40 text-xs select-none">✦</span>
+                {renderItemContent('ticker-a2')}
+                <span className="text-white/40 text-xs select-none">✦</span>
+                {renderItemContent('ticker-a3')}
+                <span className="text-white/40 text-xs select-none">✦</span>
+              </div>
+              {/* Duplicate set 2 (Seamless loop partner) */}
+              <div className="flex items-center gap-10 shrink-0">
+                {renderItemContent('ticker-b1')}
+                <span className="text-white/40 text-xs select-none">✦</span>
+                {renderItemContent('ticker-b2')}
+                <span className="text-white/40 text-xs select-none">✦</span>
+                {renderItemContent('ticker-b3')}
+                <span className="text-white/40 text-xs select-none">✦</span>
+              </div>
             </div>
           </div>
+
+          {/* Right: Dismiss button */}
+          <button
+            onClick={handleDismiss}
+            type="button"
+            aria-label="Dismiss announcement"
+            title="Dismiss announcement"
+            className="relative z-10 p-1 ml-2 text-white/80 hover:text-white hover:bg-black/15 rounded-full transition-colors cursor-pointer shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+
         </div>
-
-        {/* Right: Dismiss button */}
-        <button
-          onClick={handleDismiss}
-          type="button"
-          aria-label="Dismiss announcement"
-          title="Dismiss announcement"
-          className="relative z-10 p-1 ml-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer shrink-0"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
-
       </div>
-    </div>
+    </>
   );
 };
 

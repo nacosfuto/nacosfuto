@@ -380,35 +380,55 @@ const AdminHomepage = () => {
                 </div>
 
                 {formData.announcement_active ? (
-                  <div className="relative rounded-xl overflow-hidden border border-[#138601]/40 shadow-sm bg-gradient-to-r from-[#083002] via-[#138601] to-[#041801] text-white">
+                  <div className="relative rounded-xl overflow-hidden border border-[#138601] shadow-xs bg-[#138601] text-white">
+                    <style>{`
+                      @keyframes nacosPreviewScroll {
+                        0% { transform: translate3d(0, 0, 0); }
+                        100% { transform: translate3d(-50%, 0, 0); }
+                      }
+                      .nacos-preview-track {
+                        display: inline-flex !important;
+                        white-space: nowrap !important;
+                        width: max-content !important;
+                        animation: nacosPreviewScroll 30s linear infinite !important;
+                        will-change: transform;
+                      }
+                      .nacos-preview-track:hover {
+                        animation-play-state: paused !important;
+                      }
+                    `}</style>
                     <div className="flex items-center h-10 px-3">
                       {/* Left Badge */}
-                      <div className="relative z-10 flex items-center gap-1.5 bg-[#083002]/95 border border-[#4bd043]/40 px-2.5 py-0.5 rounded-full shadow-md shrink-0 mr-3">
+                      <div className="relative z-10 flex items-center gap-1.5 bg-[#0a4800] border border-white/20 px-2.5 py-0.5 rounded-full shadow-xs shrink-0 mr-3">
                         <span className="relative flex h-2 w-2">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4bd043] opacity-75"></span>
                           <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4bd043]"></span>
                         </span>
                         <Megaphone className="w-3 h-3 text-[#4bd043]" />
-                        <span className="text-[10px] font-black uppercase tracking-wider text-green-200">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-white">
                           Latest
                         </span>
                       </div>
 
                       {/* Middle Ticker Track */}
-                      <div className="relative flex-1 overflow-hidden h-full flex items-center ticker-wrapper">
-                        <div className="animate-ticker flex items-center gap-10 whitespace-nowrap">
-                          {[1, 2, 3, 4].map((i) => (
-                            <div key={i} className="flex items-center gap-3 shrink-0">
-                              <span className="font-medium text-white text-xs">
-                                {formData.announcement_text || 'Enter announcement message above...'}
-                              </span>
-                              {formData.announcement_link && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold border border-white/25">
-                                  <span>{formData.announcement_link_text || 'Learn More'}</span>
-                                  <ArrowRight className="w-2.5 h-2.5" />
-                                </span>
-                              )}
-                              <span className="text-green-300/40 text-xs">✦</span>
+                      <div className="relative flex-1 overflow-hidden h-full flex items-center">
+                        <div className="nacos-preview-track flex items-center gap-10 whitespace-nowrap">
+                          {[1, 2].map((set) => (
+                            <div key={set} className="flex items-center gap-10 shrink-0">
+                              {[1, 2, 3].map((i) => (
+                                <div key={i} className="flex items-center gap-2.5 shrink-0">
+                                  <span className="font-medium text-white text-xs">
+                                    {formData.announcement_text || 'Enter announcement message above...'}
+                                  </span>
+                                  {formData.announcement_link && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white text-[#138601] text-[10px] font-bold shadow-xs">
+                                      <span>{formData.announcement_link_text || 'Learn More'}</span>
+                                      <ArrowRight className="w-2.5 h-2.5" />
+                                    </span>
+                                  )}
+                                  <span className="text-white/40 text-xs">✦</span>
+                                </div>
+                              ))}
                             </div>
                           ))}
                         </div>
