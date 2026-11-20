@@ -1,10 +1,12 @@
 import React from 'react';
-import { Layers, Cpu, CreditCard, Server, ArrowRight } from 'lucide-react';
+import { Layers, Cpu, CreditCard, Server, Briefcase, ArrowRight } from 'lucide-react';
 
 const ICONS = {
   'building-scaling': Layers,
   'ai-physical-world': Cpu,
   'digital-finance': CreditCard,
+  'career-future-of-work': Briefcase,
+  'career': Briefcase,
   'machines-infrastructure': Server
 };
 
@@ -29,14 +31,9 @@ const HackathonKeyTopics = ({ keyTopics = [] }) => {
         
         {/* Section Header */}
         <div className="mb-10 text-left">
-          <div className="flex items-center gap-3">
-            <h2 className="font-minecraft text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight uppercase">
-              Key Topics
-            </h2>
-            <span className="font-mono text-[11px] font-black uppercase tracking-wider bg-amber-400 text-gray-950 px-2.5 py-0.5 rounded border border-gray-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-              Core Pillars
-            </span>
-          </div>
+          <h2 className="font-minecraft text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight uppercase">
+            Key Topics
+          </h2>
           <p className="font-mono text-xs sm:text-sm text-gray-600 dark:text-green-300 mt-2 max-w-2xl leading-relaxed">
             Foundational knowledge areas explored during the preparatory learning sessions and applied throughout the hackathon build sprint.
           </p>

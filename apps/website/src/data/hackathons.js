@@ -116,10 +116,10 @@ export const HACKATHONS = [
         description: "Discover how stablecoins, embedded finance, and digital payment infrastructure are transforming the future of money movement."
       },
       {
-        id: "machines-infrastructure",
+        id: "career-future-of-work",
         number: "04",
-        title: "Machines, Infrastructure & Energy",
-        description: "Learn how computing infrastructure, distributed cloud systems, and modern AI acceleration are powering next-generation intelligent platforms across industries."
+        title: "Career & Future of Work",
+        description: "Navigate career positioning, standing out in an AI-driven market, breaking beyond conventional circles, and building resilient professional differentiation."
       }
     ],
     timeline: [

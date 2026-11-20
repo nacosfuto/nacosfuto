@@ -36,14 +36,9 @@ const HackathonSpeakers = ({ speakers = [] }) => {
         {/* Section Header: Our Hackathon UI Typography & Retro Action Buttons */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
           <div>
-            <div className="flex items-center gap-3">
-              <h2 className="font-minecraft text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight uppercase">
-                Featured Speakers
-              </h2>
-              <span className="font-mono text-[11px] font-black uppercase tracking-wider bg-amber-400 text-gray-950 px-2.5 py-0.5 rounded border border-gray-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                Keynotes
-              </span>
-            </div>
+            <h2 className="font-minecraft text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight uppercase">
+              Featured Speakers
+            </h2>
             <p className="font-mono text-xs sm:text-sm text-gray-600 dark:text-green-300 mt-2">
               Preparatory Learning Sessions • Masterclasses with Industry Leaders
             </p>
