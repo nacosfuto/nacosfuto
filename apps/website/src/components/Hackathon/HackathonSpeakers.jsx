@@ -88,7 +88,7 @@ const HackathonSpeakers = ({ speakers = [] }) => {
               <div
                 key={speaker.id || index}
                 onClick={() => setSelectedSpeaker(speaker)}
-                className="w-[260px] sm:w-[280px] md:w-[290px] xl:w-[calc(20%-16px)] shrink-0 snap-start rounded-lg bg-white dark:bg-[#072402] border-2 border-gray-900 dark:border-[#138601] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_#138601] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[6px_6px_0px_0px_#138601] transition-all flex flex-col justify-between overflow-hidden group cursor-pointer"
+                className="w-[260px] sm:w-[280px] md:w-[290px] lg:w-[300px] shrink-0 snap-start rounded-lg bg-white dark:bg-[#072402] border-2 border-gray-900 dark:border-[#138601] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_#138601] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[6px_6px_0px_0px_#138601] transition-all flex flex-col justify-between overflow-hidden group cursor-pointer"
               >
                 {/* Speaker Photo / Portrait Area */}
                 <div className="aspect-square w-full overflow-hidden bg-gray-100 dark:bg-[#041801] border-b-2 border-gray-900 dark:border-[#138601]/60 relative select-none">

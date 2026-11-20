@@ -17,6 +17,7 @@ import {
 import confetti from 'canvas-confetti';
 import HackathonNavbar from '../components/HackathonNavbar';
 import HackathonSpeakers from '../components/Hackathon/HackathonSpeakers';
+import HackathonKeyTopics from '../components/Hackathon/HackathonKeyTopics';
 import Footer from '../components/Footer';
 import { HACKATHONS } from '../data/hackathons';
 
@@ -427,8 +428,11 @@ export const ProductLaunch = {
       {/* ─── FEATURED SPEAKERS & KEYNOTES ─── */}
       <HackathonSpeakers speakers={hackathon.speakers} />
 
+      {/* ─── KEY TOPICS & PILLARS ─── */}
+      <HackathonKeyTopics keyTopics={hackathon.keyTopics} />
+
       {/* ─── SPRINT TIMELINE & SCHEDULE ─── */}
-      <section id="timeline" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-white dark:bg-[#051c01]">
+      <section id="timeline" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-[#f8fafc] dark:bg-[#041801]">
         <div className="site-container">
           
           <div className="text-center max-w-2xl mx-auto mb-12">
@@ -467,7 +471,7 @@ export const ProductLaunch = {
       </section>
 
       {/* ─── RULES & GUIDELINES ─── */}
-      <section id="rules" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-[#f8fafc] dark:bg-[#041801]">
+      <section id="rules" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-white dark:bg-[#051c01]">
         <div className="site-container max-w-4xl">
           
           <div className="text-center mb-10">
@@ -499,7 +503,7 @@ export const ProductLaunch = {
       </section>
 
       {/* ─── FREQUENTLY ASKED QUESTIONS ─── */}
-      <section id="faqs" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-white dark:bg-[#051c01]">
+      <section id="faqs" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-[#f8fafc] dark:bg-[#041801]">
         <div className="site-container max-w-4xl">
           
           <div className="text-center mb-10">
@@ -538,7 +542,7 @@ export const ProductLaunch = {
       </section>
 
       {/* ─── PARTNERS & COLLABORATORS ─── */}
-      <section id="partners" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-[#f8fafc] dark:bg-[#041801]">
+      <section id="partners" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-white dark:bg-[#051c01]">
         <div className="site-container max-w-5xl mx-auto">
           
           <div className="text-center max-w-2xl mx-auto mb-10">

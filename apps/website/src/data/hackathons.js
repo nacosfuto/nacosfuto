@@ -42,6 +42,24 @@ export const HACKATHONS = [
     },
     speakers: [
       {
+        id: "nestor-anyanwu",
+        name: "Nestor Anyanwu",
+        role: "CTO",
+        company: "Niforix",
+        topic: "The Knowledge Human, The Power of AI, A Whole New Dimension",
+        image: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569335/nacos/gallery/nacos8.jpg",
+        bio: "CTO at Niforix. Engineering lead spearheading scalable architectures, AI-integrated product platforms, and innovative student engineering."
+      },
+      {
+        id: "kelechukwu-okere",
+        name: "Kelechukwu Okere",
+        role: "Product Sustainability Consultant",
+        company: "Global Careers",
+        topic: "Beyond this Circle, How Do I Stand Out",
+        image: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569336/nacos/gallery/nacos9.jpg",
+        bio: "Product Sustainability Consultant at Global Careers. Guiding next-generation technologists on differentiation, strategic positioning, and building resilient career pathways beyond conventional circles."
+      },
+      {
         id: "daniel-maduka",
         name: "Daniel Maduka",
         role: "Founder",
@@ -60,15 +78,6 @@ export const HACKATHONS = [
         bio: "Founder at Humynize. Software craftsman advocating for human-first product architecture, structured version control, and rigorous engineering workflows alongside AI."
       },
       {
-        id: "nestor-anyanwu",
-        name: "Nestor Anyanwu",
-        role: "CTO",
-        company: "Niforix",
-        topic: "The Knowledge Human, The Power of AI, A Whole New Dimension",
-        image: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569335/nacos/gallery/nacos8.jpg",
-        bio: "CTO at Niforix. Engineering lead spearheading scalable architectures, AI-integrated product platforms, and innovative student engineering."
-      },
-      {
         id: "chima-emmanuel",
         name: "Chima Emmanuel",
         role: "AI Engineer",
@@ -85,6 +94,32 @@ export const HACKATHONS = [
         topic: "Continuity: The Competition Against AI",
         image: "",
         bio: "Founder at Build Sprint Labs. Product strategist dedicated to competitive innovation, continuous building, and software longevity in the AI landscape."
+      }
+    ],
+    keyTopics: [
+      {
+        id: "building-scaling",
+        number: "01",
+        title: "Building & Scaling",
+        description: "Practical insights for founders on fundraising, company building, scaling operations, and maintaining a founder-first approach while growing a business."
+      },
+      {
+        id: "ai-physical-world",
+        number: "02",
+        title: "AI & the Physical World",
+        description: "Focus on how AI is expanding in software and beyond such as robotics, autonomous systems, industrial operations, energy, climate tech, and scientific discovery."
+      },
+      {
+        id: "digital-finance",
+        number: "03",
+        title: "Digital Finance",
+        description: "Discover how stablecoins, embedded finance, and digital payment infrastructure are transforming the future of money movement."
+      },
+      {
+        id: "machines-infrastructure",
+        number: "04",
+        title: "Machines, Infrastructure & Energy",
+        description: "Learn how computing infrastructure, distributed cloud systems, and modern AI acceleration are powering next-generation intelligent platforms across industries."
       }
     ],
     timeline: [
