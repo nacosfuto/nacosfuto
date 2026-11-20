@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@nacos/supabase';
 import ScrollToTopLink from '../ScrollToTopLink';
-import { Megaphone, ExternalLink, ArrowRight, X } from 'lucide-react';
+import { ExternalLink, ArrowRight, X } from 'lucide-react';
 
 const AnnouncementTicker = () => {
   const [tickerData, setTickerData] = useState(() => {
@@ -234,19 +234,7 @@ const AnnouncementTicker = () => {
       >
         <div className="flex items-center h-9 sm:h-10 px-2 sm:px-4">
           
-          {/* Left Badge: Pinned Solid Badge */}
-          <div className="relative z-10 flex items-center gap-1.5 bg-[#0a4800] border border-white/20 px-2.5 py-0.5 rounded-full shadow-xs shrink-0 mr-3">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4bd043] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4bd043]"></span>
-            </span>
-            <Megaphone className="w-3.5 h-3.5 text-[#4bd043]" />
-            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-white">
-              Latest
-            </span>
-          </div>
-
-          {/* Middle: Continuous Animated Scrolling Ticker */}
+          {/* Continuous Animated Scrolling Ticker */}
           <div className="relative flex-1 overflow-hidden h-full flex items-center">
             <div className="nacos-ticker-active-track flex items-center gap-10 whitespace-nowrap">
               {/* Duplicate set 1 */}

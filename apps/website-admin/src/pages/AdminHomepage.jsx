@@ -398,18 +398,6 @@ const AdminHomepage = () => {
                       }
                     `}</style>
                     <div className="flex items-center h-10 px-3">
-                      {/* Left Badge */}
-                      <div className="relative z-10 flex items-center gap-1.5 bg-[#0a4800] border border-white/20 px-2.5 py-0.5 rounded-full shadow-xs shrink-0 mr-3">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4bd043] opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4bd043]"></span>
-                        </span>
-                        <Megaphone className="w-3 h-3 text-[#4bd043]" />
-                        <span className="text-[10px] font-black uppercase tracking-wider text-white">
-                          Latest
-                        </span>
-                      </div>
-
                       {/* Middle Ticker Track */}
                       <div className="relative flex-1 overflow-hidden h-full flex items-center">
                         <div className="nacos-preview-track flex items-center gap-10 whitespace-nowrap">
