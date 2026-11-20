@@ -502,8 +502,37 @@ export const ProductLaunch = {
         </div>
       </section>
 
+      {/* ─── PARTNERS & COLLABORATORS ─── */}
+      <section id="partners" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-[#f8fafc] dark:bg-[#041801]">
+        <div className="site-container max-w-5xl mx-auto">
+          
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <h2 className="font-minecraft text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight uppercase">
+              Our Partners &amp; Sponsors
+            </h2>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-6 max-w-4xl mx-auto">
+            {hackathon.partners?.map((partner) => (
+              <div 
+                key={partner.id} 
+                className="w-full sm:w-60 md:w-64 bg-white rounded-lg border-2 border-gray-900 dark:border-gray-800 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_#138601] p-6 flex items-center justify-center h-28 sm:h-36 transition-all duration-200 hover:-translate-y-1 hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]"
+                title={`${partner.name} • ${partner.role || 'Partner'}`}
+              >
+                <img
+                  src={partner.logoUrl}
+                  alt={partner.name}
+                  className="max-h-14 sm:max-h-16 max-w-[85%] w-auto object-contain"
+                />
+              </div>
+            ))}
+          </div>
+
+        </div>
+      </section>
+
       {/* ─── FREQUENTLY ASKED QUESTIONS ─── */}
-      <section id="faqs" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-[#f8fafc] dark:bg-[#041801]">
+      <section id="faqs" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-white dark:bg-[#051c01]">
         <div className="site-container max-w-4xl">
           
           <div className="text-center mb-10">
@@ -534,35 +563,6 @@ export const ProductLaunch = {
                     {faq.answer}
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
-
-        </div>
-      </section>
-
-      {/* ─── PARTNERS & COLLABORATORS ─── */}
-      <section id="partners" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-white dark:bg-[#051c01]">
-        <div className="site-container max-w-5xl mx-auto">
-          
-          <div className="text-center max-w-2xl mx-auto mb-10">
-            <h2 className="font-minecraft text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight uppercase">
-              Our Partners &amp; Sponsors
-            </h2>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-6 max-w-4xl mx-auto">
-            {hackathon.partners?.map((partner) => (
-              <div 
-                key={partner.id} 
-                className="w-full sm:w-60 md:w-64 bg-white rounded-lg border-2 border-gray-900 dark:border-gray-800 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_#138601] p-6 flex items-center justify-center h-28 sm:h-36 transition-all duration-200 hover:-translate-y-1 hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]"
-                title={`${partner.name} • ${partner.role || 'Partner'}`}
-              >
-                <img
-                  src={partner.logoUrl}
-                  alt={partner.name}
-                  className="max-h-14 sm:max-h-16 max-w-[85%] w-auto object-contain"
-                />
               </div>
             ))}
           </div>
