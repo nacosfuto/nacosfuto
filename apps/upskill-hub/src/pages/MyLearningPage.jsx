@@ -25,99 +25,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useCourseStore } from '../stores/courseStore';
-
-const INITIAL_MOCK_LEARNERS = [
-  {
-    id: 'lrn-1',
-    name: 'Chukwuebuka Obi',
-    matric: '20221345901',
-    email: 'c.obi@futo.edu.ng',
-    courseId: 'course-1',
-    courseTitle: 'Modern Web Engineering with React & Node.js',
-    progress: 88,
-    completedTopics: 7,
-    totalTopics: 8,
-    currentLesson: 'Module 3: Cloud Deployment to Vercel & CI/CD',
-    lastActive: '15 mins ago',
-    status: 'In Progress',
-    quizScore: '92%'
-  },
-  {
-    id: 'lrn-2',
-    name: 'Adaeze Victoria Nwosu',
-    matric: '20211284720',
-    email: 'a.nwosu@futo.edu.ng',
-    courseId: 'course-1',
-    courseTitle: 'Modern Web Engineering with React & Node.js',
-    progress: 100,
-    completedTopics: 8,
-    totalTopics: 8,
-    currentLesson: 'Course Completed · Certified',
-    lastActive: 'Yesterday',
-    status: 'Completed',
-    quizScore: '98%'
-  },
-  {
-    id: 'lrn-3',
-    name: 'Emeka Divine Miracle',
-    matric: '20231429810',
-    email: 'e.miracle@futo.edu.ng',
-    courseId: 'course-2',
-    courseTitle: 'Python for Data Science & Machine Learning',
-    progress: 45,
-    completedTopics: 4,
-    totalTopics: 9,
-    currentLesson: 'Module 2: Pandas Data Cleaning & Aggregation',
-    lastActive: '3 hours ago',
-    status: 'In Progress',
-    quizScore: '84%'
-  },
-  {
-    id: 'lrn-4',
-    name: 'Somtochukwu K. Ani',
-    matric: '20221319020',
-    email: 's.ani@futo.edu.ng',
-    courseId: 'course-1',
-    courseTitle: 'Modern Web Engineering with React & Node.js',
-    progress: 25,
-    completedTopics: 2,
-    totalTopics: 8,
-    currentLesson: 'Module 1: Architecture Fundamentals',
-    lastActive: '2 days ago',
-    status: 'In Progress',
-    quizScore: '78%'
-  },
-  {
-    id: 'lrn-5',
-    name: 'Blessing Chinaza Eze',
-    matric: '20211290310',
-    email: 'b.eze@futo.edu.ng',
-    courseId: 'course-3',
-    courseTitle: 'DevOps & Cloud Systems Architecture',
-    progress: 100,
-    completedTopics: 6,
-    totalTopics: 6,
-    currentLesson: 'Course Completed · Certified',
-    lastActive: '5 days ago',
-    status: 'Completed',
-    quizScore: '95%'
-  },
-  {
-    id: 'lrn-6',
-    name: 'Kelechi Joshua Anyanwu',
-    matric: '20231410290',
-    email: 'k.anyanwu@futo.edu.ng',
-    courseId: 'course-2',
-    courseTitle: 'Python for Data Science & Machine Learning',
-    progress: 15,
-    completedTopics: 1,
-    totalTopics: 9,
-    currentLesson: 'Module 1: NumPy Array Manipulation',
-    lastActive: 'Just now',
-    status: 'In Progress',
-    quizScore: '70%'
-  }
-];
+import { db } from '../services/mockDatabase';
 
 const MyLearningPage = () => {
   const navigate = useNavigate();
@@ -133,22 +41,25 @@ const MyLearningPage = () => {
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
   const [selectedLearnerModal, setSelectedLearnerModal] = useState(null);
-  const [learnersList, setLearnersList] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('nacos_tutor_learners_db');
-      if (stored) {
-        try { return JSON.parse(stored); } catch (e) {}
-      }
-    }
-    return INITIAL_MOCK_LEARNERS;
-  });
+  const [learnersList, setLearnersList] = useState([]);
 
   useEffect(() => {
     fetchAllCourses();
     if (user?.id) {
       fetchUserEnrollments(user.id);
     }
-  }, [user?.id]);
+  }, [fetchAllCourses, fetchUserEnrollments, user?.id]);
+
+  useEffect(() => {
+    async function loadTutorLearners() {
+      if (isTutorMode && allCourses.length > 0) {
+        const creatorId = user?.id || user?.email || 'creator-admin';
+        const learners = await db.getAllLearnersForCreator(creatorId, allCourses);
+        setLearnersList(learners || []);
+      }
+    }
+    loadTutorLearners();
+  }, [isTutorMode, allCourses, user?.id, user?.email]);
 
   const saveLearners = (updated) => {
     setLearnersList(updated);
@@ -158,30 +69,34 @@ const MyLearningPage = () => {
   };
 
   // Derive enrolled courses with progress for learner view
-  const enrolledCourses = allCourses.map((course) => {
-    const enrollment = userEnrollments.find((e) => e.course_id === course.id);
-    const progress = enrollment?.progress_percentage || enrollment?.progress || 0;
-    const isCompleted = progress >= 100;
-    return {
-      ...course,
-      enrolled: !!enrollment,
-      progress,
-      isCompleted,
-      enrollmentId: enrollment?.id,
-      completedTopics: enrollment?.completed_topic_ids || [],
-    };
-  }).filter((c) => c.enrolled);
+  const enrolledCourses = useMemo(() => {
+    return allCourses.map((course) => {
+      const enrollment = userEnrollments.find((e) => String(e.course_id) === String(course.id));
+      const progress = enrollment?.progress_percentage || enrollment?.progress || 0;
+      const isCompleted = progress >= 100;
+      return {
+        ...course,
+        enrolled: !!enrollment,
+        progress,
+        isCompleted,
+        enrollmentId: enrollment?.id,
+        completedTopics: enrollment?.completed_topic_ids || [],
+      };
+    }).filter((c) => c.enrolled);
+  }, [allCourses, userEnrollments]);
 
-  const inProgressCourses = enrolledCourses.filter((c) => !c.isCompleted);
-  const completedCourses = enrolledCourses.filter((c) => c.isCompleted);
+  const inProgressCourses = useMemo(() => enrolledCourses.filter((c) => !c.isCompleted), [enrolledCourses]);
+  const completedCourses = useMemo(() => enrolledCourses.filter((c) => c.isCompleted), [enrolledCourses]);
 
-  const displayInProgress = inProgressCourses.length > 0 
-    ? inProgressCourses 
-    : allCourses.slice(0, 2).map((c, i) => ({ ...c, progress: i === 0 ? 65 : 30, isCompleted: false }));
+  const displayInProgress = inProgressCourses;
+  const activeCourseSpotlight = displayInProgress[0] || null;
 
-  const activeCourseSpotlight = displayInProgress[0];
+  const totalHoursLearnt = useMemo(() => {
+    const totalCompleted = enrolledCourses.reduce((sum, c) => sum + (c.completedTopics?.length || 0), 0);
+    return (totalCompleted * 0.75).toFixed(1);
+  }, [enrolledCourses]);
 
-  const displayName = user?.user_metadata?.full_name || 'Scholar';
+  const displayName = user?.user_metadata?.full_name || user?.name || 'Scholar';
   const isNacosStudent = user?.isNacosStudent || user?.user_metadata?.is_nacos_student;
   const matricNo = user?.user_metadata?.matric_number;
 
@@ -192,20 +107,20 @@ const MyLearningPage = () => {
       if (selectedStatusFilter !== 'all' && lrn.status.toLowerCase() !== selectedStatusFilter.toLowerCase()) return false;
       if (learnerSearch.trim()) {
         const q = learnerSearch.toLowerCase();
-        const matchName = lrn.name.toLowerCase().includes(q);
-        const matchMatric = lrn.matric.toLowerCase().includes(q);
-        const matchEmail = lrn.email.toLowerCase().includes(q);
-        const matchCourse = lrn.courseTitle.toLowerCase().includes(q);
+        const matchName = lrn.name?.toLowerCase().includes(q);
+        const matchMatric = lrn.matric?.toLowerCase().includes(q);
+        const matchEmail = lrn.email?.toLowerCase().includes(q);
+        const matchCourse = lrn.courseTitle?.toLowerCase().includes(q);
         if (!matchName && !matchMatric && !matchEmail && !matchCourse) return false;
       }
       return true;
     });
   }, [learnersList, selectedCourseFilter, selectedStatusFilter, learnerSearch]);
 
-  const handleUpdateStudentProgress = (studentId, newProgress) => {
+  const handleUpdateStudentProgress = async (studentId, newProgress) => {
+    const prog = Math.min(100, Math.max(0, newProgress));
     const updated = learnersList.map((s) => {
       if (s.id === studentId) {
-        const prog = Math.min(100, Math.max(0, newProgress));
         return {
           ...s,
           progress: prog,
@@ -219,8 +134,8 @@ const MyLearningPage = () => {
     if (selectedLearnerModal && selectedLearnerModal.id === studentId) {
       setSelectedLearnerModal(prev => ({
         ...prev,
-        progress: newProgress,
-        status: newProgress >= 100 ? 'Completed' : 'In Progress'
+        progress: prog,
+        status: prog >= 100 ? 'Completed' : 'In Progress'
       }));
     }
   };
@@ -331,9 +246,9 @@ const MyLearningPage = () => {
                 className="text-xs px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 focus:outline-none focus:border-[#0056D2]"
               >
                 <option value="all">All Courses</option>
-                <option value="course-1">Modern Web Engineering</option>
-                <option value="course-2">Python for Data Science</option>
-                <option value="course-3">DevOps & Cloud Systems</option>
+                {allCourses.map((c) => (
+                  <option key={c.id} value={c.id}>{c.title}</option>
+                ))}
               </select>
 
               <select
@@ -580,14 +495,14 @@ const MyLearningPage = () => {
 
               <div className="bg-blue-50/80 border border-blue-200/80 rounded-xl p-3.5 text-center min-w-[90px] shadow-2xs">
                 <p className="text-xl sm:text-2xl font-black text-[#0056D2]">
-                  {completedCourses.length || '1'}
+                  {completedCourses.length}
                 </p>
                 <p className="text-[10px] uppercase font-bold text-gray-600">Completed</p>
               </div>
 
               <div className="bg-blue-50/80 border border-blue-200/80 rounded-xl p-3.5 text-center min-w-[90px] shadow-2xs">
                 <p className="text-xl sm:text-2xl font-black text-[#0056D2]">
-                  14.5
+                  {totalHoursLearnt}
                 </p>
                 <p className="text-[10px] uppercase font-bold text-gray-600">Hours Learnt</p>
               </div>
@@ -678,70 +593,121 @@ const MyLearningPage = () => {
 
         {/* Tab Content */}
         {activeTab === 'in-progress' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayInProgress.map((course) => (
-              <div
-                key={course.id}
-                className="bg-white border border-gray-200 hover:border-[#0056D2] rounded-2xl p-5 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1 hover:shadow-lg group shadow-xs"
+          displayInProgress.length === 0 ? (
+            <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center py-12 shadow-xs col-span-full">
+              <BookOpen className="w-12 h-12 text-[#0056D2] mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-[#000000] mb-1">No Courses In Progress</h3>
+              <p className="text-xs text-gray-600 max-w-md mx-auto mb-6">
+                You are not currently enrolled in any active courses. Explore our curated catalog of masterclasses and start learning today.
+              </p>
+              <Link
+                to="/courses"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0056D2] text-white text-xs font-bold shadow-md hover:bg-[#0043aa]"
               >
-                <div>
-                  <div className="relative aspect-video rounded-xl overflow-hidden mb-4 border border-gray-100 bg-gray-100">
-                    <img
-                      src={course.thumbnail}
-                      alt={course.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <span className="absolute top-2.5 right-2.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-black/75 text-white backdrop-blur-xs">
-                      {course.level}
-                    </span>
+                <span>Browse Course Catalog</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {displayInProgress.map((course) => (
+                <div
+                  key={course.id}
+                  className="bg-white border border-gray-200 hover:border-[#0056D2] rounded-2xl p-5 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1 hover:shadow-lg group shadow-xs"
+                >
+                  <div>
+                    <div className="relative aspect-video rounded-xl overflow-hidden mb-4 border border-gray-100 bg-gray-100">
+                      <img
+                        src={course.thumbnail}
+                        alt={course.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <span className="absolute top-2.5 right-2.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-black/75 text-white backdrop-blur-xs">
+                        {course.level}
+                      </span>
+                    </div>
+
+                    <h3 className="text-base font-bold text-[#000000] group-hover:text-[#0056D2] transition-colors leading-snug mb-2">
+                      {course.title}
+                    </h3>
+
+                    <p className="text-xs text-gray-600 line-clamp-2 mb-4 leading-relaxed">
+                      {course.description}
+                    </p>
                   </div>
 
-                  <h3 className="text-base font-bold text-[#000000] group-hover:text-[#0056D2] transition-colors leading-snug mb-2">
-                    {course.title}
-                  </h3>
+                  <div className="pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between text-xs text-gray-600 mb-1.5 font-semibold">
+                      <span>Progress</span>
+                      <span className="font-bold text-[#0056D2]">{course.progress}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-blue-100 rounded-full overflow-hidden mb-4">
+                      <div 
+                        className="h-full bg-[#0056D2] rounded-full" 
+                        style={{ width: `${course.progress}%` }}
+                      />
+                    </div>
 
-                  <p className="text-xs text-gray-600 line-clamp-2 mb-4 leading-relaxed">
-                    {course.description}
-                  </p>
+                    <button
+                      onClick={() => navigate(`/courses/${course.id}/learn`)}
+                      className="w-full py-2.5 px-4 rounded-xl bg-blue-50 hover:bg-[#0056D2] text-xs font-bold text-[#0056D2] hover:text-white border border-blue-200 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      <span>Go to Course</span>
+                    </button>
+                  </div>
                 </div>
-
-                <div className="pt-4 border-t border-gray-100">
-                  <div className="flex items-center justify-between text-xs text-gray-600 mb-1.5 font-semibold">
-                    <span>Progress</span>
-                    <span className="font-bold text-[#0056D2]">{course.progress}%</span>
-                  </div>
-                  <div className="w-full h-2 bg-blue-100 rounded-full overflow-hidden mb-4">
-                    <div 
-                      className="h-full bg-[#0056D2] rounded-full" 
-                      style={{ width: `${course.progress}%` }}
-                    />
-                  </div>
-
-                  <button
-                    onClick={() => navigate(`/courses/${course.id}/learn`)}
-                    className="w-full py-2.5 px-4 rounded-xl bg-blue-50 hover:bg-[#0056D2] text-xs font-bold text-[#0056D2] hover:text-white border border-blue-200 flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <Play className="w-3.5 h-3.5" />
-                    <span>Go to Course</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
         )}
 
         {activeTab === 'completed' && (
-          <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center py-12 shadow-xs">
-            <Award className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-            <h3 className="text-lg font-bold text-[#000000] mb-1">Foundational Web Architecture</h3>
-            <p className="text-xs text-gray-600 max-w-md mx-auto mb-4">
-              Completed 100% · Certificate of Completion generated on September 2026.
-            </p>
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0056D2] text-white text-xs font-bold shadow-md cursor-pointer hover:bg-[#0043aa]">
-              <Award className="w-4 h-4" />
-              <span>Download Digital Certificate</span>
+          completedCourses.length === 0 ? (
+            <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center py-12 shadow-xs">
+              <Award className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-[#000000] mb-1">No Completed Courses Yet</h3>
+              <p className="text-xs text-gray-600 max-w-md mx-auto mb-6">
+                Complete all modules and lessons in a curriculum track to unlock your verified digital certificate of completion.
+              </p>
+              <Link
+                to="/courses"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0056D2] text-white text-xs font-bold shadow-md hover:bg-[#0043aa]"
+              >
+                <span>Find a Course to Begin</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {completedCourses.map((course) => (
+                <div key={course.id} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+                  <div className="flex items-start gap-4">
+                    <Award className="w-10 h-10 text-amber-500 shrink-0" />
+                    <div>
+                      <h3 className="text-base font-bold text-[#000000] mb-1">{course.title}</h3>
+                      <p className="text-xs text-gray-600 mb-3">
+                        Completed 100% · Verified NACOS Digital Certificate.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Certified
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => alert(`Certificate for ${course.title} is ready! Digital verification code: NC-${course.id.slice(-6).toUpperCase()}`)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0056D2] text-white text-xs font-bold shadow-xs hover:bg-[#0043aa] cursor-pointer"
+                    >
+                      <Award className="w-3.5 h-3.5" />
+                      <span>Download Certificate</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
         )}
 
         {activeTab === 'resources' && (

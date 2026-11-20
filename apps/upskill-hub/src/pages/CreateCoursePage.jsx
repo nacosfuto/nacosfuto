@@ -46,6 +46,7 @@ export function CreateCoursePage() {
   const [appSuccessMsg, setAppSuccessMsg] = useState("");
 
   // Course Creator Form States
+  const [editingCourseId, setEditingCourseId] = useState(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [level, setLevel] = useState("Beginner");
@@ -138,7 +139,42 @@ export function CreateCoursePage() {
     setIsAddingLesson(false);
   };
 
-  // Publish Course to Database
+  const handleStartEdit = async (course) => {
+    setEditingCourseId(course.id);
+    setTitle(course.title || "");
+    setDescription(course.description || "");
+    setLevel(course.level || "Beginner");
+    setThumbnail(course.thumbnail || "");
+    setTagsInput((course.tags || []).join(", "));
+    setIsWorkshop(!!course.is_live_workshop);
+    if (course.workshop_details) {
+      setWorkshopDate(course.workshop_details.date || "");
+      setWorkshopTime(course.workshop_details.time || "");
+      setWorkshopDuration(course.workshop_details.duration || "3 hours");
+      setWorkshopLocation(course.workshop_details.venue || course.workshop_details.location || "FUTO ICT Center / Virtual");
+    }
+    try {
+      const courseTopics = await db.getTopicsByCourse(course.id);
+      setTopics(courseTopics || []);
+    } catch (_) {
+      setTopics([]);
+    }
+    setActiveTab("create");
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCourseId(null);
+    setTitle("");
+    setDescription("");
+    setLevel("Beginner");
+    setThumbnail("");
+    setTagsInput("");
+    setIsWorkshop(false);
+    setTopics([]);
+  };
+
+  // Publish or Update Course in Database
   const handlePublishCourse = async (e) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) {
@@ -154,45 +190,79 @@ export function CreateCoursePage() {
         .map((t) => t.trim().toLowerCase())
         .filter(Boolean);
 
-      const newCourse = await db.createCourse({
-        creator_id: user?.id || "creator-1",
-        creator_name: user?.user_metadata?.full_name || user?.name || "NACOS Instructor",
-        title: title.trim(),
-        description: description.trim(),
-        level,
-        thumbnail: thumbnail.trim() || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569330/nacos/gallery/nacos2.jpg",
-        tags: tags.length > 0 ? tags : ["engineering", "nacos"],
-        is_live_workshop: isWorkshop,
-        workshop_details: isWorkshop
-          ? {
-              date: workshopDate || "2026-11-15",
-              time: workshopTime || "14:00 GMT+1",
-              duration: workshopDuration,
-              location: workshopLocation,
-              instructor: user?.user_metadata?.full_name || "NACOS Instructor",
-            }
-          : null,
-      });
-
-      // Save topics
-      for (const t of topics) {
-        await db.createTopic({
-          ...t,
-          course_id: newCourse.id,
+      if (editingCourseId) {
+        await db.updateCourse(editingCourseId, {
+          title: title.trim(),
+          description: description.trim(),
+          level,
+          thumbnail: thumbnail.trim() || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569330/nacos/gallery/nacos2.jpg",
+          tags: tags.length > 0 ? tags : ["engineering", "nacos"],
+          is_live_workshop: isWorkshop,
+          workshop_details: isWorkshop
+            ? {
+                date: workshopDate || "2026-11-15",
+                time: workshopTime || "14:00 GMT+1",
+                duration: workshopDuration,
+                location: workshopLocation,
+                instructor: user?.user_metadata?.full_name || user?.name || "NACOS Instructor",
+              }
+            : null,
         });
-      }
 
-      await fetchAllCourses();
-      setPublishSuccessMsg(`"${newCourse.title}" published successfully! It is now live in the course catalog.`);
-      
-      // Reset form
-      setTitle("");
-      setDescription("");
-      setThumbnail("");
-      setTagsInput("");
-      setTopics([]);
-      setIsWorkshop(false);
-      setActiveTab("manage");
+        // Upsert topics
+        for (const t of topics) {
+          if (t.id && !String(t.id).startsWith("lesson-") && !String(t.id).startsWith("temp-")) {
+            await db.updateTopic(t.id, { ...t, course_id: editingCourseId });
+          } else {
+            await db.createTopic({ ...t, course_id: editingCourseId });
+          }
+        }
+
+        await fetchAllCourses();
+        setPublishSuccessMsg(`"${title.trim()}" updated successfully!`);
+        handleCancelEdit();
+        setActiveTab("manage");
+      } else {
+        const newCourse = await db.createCourse({
+          creator_id: user?.id || "creator-1",
+          creator_name: user?.user_metadata?.full_name || user?.name || "NACOS Instructor",
+          title: title.trim(),
+          description: description.trim(),
+          level,
+          thumbnail: thumbnail.trim() || "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569330/nacos/gallery/nacos2.jpg",
+          tags: tags.length > 0 ? tags : ["engineering", "nacos"],
+          is_live_workshop: isWorkshop,
+          workshop_details: isWorkshop
+            ? {
+                date: workshopDate || "2026-11-15",
+                time: workshopTime || "14:00 GMT+1",
+                duration: workshopDuration,
+                location: workshopLocation,
+                instructor: user?.user_metadata?.full_name || "NACOS Instructor",
+              }
+            : null,
+        });
+
+        // Save topics
+        for (const t of topics) {
+          await db.createTopic({
+            ...t,
+            course_id: newCourse.id,
+          });
+        }
+
+        await fetchAllCourses();
+        setPublishSuccessMsg(`"${newCourse.title}" published successfully! It is now live in the course catalog.`);
+        
+        // Reset form
+        setTitle("");
+        setDescription("");
+        setThumbnail("");
+        setTagsInput("");
+        setTopics([]);
+        setIsWorkshop(false);
+        setActiveTab("manage");
+      }
     } catch (err) {
       setErrorMsg(err.message || "Failed to publish course.");
     } finally {
@@ -713,6 +783,14 @@ export function CreateCoursePage() {
                         </Link>
                         <button
                           type="button"
+                          onClick={() => handleStartEdit(c)}
+                          className="p-1.5 rounded text-[#0056D2] hover:bg-blue-50 dark:hover:bg-blue-950/40 text-xs font-semibold cursor-pointer"
+                          title="Edit course"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={async () => {
                             if (window.confirm(`Delete "${c.title}"?`)) {
                               await db.deleteCourse(c.id);
@@ -734,6 +812,22 @@ export function CreateCoursePage() {
         ) : (
           /* Course Creation Studio Form */
           <form onSubmit={handlePublishCourse} className="space-y-8 max-w-4xl mx-auto">
+            {editingCourseId && (
+              <div className="p-3.5 rounded bg-blue-50 dark:bg-blue-950/40 border border-blue-500/30 text-[#0056D2] dark:text-blue-300 text-xs font-semibold flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Edit3 className="w-4 h-4" />
+                  <span>Currently Editing: <strong>{title || editingCourseId}</strong></span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="px-2.5 py-1 rounded bg-white text-gray-700 text-[11px] font-bold border border-gray-300 hover:bg-gray-100 cursor-pointer"
+                >
+                  Cancel Edit
+                </button>
+              </div>
+            )}
+
             {errorMsg && (
               <div className="p-3.5 rounded bg-red-50 dark:bg-red-950/40 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-semibold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4" />
@@ -808,6 +902,16 @@ export function CreateCoursePage() {
                     onChange={(e) => setThumbnail(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded bg-white dark:bg-[#000000] border border-gray-300 dark:border-[#0056D2]/40 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#0056D2]"
                   />
+                  {thumbnail.trim() && (
+                    <div className="mt-2 relative w-36 h-20 rounded overflow-hidden border border-gray-300 bg-gray-100">
+                      <img
+                        src={thumbnail.trim()}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -1023,10 +1127,13 @@ export function CreateCoursePage() {
             <div className="pt-2 flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => setActiveTab('manage')}
-                className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300"
+                onClick={() => {
+                  handleCancelEdit();
+                  setActiveTab('manage');
+                }}
+                className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:text-gray-900 cursor-pointer"
               >
-                Cancel
+                {editingCourseId ? "Cancel Edit" : "Cancel"}
               </button>
 
               <button
@@ -1034,8 +1141,12 @@ export function CreateCoursePage() {
                 disabled={isPublishing || !title.trim()}
                 className="px-8 py-3 rounded bg-[#0056D2] hover:bg-[#0043aa] text-white text-xs sm:text-sm font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
-                <Plus className="w-4 h-4" />
-                <span>{isPublishing ? "Publishing Course..." : `Publish Course (${topics.length} Lessons)`}</span>
+                {editingCourseId ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                <span>
+                  {isPublishing
+                    ? (editingCourseId ? "Saving Changes..." : "Publishing Course...")
+                    : (editingCourseId ? `Update Course (${topics.length} Lessons)` : `Publish Course (${topics.length} Lessons)`)}
+                </span>
               </button>
             </div>
           </form>

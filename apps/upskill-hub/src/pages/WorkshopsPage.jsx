@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Video, Calendar, MapPin, Clock, ArrowRight, CheckCircle, Users, Plus, Trash2, X } from "lucide-react";
 import { useCourseStore } from "../stores/courseStore";
 import { useAuthStore } from "../stores/authStore";
+import { db } from "../services/mockDatabase";
 
 export function WorkshopsPage() {
   const navigate = useNavigate();
@@ -10,6 +11,8 @@ export function WorkshopsPage() {
   const allCourses = useCourseStore((state) => state.allCourses);
   const fetchAllCourses = useCourseStore((state) => state.fetchAllCourses);
   const registerForWorkshop = useCourseStore((state) => state.registerForWorkshop);
+  const userWorkshopRegs = useCourseStore((state) => state.userWorkshopRegs);
+  const fetchUserWorkshopRegistrations = useCourseStore((state) => state.fetchUserWorkshopRegistrations);
 
   const isTutor = activeMode === 'creator' || (isCreatorApproved && isCreatorApproved());
 
@@ -28,7 +31,16 @@ export function WorkshopsPage() {
 
   useEffect(() => {
     fetchAllCourses();
-  }, [fetchAllCourses]);
+    if (user?.id) {
+      fetchUserWorkshopRegistrations(user.id);
+    }
+  }, [fetchAllCourses, fetchUserWorkshopRegistrations, user?.id]);
+
+  useEffect(() => {
+    if (userWorkshopRegs && userWorkshopRegs.length > 0) {
+      setRegisteredIds(new Set(userWorkshopRegs.map(r => r.workshop_id)));
+    }
+  }, [userWorkshopRegs]);
 
   const workshops = (allCourses || []).filter((c) => c.is_live_workshop);
 
@@ -46,12 +58,14 @@ export function WorkshopsPage() {
     setTimeout(() => setSuccessToast(""), 4000);
   };
 
-  const handleCreateWorkshop = (e) => {
+  const handleCreateWorkshop = async (e) => {
     e.preventDefault();
     if (!newWorkshop.title.trim()) return;
 
     const created = {
       id: `ws-${Date.now()}`,
+      creator_id: user?.id || 'creator-1',
+      creator_name: newWorkshop.instructor || user?.user_metadata?.full_name || 'NACOS Instructor',
       title: newWorkshop.title,
       description: newWorkshop.description || 'Hands-on live engineering workshop and mentor office hours.',
       is_live_workshop: true,
@@ -68,30 +82,35 @@ export function WorkshopsPage() {
       }
     };
 
-    useCourseStore.setState((prev) => ({
-      allCourses: [created, ...(prev.allCourses || [])]
-    }));
-
-    setIsModalOpen(false);
-    setNewWorkshop({
-      title: '',
-      description: '',
-      date: 'Oct 15, 2026',
-      time: '2:00 PM WAT',
-      venue: 'Google Meet / Virtual Studio',
-      instructor: 'NACOS Faculty Fellow',
-      capacity: 100
-    });
-    setSuccessToast(`Workshop "${created.title}" scheduled successfully!`);
-    setTimeout(() => setSuccessToast(''), 4000);
+    try {
+      await db.createCourse(created);
+      await fetchAllCourses();
+      setIsModalOpen(false);
+      setNewWorkshop({
+        title: '',
+        description: '',
+        date: 'Oct 15, 2026',
+        time: '2:00 PM WAT',
+        venue: 'Google Meet / Virtual Studio',
+        instructor: 'NACOS Faculty Fellow',
+        capacity: 100
+      });
+      setSuccessToast(`Workshop "${created.title}" scheduled successfully!`);
+      setTimeout(() => setSuccessToast(''), 4000);
+    } catch (err) {
+      console.error("Create workshop error:", err);
+    }
   };
 
-  const handleDeleteWorkshop = (wsId) => {
-    useCourseStore.setState((prev) => ({
-      allCourses: (prev.allCourses || []).filter(c => c.id !== wsId)
-    }));
-    setSuccessToast('Workshop removed from schedule.');
-    setTimeout(() => setSuccessToast(''), 4000);
+  const handleDeleteWorkshop = async (wsId) => {
+    try {
+      await db.deleteCourse(wsId);
+      await fetchAllCourses();
+      setSuccessToast('Workshop removed from schedule.');
+      setTimeout(() => setSuccessToast(''), 4000);
+    } catch (err) {
+      console.error("Delete workshop error:", err);
+    }
   };
 
   return (

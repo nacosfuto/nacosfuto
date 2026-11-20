@@ -13,6 +13,7 @@ export default defineConfig({
       '@nacos/media': path.resolve(__dirname, '../../packages/media/src/index.js'),
       '@nacos/supabase/auth': path.resolve(__dirname, '../../packages/supabase/src/auth.js'),
       '@nacos/supabase/results': path.resolve(__dirname, '../../packages/supabase/src/results.js'),
+      '@nacos/supabase/upskillService': path.resolve(__dirname, '../../packages/supabase/src/upskillService.js'),
       '@nacos/supabase': path.resolve(__dirname, '../../packages/supabase/src/index.js'),
       '@nacos/config/academic': path.resolve(__dirname, '../../packages/config/academic.js'),
       '@nacos/config/grading': path.resolve(__dirname, '../../packages/config/grading.js'),

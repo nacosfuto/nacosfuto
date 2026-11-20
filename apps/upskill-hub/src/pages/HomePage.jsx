@@ -89,24 +89,13 @@ const HomePage = () => {
 
   // Active in-progress courses
   const inProgressCourses = enrolledCourses.filter(c => !c.isCompleted);
-
-  // Fallback demo courses if user is logged in but hasn't enrolled yet
-  const displayInProgress = inProgressCourses.length > 0
-    ? inProgressCourses
-    : allCourses.slice(0, 2).map((c, idx) => ({
-        ...c,
-        enrolled: true,
-        progress: idx === 0 ? 60 : 25,
-        isCompleted: false,
-        current_topic_title: idx === 0 ? "HTML & CSS Core Architecture" : "Introduction to AI Fluency",
-      }));
-
-  const activeContinueCourse = displayInProgress[0];
+  const displayInProgress = inProgressCourses;
+  const activeContinueCourse = displayInProgress[0] || null;
   const otherInProgress = displayInProgress.slice(1);
 
   // Identify tags of user's active courses to recommend "Similar Courses"
-  const enrolledCourseIds = new Set(displayInProgress.map(c => c.id));
-  const activeTags = new Set(displayInProgress.flatMap(c => c.tags || []));
+  const enrolledCourseIds = new Set(enrolledCourses.map(c => c.id));
+  const activeTags = new Set(enrolledCourses.flatMap(c => c.tags || []));
 
   // Find similar courses not yet enrolled
   const similarCourses = allCourses
@@ -285,7 +274,7 @@ const HomePage = () => {
       {/* ─────────────────────────────────────────────────────────────
           2. CONTINUE LEARNING (WHEN LOGGED IN)
       ───────────────────────────────────────────────────────────── */}
-      {isAuthenticated && activeContinueCourse && (
+      {isAuthenticated && activeContinueCourse ? (
         <section className="site-container py-10 border-b border-gray-200">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -404,7 +393,26 @@ const HomePage = () => {
           )}
 
         </section>
-      )}
+      ) : isAuthenticated ? (
+        <section className="site-container py-8 border-b border-gray-200">
+          <div className="bg-white border border-blue-200 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-2xs">
+            <div className="space-y-1 text-center sm:text-left">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#0056D2]">Start Your Learning Journey</span>
+              <h3 className="text-xl font-black text-[#000000]">Explore Curated Hands-on Masterclasses</h3>
+              <p className="text-xs sm:text-sm text-gray-600 max-w-xl">
+                You have not enrolled in any courses yet. Enroll in a track today to start building production software and earning certificates.
+              </p>
+            </div>
+            <Link
+              to="/courses"
+              className="px-6 py-3 rounded-xl bg-[#0056D2] hover:bg-[#0043aa] text-white text-xs sm:text-sm font-bold shadow-md transition-all shrink-0 flex items-center gap-2"
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>Browse Catalog</span>
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       {/* ─────────────────────────────────────────────────────────────
           3. SIMILAR COURSES / RECOMMENDED FOR YOU (DYNAMIC)
