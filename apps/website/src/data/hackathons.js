@@ -65,7 +65,7 @@ export const HACKATHONS = [
         role: "Head, Product Development",
         company: "Proofly",
         topic: "AI and the Intersection of Web3",
-        image: "",
+        image: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569275/nacos/executives/president_irechukwu.jpg",
         bio: "Head of Product Development at Proofly. Championing next-generation decentralized ecosystems, smart contracts, and exploring the powerful convergence of Artificial Intelligence and Web3."
       },
       {
