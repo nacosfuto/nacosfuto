@@ -337,15 +337,17 @@ export const authService = {
       const nacosStored = localStorage.getItem('nacos_user');
       if (nacosStored) {
         const p = JSON.parse(nacosStored);
+        const studentId = p.id || (p.registration_number ? `nacos-${p.registration_number}` : (p.email ? `user-${p.email}` : null));
+        if (!studentId) return null;
         return {
-          id: p.id || 'student-user',
-          email: p.email || 'student@nacos.org.ng',
+          id: studentId,
+          email: p.email || (p.registration_number ? `${p.registration_number.toLowerCase()}@student.futo.edu.ng` : ''),
           user_metadata: {
             full_name: p.full_name || p.name || 'NACOS Scholar',
             matric_number: p.registration_number || p.matric || '',
             department: p.department || 'Computer Science',
             level: p.level || '300 Level',
-            role: 'learner',
+            role: p.role || 'learner',
             is_nacos_student: true,
           },
           isNacosStudent: true,

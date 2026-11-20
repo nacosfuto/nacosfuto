@@ -119,6 +119,7 @@ export function App() {
               </Route>
 
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/forgot-password" element={<LoginPage initialForgotPassword={true} />} />
               <Route path="/sign-up" element={<SignUpPage />} />
 
               {/* Catch-all */}

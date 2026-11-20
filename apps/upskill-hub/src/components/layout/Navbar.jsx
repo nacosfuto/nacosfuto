@@ -39,8 +39,8 @@ const Navbar = () => {
   const isNacosStudent = user?.isNacosStudent || user?.user_metadata?.is_nacos_student;
   const matricNo = user?.user_metadata?.matric_number || user?.registration_number;
 
-  // Learner Navigation Links
-  const learnerLinks = [
+  // Standard Unified Navigation Links
+  const navLinks = [
     { name: 'HOME', path: '/' },
     { name: 'COURSES', path: '/courses' },
     { name: 'RESOURCES', path: '/resources' },
@@ -48,17 +48,6 @@ const Navbar = () => {
     { name: 'MY LEARNING', path: '/my-learning' },
     { name: 'TEACH', path: '/create-course' },
   ];
-
-  // Creator Studio Navigation Links
-  const creatorLinks = [
-    { name: 'STUDIO OVERVIEW', path: '/create-course' },
-    { name: 'MY COURSES', path: '/my-learning' },
-    { name: 'WORKSHOPS', path: '/my-workshops' },
-    { name: 'LEARNING CATALOG', path: '/courses' },
-    { name: 'RESOURCES', path: '/resources' },
-  ];
-
-  const currentNavLinks = activeMode === 'creator' ? creatorLinks : learnerLinks;
 
   return (
     <header className="top-0 z-50 w-full transition-all duration-300 sticky shadow-xs border-b bg-white border-gray-200 text-[#000000]">
@@ -77,18 +66,11 @@ const Navbar = () => {
               className="h-8 w-auto object-contain sm:hidden"
             />
           </Link>
-
-          {/* Active Mode Indicator Badge */}
-          {activeMode === 'creator' && (
-            <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-700 border border-amber-500/30 font-mono">
-              Creator Studio
-            </span>
-          )}
         </div>
 
         {/* Center: Desktop Navigation Links */}
         <nav className="hidden md:flex items-center gap-4 lg:gap-6 flex-1 justify-center">
-          {currentNavLinks.map((link) => {
+          {navLinks.map((link) => {
             const active = isActive(link.path);
             return (
               <Link
@@ -108,28 +90,6 @@ const Navbar = () => {
 
         {/* Right Utilities & Actions */}
         <div className="flex items-center gap-2 lg:gap-3">
-          
-          {/* Creator / Learner Mode Switcher (For authenticated users) */}
-          {isAuthenticated && (
-            <button
-              type="button"
-              onClick={() => {
-                if (activeMode === 'creator') {
-                  switchMode('learner');
-                  navigate('/');
-                } else {
-                  switchMode('creator');
-                  navigate('/create-course');
-                }
-              }}
-              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-bold transition-all border border-[#0056D2]/40 hover:border-[#0056D2] bg-[#0056D2]/10 text-[#0056D2] dark:text-[#1d72fe] cursor-pointer"
-              title="Toggle between Learner and Creator mode"
-            >
-              <FiRefreshCw className="w-3 h-3" />
-              <span>{activeMode === 'creator' ? 'Learner View' : 'Creator Studio'}</span>
-            </button>
-          )}
-
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
@@ -176,31 +136,10 @@ const Navbar = () => {
                   <div className="px-4 py-2 border-b border-gray-100">
                     <p className="text-xs font-bold text-[#000000] truncate">{displayName}</p>
                     <p className="text-[11px] text-gray-500 truncate">{user?.email}</p>
-                    <div className="mt-1 flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-[#0056D2] border border-blue-200">
-                        {activeMode === 'creator' ? 'Creator Mode' : 'Learner Mode'}
-                      </span>
-                      {isApproved && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          Approved Creator
-                        </span>
-                      )}
-                    </div>
+                    {matricNo && (
+                      <p className="text-[10px] text-gray-400 font-mono mt-0.5">Matric: {matricNo}</p>
+                    )}
                   </div>
-
-                  {/* Switch Mode Action in Profile Dropdown */}
-                  <button
-                    onClick={() => {
-                      const next = activeMode === 'creator' ? 'learner' : 'creator';
-                      switchMode(next);
-                      setProfileOpen(false);
-                      navigate(next === 'creator' ? '/create-course' : '/');
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-bold text-[#0056D2] hover:bg-blue-50 flex items-center justify-between cursor-pointer"
-                  >
-                    <span>Switch to {activeMode === 'creator' ? 'Learner Mode' : 'Creator Studio'}</span>
-                    <FiRefreshCw className="w-3 h-3 text-[#0056D2]" />
-                  </button>
 
                   <Link
                     to="/my-learning"
@@ -299,23 +238,8 @@ const Navbar = () => {
             />
           </form>
 
-          {/* Mobile Mode Switcher */}
-          {isAuthenticated && (
-            <button
-              onClick={() => {
-                const next = activeMode === 'creator' ? 'learner' : 'creator';
-                switchMode(next);
-                setMobileNavOpen(false);
-                navigate(next === 'creator' ? '/create-course' : '/');
-              }}
-              className="w-full py-2 px-3 rounded text-xs font-bold text-center border border-[#0056D2]/40 bg-[#0056D2]/10 text-[#0056D2] dark:text-[#1d72fe]"
-            >
-              Mode: {activeMode === 'creator' ? 'Creator Studio (Switch to Learner)' : 'Learner Mode (Switch to Studio)'}
-            </button>
-          )}
-
           <nav className="space-y-1">
-            {currentNavLinks.map((link) => (
+            {navLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}

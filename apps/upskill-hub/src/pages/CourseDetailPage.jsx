@@ -138,9 +138,9 @@ const CourseDetailPage = () => {
 
   const handleToggleComplete = async () => {
     if (!activeTopic) return;
+    if (!user?.id) return;
     if (!currentEnrollment) {
-      const uid = user?.id || 'user-1';
-      await enrollInCourse(uid, id);
+      await enrollInCourse(user.id, id);
     }
     const wasCompleted = isCurrentTopicCompleted;
     await markTopicComplete(activeTopic.id);

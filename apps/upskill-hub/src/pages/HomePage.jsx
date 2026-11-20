@@ -114,13 +114,16 @@ const HomePage = () => {
   };
 
   const handleQuickRsvp = async (workshopId) => {
-    if (!isAuthenticated) {
-      navigate("/sign-in");
+    if (!isAuthenticated || !user?.id) {
+      navigate(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
       return;
     }
     setRsvpLoadingId(workshopId);
     try {
-      await registerForWorkshop(user?.id || "student-user", workshopId);
+      await registerForWorkshop(user.id, workshopId, {
+        fullName: user.name || user.user_metadata?.full_name || user.email,
+        email: user.email,
+      });
       setRsvpSuccessMap(prev => ({ ...prev, [workshopId]: true }));
     } catch (e) {
       console.error("RSVP failed:", e);

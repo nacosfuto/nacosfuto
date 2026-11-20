@@ -24,7 +24,7 @@ const navItems = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/courses", icon: BookOpen, label: "Courses" },
   { href: "/workshops", icon: Video, label: "Live Workshops" },
-  { href: "/my-courses", icon: GraduationCap, label: "My Learning" },
+  { href: "/my-learning", icon: GraduationCap, label: "My Learning" },
   { href: "/profile", icon: User, label: "Profile & Role" },
 ];
 
@@ -86,18 +86,9 @@ export function Sidebar({ isOpen, onToggle }) {
               <p className="font-semibold text-xs text-foreground truncate max-w-[140px]">
                 {fullName}
               </p>
-              <button
-                onClick={toggleRole}
-                title="Click to switch role between Learner and Creator"
-                className={cn(
-                  "px-2 py-0.5 text-[10px] font-mono rounded cursor-pointer transition-all border",
-                  isCreator
-                    ? "bg-[#0056D2] text-white border-transparent hover:bg-[#0043aa]"
-                    : "bg-secondary text-foreground border-border hover:border-foreground/30"
-                )}
-              >
-                {isCreator ? "Creator Mode" : "Learner Mode"}
-              </button>
+              <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-secondary text-foreground border border-border">
+                {isCreator ? "Creator" : "Scholar"}
+              </span>
             </div>
             <p className="text-[11px] text-muted-foreground truncate">
               {user?.email || "scholar@nacosfuto.org"}

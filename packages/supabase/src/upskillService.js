@@ -34,6 +34,14 @@ export const STORAGE_KEY_CREATOR_APPS = 'nacos_creator_applications_db';
 export const STORAGE_KEY_APPROVED_CREATORS = 'nacos_approved_creators_db';
 export const STORAGE_KEY_VERIFIED_CREATORS = 'nacos_verified_creators_db';
 
+// Obsolete dummy identifiers to strip out of live databases and caches
+const OBSOLETE_DUMMY_COURSE_IDS = new Set([
+  'course-1', 'course-2', 'course-3', 'course-4', 'course-5', 'course-6', 'course-7', 'course-8'
+]);
+const OBSOLETE_DUMMY_TOPIC_IDS = new Set([
+  'topic-1', 'topic-2', 'topic-3', 'topic-4', 'topic-5', 'topic-6'
+]);
+
 // In-Memory Caches
 let memoryCourses = null;
 let memoryTopics = null;
@@ -120,6 +128,15 @@ export function slugify(str) {
 
 export async function fetchCoursesFromSupabase() {
   let list = await readSupabaseStore('store_upskill_courses', null);
+
+  // Clean out any obsolete dummy courses if present in existing database
+  if (Array.isArray(list)) {
+    const cleaned = list.filter(c => !OBSOLETE_DUMMY_COURSE_IDS.has(String(c.id)));
+    if (cleaned.length !== list.length) {
+      list = cleaned;
+      await writeSupabaseStore('store_upskill_courses', list);
+    }
+  }
 
   // Auto-seed initial curriculum if Supabase store is empty
   if (!list || list.length === 0) {
@@ -288,6 +305,15 @@ export async function deleteCourse(courseId) {
 export async function fetchTopicsFromSupabase() {
   let list = await readSupabaseStore('store_upskill_topics', null);
 
+  // Clean out any obsolete dummy topics if present in existing database
+  if (Array.isArray(list)) {
+    const cleaned = list.filter(t => !OBSOLETE_DUMMY_TOPIC_IDS.has(String(t.id)) && !OBSOLETE_DUMMY_COURSE_IDS.has(String(t.course_id)));
+    if (cleaned.length !== list.length) {
+      list = cleaned;
+      await writeSupabaseStore('store_upskill_topics', list);
+    }
+  }
+
   // Auto-seed initial topics if Supabase store is empty
   if (!list || list.length === 0) {
     list = INITIAL_TOPICS;
@@ -417,7 +443,22 @@ export async function deleteTopic(topicId) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function fetchEnrollmentsFromSupabase() {
-  const list = await readSupabaseStore('store_upskill_enrollments', []);
+  let list = await readSupabaseStore('store_upskill_enrollments', []);
+
+  // Filter out any mock sample enrollments or obsolete dummy course enrollments
+  if (Array.isArray(list)) {
+    const cleaned = list.filter(e => 
+      e && 
+      e.user_id !== 'student-user' && 
+      !String(e.id).startsWith('enroll-sample-') &&
+      !OBSOLETE_DUMMY_COURSE_IDS.has(String(e.course_id))
+    );
+    if (cleaned.length !== list.length) {
+      list = cleaned;
+      await writeSupabaseStore('store_upskill_enrollments', list);
+    }
+  }
+
   memoryEnrollments = list;
   saveToLocal(STORAGE_KEY_ENROLLMENTS, list);
   return list;

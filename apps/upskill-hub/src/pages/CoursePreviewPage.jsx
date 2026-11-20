@@ -77,7 +77,7 @@ const CoursePreviewPage = () => {
     }
 
     return {
-      id: raw.id || id || 'course-1',
+      id: raw.id || id,
       title: raw.title || 'Complete Modern Web Development & Full-Stack Mastery',
       description: raw.description || 'Master full-stack modern web development from fundamentals to production cloud deployment. Build scalable applications, dynamic interactive frontends, and robust RESTful APIs.',
       level: raw.level || 'Beginner to Advanced',
@@ -117,40 +117,7 @@ const CoursePreviewPage = () => {
   // Group topics into logical modules
   const modules = useMemo(() => {
     if (!currentTopics || currentTopics.length === 0) {
-      return [
-        {
-          id: 'mod-1',
-          title: 'Module 1: Foundations & Environment Setup',
-          duration: '1 hr 45 min',
-          description: 'Introduction to development tools, environment setup, and fundamental concepts.',
-          topics: [
-            { id: 't-1', title: 'Course Orientation & Tooling Setup', duration: '12 min', type: 'Video' },
-            { id: 't-2', title: 'Architecture Fundamentals & Best Practices', duration: '20 min', type: 'Video' },
-            { id: 't-3', title: 'Initial Project Walkthrough & Source Code', duration: '25 min', type: 'Lab' }
-          ]
-        },
-        {
-          id: 'mod-2',
-          title: 'Module 2: Core Engineering & Practical Implementation',
-          duration: '3 hrs 10 min',
-          description: 'Hands-on coding exercises, state management, and real-time backend integration.',
-          topics: [
-            { id: 't-4', title: 'State Architecture & Hook Optimization', duration: '35 min', type: 'Video' },
-            { id: 't-5', title: 'Database Integration & Security Policies', duration: '40 min', type: 'Video' },
-            { id: 't-6', title: 'Authentication & Session Guards', duration: '30 min', type: 'Lab' }
-          ]
-        },
-        {
-          id: 'mod-3',
-          title: 'Module 3: Production Deployment & Capstone Project',
-          duration: '2 hrs 15 min',
-          description: 'Continuous integration, cloud deployment, and final project assessment.',
-          topics: [
-            { id: 't-7', title: 'Cloud Deployment & Performance Optimization', duration: '25 min', type: 'Video' },
-            { id: 't-8', title: 'Final Project Assessment & Certificate Issuance', duration: '30 min', type: 'Assessment' }
-          ]
-        }
-      ];
+      return [];
     }
 
     const total = currentTopics.length;
@@ -643,7 +610,12 @@ const CoursePreviewPage = () => {
 
             {/* Module Accordions / Dropdowns */}
             <div className="space-y-4">
-              {modules.map((mod, modIdx) => {
+              {modules.length === 0 ? (
+                <div className="p-8 text-center text-xs text-gray-500 bg-gray-50 rounded-xl border border-gray-200">
+                  Curriculum lessons are being scheduled by the instructor. Check back shortly!
+                </div>
+              ) : (
+                modules.map((mod, modIdx) => {
                 const isExpanded = Boolean(expandedModules[modIdx]);
                 return (
                   <div 
@@ -713,7 +685,7 @@ const CoursePreviewPage = () => {
                     )}
                   </div>
                 );
-              })}
+              }))}
             </div>
           </div>
 
