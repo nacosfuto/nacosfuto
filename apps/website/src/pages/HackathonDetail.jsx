@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import HackathonNavbar from '../components/HackathonNavbar';
+import HackathonSpeakers from '../components/Hackathon/HackathonSpeakers';
 import Footer from '../components/Footer';
 import { HACKATHONS } from '../data/hackathons';
 
@@ -422,6 +423,9 @@ export const ProductLaunch = {
 
         </div>
       </section>
+
+      {/* ─── FEATURED SPEAKERS & KEYNOTES ─── */}
+      <HackathonSpeakers speakers={hackathon.speakers} />
 
       {/* ─── SPRINT TIMELINE & SCHEDULE ─── */}
       <section id="timeline" className="py-16 md:py-20 border-b border-gray-200 dark:border-[#138601]/25 bg-[#f8fafc] dark:bg-[#041801]">

@@ -40,6 +40,53 @@ export const HACKATHONS = [
         "Grand innovation trophy & technical excellence certificates"
       ]
     },
+    speakers: [
+      {
+        id: "daniel-maduka",
+        name: "Daniel Maduka",
+        role: "Founder",
+        company: "Reslz",
+        topic: "Hosting & APIs in the Agentic Era",
+        image: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569329/nacos/gallery/nacos11.jpg",
+        bio: "Founder at Reslz. Building modern cloud hosting, developer APIs, and resilient infrastructure for the next generation of computing applications."
+      },
+      {
+        id: "dumebi-oruche",
+        name: "Dumebi Oruche",
+        role: "Founder",
+        company: "Humynize",
+        topic: "Before You Let Agents Git, Have You A Github?",
+        image: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569328/nacos/gallery/nacos10.jpg",
+        bio: "Founder at Humynize. Software craftsman advocating for human-first product architecture, structured version control, and rigorous engineering workflows alongside AI."
+      },
+      {
+        id: "nestor-anyanwu",
+        name: "Nestor Anyanwu",
+        role: "CTO",
+        company: "Niforix",
+        topic: "The Knowledge Human, The Power of AI, A Whole New Dimension",
+        image: "https://res.cloudinary.com/a2mmcttn/image/upload/v1788569335/nacos/gallery/nacos8.jpg",
+        bio: "CTO at Niforix. Engineering lead spearheading scalable architectures, AI-integrated product platforms, and innovative student engineering."
+      },
+      {
+        id: "chima-emmanuel",
+        name: "Chima Emmanuel",
+        role: "AI Engineer",
+        company: "AI & Intelligent Systems",
+        topic: "Now AI Can Do The Work, What Is Your Role In the Product",
+        image: "",
+        bio: "AI Engineer specializing in autonomous workflows, model orchestration, and defining product design in an automated world."
+      },
+      {
+        id: "emmanuel-okechi",
+        name: "Emmanuel Okechi",
+        role: "Founder",
+        company: "Build Sprint Labs",
+        topic: "Continuity: The Competition Against AI",
+        image: "",
+        bio: "Founder at Build Sprint Labs. Product strategist dedicated to competitive innovation, continuous building, and software longevity in the AI landscape."
+      }
+    ],
     timeline: [
       {
         date: "November 25, 2026",
