@@ -60,6 +60,15 @@ export const HACKATHONS = [
         bio: "Product Sustainability Consultant at Global Careers. Guiding next-generation technologists on differentiation, strategic positioning, and building resilient career pathways beyond conventional circles."
       },
       {
+        id: "emmanuel-irechukwu",
+        name: "Emmanuel Irechukwu",
+        role: "Head, Product Development",
+        company: "Proofly",
+        topic: "AI and the Intersection of Web3",
+        image: "",
+        bio: "Head of Product Development at Proofly. Championing next-generation decentralized ecosystems, smart contracts, and exploring the powerful convergence of Artificial Intelligence and Web3."
+      },
+      {
         id: "daniel-maduka",
         name: "Daniel Maduka",
         role: "Founder",
